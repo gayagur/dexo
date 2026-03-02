@@ -1,0 +1,76 @@
+export type Role = "customer" | "business";
+export type ProjectStatus = "draft" | "sent" | "offers_received" | "in_progress" | "completed";
+export type OfferStatus = "pending" | "accepted" | "declined";
+export type SenderType = "customer" | "business";
+
+export interface Profile {
+  id: string;
+  role: Role;
+  name: string;
+  avatar_url: string | null;
+  created_at: string;
+}
+
+export interface Business {
+  id: string;
+  user_id: string;
+  name: string;
+  description: string;
+  location: string;
+  categories: string[];
+  styles: string[];
+  portfolio: string[];
+  rating: number;
+  min_price: number | null;
+  max_price: number | null;
+  created_at: string;
+}
+
+export interface Project {
+  id: string;
+  customer_id: string;
+  title: string;
+  description: string;
+  category: string;
+  style_tags: string[];
+  budget_min: number;
+  budget_max: number;
+  details: Record<string, unknown>;
+  inspiration_images: string[];
+  ai_brief: string | null;
+  ai_concept: string | null;
+  status: ProjectStatus;
+  created_at: string;
+}
+
+export interface Offer {
+  id: string;
+  project_id: string;
+  business_id: string;
+  price: number;
+  timeline: string;
+  note: string;
+  status: OfferStatus;
+  created_at: string;
+}
+
+export interface Message {
+  id: string;
+  project_id: string;
+  sender_id: string;
+  sender_type: SenderType;
+  content: string;
+  created_at: string;
+}
+
+export interface Database {
+  public: {
+    Tables: {
+      profiles: { Row: Profile; Insert: Omit<Profile, "created_at">; Update: Partial<Omit<Profile, "id">> };
+      businesses: { Row: Business; Insert: Omit<Business, "id" | "created_at" | "rating">; Update: Partial<Omit<Business, "id">> };
+      projects: { Row: Project; Insert: Omit<Project, "id" | "created_at">; Update: Partial<Omit<Project, "id">> };
+      offers: { Row: Offer; Insert: Omit<Offer, "id" | "created_at">; Update: Partial<Omit<Offer, "id">> };
+      messages: { Row: Message; Insert: Omit<Message, "id" | "created_at">; Update: Partial<Omit<Message, "id">> };
+    };
+  };
+}
