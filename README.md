@@ -1,73 +1,179 @@
-# Welcome to your Lovable project
+<div align="center">
 
-## Project info
+# ✨ DEXO
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+### The AI-Powered Marketplace for Custom Creations
 
-## How can I edit this code?
+**From idea to reality, together.**
 
-There are several ways of editing your application.
+[![Live Demo](https://img.shields.io/badge/Live_Demo-dexo.info-cd853f?style=for-the-badge&logo=vercel&logoColor=white)](https://dexo.info)
+[![React](https://img.shields.io/badge/React-18-61DAFB?style=for-the-badge&logo=react&logoColor=white)](https://react.dev)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://typescriptlang.org)
+[![Supabase](https://img.shields.io/badge/Supabase-Backend-3FCF8E?style=for-the-badge&logo=supabase&logoColor=white)](https://supabase.com)
+[![Tailwind](https://img.shields.io/badge/Tailwind_CSS-4-06B6D4?style=for-the-badge&logo=tailwindcss&logoColor=white)](https://tailwindcss.com)
+[![Vite](https://img.shields.io/badge/Vite-Build-646CFF?style=for-the-badge&logo=vite&logoColor=white)](https://vite.dev)
+[![Framer Motion](https://img.shields.io/badge/Framer_Motion-Animations-FF0055?style=for-the-badge&logo=framer&logoColor=white)](https://www.framer.com/motion/)
 
-**Use Lovable**
+<!-- GIF PLACEHOLDER - will be added after deployment -->
+<!-- ![DEXO Demo](./docs/demo.gif) -->
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
+---
 
-Changes made via Lovable will be committed automatically to this repo.
+</div>
 
-**Use your preferred IDE**
+## 🎯 The Problem
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+The custom-product market ($300B+) is completely fragmented:
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+| Customer Pain | Creator Pain |
+|---|---|
+| 😫 Endless DMs to explain what you want | 📩 Vague requests like "how much for something like this?" |
+| 💸 No transparent pricing | ⏰ Hours wasted on non-serious leads |
+| 🔄 No way to compare makers | 📊 No structured quoting system |
 
-Follow these steps:
+**DEXO bridges this gap** with an AI-powered platform that generates structured project briefs, matches customers with the right creators, and handles the entire workflow from idea to delivery.
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+## ⚡ Key Features
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+🤖 **AI Brief Generator** — Conversational chat flow that transforms vague ideas into detailed, structured project briefs with category, style, budget, dimensions, materials & timeline
 
-# Step 3: Install the necessary dependencies.
-npm i
+🎯 **Smart Matching** — Algorithm matches projects to creators by category, style, price & rating
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
+💬 **Real-time Chat** — Supabase Realtime powered messaging between customers and creators
+
+📊 **Creator Dashboard** — Manage incoming requests, send offers, track conversations
+
+🔐 **Secure Auth** — Supabase authentication with role-based access (customer/creator)
+
+📱 **Responsive Design** — Beautiful on desktop and mobile
+
+## 🚀 Quick Start
+
+### Prerequisites
+- Node.js 18+
+- npm or bun
+- Supabase account (free tier)
+
+### Installation
+
+```bash
+# Clone the repo
+git clone https://github.com/gayagur/dexo.git
+cd dexo
+
+# Install dependencies
+npm install
+
+# Set up environment variables
+cp .env.example .env.local
+# Edit .env.local with your Supabase credentials
+
+# Run the database migration
+# Copy supabase/migrations/001_schema.sql to Supabase SQL Editor
+
+# Start development server
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+### Environment Variables
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+```env
+VITE_SUPABASE_URL=your_supabase_url
+VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
+```
 
-**Use GitHub Codespaces**
+## 📁 Project Structure
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+```
+src/
+├── components/          # Reusable UI components
+│   ├── ui/              # shadcn/ui components
+│   ├── AIChatFlow       # AI brief generator chat
+│   ├── ValueProps        # Landing page value cards
+│   ├── PremiumTestimonials
+│   └── ProtectedRoute   # Auth route guard
+├── hooks/               # Custom React hooks
+│   ├── useAuth          # Authentication
+│   ├── useProjects      # Projects CRUD
+│   ├── useOffers        # Offers management
+│   ├── useMessages      # Real-time chat
+│   ├── useBusinessProfile
+│   └── useMatchedProjects
+├── lib/                 # Utilities & config
+│   ├── supabase         # Supabase client
+│   ├── database.types   # TypeScript types
+│   ├── pollinations     # AI image generation
+│   └── matching         # Match scoring algorithm
+├── pages/               # Route pages
+│   ├── LandingPage      # Public landing
+│   ├── AuthPage         # Sign in/up
+│   ├── CustomerDashboard
+│   ├── CreateProjectFlow # AI brief creation
+│   ├── BusinessDashboard
+│   ├── BusinessRequestPage
+│   └── ...
+└── App.tsx              # Router config
+```
 
-## What technologies are used for this project?
+## 🗄️ Database Schema
 
-This project is built with:
+```
+profiles ──┐
+           ├── businesses (1:1)
+           ├── projects (1:many) ── offers (1:many)
+           └── messages (via projects)
+```
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+5 tables with Row Level Security (RLS) ensuring data isolation.
 
-## How can I deploy this project?
+## 🎨 Design System
 
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
+| Element | Style |
+|---|---|
+| Primary Color | Warm brown/orange `#C05621` |
+| Background | Cream `#FDFCF8` |
+| Headings | Serif font |
+| Body | Sans-serif |
+| Cards | `rounded-2xl` with hover effects |
+| Badges | `rounded-full` pills |
+| Animations | Framer Motion staggered reveals |
 
-## Can I connect a custom domain to my Lovable project?
+## 📈 Roadmap
 
-Yes, you can!
+- [x] Core marketplace (customer + creator flows)
+- [x] Supabase auth + database
+- [x] AI brief generator (local state machine)
+- [x] Real-time messaging
+- [x] Animated landing page with Framer Motion
+- [x] Premium testimonials & value props sections
+- [ ] Stripe payments + escrow
+- [ ] AI concept image generation
+- [ ] Advanced matching algorithm
+- [ ] Mobile app (React Native)
+- [ ] Multi-language (Hebrew + English)
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+## 🛠️ Tech Stack
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+| Layer | Technology |
+|---|---|
+| Frontend | React 18, TypeScript 5 |
+| Styling | Tailwind CSS, shadcn/ui |
+| Animations | Framer Motion |
+| Backend | Supabase (Auth, Database, Realtime) |
+| Build | Vite 5 |
+| Deployment | Vercel |
+| Domain | dexo.info |
+
+## 📄 License
+
+This project is part of a university course (3rd year).
+
+---
+
+<div align="center">
+
+**Built with ❤️ by Gaya**
+
+[Live Demo](https://dexo.info) · [Report Bug](https://github.com/gayagur/dexo/issues)
+
+</div>
