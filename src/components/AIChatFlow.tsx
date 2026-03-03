@@ -681,10 +681,11 @@ export default function AIChatFlow() {
         </div>
 
         {/* Messages */}
-        <div ref={scrollRef} onScroll={handleScrollEvent} className="flex-1 min-h-0 overflow-y-auto px-6 py-6 space-y-4 scroll-smooth">
-          {/* Empty state */}
-          {messages.length === 0 && !isLoading && (
-            <div className="flex flex-col items-center justify-center h-full text-center">
+        <div ref={scrollRef} onScroll={handleScrollEvent} className="flex-1 min-h-0 overflow-y-auto px-6 py-6 scroll-smooth">
+          <div className="flex flex-col min-h-full">
+          {/* Empty state — centered; or spacer that pushes messages to bottom */}
+          {messages.length === 0 && !isLoading ? (
+            <div className="flex-1 flex flex-col items-center justify-center text-center">
               <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-[#C05621]/10 bg-white mb-6">
                 <Sparkles className="w-4 h-4 text-[#C05621]" />
                 <span className="text-sm text-[#4A5568]">AI Design Consultant</span>
@@ -708,9 +709,12 @@ export default function AIChatFlow() {
                 ))}
               </div>
             </div>
+          ) : (
+            <div className="flex-1" /> /* spacer pushes messages to bottom */
           )}
 
           {/* Message bubbles */}
+          <div className="space-y-4">
           <AnimatePresence initial={false}>
             {messages.map((msg, i) => (
               <motion.div
@@ -830,6 +834,8 @@ export default function AIChatFlow() {
           )}
 
           <div style={{ height: 1 }} />
+          </div> {/* end space-y-4 messages wrapper */}
+          </div> {/* end min-h-full flex col */}
         </div>
 
         {/* Scroll to bottom button */}
