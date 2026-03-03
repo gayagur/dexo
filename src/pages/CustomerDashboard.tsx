@@ -117,7 +117,7 @@ function MetricCard({ icon: Icon, label, value, accent = false, gradient, iconCo
             <Icon className={`w-4.5 h-4.5 ${iconColor || (accent ? 'text-primary' : 'text-muted-foreground')}`} />
           </div>
           <div>
-            <div className="text-2xl font-serif font-bold text-foreground leading-none">{value}</div>
+            <div className="text-2xl font-serif font-normal text-foreground leading-none">{value}</div>
             <div className="text-xs text-muted-foreground mt-0.5">{label}</div>
           </div>
         </CardContent>
@@ -178,7 +178,7 @@ function ProjectCard({
               <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-black/50 to-transparent" />
               {/* Title on image */}
               <div className="absolute bottom-0 left-0 right-0 p-3">
-                <h3 className="font-serif font-semibold text-white text-sm truncate drop-shadow-sm">
+                <h3 className="font-serif font-normal text-white text-sm truncate drop-shadow-sm">
                   {project.title}
                 </h3>
               </div>
@@ -225,7 +225,7 @@ function ProjectCard({
                   ${project.budget_min.toLocaleString()} – ${project.budget_max.toLocaleString()}
                 </span>
                 {offerCount > 0 && (
-                  <span className="inline-flex items-center gap-1 text-sm font-semibold text-primary">
+                  <span className="inline-flex items-center gap-1 text-sm font-medium text-primary">
                     <MessageSquare className="w-3.5 h-3.5" />
                     {offerCount} offer{offerCount > 1 ? 's' : ''}
                   </span>
@@ -311,7 +311,7 @@ function EmptyState() {
                 { step: '03', label: 'Bring it to life' },
               ].map((item) => (
                 <div key={item.step} className="text-center">
-                  <div className="text-xs font-semibold text-primary/60 mb-1">{item.step}</div>
+                  <div className="text-xs font-medium text-primary/60 mb-1">{item.step}</div>
                   <div className="text-xs text-muted-foreground leading-snug">{item.label}</div>
                 </div>
               ))}
@@ -477,7 +477,7 @@ const CustomerDashboard = () => {
                             <Plus className="w-5 h-5 text-primary" />
                           </div>
                           <div>
-                            <h2 className="text-base font-semibold text-foreground mb-0.5">
+                            <h2 className="text-base font-medium text-foreground mb-0.5">
                               Start a new project
                             </h2>
                             <p className="text-sm text-muted-foreground">
@@ -502,7 +502,7 @@ const CustomerDashboard = () => {
                             <Search className="w-5 h-5 text-accent-foreground" />
                           </div>
                           <div>
-                            <h2 className="text-base font-semibold text-foreground mb-0.5">
+                            <h2 className="text-base font-medium text-foreground mb-0.5">
                               Find creators
                             </h2>
                             <p className="text-sm text-muted-foreground">
@@ -539,7 +539,7 @@ const CustomerDashboard = () => {
             >
               {/* Section Header + Filter Chips */}
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
-                <h2 className="text-lg font-serif font-semibold text-foreground">
+                <h2 className="text-lg font-serif font-normal text-foreground">
                   {filteredProjects.length} project{filteredProjects.length !== 1 ? 's' : ''}
                   {activeFilter !== 'all' && (
                     <span className="text-muted-foreground font-normal text-sm ml-2">

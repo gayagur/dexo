@@ -277,7 +277,7 @@ function CustomerHome({ firstName }: { firstName: string }) {
                   viewport={{ once: true, margin: '-50px' }}
                   variants={slideInLeft}
                 >
-                  <h2 className="text-lg font-serif font-semibold text-foreground mb-4">
+                  <h2 className="text-lg font-serif font-normal text-foreground mb-4">
                     Continue where you left off
                   </h2>
                   <Link to={`/project/${lastProject.id}`}>
@@ -312,7 +312,7 @@ function CustomerHome({ firstName }: { firstName: string }) {
                                   <span className="text-xs text-muted-foreground">{lastProject.category}</span>
                                 )}
                               </div>
-                              <h3 className="font-serif text-xl font-semibold text-foreground mb-1">
+                              <h3 className="font-serif text-xl text-foreground mb-1">
                                 {lastProject.title}
                               </h3>
                               <p className="text-sm text-muted-foreground line-clamp-2 mb-3">
@@ -353,7 +353,7 @@ function CustomerHome({ firstName }: { firstName: string }) {
                   variants={fadeUp}
                   className="flex items-center justify-between mb-4"
                 >
-                  <h2 className="text-lg font-serif font-semibold text-foreground">Recent projects</h2>
+                  <h2 className="text-lg font-serif font-normal text-foreground">Recent projects</h2>
                   {projects.length > 0 && (
                     <Link
                       to="/dashboard"
@@ -399,7 +399,7 @@ function CustomerHome({ firstName }: { firstName: string }) {
                                 <div className="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-black/50 to-transparent" />
                                 {/* Title overlay on image */}
                                 <div className="absolute bottom-0 left-0 right-0 p-3">
-                                  <h3 className="font-serif font-semibold text-white text-sm truncate drop-shadow-sm">
+                                  <h3 className="font-serif font-normal text-white text-sm truncate drop-shadow-sm">
                                     {project.title}
                                   </h3>
                                 </div>
@@ -408,7 +408,7 @@ function CustomerHome({ firstName }: { firstName: string }) {
                                   <motion.span
                                     animate={project.status === 'sent' ? { scale: [1, 1.05, 1] } : {}}
                                     transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
-                                    className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-semibold backdrop-blur-sm shadow-sm ${
+                                    className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-medium backdrop-blur-sm shadow-sm ${
                                       statusColors[project.status] || 'bg-gray-100 text-gray-700'
                                     }`}
                                   >
@@ -423,7 +423,7 @@ function CustomerHome({ firstName }: { firstName: string }) {
                                 <div className="flex items-center justify-between">
                                   <span className="text-xs text-muted-foreground">{project.category}</span>
                                   {offerCounts[project.id] > 0 && (
-                                    <span className="text-xs font-semibold text-primary">
+                                    <span className="text-xs font-medium text-primary">
                                       {offerCounts[project.id]} offer{offerCounts[project.id] !== 1 ? 's' : ''}
                                     </span>
                                   )}
@@ -448,7 +448,7 @@ function CustomerHome({ firstName }: { firstName: string }) {
                               >
                                 <Plus className="w-6 h-6 text-primary" />
                               </motion.div>
-                              <h3 className="font-serif font-semibold text-foreground">Start new project</h3>
+                              <h3 className="font-serif font-normal text-foreground">Start new project</h3>
                               <p className="text-xs text-muted-foreground mt-1">Describe your idea to AI</p>
                             </CardContent>
                           </Card>
@@ -473,7 +473,7 @@ function CustomerHome({ firstName }: { firstName: string }) {
                         >
                           <Sparkles className="w-8 h-8 text-primary" />
                         </motion.div>
-                        <h3 className="font-serif text-xl font-semibold mb-2">
+                        <h3 className="font-serif text-xl mb-2">
                           Your creative journey starts here
                         </h3>
                         <p className="text-sm text-muted-foreground mb-6 max-w-sm mx-auto">
@@ -505,7 +505,7 @@ function CustomerHome({ firstName }: { firstName: string }) {
               >
                 <Card className="rounded-2xl">
                   <CardContent className="p-5">
-                    <h3 className="font-serif font-semibold text-foreground mb-5">
+                    <h3 className="font-serif font-normal text-foreground mb-5">
                       How DEXO works for you
                     </h3>
                     <div className="relative">
@@ -525,7 +525,7 @@ function CustomerHome({ firstName }: { firstName: string }) {
                               <step.icon className="w-4 h-4 text-primary" />
                             </div>
                             <div>
-                              <div className="text-sm font-medium text-foreground">{step.title}</div>
+                              <div className="text-sm text-foreground">{step.title}</div>
                               <div className="text-xs text-muted-foreground">{step.desc}</div>
                             </div>
                           </motion.div>
@@ -554,7 +554,7 @@ function CustomerHome({ firstName }: { firstName: string }) {
                       >
                         <Lightbulb className="w-4 h-4 text-primary" />
                       </motion.div>
-                      <h3 className="text-sm font-semibold text-foreground">Quick Tip</h3>
+                      <h3 className="text-sm font-medium text-foreground">Quick Tip</h3>
                     </div>
                     <RotatingTip tips={customerTips} />
                   </CardContent>
@@ -692,7 +692,7 @@ function CreatorHome({ firstName }: { firstName: string }) {
                             <stat.icon className={`w-5 h-5 ${stat.iconColor}`} />
                           </div>
                           <div>
-                            <div className="text-2xl font-serif font-bold text-foreground">{stat.value}</div>
+                            <div className="text-2xl font-serif font-normal text-foreground">{stat.value}</div>
                             <div className="text-xs text-muted-foreground">{stat.label}</div>
                           </div>
                         </CardContent>
@@ -711,7 +711,7 @@ function CreatorHome({ firstName }: { firstName: string }) {
                   variants={fadeUp}
                   className="flex items-center justify-between mb-4"
                 >
-                  <h2 className="text-lg font-serif font-semibold text-foreground">
+                  <h2 className="text-lg font-serif font-normal text-foreground">
                     New project requests
                   </h2>
                   {matchedProjects.length > 0 && (
@@ -752,7 +752,7 @@ function CreatorHome({ firstName }: { firstName: string }) {
                                   </div>
                                 )}
                                 <div className="flex-1 min-w-0">
-                                  <h3 className="font-serif font-semibold text-foreground truncate">
+                                  <h3 className="font-serif font-normal text-foreground truncate">
                                     {project.title}
                                   </h3>
                                   <div className="flex items-center gap-2 mt-1">
@@ -788,7 +788,7 @@ function CreatorHome({ firstName }: { firstName: string }) {
                         >
                           <FolderOpen className="w-6 h-6 text-primary" />
                         </motion.div>
-                        <h3 className="font-serif font-semibold mb-1.5">Creators are reviewing your profile</h3>
+                        <h3 className="font-serif font-normal mb-1.5">Creators are reviewing your profile</h3>
                         <p className="text-sm text-muted-foreground max-w-xs mx-auto">
                           {business
                             ? 'New projects matching your categories will appear here.'
@@ -817,7 +817,7 @@ function CreatorHome({ firstName }: { firstName: string }) {
                   variants={fadeUp}
                 >
                   <div className="flex items-center justify-between mb-4">
-                    <h2 className="text-lg font-serif font-semibold text-foreground">Messages</h2>
+                    <h2 className="text-lg font-serif font-normal text-foreground">Messages</h2>
                     <Link
                       to="/business/conversations"
                       className="text-sm text-primary hover:text-primary/80 transition-colors flex items-center gap-1 underline-offset-4 hover:underline"
@@ -836,7 +836,7 @@ function CreatorHome({ firstName }: { firstName: string }) {
                             <MessageSquare className="w-5 h-5 text-green-600" />
                           </div>
                           <div className="flex-1">
-                            <h3 className="font-medium text-foreground">Active Conversations</h3>
+                            <h3 className="text-foreground">Active Conversations</h3>
                             <p className="text-sm text-muted-foreground">
                               {acceptedOffers.length} active project{acceptedOffers.length !== 1 ? 's' : ''} with messaging
                             </p>
@@ -861,7 +861,7 @@ function CreatorHome({ firstName }: { firstName: string }) {
               >
                 <Card className="rounded-2xl">
                   <CardContent className="p-5">
-                    <h3 className="font-serif font-semibold text-foreground mb-5">
+                    <h3 className="font-serif font-normal text-foreground mb-5">
                       How DEXO works for creators
                     </h3>
                     <div className="relative">
@@ -881,7 +881,7 @@ function CreatorHome({ firstName }: { firstName: string }) {
                               <step.icon className="w-4 h-4 text-primary" />
                             </div>
                             <div>
-                              <div className="text-sm font-medium text-foreground">{step.title}</div>
+                              <div className="text-sm text-foreground">{step.title}</div>
                               <div className="text-xs text-muted-foreground">{step.desc}</div>
                             </div>
                           </motion.div>
@@ -904,7 +904,7 @@ function CreatorHome({ firstName }: { firstName: string }) {
                   <Card className="rounded-2xl">
                     <CardContent className="p-5">
                       <div className="flex items-center justify-between mb-3">
-                        <h3 className="text-sm font-semibold text-foreground">Profile Strength</h3>
+                        <h3 className="text-sm font-medium text-foreground">Profile Strength</h3>
                         <span className="text-xs font-medium text-primary">
                           {profileScore}/{profileTotal}
                         </span>
@@ -969,7 +969,7 @@ function CreatorHome({ firstName }: { firstName: string }) {
                       >
                         <Sparkles className="w-6 h-6 text-primary" />
                       </motion.div>
-                      <h3 className="font-serif font-semibold mb-1.5">Set up your creator profile</h3>
+                      <h3 className="font-serif font-normal mb-1.5">Set up your creator profile</h3>
                       <p className="text-xs text-muted-foreground mb-4">
                         Complete your profile to start receiving matched projects.
                       </p>
@@ -1004,7 +1004,7 @@ function CreatorHome({ firstName }: { firstName: string }) {
                       >
                         <Lightbulb className="w-4 h-4 text-primary" />
                       </motion.div>
-                      <h3 className="text-sm font-semibold text-foreground">Quick Tip</h3>
+                      <h3 className="text-sm font-medium text-foreground">Quick Tip</h3>
                     </div>
                     <RotatingTip tips={creatorTips} />
                   </CardContent>
