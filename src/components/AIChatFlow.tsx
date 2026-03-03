@@ -648,7 +648,7 @@ export default function AIChatFlow() {
       />
 
       {/* Main Chat Area */}
-      <main className="flex-1 flex flex-col max-w-3xl mx-auto w-full">
+      <main className="flex-1 flex flex-col max-w-3xl mx-auto w-full min-h-0">
         {/* Header */}
         <div className="px-6 py-4 border-b border-[#C05621]/[0.06] bg-white/60 backdrop-blur-sm">
           <div className="flex items-center gap-3">
@@ -665,7 +665,7 @@ export default function AIChatFlow() {
         </div>
 
         {/* Messages */}
-        <div ref={scrollRef} onScroll={handleScrollEvent} className="flex-1 overflow-y-auto px-6 py-6 space-y-4 scroll-smooth">
+        <div ref={scrollRef} onScroll={handleScrollEvent} className="flex-1 min-h-0 overflow-y-auto px-6 py-6 space-y-4 scroll-smooth">
           {/* Empty state */}
           {messages.length === 0 && !isLoading && (
             <div className="flex flex-col items-center justify-center h-full text-center">

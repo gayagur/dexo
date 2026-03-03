@@ -327,7 +327,7 @@ const ProjectDetailPage = () => {
 
                 <div className="p-5 flex flex-col" style={{ maxHeight: '32rem' }}>
                   {/* Messages */}
-                  <div ref={chatContainerRef} onScroll={handleChatScroll} className="space-y-3 flex-1 overflow-y-auto mb-4 scroll-smooth">
+                  <div ref={chatContainerRef} onScroll={handleChatScroll} className="space-y-3 flex-1 min-h-0 overflow-y-auto mb-4 scroll-smooth">
                     {messages.map((msg) => {
                       const isCustomer = msg.sender_type === 'customer';
                       return (

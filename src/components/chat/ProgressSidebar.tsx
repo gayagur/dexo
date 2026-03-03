@@ -76,7 +76,7 @@ export function ProgressSidebar({
   };
 
   return (
-    <aside className="hidden lg:flex flex-col w-72 border-r border-[#C05621]/[0.08] bg-white/50 p-6">
+    <aside className="hidden lg:flex flex-col w-72 min-h-0 border-r border-[#C05621]/[0.08] bg-white/50 p-6">
       <div className="flex items-center gap-2 mb-8">
         <Sparkles className="w-5 h-5 text-[#C05621]" />
         <h2 className="font-serif text-lg font-bold text-[#1B2432]">
@@ -84,7 +84,7 @@ export function ProgressSidebar({
         </h2>
       </div>
 
-      <div className="space-y-3 flex-1">
+      <div className="space-y-3 flex-1 min-h-0 overflow-y-auto">
         {items.map((item) => {
           const value = briefData[item.field as keyof BriefData];
           const filled = Array.isArray(value) ? value.length > 0 : !!value;
