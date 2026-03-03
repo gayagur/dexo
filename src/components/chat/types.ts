@@ -5,6 +5,7 @@ export interface DisplayMessage {
 }
 
 export interface BriefData {
+  title?: string;
   description: string;
   category: string;
   style_tags: string[];

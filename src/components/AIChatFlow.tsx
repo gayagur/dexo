@@ -10,11 +10,24 @@ import { motion, AnimatePresence } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
 import {
   Sparkles, Send, Loader2, ImageIcon, Square,
-  Check, Tag, Palette, DollarSign, Ruler, Package, Clock, Pencil,
-  ImagePlus, X, Star, ArrowRight,
+  Tag, Palette, DollarSign, Ruler, Package, Clock,
+  ImagePlus, X,
 } from 'lucide-react';
 
 import type { ChatMessage } from '@/lib/ai';
+import type { ImageVersion } from '@/lib/database.types';
+import type { ProgressItem } from '@/components/chat/types';
+import { ProgressSidebar } from '@/components/chat/ProgressSidebar';
+import { BriefCard } from '@/components/chat/BriefCard';
+import { ImageEditor } from '@/components/chat/ImageEditor';
+import { SingleChipSelector, MultiChipSelector } from '@/components/chat/ChipSelector';
+import {
+  toBriefDisplayData,
+  toProgressBriefData,
+  progressToSharedBrief,
+  parseBudgetRange,
+  type InternalBriefData,
+} from '@/components/chat/briefAdapter';
 
 // ─── Types ──────────────────────────────────────────────────
 interface DisplayMessage {
@@ -23,19 +36,7 @@ interface DisplayMessage {
   images?: string[];
 }
 
-interface BriefData {
-  title: string;
-  category: string;
-  description: string;
-  style: string;
-  budget: string;
-  materials: string;
-  dimensions: string;
-  timeline: string;
-  specialRequirements: string;
-}
-
-type Phase = 'chatting' | 'brief' | 'generating_image' | 'done';
+type Phase = 'chatting' | 'brief' | 'generating_image' | 'editing_image' | 'done';
 
 // ─── Brief Parsing ──────────────────────────────────────────
 const BRIEF_FIELDS = [
@@ -50,7 +51,7 @@ const BRIEF_FIELDS = [
   { key: 'specialRequirements', pattern: /\*\*Special Requirements:\*\*\s*(.+)/i },
 ] as const;
 
-function parseBrief(text: string): BriefData | null {
+function parseBrief(text: string): InternalBriefData | null {
   if (!text.includes('Your design brief is ready') && !text.includes('**Project Title:**')) {
     return null;
   }
@@ -73,29 +74,26 @@ function parseBrief(text: string): BriefData | null {
   };
 }
 
-function parseBudgetRange(budget: string): { min: number; max: number } {
-  const nums = [...budget.matchAll(/\$?([\d,]+)/g)].map(m => parseInt(m[1].replace(',', ''), 10));
-  if (nums.length >= 2) return { min: nums[0], max: nums[1] };
-  if (nums.length === 1) return { min: 0, max: nums[0] };
-  return { min: 0, max: 1000 };
-}
-
 // ─── Progress Tracking ──────────────────────────────────────
-// Tracks what info the AI has extracted from conversation so far
-const PROGRESS_FIELDS = [
-  { key: 'category', label: 'Category', icon: Tag },
-  { key: 'style', label: 'Style', icon: Palette },
-  { key: 'budget', label: 'Budget', icon: DollarSign },
-  { key: 'dimensions', label: 'Size', icon: Ruler },
-  { key: 'materials', label: 'Materials', icon: Package },
-  { key: 'timeline', label: 'Timeline', icon: Clock },
-] as const;
+// Maps fields to ProgressSidebar's ProgressItem format
+const PROGRESS_ITEMS: ProgressItem[] = [
+  { field: 'category', label: 'Category', icon: Tag, stepIndex: 0 },
+  { field: 'style_tags', label: 'Style', icon: Palette, stepIndex: 1 },
+  { field: 'budget', label: 'Budget', icon: DollarSign, stepIndex: 2 },
+  { field: 'size', label: 'Size', icon: Ruler, stepIndex: 3 },
+  { field: 'materials', label: 'Materials', icon: Package, stepIndex: 4 },
+  { field: 'timeline', label: 'Timeline', icon: Clock, stepIndex: 5 },
+];
+
+// Chip options for editable fields
+const CATEGORY_OPTIONS = ['Jewelry', 'Custom Cakes', 'Furniture', 'Fashion', 'Ceramics', 'Personalized Gifts', 'Textiles', '3D Printing'];
+const STYLE_OPTIONS = ['Minimalist', 'Modern', 'Vintage', 'Bohemian', 'Classic', 'Industrial', 'Rustic', 'Glamorous', 'Playful', 'Organic'];
 
 function extractProgress(messages: DisplayMessage[]): Record<string, string> {
   const allText = messages.map(m => m.text).join('\n');
   const progress: Record<string, string> = {};
 
-  // Category detection from conversation
+  // Category detection — Tier 1: keyword patterns for known categories
   const catPatterns: [RegExp, string][] = [
     [/ring|necklace|bracelet|earring|pendant|gold\b|silver\b|jewel/i, 'Jewelry'],
     [/cake|cupcake|pastry|birthday cake|wedding cake/i, 'Custom Cakes'],
@@ -108,6 +106,24 @@ function extractProgress(messages: DisplayMessage[]): Record<string, string> {
   ];
   for (const [pat, cat] of catPatterns) {
     if (pat.test(allText)) { progress.category = cat; break; }
+  }
+
+  // Tier 2: AI's explicit category mention (e.g. "Category: Skateboard")
+  if (!progress.category) {
+    const aiTexts = messages.filter(m => m.role === 'ai').map(m => m.text).join('\n');
+    const explicitCat = aiTexts.match(/\*?\*?Category\*?\*?:\s*(.+?)(?:\n|$)/i);
+    if (explicitCat) progress.category = explicitCat[1].trim();
+  }
+
+  // Tier 3: extract from user intent ("I want to create a [X]")
+  if (!progress.category) {
+    const userTexts = messages.filter(m => m.role === 'user').map(m => m.text).join('\n');
+    const intentMatch = userTexts.match(/(?:want|like|need|create|design|make|build)\s+(?:a|an|some|my)?\s*(?:custom\s+)?(.{2,30?})(?:\.|,|!|\?|$)/i);
+    if (intentMatch) {
+      const raw = intentMatch[1].trim().replace(/\s+/g, ' ');
+      // Capitalize first letter of each word
+      progress.category = raw.split(' ').map(w => w[0].toUpperCase() + w.slice(1).toLowerCase()).join(' ');
+    }
   }
 
   // Style detection
@@ -161,9 +177,17 @@ export default function AIChatFlow() {
 
   // Brief & project state
   const [phase, setPhase] = useState<Phase>('chatting');
-  const [briefData, setBriefData] = useState<BriefData | null>(null);
+  const [briefData, setBriefData] = useState<InternalBriefData | null>(null);
   const [conceptImageUrl, setConceptImageUrl] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+
+  // Field editing state
+  const [editingField, setEditingField] = useState<string | null>(null);
+  const [selectedStyles, setSelectedStyles] = useState<string[]>([]);
+
+  // Image editing state
+  const [imageVersions, setImageVersions] = useState<ImageVersion[]>([]);
+  const [currentVersionId, setCurrentVersionId] = useState<string | null>(null);
 
   // Image uploads
   const [uploadedImages, setUploadedImages] = useState<string[]>([]);
@@ -206,6 +230,14 @@ export default function AIChatFlow() {
     const msgText = (text || input).trim();
     if (!msgText && pendingFiles.length === 0) return;
     if (isLoading) return;
+
+    // If editing a free-text field, intercept and update directly
+    if (editingField && editingField !== 'category' && editingField !== 'style_tags' && msgText) {
+      setMessages(prev => [...prev, { role: 'user', text: msgText }]);
+      setInput('');
+      handleFieldUpdate(editingField, msgText);
+      return;
+    }
 
     // Upload pending images
     let imageUrls: string[] = [];
@@ -295,11 +327,150 @@ export default function AIChatFlow() {
     const result = await generateImage(prompt, null);
     if (result.url) {
       setConceptImageUrl(result.url);
+      // Initialize version tracking (local, no DB yet)
+      const initialVersion: ImageVersion = {
+        id: `local-${Date.now()}`,
+        project_id: '',
+        parent_version_id: null,
+        image_url: result.url,
+        prompt,
+        edit_instruction: null,
+        version_number: 1,
+        is_current: true,
+        created_at: new Date().toISOString(),
+      };
+      setImageVersions([initialVersion]);
+      setCurrentVersionId(initialVersion.id);
     } else {
       toast({ title: 'Image generation failed', description: result.error || 'Please try again', variant: 'destructive' });
     }
     setPhase('done');
   }, [briefData, toast]);
+
+  // ─── Regenerate Image ────────────────────────────────────
+  const handleRegenerateImage = useCallback(async () => {
+    if (!briefData) return;
+    setPhase('generating_image');
+    const styleTags = briefData.style.split(',').map(s => s.trim()).filter(Boolean);
+    const prompt = buildImagePrompt(briefData.description, briefData.category, styleTags, briefData.materials);
+
+    const result = await generateImage(prompt, null);
+    if (result.url) {
+      setConceptImageUrl(result.url);
+      const newVersion: ImageVersion = {
+        id: `local-${Date.now()}`,
+        project_id: '',
+        parent_version_id: null,
+        image_url: result.url,
+        prompt,
+        edit_instruction: null,
+        version_number: 1,
+        is_current: true,
+        created_at: new Date().toISOString(),
+      };
+      setImageVersions([newVersion]);
+      setCurrentVersionId(newVersion.id);
+    } else {
+      toast({ title: 'Regeneration failed', description: result.error || 'Please try again', variant: 'destructive' });
+    }
+    setPhase('done');
+  }, [briefData, toast]);
+
+  // ─── Image Editing ──────────────────────────────────────
+  const handleStartEditImage = useCallback(() => {
+    setPhase('editing_image');
+  }, []);
+
+  const handleNewVersion = useCallback((url: string, versionId: string) => {
+    const nextNum = imageVersions.length + 1;
+    const newVersion: ImageVersion = {
+      id: versionId || `local-${Date.now()}`,
+      project_id: '',
+      parent_version_id: currentVersionId,
+      image_url: url,
+      prompt: null,
+      edit_instruction: 'edited',
+      version_number: nextNum,
+      is_current: true,
+      created_at: new Date().toISOString(),
+    };
+    setImageVersions(prev => [...prev, newVersion]);
+    setCurrentVersionId(newVersion.id);
+    setConceptImageUrl(url);
+  }, [imageVersions.length, currentVersionId]);
+
+  const handleRevert = useCallback((version: ImageVersion) => {
+    setConceptImageUrl(version.image_url);
+    setCurrentVersionId(version.id);
+  }, []);
+
+  const handleDoneEditing = useCallback(() => {
+    setPhase('done');
+  }, []);
+
+  // ─── Field Editing ──────────────────────────────────────
+  const handleEditField = useCallback((field: string, _stepIndex: number) => {
+    if (!briefData) return;
+    setEditingField(field);
+
+    // Map shared field names back to internal brief keys
+    const fieldLabelMap: Record<string, string> = {
+      category: 'Category',
+      style_tags: 'Style',
+      budget: 'Budget',
+      size: 'Size/Dimensions',
+      materials: 'Materials',
+      timeline: 'Timeline',
+    };
+    const internalKeyMap: Record<string, keyof InternalBriefData> = {
+      category: 'category',
+      style_tags: 'style',
+      budget: 'budget',
+      size: 'dimensions',
+      materials: 'materials',
+      timeline: 'timeline',
+    };
+
+    const internalKey = internalKeyMap[field];
+    const currentVal = internalKey ? briefData[internalKey] : '';
+    const label = fieldLabelMap[field] || field;
+
+    // Add AI prompt message
+    setMessages(prev => [...prev, {
+      role: 'ai',
+      text: `Sure! Let's update the **${label}**. Current value: **${currentVal}**. What would you like to change it to?`,
+    }]);
+
+    // Pre-select current styles if editing style
+    if (field === 'style_tags') {
+      setSelectedStyles(briefData.style.split(',').map(s => s.trim()).filter(Boolean));
+    }
+  }, [briefData]);
+
+  const handleFieldUpdate = useCallback((field: string, value: string) => {
+    if (!briefData) return;
+
+    const internalKeyMap: Record<string, keyof InternalBriefData> = {
+      category: 'category',
+      style_tags: 'style',
+      budget: 'budget',
+      size: 'dimensions',
+      materials: 'materials',
+      timeline: 'timeline',
+    };
+
+    const internalKey = internalKeyMap[field];
+    if (internalKey) {
+      setBriefData(prev => prev ? { ...prev, [internalKey]: value } : prev);
+    }
+
+    setEditingField(null);
+    setSelectedStyles([]);
+    setMessages(prev => [...prev, {
+      role: 'ai',
+      text: `Updated! I've changed that to **${value}**.`,
+    }]);
+  }, [briefData]);
 
   // ─── Submit Project ───────────────────────────────────────
   const handleSubmit = useCallback(async () => {
@@ -380,74 +551,13 @@ export default function AIChatFlow() {
   return (
     <div className="min-h-screen bg-[#FDFCF8] flex">
       {/* Progress Sidebar */}
-      <aside className="hidden lg:flex flex-col w-72 border-r border-[#C05621]/[0.08] bg-white/50 p-6">
-        <div className="flex items-center gap-2 mb-8">
-          <Sparkles className="w-5 h-5 text-[#C05621]" />
-          <h2 className="font-serif text-lg font-bold text-[#1B2432]">Brief Progress</h2>
-        </div>
-
-        <div className="space-y-3 flex-1">
-          {PROGRESS_FIELDS.map(({ key, label, icon: Icon }) => {
-            const value = briefData ? (briefData as Record<string, string>)[key] : progress[key];
-            const filled = !!value && value !== 'To be discussed' && value !== 'None' && value !== 'Flexible';
-
-            return (
-              <div
-                key={key}
-                className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-300 ${
-                  filled
-                    ? 'bg-[#C05621]/[0.06] border border-[#C05621]/10'
-                    : 'bg-white/60 border border-transparent'
-                }`}
-              >
-                <div className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${
-                  filled ? 'bg-[#C05621]/10 text-[#C05621]' : 'bg-gray-100 text-gray-400'
-                }`}>
-                  {filled ? <Check className="w-4 h-4" /> : <Icon className="w-4 h-4" />}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="text-xs font-medium text-[#4A5568]">{label}</div>
-                  {filled && (
-                    <motion.div
-                      initial={{ opacity: 0, height: 0 }}
-                      animate={{ opacity: 1, height: 'auto' }}
-                      className="text-xs text-[#C05621] truncate mt-0.5"
-                    >
-                      {value}
-                    </motion.div>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-
-        {/* Progress bar */}
-        <div className="mt-auto pt-6">
-          <div className="flex justify-between text-xs text-[#4A5568] mb-2">
-            <span>Progress</span>
-            <span>
-              {PROGRESS_FIELDS.filter(f => {
-                const v = briefData ? (briefData as Record<string, string>)[f.key] : progress[f.key];
-                return !!v && v !== 'To be discussed' && v !== 'None' && v !== 'Flexible';
-              }).length}/{PROGRESS_FIELDS.length}
-            </span>
-          </div>
-          <div className="h-2 rounded-full bg-gray-100 overflow-hidden">
-            <motion.div
-              className="h-full rounded-full bg-[#C05621]"
-              initial={{ width: 0 }}
-              animate={{
-                width: `${(PROGRESS_FIELDS.filter(f => {
-                  const v = briefData ? (briefData as Record<string, string>)[f.key] : progress[f.key];
-                  return !!v && v !== 'To be discussed' && v !== 'None' && v !== 'Flexible';
-                }).length / PROGRESS_FIELDS.length) * 100}%`,
-              }}
-              transition={{ duration: 0.5, ease: 'easeOut' }}
-            />
-          </div>
-        </div>
-      </aside>
+      <ProgressSidebar
+        items={PROGRESS_ITEMS}
+        briefData={briefData ? toProgressBriefData(briefData) : progressToSharedBrief(progress)}
+        editingField={editingField}
+        phase={phase}
+        onEditField={handleEditField}
+      />
 
       {/* Main Chat Area */}
       <main className="flex-1 flex flex-col max-w-3xl mx-auto w-full">
@@ -564,21 +674,54 @@ export default function AIChatFlow() {
             </motion.div>
           )}
 
+          {/* Chip selectors for field editing */}
+          {editingField === 'category' && (
+            <SingleChipSelector
+              options={CATEGORY_OPTIONS}
+              onSelect={(val) => handleFieldUpdate('category', val)}
+            />
+          )}
+          {editingField === 'style_tags' && (
+            <MultiChipSelector
+              options={STYLE_OPTIONS}
+              selected={selectedStyles}
+              onToggle={(val) => setSelectedStyles(prev =>
+                prev.includes(val) ? prev.filter(s => s !== val) : [...prev, val]
+              )}
+              onConfirm={() => handleFieldUpdate('style_tags', selectedStyles.join(', '))}
+            />
+          )}
+
           {/* Brief Card */}
-          {phase !== 'chatting' && briefData && (
+          {phase !== 'chatting' && phase !== 'editing_image' && briefData && (
             <BriefCard
-              brief={briefData}
-              phase={phase}
+              brief={toBriefDisplayData(briefData)}
+              phase={phase as 'brief' | 'generating_image' | 'editing_image' | 'done'}
               conceptImageUrl={conceptImageUrl}
               submitting={submitting}
               imageUploading={imageUploading}
               uploadedImages={uploadedImages}
               onGenerateImage={handleGenerateImage}
               onSubmit={handleSubmit}
+              onEditImage={handleStartEditImage}
+              onRegenerate={handleRegenerateImage}
               onBriefFileDrop={handleBriefFileDrop}
               onBriefFileSelect={handleBriefFileSelect}
               onRemoveBriefImage={(i) => setUploadedImages(prev => prev.filter((_, idx) => idx !== i))}
               briefFileInputRef={briefFileInputRef}
+            />
+          )}
+
+          {/* Image Editor */}
+          {phase === 'editing_image' && conceptImageUrl && (
+            <ImageEditor
+              currentImageUrl={conceptImageUrl}
+              currentVersionId={currentVersionId}
+              projectId={null}
+              versions={imageVersions}
+              onNewVersion={handleNewVersion}
+              onRevert={handleRevert}
+              onDone={handleDoneEditing}
             />
           )}
 
@@ -657,168 +800,3 @@ export default function AIChatFlow() {
   );
 }
 
-// ─── Brief Card (inline) ────────────────────────────────────
-function BriefCard({
-  brief,
-  phase,
-  conceptImageUrl,
-  submitting,
-  imageUploading,
-  uploadedImages,
-  onGenerateImage,
-  onSubmit,
-  onBriefFileDrop,
-  onBriefFileSelect,
-  onRemoveBriefImage,
-  briefFileInputRef,
-}: {
-  brief: BriefData;
-  phase: Phase;
-  conceptImageUrl: string | null;
-  submitting: boolean;
-  imageUploading: boolean;
-  uploadedImages: string[];
-  onGenerateImage: () => void;
-  onSubmit: () => void;
-  onBriefFileDrop: (e: React.DragEvent) => void;
-  onBriefFileSelect: (e: React.ChangeEvent<HTMLInputElement>) => void;
-  onRemoveBriefImage: (i: number) => void;
-  briefFileInputRef: React.RefObject<HTMLInputElement | null>;
-}) {
-  const { min, max } = parseBudgetRange(brief.budget);
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5 }}
-      className="bg-white rounded-3xl border border-[#C05621]/[0.08] shadow-md p-8 space-y-6"
-    >
-      <div className="flex items-center gap-2 text-[#C05621]">
-        <Star className="w-5 h-5" />
-        <span className="font-semibold text-sm uppercase tracking-wider">Your Project Brief</span>
-      </div>
-
-      <h3 className="text-2xl font-serif font-bold text-[#1B2432]">{brief.title}</h3>
-      <p className="text-[#4A5568] leading-relaxed">{brief.description}</p>
-
-      <div className="grid grid-cols-2 gap-4 text-sm">
-        <div className="bg-[#FDFCF8] rounded-xl p-3 border border-[#C05621]/[0.06]">
-          <span className="text-[#4A5568] text-xs">Category</span>
-          <p className="font-medium text-[#1B2432] mt-0.5">{brief.category}</p>
-        </div>
-        <div className="bg-[#FDFCF8] rounded-xl p-3 border border-[#C05621]/[0.06]">
-          <span className="text-[#4A5568] text-xs">Budget</span>
-          <p className="font-medium text-[#1B2432] mt-0.5">${min} – ${max}</p>
-        </div>
-        <div className="bg-[#FDFCF8] rounded-xl p-3 border border-[#C05621]/[0.06]">
-          <span className="text-[#4A5568] text-xs">Timeline</span>
-          <p className="font-medium text-[#1B2432] mt-0.5">{brief.timeline}</p>
-        </div>
-        <div className="bg-[#FDFCF8] rounded-xl p-3 border border-[#C05621]/[0.06]">
-          <span className="text-[#4A5568] text-xs">Dimensions</span>
-          <p className="font-medium text-[#1B2432] mt-0.5">{brief.dimensions}</p>
-        </div>
-      </div>
-
-      {brief.style && (
-        <div className="flex flex-wrap gap-2">
-          {brief.style.split(',').map(tag => tag.trim()).filter(Boolean).map(tag => (
-            <span key={tag} className="px-3 py-1 rounded-full bg-[#C05621]/[0.07] text-[#C05621] text-xs font-medium">
-              {tag}
-            </span>
-          ))}
-        </div>
-      )}
-
-      {brief.materials && brief.materials !== 'To be discussed' && (
-        <p className="text-sm text-[#4A5568]">
-          <span className="font-medium text-[#1B2432]">Materials:</span> {brief.materials}
-        </p>
-      )}
-
-      {brief.specialRequirements && brief.specialRequirements !== 'None' && (
-        <p className="text-sm text-[#4A5568]">
-          <span className="font-medium text-[#1B2432]">Special notes:</span> {brief.specialRequirements}
-        </p>
-      )}
-
-      {/* Reference images */}
-      <div className="space-y-3">
-        {uploadedImages.length > 0 && (
-          <div>
-            <span className="text-xs font-medium text-[#4A5568]">Reference Images</span>
-            <div className="grid grid-cols-3 gap-2 mt-1.5">
-              {uploadedImages.map((url, i) => (
-                <div key={i} className="relative group">
-                  <img src={url} alt="" className="rounded-xl w-full h-24 object-cover" />
-                  <button
-                    onClick={() => onRemoveBriefImage(i)}
-                    className="absolute top-1 right-1 w-5 h-5 rounded-full bg-black/60 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-                  >
-                    <X className="w-3 h-3" />
-                  </button>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-        {uploadedImages.length < 5 && (
-          <div
-            onDragOver={e => e.preventDefault()}
-            onDrop={onBriefFileDrop}
-            onClick={() => briefFileInputRef.current?.click()}
-            className="border-2 border-dashed border-[#C05621]/20 rounded-xl p-6 flex flex-col items-center gap-2 cursor-pointer hover:border-[#C05621]/40 hover:bg-[#C05621]/[0.02] transition-colors"
-          >
-            {imageUploading ? (
-              <Loader2 className="w-6 h-6 text-[#C05621] animate-spin" />
-            ) : (
-              <ImagePlus className="w-6 h-6 text-[#C05621]/40" />
-            )}
-            <span className="text-xs text-[#4A5568]">Drop images here or click to browse</span>
-            <span className="text-xs text-[#4A5568]/60">{uploadedImages.length}/5 images</span>
-          </div>
-        )}
-        <input ref={briefFileInputRef} type="file" accept="image/*" multiple className="hidden" onChange={onBriefFileSelect} />
-      </div>
-
-      {/* Concept image */}
-      {(phase === 'done') && conceptImageUrl && (
-        <div className="rounded-2xl overflow-hidden border border-[#C05621]/[0.08]">
-          <img src={conceptImageUrl} alt="AI concept" className="w-full h-64 object-cover" />
-        </div>
-      )}
-
-      {phase === 'generating_image' && (
-        <div className="flex items-center justify-center h-48 rounded-2xl bg-[#FDFCF8] border border-[#C05621]/[0.06]">
-          <div className="text-center space-y-3">
-            <Loader2 className="w-8 h-8 text-[#C05621] animate-spin mx-auto" />
-            <p className="text-sm text-[#4A5568]">Generating concept image...</p>
-          </div>
-        </div>
-      )}
-
-      {/* Actions */}
-      <div className="flex flex-col sm:flex-row gap-3 pt-2">
-        {phase === 'brief' && (
-          <>
-            <Button onClick={onGenerateImage} className="bg-[#C05621] text-white hover:bg-[#A84A1C] rounded-xl gap-2" size="lg">
-              <ImageIcon className="w-4 h-4" />
-              Generate Concept Image
-            </Button>
-            <Button onClick={onSubmit} variant="outline" size="lg" className="rounded-xl border-[#1B2432]/20 text-[#1B2432] gap-2" disabled={submitting}>
-              {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <ArrowRight className="w-4 h-4" />}
-              Skip Image & Submit
-            </Button>
-          </>
-        )}
-        {phase === 'done' && (
-          <Button onClick={onSubmit} className="bg-[#C05621] text-white hover:bg-[#A84A1C] rounded-xl gap-2" size="lg" disabled={submitting}>
-            {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
-            Confirm & Find Creators
-          </Button>
-        )}
-      </div>
-    </motion.div>
-  );
-}

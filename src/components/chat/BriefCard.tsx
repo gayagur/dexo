@@ -34,6 +34,7 @@ interface BriefCardProps {
   onGenerateImage: () => void;
   onSubmit: () => void;
   onEditImage?: () => void;
+  onRegenerate?: () => void;
   onBriefFileDrop: (e: React.DragEvent) => void;
   onBriefFileSelect: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onRemoveBriefImage: (index: number) => void;
@@ -50,6 +51,7 @@ export function BriefCard({
   onGenerateImage,
   onSubmit,
   onEditImage,
+  onRegenerate,
   onBriefFileDrop,
   onBriefFileSelect,
   onRemoveBriefImage,
@@ -192,16 +194,31 @@ export function BriefCard({
               className="w-full h-64 object-cover"
             />
           </div>
-          {onEditImage && phase === "done" && (
-            <Button
-              onClick={onEditImage}
-              variant="outline"
-              size="sm"
-              className="rounded-xl border-[#C05621]/20 text-[#C05621] gap-1.5"
-            >
-              <Pencil className="w-3.5 h-3.5" />
-              Edit Image
-            </Button>
+          {phase === "done" && (
+            <div className="flex gap-2">
+              {onEditImage && (
+                <Button
+                  onClick={onEditImage}
+                  variant="outline"
+                  size="sm"
+                  className="rounded-xl border-[#C05621]/20 text-[#C05621] gap-1.5"
+                >
+                  <Pencil className="w-3.5 h-3.5" />
+                  Edit Image
+                </Button>
+              )}
+              {onRegenerate && (
+                <Button
+                  onClick={onRegenerate}
+                  variant="outline"
+                  size="sm"
+                  className="rounded-xl border-[#1B2432]/20 text-[#1B2432] gap-1.5"
+                >
+                  <ImageIcon className="w-3.5 h-3.5" />
+                  Regenerate
+                </Button>
+              )}
+            </div>
           )}
         </div>
       )}

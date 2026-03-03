@@ -16,15 +16,15 @@ Deno.serve(async (req) => {
     const { userId, supabase } = await verifyAuth(req);
     const { imageUrl, instruction, versionId, projectId } = await req.json();
 
-    if (!imageUrl || !instruction || !projectId) {
+    if (!imageUrl || !instruction) {
       return new Response(
-        JSON.stringify({ error: "imageUrl, instruction, and projectId are required" }),
+        JSON.stringify({ error: "imageUrl and instruction are required" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // Check edit limit on the image chain
-    if (versionId) {
+    // Check edit limit on the image chain (only when tracking in DB)
+    if (versionId && projectId) {
       const serviceClient = createClient(
         Deno.env.get("SUPABASE_URL")!,
         Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
@@ -142,37 +142,45 @@ Deno.serve(async (req) => {
 
     const permanentUrl = urlData.publicUrl;
 
-    // Mark old version as not current, insert new version
-    if (versionId) {
-      await supabase
+    // Track versions in DB only when a project exists
+    let newVersionId: string | null = null;
+    let nextVersion: number | null = null;
+
+    if (projectId) {
+      // Mark old version as not current
+      if (versionId) {
+        await supabase
+          .from("image_versions")
+          .update({ is_current: false })
+          .eq("id", versionId);
+      }
+
+      // Get next version number
+      const { data: latestVersion } = await supabase
         .from("image_versions")
-        .update({ is_current: false })
-        .eq("id", versionId);
+        .select("version_number")
+        .eq("project_id", projectId)
+        .order("version_number", { ascending: false })
+        .limit(1)
+        .single();
+
+      nextVersion = (latestVersion?.version_number ?? 0) + 1;
+
+      const { data: newVersion } = await supabase
+        .from("image_versions")
+        .insert({
+          project_id: projectId,
+          parent_version_id: versionId || null,
+          image_url: permanentUrl,
+          edit_instruction: instruction,
+          version_number: nextVersion,
+          is_current: true,
+        })
+        .select()
+        .single();
+
+      newVersionId = newVersion?.id ?? null;
     }
-
-    // Get next version number
-    const { data: latestVersion } = await supabase
-      .from("image_versions")
-      .select("version_number")
-      .eq("project_id", projectId)
-      .order("version_number", { ascending: false })
-      .limit(1)
-      .single();
-
-    const nextVersion = (latestVersion?.version_number ?? 0) + 1;
-
-    const { data: newVersion } = await supabase
-      .from("image_versions")
-      .insert({
-        project_id: projectId,
-        parent_version_id: versionId || null,
-        image_url: permanentUrl,
-        edit_instruction: instruction,
-        version_number: nextVersion,
-        is_current: true,
-      })
-      .select()
-      .single();
 
     // Log usage (assume ~1MP for edited images)
     const cost = 1 * COST_PER_MP;
@@ -183,7 +191,7 @@ Deno.serve(async (req) => {
       model: MODEL,
       costUsd: cost,
       metadata: {
-        projectId,
+        projectId: projectId || null,
         versionId,
         instructionPreview: instruction.slice(0, 100),
       },
@@ -192,7 +200,7 @@ Deno.serve(async (req) => {
     return new Response(
       JSON.stringify({
         url: permanentUrl,
-        versionId: newVersion?.id,
+        versionId: newVersionId,
         versionNumber: nextVersion,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }

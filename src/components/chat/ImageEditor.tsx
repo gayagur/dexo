@@ -7,7 +7,7 @@ import type { ImageVersion } from "@/lib/database.types";
 interface ImageEditorProps {
   currentImageUrl: string;
   currentVersionId: string | null;
-  projectId: string;
+  projectId: string | null;
   versions: ImageVersion[];
   onNewVersion: (url: string, versionId: string) => void;
   onRevert: (version: ImageVersion) => void;

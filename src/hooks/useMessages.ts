@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/hooks/useAuth";
+import { timed } from "@/lib/timing";
 import type { Message, SenderType } from "@/lib/database.types";
 
 export function useMessages(projectId: string | undefined) {
@@ -12,11 +13,14 @@ export function useMessages(projectId: string | undefined) {
   const fetchMessages = useCallback(async () => {
     if (!projectId) return;
     setLoading(true);
-    const { data, error } = await supabase
-      .from("messages")
-      .select("*")
-      .eq("project_id", projectId)
-      .order("created_at", { ascending: true });
+    const { data, error } = await timed("useMessages.fetch", () =>
+      supabase
+        .from("messages")
+        .select("*")
+        .eq("project_id", projectId)
+        .order("created_at", { ascending: true })
+        .limit(200)
+    );
 
     if (error) {
       console.error("[useMessages] fetch error:", error.message);

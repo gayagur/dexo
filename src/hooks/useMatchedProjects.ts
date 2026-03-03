@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/hooks/useAuth";
+import { timed } from "@/lib/timing";
 import type { Project, Business } from "@/lib/database.types";
 import { scoreMatch } from "@/lib/matching";
 
@@ -24,11 +25,13 @@ export function useMatchedProjects() {
     }
 
     // Fetch the full business profile for scoring
-    const { data: biz, error: bizError } = await supabase
-      .from("businesses")
-      .select("*")
-      .eq("user_id", user.id)
-      .single();
+    const { data: biz, error: bizError } = await timed("useMatchedProjects.business", () =>
+      supabase
+        .from("businesses")
+        .select("*")
+        .eq("user_id", user.id)
+        .single()
+    );
 
     if (bizError || !biz) {
       console.error("[useMatchedProjects] business fetch error:", bizError?.message);
@@ -45,12 +48,15 @@ export function useMatchedProjects() {
       return;
     }
 
-    const { data, error } = await supabase
-      .from("projects")
-      .select("*")
-      .in("category", categories)
-      .neq("status", "draft")
-      .order("created_at", { ascending: false });
+    const { data, error } = await timed("useMatchedProjects.projects", () =>
+      supabase
+        .from("projects")
+        .select("*")
+        .in("category", categories)
+        .neq("status", "draft")
+        .order("created_at", { ascending: false })
+        .limit(50)
+    );
 
     if (error) {
       console.error("[useMatchedProjects] projects fetch error:", error.message);

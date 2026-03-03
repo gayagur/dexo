@@ -5,6 +5,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { AppLayout } from '@/components/app/AppLayout';
 import { useBusinessProfile } from '@/hooks/useBusinessProfile';
 import { supabase } from '@/lib/supabase';
+import { timed } from '@/lib/timing';
 import type { Message, Project } from '@/lib/database.types';
 import {
   ArrowLeft,
@@ -31,31 +32,39 @@ const BusinessConversations = () => {
     const fetchConversations = async () => {
       setLoading(true);
 
-      // Get project IDs where this business has sent offers
-      const { data: offerData } = await supabase
-        .from('offers')
-        .select('project_id')
-        .eq('business_id', business.id);
+      // Step 1: Get project IDs where this business has sent offers
+      const { data: offerData } = await timed("conversations.offers", () =>
+        supabase
+          .from('offers')
+          .select('project_id')
+          .eq('business_id', business.id)
+          .limit(100)
+      );
 
-      const projectIds = offerData?.map(o => o.project_id) ?? [];
+      const projectIds = [...new Set(offerData?.map(o => o.project_id) ?? [])];
       if (projectIds.length === 0) {
         setConversations([]);
         setLoading(false);
         return;
       }
 
-      // Get messages for those projects
-      const { data: msgData } = await supabase
-        .from('messages')
-        .select('*')
-        .in('project_id', projectIds)
-        .order('created_at', { ascending: true });
-
-      // Get the projects
-      const { data: projData } = await supabase
-        .from('projects')
-        .select('*')
-        .in('id', projectIds);
+      // Step 2: Fetch messages + projects in parallel (independent queries)
+      const [{ data: msgData }, { data: projData }] = await Promise.all([
+        timed("conversations.messages", () =>
+          supabase
+            .from('messages')
+            .select('*')
+            .in('project_id', projectIds)
+            .order('created_at', { ascending: true })
+            .limit(500)
+        ),
+        timed("conversations.projects", () =>
+          supabase
+            .from('projects')
+            .select('id, title, ai_concept, status, customer_id, category, created_at, description, style_tags, budget_min, budget_max, details, inspiration_images, ai_brief')
+            .in('id', projectIds)
+        ),
+      ]);
 
       const msgs = (msgData as Message[]) ?? [];
       const projs = (projData as Project[]) ?? [];

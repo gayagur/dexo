@@ -163,14 +163,14 @@ export async function editImage(
   imageUrl: string,
   instruction: string,
   versionId: string | null,
-  projectId: string
+  projectId: string | null
 ): Promise<EditResult> {
   try {
     const headers = await getAuthHeaders();
     const response = await fetch(`${FUNCTIONS_URL}/edit-image`, {
       method: "POST",
       headers,
-      body: JSON.stringify({ imageUrl, instruction, versionId, projectId }),
+      body: JSON.stringify({ imageUrl, instruction, versionId, projectId: projectId || undefined }),
     });
     const data = await response.json();
     if (!response.ok) return { error: data.error || "Image editing failed" };

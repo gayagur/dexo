@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/hooks/useAuth";
+import { timed } from "@/lib/timing";
 import type { Offer } from "@/lib/database.types";
 
 export function useOffers(projectId?: string) {
@@ -12,11 +13,14 @@ export function useOffers(projectId?: string) {
       const id = pid ?? projectId;
       if (!id) return;
       setLoading(true);
-      const { data, error } = await supabase
-        .from("offers")
-        .select("*")
-        .eq("project_id", id)
-        .order("created_at", { ascending: false });
+      const { data, error } = await timed("useOffers.fetch", () =>
+        supabase
+          .from("offers")
+          .select("*")
+          .eq("project_id", id)
+          .order("created_at", { ascending: false })
+          .limit(50)
+      );
 
       if (!error && data) {
         setOffers(data as Offer[]);
@@ -44,10 +48,13 @@ export function useOffersForProjects(projectIds: string[]) {
 
     const fetchCounts = async () => {
       setLoading(true);
-      const { data, error } = await supabase
-        .from("offers")
-        .select("project_id")
-        .in("project_id", projectIds);
+      const { data, error } = await timed("useOffersForProjects.fetch", () =>
+        supabase
+          .from("offers")
+          .select("project_id")
+          .in("project_id", projectIds)
+          .limit(200)
+      );
 
       if (!error && data) {
         const counts: Record<string, number> = {};
@@ -74,11 +81,14 @@ export function useBusinessOffers(businessId: string | undefined) {
 
     const fetchOffers = async () => {
       setLoading(true);
-      const { data, error } = await supabase
-        .from("offers")
-        .select("*")
-        .eq("business_id", businessId)
-        .order("created_at", { ascending: false });
+      const { data, error } = await timed("useBusinessOffers.fetch", () =>
+        supabase
+          .from("offers")
+          .select("*")
+          .eq("business_id", businessId)
+          .order("created_at", { ascending: false })
+          .limit(100)
+      );
 
       if (error) {
         console.error("[useBusinessOffers] error:", error.message);
