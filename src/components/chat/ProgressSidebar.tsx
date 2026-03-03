@@ -13,8 +13,7 @@ interface ProgressSidebarProps {
   onDirectUpdate?: (field: string, value: string) => void;
 }
 
-/** Chip fields use the chat-based flow; free-text fields use inline input */
-const CHIP_FIELDS = new Set(["category", "style_tags"]);
+/** All fields use inline editing */
 
 export function ProgressSidebar({
   items,
@@ -42,13 +41,7 @@ export function ProgressSidebar({
     const canEdit = filled && (phase === "chatting" || phase === "brief");
     if (!canEdit) return;
 
-    // Chip fields go through the chat-based flow
-    if (CHIP_FIELDS.has(item.field)) {
-      onEditField(item.field, item.stepIndex);
-      return;
-    }
-
-    // Free-text fields: open inline edit if onDirectUpdate is provided
+    // All fields use inline editing when onDirectUpdate is provided
     if (onDirectUpdate) {
       const value = briefData[item.field as keyof BriefData];
       const currentStr = Array.isArray(value) ? value.join(", ") : String(value || "");
@@ -149,7 +142,7 @@ export function ProgressSidebar({
                 )}
               </div>
 
-              {/* Inline edit input for free-text fields */}
+              {/* Inline edit input */}
               {isInlineEditing && (
                 <motion.div
                   initial={{ opacity: 0, height: 0 }}
