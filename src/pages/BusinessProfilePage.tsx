@@ -15,7 +15,8 @@ import {
   MessageSquare,
   Send,
   DollarSign,
-  Loader2
+  Loader2,
+  Check,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -270,7 +271,7 @@ const BusinessProfilePage = () => {
 
       {/* Message Dialog */}
       <Dialog open={showMessageDialog} onOpenChange={setShowMessageDialog}>
-        <DialogContent>
+        <DialogContent className="overflow-hidden">
           <DialogHeader>
             <DialogTitle>Message {business.name}</DialogTitle>
             <DialogDescription>
@@ -281,20 +282,34 @@ const BusinessProfilePage = () => {
             {userProjects.length > 0 ? (
               <>
                 <div className="space-y-2">
-                  <p className="text-sm font-medium">Select a project:</p>
-                  {userProjects.map((project) => (
-                    <button
-                      key={project.id}
-                      onClick={() => setSelectedProjectId(project.id)}
-                      className={`w-full p-3 rounded-xl border-2 text-left transition-colors ${
-                        selectedProjectId === project.id
-                          ? 'border-primary bg-primary/5'
-                          : 'border-border hover:border-primary/50'
-                      }`}
-                    >
-                      <h4 className="font-medium text-sm">{project.title}</h4>
-                    </button>
-                  ))}
+                  <p className="text-sm font-medium text-foreground">Select a project:</p>
+                  <div className="space-y-1.5 max-h-[30vh] overflow-y-auto -mx-1 px-1">
+                    {userProjects.map((project) => {
+                      const isSelected = selectedProjectId === project.id;
+                      return (
+                        <button
+                          key={project.id}
+                          onClick={() => setSelectedProjectId(project.id)}
+                          className={`w-full flex items-center gap-3 p-3 rounded-lg border text-left
+                            outline-none transition-all duration-150
+                            focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1
+                            ${isSelected
+                              ? 'border-primary bg-primary/5 shadow-sm'
+                              : 'border-border/60 hover:border-primary/40 hover:bg-accent/30'
+                            }`}
+                        >
+                          <h4 className="flex-1 font-medium text-sm text-foreground">{project.title}</h4>
+                          <div className={`flex-shrink-0 w-4 h-4 rounded-full border-2 flex items-center justify-center transition-colors
+                            ${isSelected
+                              ? 'border-primary bg-primary text-primary-foreground'
+                              : 'border-border/80'
+                            }`}>
+                            {isSelected && <Check className="w-2.5 h-2.5" />}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
                 <Textarea
                   placeholder="Write your message..."
@@ -302,7 +317,7 @@ const BusinessProfilePage = () => {
                   onChange={(e) => setMessageContent(e.target.value)}
                   className="min-h-[120px]"
                 />
-                <div className="flex justify-end gap-3">
+                <div className="flex justify-end gap-3 pt-2 border-t border-border/40">
                   <Button variant="outline" onClick={() => setShowMessageDialog(false)}>
                     Cancel
                   </Button>
@@ -327,7 +342,7 @@ const BusinessProfilePage = () => {
 
       {/* Send Project Dialog */}
       <Dialog open={showProjectDialog} onOpenChange={setShowProjectDialog}>
-        <DialogContent>
+        <DialogContent className="overflow-hidden">
           <DialogHeader>
             <DialogTitle>Send a Project to {business.name}</DialogTitle>
             <DialogDescription>
@@ -336,23 +351,56 @@ const BusinessProfilePage = () => {
           </DialogHeader>
           <div className="space-y-4">
             {userProjects.length > 0 ? (
-              <div className="space-y-2">
-                {userProjects.map((project) => (
-                  <button
-                    key={project.id}
-                    onClick={() => setSelectedProjectId(project.id)}
-                    className={`w-full p-4 rounded-xl border-2 text-left transition-colors ${
-                      selectedProjectId === project.id
-                        ? 'border-primary bg-primary/5'
-                        : 'border-border hover:border-primary/50'
-                    }`}
-                  >
-                    <h4 className="font-medium">{project.title}</h4>
-                    <p className="text-sm text-muted-foreground truncate">
-                      {project.description}
-                    </p>
-                  </button>
-                ))}
+              <div className="space-y-2 max-h-[50vh] overflow-y-auto -mx-1 px-1">
+                {userProjects.map((project) => {
+                  const isSelected = selectedProjectId === project.id;
+                  return (
+                    <button
+                      key={project.id}
+                      onClick={() => setSelectedProjectId(project.id)}
+                      className={`w-full flex items-center gap-3 p-4 rounded-lg border text-left
+                        outline-none transition-all duration-150
+                        focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1
+                        ${isSelected
+                          ? 'border-primary bg-primary/5 shadow-sm'
+                          : 'border-border/60 hover:border-primary/40 hover:bg-accent/30'
+                        }`}
+                    >
+                      <div className="flex-1 min-w-0">
+                        <h4 className="font-medium text-foreground leading-snug">
+                          {project.title}
+                        </h4>
+                        {project.description && (
+                          <p className="text-sm text-muted-foreground mt-0.5 truncate">
+                            {project.description}
+                          </p>
+                        )}
+                        {(project.budget_min || project.status) && (
+                          <div className="flex items-center gap-3 mt-1.5">
+                            {project.budget_min && (
+                              <span className="text-xs text-muted-foreground">
+                                ${project.budget_min.toLocaleString()}
+                                {project.budget_max ? `–$${project.budget_max.toLocaleString()}` : '+'}
+                              </span>
+                            )}
+                            {project.status && (
+                              <span className="text-xs px-2 py-0.5 rounded-full bg-accent/40 text-accent-foreground capitalize">
+                                {project.status}
+                              </span>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                      <div className={`flex-shrink-0 w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors
+                        ${isSelected
+                          ? 'border-primary bg-primary text-primary-foreground'
+                          : 'border-border/80'
+                        }`}>
+                        {isSelected && <Check className="w-3 h-3" />}
+                      </div>
+                    </button>
+                  );
+                })}
               </div>
             ) : (
               <div className="text-center py-8">
@@ -365,7 +413,7 @@ const BusinessProfilePage = () => {
               </div>
             )}
             {userProjects.length > 0 && (
-              <div className="flex justify-end gap-3">
+              <div className="flex justify-end gap-3 pt-2 border-t border-border/40">
                 <Button variant="outline" onClick={() => setShowProjectDialog(false)}>
                   Cancel
                 </Button>
