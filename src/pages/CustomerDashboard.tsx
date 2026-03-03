@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -28,6 +28,45 @@ import {
   Sparkles, Palette, ArrowUpRight, FolderOpen, Zap, Inbox,
   MoreHorizontal, Pencil, Trash2,
 } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+
+// ─── Animation Variants ──────────────────────────────────
+const fadeUp = {
+  hidden: { opacity: 0, y: 20 },
+  visible: (delay: number = 0) => ({
+    opacity: 1, y: 0,
+    transition: { duration: 0.5, ease: [0.25, 0.46, 0.45, 0.94], delay },
+  }),
+};
+
+const staggerContainer = {
+  hidden: {},
+  visible: { transition: { staggerChildren: 0.1 } },
+};
+
+const staggerItem = {
+  hidden: { opacity: 0, y: 16 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.4, ease: 'easeOut' } },
+};
+
+// ─── Animated Counter Hook ───────────────────────────────
+function useAnimatedCounter(target: number, duration = 1000) {
+  const [count, setCount] = useState(0);
+  const started = useRef(false);
+  useEffect(() => {
+    if (started.current || target === 0) { setCount(target); return; }
+    started.current = true;
+    const start = performance.now();
+    const step = (now: number) => {
+      const progress = Math.min((now - start) / duration, 1);
+      const eased = 1 - Math.pow(1 - progress, 3);
+      setCount(Math.round(eased * target));
+      if (progress < 1) requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+  }, [target, duration]);
+  return count;
+}
 
 // ─── Status Config ──────────────────────────────────────────
 const statusConfig: Record<string, { label: string; bg: string; text: string; dot: string }> = {
@@ -36,6 +75,15 @@ const statusConfig: Record<string, { label: string; bg: string; text: string; do
   offers_received: { label: 'Offers received', bg: 'bg-accent/15', text: 'text-accent-foreground', dot: 'bg-accent' },
   in_progress: { label: 'In progress', bg: 'bg-blue-50', text: 'text-blue-700', dot: 'bg-blue-500' },
   completed: { label: 'Completed', bg: 'bg-green-50', text: 'text-green-700', dot: 'bg-green-500' },
+};
+
+// ─── Status progress for animated bars ──────────────────────
+const statusProgress: Record<string, number> = {
+  draft: 0.1,
+  sent: 0.3,
+  offers_received: 0.55,
+  in_progress: 0.75,
+  completed: 1,
 };
 
 // ─── Filter Chips ───────────────────────────────────────────
@@ -51,24 +99,30 @@ function isActiveStatus(status: string): boolean {
 }
 
 // ─── Metric Card ────────────────────────────────────────────
-function MetricCard({ icon: Icon, label, value, accent = false }: {
+function MetricCard({ icon: Icon, label, value, accent = false, gradient, iconColor }: {
   icon: typeof FolderOpen;
   label: string;
   value: number;
   accent?: boolean;
+  gradient?: string;
+  iconColor?: string;
 }) {
   return (
-    <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-card border border-border/60">
-      <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${
-        accent ? 'bg-primary/10' : 'bg-muted/70'
-      }`}>
-        <Icon className={`w-4.5 h-4.5 ${accent ? 'text-primary' : 'text-muted-foreground'}`} />
-      </div>
-      <div>
-        <div className="text-xl font-semibold text-foreground leading-none">{value}</div>
-        <div className="text-xs text-muted-foreground mt-0.5">{label}</div>
-      </div>
-    </div>
+    <motion.div whileHover={{ y: -2 }} transition={{ duration: 0.2 }}>
+      <Card className="rounded-2xl overflow-hidden">
+        <CardContent className="flex items-center gap-3 px-4 py-3">
+          <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
+            gradient || (accent ? 'bg-primary/10' : 'bg-muted/70')
+          }`}>
+            <Icon className={`w-4.5 h-4.5 ${iconColor || (accent ? 'text-primary' : 'text-muted-foreground')}`} />
+          </div>
+          <div>
+            <div className="text-2xl font-serif font-bold text-foreground leading-none">{value}</div>
+            <div className="text-xs text-muted-foreground mt-0.5">{label}</div>
+          </div>
+        </CardContent>
+      </Card>
+    </motion.div>
   );
 }
 
@@ -95,59 +149,91 @@ function ProjectCard({
   const status = statusConfig[project.status] || statusConfig.draft;
   const canEdit = project.status === 'draft';
   const canDelete = project.status === 'draft' || project.status === 'sent';
+  const progress = statusProgress[project.status] || 0.1;
 
   return (
     <div className="group relative">
       <Link to={`/project/${project.id}`} className="block">
-        <Card className="h-full overflow-hidden border-border/60 hover:border-primary/20 hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 cursor-pointer">
-          {/* Image Area */}
-          <div className="aspect-[16/10] overflow-hidden relative">
-            {project.ai_concept ? (
-              <img
-                src={project.ai_concept}
-                alt={project.title}
-                className="w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-500"
-              />
-            ) : (
-              <div className="w-full h-full bg-gradient-to-br from-primary/[0.05] via-accent/[0.04] to-secondary flex items-center justify-center">
-                <Palette className="w-10 h-10 text-primary/20" />
-              </div>
-            )}
-            {/* Status Badge */}
-            <div className="absolute top-3 left-3">
-              <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${status.bg} ${status.text} backdrop-blur-sm shadow-sm`}>
-                <span className={`w-1.5 h-1.5 rounded-full ${status.dot}`} />
-                {status.label}
-              </div>
-            </div>
-            {/* Hover arrow */}
-            <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-              <div className="w-8 h-8 rounded-full bg-white/90 backdrop-blur-sm shadow-sm flex items-center justify-center">
-                <ArrowUpRight className="w-4 h-4 text-foreground" />
-              </div>
-            </div>
-          </div>
-
-          <CardContent className="p-5">
-            <h3 className="text-base font-serif font-semibold text-foreground mb-1.5 line-clamp-1 group-hover:text-primary transition-colors duration-200">
-              {project.title}
-            </h3>
-            <p className="text-muted-foreground text-sm line-clamp-2 mb-4 leading-relaxed">
-              {project.description}
-            </p>
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-medium text-foreground/80">
-                ${project.budget_min.toLocaleString()} – ${project.budget_max.toLocaleString()}
-              </span>
-              {offerCount > 0 && (
-                <span className="inline-flex items-center gap-1 text-sm font-semibold text-primary">
-                  <MessageSquare className="w-3.5 h-3.5" />
-                  {offerCount} offer{offerCount > 1 ? 's' : ''}
-                </span>
+        <motion.div
+          whileHover={{ y: -4 }}
+          transition={{ duration: 0.25 }}
+        >
+          <Card className="h-full overflow-hidden border-border/60 rounded-2xl hover:shadow-lg transition-shadow duration-300 cursor-pointer">
+            {/* Image Area */}
+            <div className="aspect-[16/10] overflow-hidden relative">
+              {project.ai_concept ? (
+                <motion.img
+                  whileHover={{ scale: 1.05 }}
+                  transition={{ duration: 0.5 }}
+                  src={project.ai_concept}
+                  alt={project.title}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <div className="w-full h-full bg-gradient-to-br from-primary/[0.05] via-accent/[0.04] to-secondary flex items-center justify-center">
+                  <Palette className="w-10 h-10 text-primary/20" />
+                </div>
               )}
+              {/* Gradient overlay */}
+              <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-black/50 to-transparent" />
+              {/* Title on image */}
+              <div className="absolute bottom-0 left-0 right-0 p-3">
+                <h3 className="font-serif font-semibold text-white text-sm truncate drop-shadow-sm">
+                  {project.title}
+                </h3>
+              </div>
+              {/* Status Badge with pulse for active */}
+              <div className="absolute top-3 left-3">
+                <motion.div
+                  animate={project.status === 'sent' || project.status === 'offers_received' ? { scale: [1, 1.05, 1] } : {}}
+                  transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
+                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${status.bg} ${status.text} backdrop-blur-sm shadow-sm`}
+                >
+                  <span className={`w-1.5 h-1.5 rounded-full ${status.dot}`} />
+                  {status.label}
+                </motion.div>
+              </div>
+              {/* Hover arrow */}
+              <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                <div className="w-8 h-8 rounded-full bg-white/90 backdrop-blur-sm shadow-sm flex items-center justify-center">
+                  <ArrowUpRight className="w-4 h-4 text-foreground" />
+                </div>
+              </div>
             </div>
-          </CardContent>
-        </Card>
+
+            <CardContent className="p-4">
+              <p className="text-muted-foreground text-xs line-clamp-2 mb-3 leading-relaxed">
+                {project.description}
+              </p>
+              {/* Progress indicator */}
+              <div className="flex items-center gap-2 mb-3">
+                <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
+                  <motion.div
+                    className="h-full rounded-full bg-primary"
+                    initial={{ width: 0 }}
+                    whileInView={{ width: `${progress * 100}%` }}
+                    viewport={{ once: true }}
+                    transition={{ duration: 0.8, delay: 0.2, ease: 'easeOut' }}
+                  />
+                </div>
+                <span className="text-[10px] text-muted-foreground whitespace-nowrap">
+                  {status.label}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium text-foreground/80">
+                  ${project.budget_min.toLocaleString()} – ${project.budget_max.toLocaleString()}
+                </span>
+                {offerCount > 0 && (
+                  <span className="inline-flex items-center gap-1 text-sm font-semibold text-primary">
+                    <MessageSquare className="w-3.5 h-3.5" />
+                    {offerCount} offer{offerCount > 1 ? 's' : ''}
+                  </span>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
       </Link>
 
       {/* Action Menu — positioned over card, stops link propagation */}
@@ -186,12 +272,22 @@ function ProjectCard({
 // ─── Empty State ────────────────────────────────────────────
 function EmptyState() {
   return (
-    <div className="py-16 animate-fade-in">
-      <Card className="max-w-lg mx-auto border-dashed border-2 border-primary/15 bg-gradient-to-br from-primary/[0.02] to-accent/[0.02]">
+    <motion.div
+      initial="hidden"
+      whileInView="visible"
+      viewport={{ once: true }}
+      variants={fadeUp}
+      className="py-16"
+    >
+      <Card className="max-w-lg mx-auto border-dashed border-2 border-primary/15 bg-gradient-to-br from-primary/[0.02] to-accent/[0.02] rounded-2xl">
         <CardContent className="p-10 text-center">
-          <div className="w-20 h-20 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-6 shadow-sm">
+          <motion.div
+            animate={{ scale: [1, 1.1, 1], rotate: [0, 5, -5, 0] }}
+            transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
+            className="w-20 h-20 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-6 shadow-sm"
+          >
             <Sparkles className="w-9 h-9 text-primary" />
-          </div>
+          </motion.div>
           <h3 className="text-2xl font-serif mb-3 text-foreground">
             Your creative journey starts here
           </h3>
@@ -199,10 +295,12 @@ function EmptyState() {
             Describe your dream design, and we'll connect you with talented creators who can bring it to life.
           </p>
           <Link to="/create-project">
-            <Button size="lg" className="gap-2 shadow-md">
-              <Plus className="w-4 h-4" />
-              Create Your First Project
-            </Button>
+            <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.95 }} className="inline-block">
+              <Button size="lg" className="gap-2 shadow-md">
+                <Plus className="w-4 h-4" />
+                Create Your First Project
+              </Button>
+            </motion.div>
           </Link>
 
           <div className="mt-10 pt-8 border-t border-border/50">
@@ -221,7 +319,7 @@ function EmptyState() {
           </div>
         </CardContent>
       </Card>
-    </div>
+    </motion.div>
   );
 }
 
@@ -258,6 +356,10 @@ const CustomerDashboard = () => {
     return { total, active, withOffers };
   }, [projects]);
 
+  const animTotal = useAnimatedCounter(metrics.total);
+  const animActive = useAnimatedCounter(metrics.active);
+  const animOffers = useAnimatedCounter(metrics.withOffers);
+
   // Filtered projects
   const filteredProjects = useMemo(() => {
     if (activeFilter === 'all') return projects;
@@ -273,149 +375,245 @@ const CustomerDashboard = () => {
 
   return (
     <AppLayout>
-      <main className="container mx-auto px-6 py-10">
-        {/* ─── Command Bar: Greeting + Metrics ─── */}
-        <div className="mb-8 animate-fade-in">
-          <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 mb-6">
-            <div>
-              <p className="text-sm font-medium text-primary mb-1">Welcome back, {firstName}</p>
-              <h1 className="text-3xl sm:text-4xl font-serif text-foreground">
-                Your Projects
-              </h1>
-            </div>
-            {projects.length > 0 && (
-              <Link to="/create-project">
-                <Button className="gap-2 shadow-sm">
-                  <Plus className="w-4 h-4" />
-                  New Project
-                </Button>
-              </Link>
-            )}
-          </div>
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.4 }}
+      >
+        {/* ─── Command Bar: Greeting + Actions ─── */}
+        <section className="border-b border-border/60 bg-gradient-to-b from-primary/[0.02] to-transparent">
+          <div className="container mx-auto px-6 py-8 lg:py-10">
+            <motion.div
+              initial="hidden"
+              animate="visible"
+              className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 mb-6"
+            >
+              <div>
+                <motion.p
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.5 }}
+                  className="text-sm font-medium text-primary mb-1"
+                >
+                  Welcome back, {firstName}
+                </motion.p>
+                <motion.h1
+                  initial={{ opacity: 0, y: 12 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.6, ease: 'easeOut', delay: 0.1 }}
+                  className="text-3xl sm:text-4xl font-serif text-foreground"
+                >
+                  Your Projects
+                </motion.h1>
+              </div>
+              {projects.length > 0 && (
+                <motion.div custom={0.15} variants={fadeUp}>
+                  <Link to="/create-project">
+                    <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.95 }}>
+                      <Button className="gap-2 shadow-md hover:shadow-lg transition-shadow">
+                        <Plus className="w-4 h-4" />
+                        New Project
+                      </Button>
+                    </motion.div>
+                  </Link>
+                </motion.div>
+              )}
+            </motion.div>
 
-          {/* Metrics Row */}
-          {projects.length > 0 && (
-            <div className="grid grid-cols-3 gap-3 mb-6">
-              <MetricCard icon={FolderOpen} label="Total projects" value={metrics.total} />
-              <MetricCard icon={Zap} label="Active" value={metrics.active} accent />
-              <MetricCard icon={Inbox} label="Awaiting review" value={metrics.withOffers} accent={metrics.withOffers > 0} />
+            {/* Metrics Row with animated counters */}
+            {projects.length > 0 && (
+              <motion.div
+                initial="hidden"
+                animate="visible"
+                variants={staggerContainer}
+                className="grid grid-cols-3 gap-3 mb-6"
+              >
+                <motion.div variants={staggerItem}>
+                  <MetricCard
+                    icon={FolderOpen}
+                    label="Total projects"
+                    value={animTotal}
+                    gradient="bg-gradient-to-br from-blue-500/10 to-blue-500/5"
+                    iconColor="text-blue-600"
+                  />
+                </motion.div>
+                <motion.div variants={staggerItem}>
+                  <MetricCard
+                    icon={Zap}
+                    label="Active"
+                    value={animActive}
+                    accent
+                    gradient="bg-gradient-to-br from-amber-500/10 to-amber-500/5"
+                    iconColor="text-amber-600"
+                  />
+                </motion.div>
+                <motion.div variants={staggerItem}>
+                  <MetricCard
+                    icon={Inbox}
+                    label="Awaiting review"
+                    value={animOffers}
+                    accent={metrics.withOffers > 0}
+                    gradient="bg-gradient-to-br from-green-500/10 to-green-500/5"
+                    iconColor="text-green-600"
+                  />
+                </motion.div>
+              </motion.div>
+            )}
+
+            {/* Action Cards */}
+            <motion.div
+              initial="hidden"
+              animate="visible"
+              variants={staggerContainer}
+              className="grid sm:grid-cols-2 gap-4"
+            >
+              <motion.div variants={staggerItem}>
+                <Link to="/create-project" className="group block">
+                  <motion.div whileHover={{ y: -3 }} transition={{ duration: 0.25 }}>
+                    <Card className="h-full border-primary/15 bg-gradient-to-br from-primary/[0.04] to-primary/[0.01] hover:border-primary/30 hover:shadow-md rounded-2xl transition-all duration-300 cursor-pointer">
+                      <CardContent className="p-5 flex items-center justify-between">
+                        <div className="flex items-center gap-4">
+                          <div className="w-11 h-11 rounded-xl bg-primary/10 flex items-center justify-center group-hover:bg-primary/15 transition-colors shrink-0">
+                            <Plus className="w-5 h-5 text-primary" />
+                          </div>
+                          <div>
+                            <h2 className="text-base font-semibold text-foreground mb-0.5">
+                              Start a new project
+                            </h2>
+                            <p className="text-sm text-muted-foreground">
+                              Describe your idea and get matched
+                            </p>
+                          </div>
+                        </div>
+                        <ArrowRight className="w-5 h-5 text-primary/40 group-hover:text-primary group-hover:translate-x-0.5 transition-all shrink-0" />
+                      </CardContent>
+                    </Card>
+                  </motion.div>
+                </Link>
+              </motion.div>
+
+              <motion.div variants={staggerItem}>
+                <Link to="/browse-businesses" className="group block">
+                  <motion.div whileHover={{ y: -3 }} transition={{ duration: 0.25 }}>
+                    <Card className="h-full border-accent/15 bg-gradient-to-br from-accent/[0.04] to-accent/[0.01] hover:border-accent/30 hover:shadow-md rounded-2xl transition-all duration-300 cursor-pointer">
+                      <CardContent className="p-5 flex items-center justify-between">
+                        <div className="flex items-center gap-4">
+                          <div className="w-11 h-11 rounded-xl bg-accent/10 flex items-center justify-center group-hover:bg-accent/15 transition-colors shrink-0">
+                            <Search className="w-5 h-5 text-accent-foreground" />
+                          </div>
+                          <div>
+                            <h2 className="text-base font-semibold text-foreground mb-0.5">
+                              Find creators
+                            </h2>
+                            <p className="text-sm text-muted-foreground">
+                              Browse talented artisans and studios
+                            </p>
+                          </div>
+                        </div>
+                        <ArrowRight className="w-5 h-5 text-accent-foreground/40 group-hover:text-accent-foreground group-hover:translate-x-0.5 transition-all shrink-0" />
+                      </CardContent>
+                    </Card>
+                  </motion.div>
+                </Link>
+              </motion.div>
+            </motion.div>
+          </div>
+        </section>
+
+        <main className="container mx-auto px-6 py-8 lg:py-10">
+          {/* ─── Loading ─── */}
+          {loading && (
+            <div className="text-center py-20">
+              <Loader2 className="w-8 h-8 animate-spin text-primary mx-auto mb-4" />
+              <p className="text-muted-foreground">Loading your projects...</p>
             </div>
           )}
 
-          {/* Action Cards */}
-          <div className="grid sm:grid-cols-2 gap-4">
-            <Link to="/create-project" className="group">
-              <Card className="h-full border-primary/15 bg-gradient-to-br from-primary/[0.04] to-primary/[0.01] hover:border-primary/30 hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 cursor-pointer">
-                <CardContent className="p-5 flex items-center justify-between">
-                  <div className="flex items-center gap-4">
-                    <div className="w-11 h-11 rounded-xl bg-primary/10 flex items-center justify-center group-hover:bg-primary/15 transition-colors shrink-0">
-                      <Plus className="w-5 h-5 text-primary" />
-                    </div>
-                    <div>
-                      <h2 className="text-base font-semibold text-foreground mb-0.5">
-                        Start a new project
-                      </h2>
-                      <p className="text-sm text-muted-foreground">
-                        Describe your idea and get matched
-                      </p>
-                    </div>
-                  </div>
-                  <ArrowRight className="w-5 h-5 text-primary/40 group-hover:text-primary group-hover:translate-x-0.5 transition-all shrink-0" />
-                </CardContent>
-              </Card>
-            </Link>
-
-            <Link to="/browse-businesses" className="group">
-              <Card className="h-full border-accent/15 bg-gradient-to-br from-accent/[0.04] to-accent/[0.01] hover:border-accent/30 hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 cursor-pointer">
-                <CardContent className="p-5 flex items-center justify-between">
-                  <div className="flex items-center gap-4">
-                    <div className="w-11 h-11 rounded-xl bg-accent/10 flex items-center justify-center group-hover:bg-accent/15 transition-colors shrink-0">
-                      <Search className="w-5 h-5 text-accent-foreground" />
-                    </div>
-                    <div>
-                      <h2 className="text-base font-semibold text-foreground mb-0.5">
-                        Find creators
-                      </h2>
-                      <p className="text-sm text-muted-foreground">
-                        Browse talented artisans and studios
-                      </p>
-                    </div>
-                  </div>
-                  <ArrowRight className="w-5 h-5 text-accent-foreground/40 group-hover:text-accent-foreground group-hover:translate-x-0.5 transition-all shrink-0" />
-                </CardContent>
-              </Card>
-            </Link>
-          </div>
-        </div>
-
-        {/* ─── Loading ─── */}
-        {loading && (
-          <div className="text-center py-20">
-            <Loader2 className="w-8 h-8 animate-spin text-primary mx-auto mb-4" />
-            <p className="text-muted-foreground">Loading your projects...</p>
-          </div>
-        )}
-
-        {/* ─── Projects Section ─── */}
-        {!loading && projects.length > 0 && (
-          <div className="animate-fade-in">
-            {/* Section Header + Filter Chips */}
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
-              <h2 className="text-lg font-serif font-semibold text-foreground">
-                {filteredProjects.length} project{filteredProjects.length !== 1 ? 's' : ''}
-                {activeFilter !== 'all' && (
-                  <span className="text-muted-foreground font-normal text-sm ml-2">
-                    of {projects.length}
-                  </span>
-                )}
-              </h2>
-              <div className="flex items-center gap-1.5">
-                {FILTERS.map(({ key, label }) => (
-                  <button
-                    key={key}
-                    onClick={() => setActiveFilter(key)}
-                    className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
-                      activeFilter === key
-                        ? 'bg-foreground text-background shadow-sm'
-                        : 'bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground'
-                    }`}
-                  >
-                    {label}
-                  </button>
-                ))}
+          {/* ─── Projects Section ─── */}
+          {!loading && projects.length > 0 && (
+            <motion.div
+              initial="hidden"
+              whileInView="visible"
+              viewport={{ once: true }}
+              variants={fadeUp}
+            >
+              {/* Section Header + Filter Chips */}
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
+                <h2 className="text-lg font-serif font-semibold text-foreground">
+                  {filteredProjects.length} project{filteredProjects.length !== 1 ? 's' : ''}
+                  {activeFilter !== 'all' && (
+                    <span className="text-muted-foreground font-normal text-sm ml-2">
+                      of {projects.length}
+                    </span>
+                  )}
+                </h2>
+                <div className="flex items-center gap-1.5">
+                  {FILTERS.map(({ key, label }) => (
+                    <motion.button
+                      key={key}
+                      onClick={() => setActiveFilter(key)}
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                      className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                        activeFilter === key
+                          ? 'bg-foreground text-background shadow-sm'
+                          : 'bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground'
+                      }`}
+                    >
+                      {label}
+                    </motion.button>
+                  ))}
+                </div>
               </div>
-            </div>
 
-            {/* Grid */}
-            {filteredProjects.length > 0 ? (
-              <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-6">
-                {filteredProjects.map((project) => (
-                  <ProjectCard
-                    key={project.id}
-                    project={project}
-                    offerCount={offerCounts[project.id] || 0}
-                    onEdit={handleEdit}
-                    onDelete={(id, title) => setDeleteTarget({ id, title })}
-                  />
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-16">
-                <p className="text-muted-foreground">No projects match this filter.</p>
-                <button
-                  onClick={() => setActiveFilter('all')}
-                  className="text-sm text-primary hover:underline mt-2"
+              {/* Grid with staggered animation */}
+              {filteredProjects.length > 0 ? (
+                <motion.div
+                  initial="hidden"
+                  whileInView="visible"
+                  viewport={{ once: true }}
+                  variants={staggerContainer}
+                  className="grid sm:grid-cols-2 xl:grid-cols-3 gap-6"
                 >
-                  Show all projects
-                </button>
-              </div>
-            )}
-          </div>
-        )}
+                  <AnimatePresence>
+                    {filteredProjects.map((project) => (
+                      <motion.div
+                        key={project.id}
+                        variants={staggerItem}
+                        layout
+                      >
+                        <ProjectCard
+                          project={project}
+                          offerCount={offerCounts[project.id] || 0}
+                          onEdit={handleEdit}
+                          onDelete={(id, title) => setDeleteTarget({ id, title })}
+                        />
+                      </motion.div>
+                    ))}
+                  </AnimatePresence>
+                </motion.div>
+              ) : (
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  className="text-center py-16"
+                >
+                  <p className="text-muted-foreground">No projects match this filter.</p>
+                  <button
+                    onClick={() => setActiveFilter('all')}
+                    className="text-sm text-primary hover:underline mt-2"
+                  >
+                    Show all projects
+                  </button>
+                </motion.div>
+              )}
+            </motion.div>
+          )}
 
-        {/* ─── Empty State ─── */}
-        {!loading && projects.length === 0 && <EmptyState />}
-      </main>
+          {/* ─── Empty State ─── */}
+          {!loading && projects.length === 0 && <EmptyState />}
+        </main>
+      </motion.div>
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
