@@ -11,7 +11,7 @@ import ReactMarkdown from 'react-markdown';
 import {
   Sparkles, Send, Loader2, ImageIcon, Square,
   Tag, Palette, DollarSign, Ruler, Package, Clock,
-  ImagePlus, X,
+  ImagePlus, X, ArrowDown,
 } from 'lucide-react';
 
 import type { ChatMessage } from '@/lib/ai';
@@ -229,10 +229,27 @@ export default function AIChatFlow() {
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const isNearBottomRef = useRef(true);
+  const [showScrollBtn, setShowScrollBtn] = useState(false);
 
-  // Scroll to bottom
-  useEffect(() => {
+  // Smart scroll: track whether user is near the bottom
+  const handleScrollEvent = useCallback(() => {
+    if (!scrollRef.current) return;
+    const { scrollTop, scrollHeight, clientHeight } = scrollRef.current;
+    const distanceFromBottom = scrollHeight - scrollTop - clientHeight;
+    isNearBottomRef.current = distanceFromBottom < 150;
+    setShowScrollBtn(distanceFromBottom > 300);
+  }, []);
+
+  const scrollToBottom = useCallback(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
+  }, []);
+
+  // Auto-scroll only when near bottom
+  useEffect(() => {
+    if (isNearBottomRef.current) {
+      scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
+    }
   }, [messages, streamingContent]);
 
   // Auto-resize textarea
@@ -619,7 +636,7 @@ export default function AIChatFlow() {
   // RENDER
   // ═════════════════════════════════════════════════════════════
   return (
-    <div className="min-h-screen bg-[#FDFCF8] flex">
+    <div className="h-screen bg-[#FDFCF8] flex overflow-hidden">
       {/* Progress Sidebar */}
       <ProgressSidebar
         items={PROGRESS_ITEMS}
@@ -648,7 +665,7 @@ export default function AIChatFlow() {
         </div>
 
         {/* Messages */}
-        <div ref={scrollRef} className="flex-1 overflow-y-auto px-6 py-6 space-y-4">
+        <div ref={scrollRef} onScroll={handleScrollEvent} className="flex-1 overflow-y-auto px-6 py-6 space-y-4 scroll-smooth">
           {/* Empty state */}
           {messages.length === 0 && !isLoading && (
             <div className="flex flex-col items-center justify-center h-full text-center">
@@ -798,6 +815,19 @@ export default function AIChatFlow() {
 
           <div style={{ height: 1 }} />
         </div>
+
+        {/* Scroll to bottom button */}
+        {showScrollBtn && (
+          <div className="relative">
+            <button
+              onClick={scrollToBottom}
+              className="absolute -top-12 left-1/2 -translate-x-1/2 z-10 w-9 h-9 rounded-full bg-white border border-[#C05621]/15 shadow-md flex items-center justify-center hover:bg-[#C05621]/5 transition-colors"
+              title="Scroll to bottom"
+            >
+              <ArrowDown className="w-4 h-4 text-[#C05621]" />
+            </button>
+          </div>
+        )}
 
         {/* Input Area */}
         <div className="px-6 py-4 border-t border-[#C05621]/[0.06] bg-white/60 backdrop-blur-sm">

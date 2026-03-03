@@ -1,5 +1,5 @@
 import { useParams, Link } from 'react-router-dom';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -29,6 +29,8 @@ const ProjectDetailPage = () => {
   const { user, loading: authLoading } = useAuth();
   const { toast } = useToast();
   const chatEndRef = useRef<HTMLDivElement>(null);
+  const chatContainerRef = useRef<HTMLDivElement>(null);
+  const isNearBottomRef = useRef(true);
 
   const [project, setProject] = useState<Project | null>(null);
   const [fetched, setFetched] = useState(false);
@@ -41,9 +43,18 @@ const ProjectDetailPage = () => {
   const [businessMap, setBusinessMap] = useState<Record<string, Business>>({});
   const { messages, sendMessage } = useMessages(id);
 
-  // Auto-scroll chat on new messages
+  // Smart scroll: track if user is near bottom
+  const handleChatScroll = useCallback(() => {
+    if (!chatContainerRef.current) return;
+    const { scrollTop, scrollHeight, clientHeight } = chatContainerRef.current;
+    isNearBottomRef.current = scrollHeight - scrollTop - clientHeight < 120;
+  }, []);
+
+  // Auto-scroll only when near bottom
   useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (isNearBottomRef.current) {
+      chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
   }, [messages]);
 
   // Fetch project
@@ -314,9 +325,9 @@ const ProjectDetailPage = () => {
                   )}
                 </div>
 
-                <div className="p-5">
+                <div className="p-5 flex flex-col" style={{ maxHeight: '32rem' }}>
                   {/* Messages */}
-                  <div className="space-y-3 max-h-[28rem] overflow-y-auto mb-4 scroll-smooth">
+                  <div ref={chatContainerRef} onScroll={handleChatScroll} className="space-y-3 flex-1 overflow-y-auto mb-4 scroll-smooth">
                     {messages.map((msg) => {
                       const isCustomer = msg.sender_type === 'customer';
                       return (
