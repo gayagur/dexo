@@ -38,7 +38,7 @@ interface CardData {
   variant: 'hero' | 'warm';
 }
 
-const cards: CardData[] = [
+export const cards: CardData[] = [
   {
     badge: 'For Customers',
     title: 'Stop searching endlessly.',
@@ -71,7 +71,7 @@ const cards: CardData[] = [
   },
 ];
 
-function ValueCard({ card }: { card: CardData }) {
+export function ValueCard({ card }: { card: CardData }) {
   return (
     <motion.div
       variants={cardVariants}

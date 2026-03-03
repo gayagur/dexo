@@ -34,7 +34,7 @@ export function AppHeader() {
     .toUpperCase()
     .slice(0, 2);
 
-  const dashboardPath = role === 'business' ? '/business' : '/dashboard';
+  const homePath = '/home';
 
   const handleLogout = async () => {
     await signOut();
@@ -53,35 +53,44 @@ export function AppHeader() {
         {/* Left — Logo + Nav */}
         <div className="flex items-center gap-8">
           <Link
-            to={dashboardPath}
+            to={homePath}
             className="text-2xl font-serif font-semibold text-primary hover:opacity-80 transition-opacity"
           >
             DEXO
           </Link>
 
-          {role === 'customer' && (
-            <nav className="hidden md:flex items-center gap-1">
-              {[
-                { to: '/dashboard', label: 'Projects' },
-                { to: '/browse-businesses', label: 'Creators' },
-              ].map(({ to, label }) => {
-                const isActive = location.pathname === to || (to === '/dashboard' && location.pathname.startsWith('/project/'));
-                return (
-                  <Link
-                    key={to}
-                    to={to}
-                    className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
-                      isActive
-                        ? 'text-foreground bg-muted/70'
-                        : 'text-muted-foreground hover:text-foreground hover:bg-muted/60'
-                    }`}
-                  >
-                    {label}
-                  </Link>
-                );
-              })}
-            </nav>
-          )}
+          <nav className="hidden md:flex items-center gap-1">
+            {(role === 'business'
+              ? [
+                  { to: '/home', label: 'Home' },
+                  { to: '/business', label: 'Projects' },
+                  { to: '/business/offers', label: 'Offers' },
+                  { to: '/business/conversations', label: 'Messages' },
+                ]
+              : [
+                  { to: '/home', label: 'Home' },
+                  { to: '/dashboard', label: 'Projects' },
+                  { to: '/browse-businesses', label: 'Creators' },
+                ]
+            ).map(({ to, label }) => {
+              const isActive = location.pathname === to
+                || (to === '/dashboard' && location.pathname.startsWith('/project/'))
+                || (to === '/business' && location.pathname.startsWith('/business/request/'));
+              return (
+                <Link
+                  key={to}
+                  to={to}
+                  className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
+                    isActive
+                      ? 'text-foreground bg-muted/70'
+                      : 'text-muted-foreground hover:text-foreground hover:bg-muted/60'
+                  }`}
+                >
+                  {label}
+                </Link>
+              );
+            })}
+          </nav>
         </div>
 
         {/* Right — Avatar Dropdown */}

@@ -1,7 +1,23 @@
 import { useState, useMemo } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { useAuth } from '@/hooks/useAuth';
 import { useProjects } from '@/hooks/useProjects';
 import { useOffersForProjects } from '@/hooks/useOffers';
@@ -10,6 +26,7 @@ import type { ProjectStatus } from '@/lib/database.types';
 import {
   Plus, MessageSquare, ArrowRight, Search, Loader2,
   Sparkles, Palette, ArrowUpRight, FolderOpen, Zap, Inbox,
+  MoreHorizontal, Pencil, Trash2,
 } from 'lucide-react';
 
 // ─── Status Config ──────────────────────────────────────────
@@ -59,6 +76,8 @@ function MetricCard({ icon: Icon, label, value, accent = false }: {
 function ProjectCard({
   project,
   offerCount,
+  onEdit,
+  onDelete,
 }: {
   project: {
     id: string;
@@ -70,61 +89,97 @@ function ProjectCard({
     ai_concept: string | null;
   };
   offerCount: number;
+  onEdit: (id: string) => void;
+  onDelete: (id: string, title: string) => void;
 }) {
   const status = statusConfig[project.status] || statusConfig.draft;
+  const canEdit = project.status === 'draft';
+  const canDelete = project.status === 'draft' || project.status === 'sent';
 
   return (
-    <Link to={`/project/${project.id}`} className="group block">
-      <Card className="h-full overflow-hidden border-border/60 hover:border-primary/20 hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 cursor-pointer">
-        {/* Image Area */}
-        <div className="aspect-[16/10] overflow-hidden relative">
-          {project.ai_concept ? (
-            <img
-              src={project.ai_concept}
-              alt={project.title}
-              className="w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-500"
-            />
-          ) : (
-            <div className="w-full h-full bg-gradient-to-br from-primary/[0.05] via-accent/[0.04] to-secondary flex items-center justify-center">
-              <Palette className="w-10 h-10 text-primary/20" />
-            </div>
-          )}
-          {/* Status Badge */}
-          <div className="absolute top-3 left-3">
-            <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${status.bg} ${status.text} backdrop-blur-sm shadow-sm`}>
-              <span className={`w-1.5 h-1.5 rounded-full ${status.dot}`} />
-              {status.label}
-            </div>
-          </div>
-          {/* Hover arrow */}
-          <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-            <div className="w-8 h-8 rounded-full bg-white/90 backdrop-blur-sm shadow-sm flex items-center justify-center">
-              <ArrowUpRight className="w-4 h-4 text-foreground" />
-            </div>
-          </div>
-        </div>
-
-        <CardContent className="p-5">
-          <h3 className="text-base font-serif font-semibold text-foreground mb-1.5 line-clamp-1 group-hover:text-primary transition-colors duration-200">
-            {project.title}
-          </h3>
-          <p className="text-muted-foreground text-sm line-clamp-2 mb-4 leading-relaxed">
-            {project.description}
-          </p>
-          <div className="flex items-center justify-between">
-            <span className="text-sm font-medium text-foreground/80">
-              ${project.budget_min.toLocaleString()} – ${project.budget_max.toLocaleString()}
-            </span>
-            {offerCount > 0 && (
-              <span className="inline-flex items-center gap-1 text-sm font-semibold text-primary">
-                <MessageSquare className="w-3.5 h-3.5" />
-                {offerCount} offer{offerCount > 1 ? 's' : ''}
-              </span>
+    <div className="group relative">
+      <Link to={`/project/${project.id}`} className="block">
+        <Card className="h-full overflow-hidden border-border/60 hover:border-primary/20 hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 cursor-pointer">
+          {/* Image Area */}
+          <div className="aspect-[16/10] overflow-hidden relative">
+            {project.ai_concept ? (
+              <img
+                src={project.ai_concept}
+                alt={project.title}
+                className="w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-500"
+              />
+            ) : (
+              <div className="w-full h-full bg-gradient-to-br from-primary/[0.05] via-accent/[0.04] to-secondary flex items-center justify-center">
+                <Palette className="w-10 h-10 text-primary/20" />
+              </div>
             )}
+            {/* Status Badge */}
+            <div className="absolute top-3 left-3">
+              <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${status.bg} ${status.text} backdrop-blur-sm shadow-sm`}>
+                <span className={`w-1.5 h-1.5 rounded-full ${status.dot}`} />
+                {status.label}
+              </div>
+            </div>
+            {/* Hover arrow */}
+            <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+              <div className="w-8 h-8 rounded-full bg-white/90 backdrop-blur-sm shadow-sm flex items-center justify-center">
+                <ArrowUpRight className="w-4 h-4 text-foreground" />
+              </div>
+            </div>
           </div>
-        </CardContent>
-      </Card>
-    </Link>
+
+          <CardContent className="p-5">
+            <h3 className="text-base font-serif font-semibold text-foreground mb-1.5 line-clamp-1 group-hover:text-primary transition-colors duration-200">
+              {project.title}
+            </h3>
+            <p className="text-muted-foreground text-sm line-clamp-2 mb-4 leading-relaxed">
+              {project.description}
+            </p>
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium text-foreground/80">
+                ${project.budget_min.toLocaleString()} – ${project.budget_max.toLocaleString()}
+              </span>
+              {offerCount > 0 && (
+                <span className="inline-flex items-center gap-1 text-sm font-semibold text-primary">
+                  <MessageSquare className="w-3.5 h-3.5" />
+                  {offerCount} offer{offerCount > 1 ? 's' : ''}
+                </span>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      </Link>
+
+      {/* Action Menu — positioned over card, stops link propagation */}
+      {(canEdit || canDelete) && (
+        <div className="absolute top-3 right-3 z-10" onClick={(e) => e.preventDefault()}>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button className="w-8 h-8 rounded-full bg-white/90 backdrop-blur-sm shadow-sm flex items-center justify-center hover:bg-white transition-colors opacity-0 group-hover:opacity-100">
+                <MoreHorizontal className="w-4 h-4 text-foreground" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-40">
+              {canEdit && (
+                <DropdownMenuItem onClick={() => onEdit(project.id)} className="gap-2 cursor-pointer">
+                  <Pencil className="w-4 h-4" />
+                  Edit Project
+                </DropdownMenuItem>
+              )}
+              {canDelete && (
+                <DropdownMenuItem
+                  onClick={() => onDelete(project.id, project.title)}
+                  className="gap-2 cursor-pointer text-destructive focus:text-destructive focus:bg-destructive/10"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  Delete Project
+                </DropdownMenuItem>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -174,11 +229,26 @@ function EmptyState() {
 // MAIN
 // ═════════════════════════════════════════════════════════════
 const CustomerDashboard = () => {
+  const navigate = useNavigate();
   const { user } = useAuth();
-  const { projects, loading } = useProjects();
+  const { projects, loading, deleteProject } = useProjects();
   const { offerCounts } = useOffersForProjects(projects.map((p) => p.id));
 
   const [activeFilter, setActiveFilter] = useState('all');
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; title: string } | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
+  const handleEdit = (id: string) => {
+    navigate(`/project/${id}`);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    await deleteProject(deleteTarget.id);
+    setDeleting(false);
+    setDeleteTarget(null);
+  };
 
   // Metrics
   const metrics = useMemo(() => {
@@ -324,6 +394,8 @@ const CustomerDashboard = () => {
                     key={project.id}
                     project={project}
                     offerCount={offerCounts[project.id] || 0}
+                    onEdit={handleEdit}
+                    onDelete={(id, title) => setDeleteTarget({ id, title })}
                   />
                 ))}
               </div>
@@ -344,6 +416,35 @@ const CustomerDashboard = () => {
         {/* ─── Empty State ─── */}
         {!loading && projects.length === 0 && <EmptyState />}
       </main>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete project?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will delete "<strong>{deleteTarget?.title}</strong>". This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteConfirm}
+              disabled={deleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleting ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                  Deleting...
+                </>
+              ) : (
+                'Delete'
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </AppLayout>
   );
 };

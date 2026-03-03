@@ -18,6 +18,7 @@ import BusinessOffersSent from "./pages/BusinessOffersSent";
 import BrowseBusinesses from "./pages/BrowseBusinesses";
 import BusinessProfilePage from "./pages/BusinessProfilePage";
 import ProfilePage from "./pages/ProfilePage";
+import AuthenticatedHome from "./pages/AuthenticatedHome";
 import NotFound from "./pages/NotFound";
 import { Loader2 } from "lucide-react";
 
@@ -36,7 +37,7 @@ function HomeRoute() {
   }
 
   if (user) {
-    return <Navigate to={role === "business" ? "/business" : "/dashboard"} replace />;
+    return <Navigate to="/home" replace />;
   }
 
   return <LandingPage />;
@@ -53,6 +54,11 @@ const App = () => (
             {/* Public routes */}
             <Route path="/" element={<HomeRoute />} />
             <Route path="/auth" element={<AuthPage />} />
+            <Route path="/home" element={
+              <ProtectedRoute>
+                <AuthenticatedHome />
+              </ProtectedRoute>
+            } />
 
             {/* Customer routes */}
             <Route path="/dashboard" element={

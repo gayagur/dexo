@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/hooks/useAuth";
+import { timed } from "@/lib/timing";
 import type { Project } from "@/lib/database.types";
 
 export function useProjects() {
@@ -15,11 +16,14 @@ export function useProjects() {
       return;
     }
     setLoading(true);
-    const { data, error } = await supabase
-      .from("projects")
-      .select("*")
-      .eq("customer_id", user.id)
-      .order("created_at", { ascending: false });
+    const { data, error } = await timed("useProjects.fetch", () =>
+      supabase
+        .from("projects")
+        .select("*")
+        .eq("customer_id", user.id)
+        .order("created_at", { ascending: false })
+        .limit(50)
+    );
 
     if (error) {
       console.error("[useProjects] fetchMyProjects error:", error.message, error.details, error.hint);
@@ -115,5 +119,19 @@ export function useProjects() {
     }
   };
 
-  return { projects, loading, fetchMyProjects, createProject, updateProject };
+  const deleteProject = async (id: string): Promise<{ error: string | null }> => {
+    const { error } = await supabase
+      .from("projects")
+      .update({ deleted_at: new Date().toISOString() })
+      .eq("id", id);
+
+    if (error) {
+      console.error("[useProjects] deleteProject error:", error.message);
+      return { error: error.message };
+    }
+    setProjects((prev) => prev.filter((p) => p.id !== id));
+    return { error: null };
+  };
+
+  return { projects, loading, fetchMyProjects, createProject, updateProject, deleteProject };
 }
