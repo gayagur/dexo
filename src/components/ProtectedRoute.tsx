@@ -24,6 +24,15 @@ export const ProtectedRoute = ({ children, requiredRole }: ProtectedRouteProps) 
     return <Navigate to="/" replace />;
   }
 
+  // Role required but not yet resolved — show spinner while it loads
+  if (requiredRole && !role) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+      </div>
+    );
+  }
+
   // Role mismatch — redirect to correct dashboard
   if (requiredRole && role && role !== requiredRole) {
     return <Navigate to={role === "business" ? "/business" : "/dashboard"} replace />;

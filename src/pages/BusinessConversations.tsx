@@ -69,11 +69,18 @@ const BusinessConversations = () => {
       const msgs = (msgData as Message[]) ?? [];
       const projs = (projData as Project[]) ?? [];
 
-      // Only include projects that have messages
+      // Build a Map of project_id → messages[] for O(n+m) instead of O(n*m)
+      const msgsByProject = new Map<string, Message[]>();
+      for (const m of msgs) {
+        const arr = msgsByProject.get(m.project_id);
+        if (arr) arr.push(m);
+        else msgsByProject.set(m.project_id, [m]);
+      }
+
       const items: ConversationItem[] = [];
       for (const proj of projs) {
-        const projMsgs = msgs.filter(m => m.project_id === proj.id);
-        if (projMsgs.length > 0) {
+        const projMsgs = msgsByProject.get(proj.id);
+        if (projMsgs && projMsgs.length > 0) {
           items.push({
             project: proj,
             messages: projMsgs,

@@ -57,9 +57,9 @@ const AuthPage = () => {
     }, 1000);
   };
 
-  // If already logged in, redirect to dashboard
+  // If already logged in, redirect to home
   if (!authLoading && user && role) {
-    return <Navigate to={role === 'business' ? '/business' : '/dashboard'} replace />;
+    return <Navigate to="/home" replace />;
   }
 
   const clearFieldError = (field: string) => {
@@ -177,7 +177,7 @@ const AuthPage = () => {
           title: "Welcome to DEXO!",
           description: "Your account has been created.",
         });
-        navigate(selectedRole === 'customer' ? '/dashboard' : '/business');
+        navigate('/home');
       } else {
         const result = await signIn(formData.email, formData.password, selectedRole!);
         if (result.error) {
@@ -185,7 +185,7 @@ const AuthPage = () => {
           return;
         }
 
-        // Role mismatch: user picked wrong role, redirect to their actual dashboard
+        // Role mismatch: user picked wrong role
         if (result.roleMismatch) {
           const actual = result.roleMismatch.actualRole;
           const label = actual === 'business' ? 'Creator' : 'Customer';
@@ -193,7 +193,7 @@ const AuthPage = () => {
             title: `This account is registered as a ${label}`,
             description: "Switching you to the right dashboard.",
           });
-          navigate(actual === 'business' ? '/business' : '/dashboard');
+          navigate('/home');
           return;
         }
 
@@ -201,7 +201,7 @@ const AuthPage = () => {
           title: "Welcome back!",
           description: "Redirecting you to your dashboard...",
         });
-        navigate(selectedRole === 'customer' ? '/dashboard' : '/business');
+        navigate('/home');
       }
     } catch {
       toast({

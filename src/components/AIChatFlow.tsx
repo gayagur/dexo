@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, memo, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/useAuth';
@@ -51,26 +51,44 @@ const BRIEF_FIELDS = [
   { key: 'specialRequirements', pattern: /\*\*Special Requirements:\*\*\s*(.+)/i },
 ] as const;
 
-function parseBrief(text: string): InternalBriefData | null {
+interface ParseBriefResult {
+  brief: InternalBriefData | null;
+  missingRequired: string[];
+}
+
+function parseBrief(text: string): ParseBriefResult {
   if (!text.includes('Your design brief is ready') && !text.includes('**Project Title:**')) {
-    return null;
+    return { brief: null, missingRequired: [] };
   }
   const data: Record<string, string> = {};
   for (const { key, pattern } of BRIEF_FIELDS) {
     const match = text.match(pattern);
     if (match) data[key] = match[1].trim();
   }
-  if (!data.title || !data.category || !data.description) return null;
+
+  // Track which required fields are missing
+  const missingRequired: string[] = [];
+  if (!data.title) missingRequired.push('title');
+  if (!data.category) missingRequired.push('category');
+  if (!data.description) missingRequired.push('description');
+
+  if (missingRequired.length > 0) {
+    return { brief: null, missingRequired };
+  }
+
   return {
-    title: data.title,
-    category: data.category,
-    description: data.description,
-    style: data.style || '',
-    budget: data.budget || 'To be discussed',
-    materials: data.materials || 'To be discussed',
-    dimensions: data.dimensions || 'To be discussed',
-    timeline: data.timeline || 'Flexible',
-    specialRequirements: data.specialRequirements || 'None',
+    brief: {
+      title: data.title,
+      category: data.category,
+      description: data.description,
+      style: data.style || '',
+      budget: data.budget || 'To be discussed',
+      materials: data.materials || 'To be discussed',
+      dimensions: data.dimensions || 'To be discussed',
+      timeline: data.timeline || 'Flexible',
+      specialRequirements: data.specialRequirements || 'None',
+    },
+    missingRequired: [],
   };
 }
 
@@ -159,6 +177,12 @@ const SUGGESTIONS = [
   'Leather messenger bag 👜',
 ];
 
+// ─── Memoized Markdown Renderer ──────────────────────────────
+const MemoMarkdown = memo(function MemoMarkdown({ text }: { text: string }) {
+  const rendered = useMemo(() => <ReactMarkdown>{text}</ReactMarkdown>, [text]);
+  return rendered;
+});
+
 // ═════════════════════════════════════════════════════════════
 // MAIN COMPONENT
 // ═════════════════════════════════════════════════════════════
@@ -200,6 +224,8 @@ export default function AIChatFlow() {
   const abortRef = useRef<AbortController | null>(null);
   // LLM message history
   const llmMessagesRef = useRef<ChatMessage[]>([]);
+  // Debounce timer for streaming content
+  const streamDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -269,27 +295,52 @@ export default function AIChatFlow() {
     const controller = streamChat(
       llmMessagesRef.current,
       null,
-      // onChunk
+      // onChunk — debounce React state updates to ~50ms batches
       (chunk) => {
         assistantSoFar += chunk;
-        setStreamingContent(assistantSoFar);
+        if (!streamDebounceRef.current) {
+          streamDebounceRef.current = setTimeout(() => {
+            setStreamingContent(assistantSoFar);
+            streamDebounceRef.current = null;
+          }, 50);
+        }
       },
       // onDone
       (fullText) => {
+        if (streamDebounceRef.current) { clearTimeout(streamDebounceRef.current); streamDebounceRef.current = null; }
         setIsLoading(false);
         setStreamingContent('');
-        setMessages(prev => [...prev, { role: 'ai', text: fullText }]);
-        llmMessagesRef.current.push({ role: 'assistant', content: fullText });
+
+        // Detect unhelpful "I don't know" style responses
+        const unhelpfulPattern = /\b(i don'?t know|i'?m not sure|i can'?t help|i'?m unable|outside my|beyond my)\b/i;
+        const isUnhelpful = unhelpfulPattern.test(fullText) && fullText.length < 200;
+
+        if (isUnhelpful) {
+          // Replace with a redirect message
+          const redirect = "Let me help you with your design! Could you describe what kind of custom product you'd like to create? For example: jewelry, furniture, a cake, fashion piece, or anything else you have in mind.";
+          setMessages(prev => [...prev, { role: 'ai', text: redirect }]);
+          llmMessagesRef.current.push({ role: 'assistant', content: redirect });
+        } else {
+          setMessages(prev => [...prev, { role: 'ai', text: fullText }]);
+          llmMessagesRef.current.push({ role: 'assistant', content: fullText });
+        }
 
         // Check if AI produced a brief
-        const parsed = parseBrief(fullText);
+        const { brief: parsed, missingRequired } = parseBrief(fullText);
         if (parsed) {
           setBriefData(parsed);
           setPhase('brief');
+        } else if (missingRequired.length > 0) {
+          // AI tried to create a brief but fields are missing — ask for them
+          const missing = missingRequired.join(', ');
+          const retryMsg = `I noticed the brief is missing some details (${missing}). Could you help me fill those in? Let's make sure everything is perfect.`;
+          setMessages(prev => [...prev, { role: 'ai', text: retryMsg }]);
+          llmMessagesRef.current.push({ role: 'assistant', content: retryMsg });
         }
       },
       // onError
       (errMsg) => {
+        if (streamDebounceRef.current) { clearTimeout(streamDebounceRef.current); streamDebounceRef.current = null; }
         setIsLoading(false);
         setStreamingContent('');
         toast({ title: 'AI error', description: errMsg, variant: 'destructive' });
@@ -472,6 +523,25 @@ export default function AIChatFlow() {
     }]);
   }, [briefData]);
 
+  /** Direct update from sidebar inline input — no chat message, just update state */
+  const handleDirectFieldUpdate = useCallback((field: string, value: string) => {
+    if (!briefData) return;
+
+    const internalKeyMap: Record<string, keyof InternalBriefData> = {
+      category: 'category',
+      style_tags: 'style',
+      budget: 'budget',
+      size: 'dimensions',
+      materials: 'materials',
+      timeline: 'timeline',
+    };
+
+    const internalKey = internalKeyMap[field];
+    if (internalKey) {
+      setBriefData(prev => prev ? { ...prev, [internalKey]: value } : prev);
+    }
+  }, [briefData]);
+
   // ─── Submit Project ───────────────────────────────────────
   const handleSubmit = useCallback(async () => {
     if (!user || !briefData) {
@@ -557,6 +627,7 @@ export default function AIChatFlow() {
         editingField={editingField}
         phase={phase}
         onEditField={handleEditField}
+        onDirectUpdate={briefData ? handleDirectFieldUpdate : undefined}
       />
 
       {/* Main Chat Area */}
@@ -625,13 +696,13 @@ export default function AIChatFlow() {
                     msg.text
                   ) : (
                     <div className="prose prose-sm prose-stone max-w-none [&>p]:mb-2 [&>p:last-child]:mb-0 [&>ul]:mb-2 [&>h1]:text-base [&>h2]:text-sm [&>h3]:text-sm [&>strong]:text-[#1B2432]">
-                      <ReactMarkdown>{msg.text}</ReactMarkdown>
+                      <MemoMarkdown text={msg.text} />
                     </div>
                   )}
                   {msg.images && msg.images.length > 0 && (
                     <div className="grid grid-cols-2 gap-1.5 mt-2">
                       {msg.images.map((url, j) => (
-                        <img key={j} src={url} alt="" className="rounded-lg w-full h-24 object-cover" />
+                        <img key={j} src={url} alt="" loading="lazy" className="rounded-lg w-full h-24 object-cover" />
                       ))}
                     </div>
                   )}

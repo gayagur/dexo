@@ -1,3 +1,4 @@
+import { memo, useMemo } from "react";
 import ReactMarkdown from "react-markdown";
 import { motion } from "framer-motion";
 import type { DisplayMessage } from "./types";
@@ -6,8 +7,15 @@ interface ChatMessageBubbleProps {
   message: DisplayMessage;
 }
 
-export function ChatMessageBubble({ message }: ChatMessageBubbleProps) {
+export const ChatMessageBubble = memo(function ChatMessageBubble({
+  message,
+}: ChatMessageBubbleProps) {
   const isUser = message.role === "user";
+
+  const renderedMarkdown = useMemo(
+    () => <ReactMarkdown>{message.text}</ReactMarkdown>,
+    [message.text]
+  );
 
   return (
     <motion.div
@@ -27,7 +35,7 @@ export function ChatMessageBubble({ message }: ChatMessageBubbleProps) {
           message.text
         ) : (
           <div className="prose prose-sm prose-stone max-w-none [&>p]:mb-2 [&>p:last-child]:mb-0 [&>ul]:mb-2 [&>h1]:text-base [&>h2]:text-sm [&>h3]:text-sm [&>strong]:text-[#1B2432]">
-            <ReactMarkdown>{message.text}</ReactMarkdown>
+            {renderedMarkdown}
           </div>
         )}
         {message.images && message.images.length > 0 && (
@@ -37,6 +45,7 @@ export function ChatMessageBubble({ message }: ChatMessageBubbleProps) {
                 key={imgIdx}
                 src={url}
                 alt=""
+                loading="lazy"
                 className="rounded-lg w-full h-24 object-cover"
               />
             ))}
@@ -45,10 +54,11 @@ export function ChatMessageBubble({ message }: ChatMessageBubbleProps) {
       </div>
     </motion.div>
   );
-}
+});
 
 /**
  * Streaming message bubble — shows partial content as it arrives.
+ * Not memoized since content changes on every chunk (after debounce).
  */
 export function StreamingBubble({ content }: { content: string }) {
   return (

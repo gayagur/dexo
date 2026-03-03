@@ -165,16 +165,27 @@ export async function editImage(
   versionId: string | null,
   projectId: string | null
 ): Promise<EditResult> {
-  try {
+  const doRequest = async (inst: string) => {
     const headers = await getAuthHeaders();
     const response = await fetch(`${FUNCTIONS_URL}/edit-image`, {
       method: "POST",
       headers,
-      body: JSON.stringify({ imageUrl, instruction, versionId, projectId: projectId || undefined }),
+      body: JSON.stringify({ imageUrl, instruction: inst, versionId, projectId: projectId || undefined }),
     });
     const data = await response.json();
     if (!response.ok) return { error: data.error || "Image editing failed" };
-    return data;
+    return data as EditResult;
+  };
+
+  try {
+    const result = await doRequest(instruction);
+    // On 502-level errors, retry once with simplified instruction
+    if (result.error && !result.error.includes("limit")) {
+      const simplified = `Simple edit: ${instruction.slice(0, 80)}`;
+      const retry = await doRequest(simplified);
+      if (!retry.error) return retry;
+    }
+    return result;
   } catch (err) {
     return { error: (err as Error).message };
   }

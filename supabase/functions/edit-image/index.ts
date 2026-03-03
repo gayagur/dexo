@@ -98,8 +98,14 @@ Deno.serve(async (req) => {
     if (!response.ok) {
       const errText = await response.text();
       console.error("Together AI edit error:", errText);
+      // Parse specific error for client-friendly message
+      let errMsg = "Image editing failed";
+      try {
+        const errJson = JSON.parse(errText);
+        if (errJson.error?.message) errMsg = errJson.error.message;
+      } catch { /* use default */ }
       return new Response(
-        JSON.stringify({ error: "Image editing failed" }),
+        JSON.stringify({ error: errMsg }),
         { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }

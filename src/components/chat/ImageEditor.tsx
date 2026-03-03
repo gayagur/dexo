@@ -47,8 +47,9 @@ export function ImageEditor({
 
     if (result.error) {
       setError(result.error);
-    } else if (result.url && result.versionId) {
-      onNewVersion(result.url, result.versionId);
+    } else if (result.url) {
+      // versionId may be null in draft phase (no projectId) — use a local ID
+      onNewVersion(result.url, result.versionId ?? `local-${Date.now()}`);
       setInstruction("");
     }
   };
@@ -100,7 +101,7 @@ export function ImageEditor({
         <textarea
           value={instruction}
           onChange={(e) => setInstruction(e.target.value)}
-          placeholder="e.g., Make the background warmer, add a wooden texture..."
+          placeholder="e.g., Make the background warmer, change the left side to blue, add gold accents to the edges..."
           disabled={isEditing || editCount >= maxEdits}
           className="w-full px-4 py-3 rounded-xl border border-[#C05621]/10 bg-white text-[#1B2432]
                      placeholder:text-[#4A5568]/50 focus:outline-none focus:ring-2 focus:ring-[#C05621]/30
@@ -110,7 +111,10 @@ export function ImageEditor({
       </div>
 
       {error && (
-        <p className="text-sm text-red-600">{error}</p>
+        <div className="px-3 py-2 rounded-lg bg-red-50 border border-red-200">
+          <p className="text-sm text-red-600">{error}</p>
+          <p className="text-xs text-red-500 mt-1">Try rephrasing your instruction or use a simpler edit.</p>
+        </div>
       )}
 
       {/* Actions */}
