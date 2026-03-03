@@ -252,10 +252,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signInWithGoogle = useCallback(async (): Promise<{ error: string | null }> => {
     try {
+      // Use current origin so it works on any deployment (localhost, dexo.info, preview deploys)
+      const origin = window.location.origin;
+
+      // Safety: never redirect to localhost in production
+      if (origin.includes("localhost") && import.meta.env.PROD) {
+        console.error("OAuth blocked: localhost detected in production build");
+        return { error: "Configuration error. Please contact support." };
+      }
+
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
-          redirectTo: window.location.origin + "/auth",
+          redirectTo: `${origin}/auth`,
         },
       });
       if (error) return { error: error.message };
