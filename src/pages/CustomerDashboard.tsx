@@ -24,9 +24,8 @@ import { useOffersForProjects } from '@/hooks/useOffers';
 import { AppLayout } from '@/components/app/AppLayout';
 import type { ProjectStatus } from '@/lib/database.types';
 import {
-  Plus, MessageSquare, ArrowRight, Search, Loader2,
-  Sparkles, Palette, ArrowUpRight, FolderOpen, Zap, Inbox,
-  MoreHorizontal, Pencil, Trash2,
+  Plus, MessageSquare, ArrowRight, Loader2,
+  Palette, ArrowUpRight, MoreHorizontal, Pencil, Trash2,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -99,27 +98,16 @@ function isActiveStatus(status: string): boolean {
 }
 
 // ─── Metric Card ────────────────────────────────────────────
-function MetricCard({ icon: Icon, label, value, accent = false, gradient, iconColor }: {
-  icon: typeof FolderOpen;
+function MetricCard({ label, value }: {
   label: string;
   value: number;
-  accent?: boolean;
-  gradient?: string;
-  iconColor?: string;
 }) {
   return (
     <motion.div whileHover={{ y: -2 }} transition={{ duration: 0.2 }}>
       <Card className="rounded-2xl overflow-hidden">
-        <CardContent className="flex items-center gap-3 px-4 py-3">
-          <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
-            gradient || (accent ? 'bg-primary/10' : 'bg-muted/70')
-          }`}>
-            <Icon className={`w-4.5 h-4.5 ${iconColor || (accent ? 'text-primary' : 'text-muted-foreground')}`} />
-          </div>
-          <div>
-            <div className="text-2xl font-serif font-normal text-foreground leading-none">{value}</div>
-            <div className="text-xs text-muted-foreground mt-0.5">{label}</div>
-          </div>
+        <CardContent className="p-5">
+          <div className="text-3xl font-serif text-foreground leading-none">{value}</div>
+          <div className="text-xs text-muted-foreground mt-1.5 tracking-wide uppercase">{label}</div>
         </CardContent>
       </Card>
     </motion.div>
@@ -281,13 +269,6 @@ function EmptyState() {
     >
       <Card className="max-w-lg mx-auto border-dashed border-2 border-primary/15 bg-gradient-to-br from-primary/[0.02] to-accent/[0.02] rounded-2xl">
         <CardContent className="p-10 text-center">
-          <motion.div
-            animate={{ scale: [1, 1.1, 1], rotate: [0, 5, -5, 0] }}
-            transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
-            className="w-20 h-20 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-6 shadow-sm"
-          >
-            <Sparkles className="w-9 h-9 text-primary" />
-          </motion.div>
           <h3 className="text-2xl font-serif mb-3 text-foreground">
             Your creative journey starts here
           </h3>
@@ -429,33 +410,13 @@ const CustomerDashboard = () => {
                 className="grid grid-cols-3 gap-3 mb-6"
               >
                 <motion.div variants={staggerItem}>
-                  <MetricCard
-                    icon={FolderOpen}
-                    label="Total projects"
-                    value={animTotal}
-                    gradient="bg-gradient-to-br from-blue-500/10 to-blue-500/5"
-                    iconColor="text-blue-600"
-                  />
+                  <MetricCard label="Total projects" value={animTotal} />
                 </motion.div>
                 <motion.div variants={staggerItem}>
-                  <MetricCard
-                    icon={Zap}
-                    label="Active"
-                    value={animActive}
-                    accent
-                    gradient="bg-gradient-to-br from-amber-500/10 to-amber-500/5"
-                    iconColor="text-amber-600"
-                  />
+                  <MetricCard label="Active" value={animActive} />
                 </motion.div>
                 <motion.div variants={staggerItem}>
-                  <MetricCard
-                    icon={Inbox}
-                    label="Awaiting review"
-                    value={animOffers}
-                    accent={metrics.withOffers > 0}
-                    gradient="bg-gradient-to-br from-green-500/10 to-green-500/5"
-                    iconColor="text-green-600"
-                  />
+                  <MetricCard label="Awaiting review" value={animOffers} />
                 </motion.div>
               </motion.div>
             )}
@@ -472,18 +433,13 @@ const CustomerDashboard = () => {
                   <motion.div whileHover={{ y: -3 }} transition={{ duration: 0.25 }}>
                     <Card className="h-full border-primary/15 bg-gradient-to-br from-primary/[0.04] to-primary/[0.01] hover:border-primary/30 hover:shadow-md rounded-2xl transition-all duration-300 cursor-pointer">
                       <CardContent className="p-5 flex items-center justify-between">
-                        <div className="flex items-center gap-4">
-                          <div className="w-11 h-11 rounded-xl bg-primary/10 flex items-center justify-center group-hover:bg-primary/15 transition-colors shrink-0">
-                            <Plus className="w-5 h-5 text-primary" />
-                          </div>
-                          <div>
-                            <h2 className="text-base font-medium text-foreground mb-0.5">
-                              Start a new project
-                            </h2>
-                            <p className="text-sm text-muted-foreground">
-                              Describe your idea and get matched
-                            </p>
-                          </div>
+                        <div>
+                          <h2 className="text-base font-medium text-foreground mb-0.5">
+                            Start a new project
+                          </h2>
+                          <p className="text-sm text-muted-foreground">
+                            Describe your idea and get matched
+                          </p>
                         </div>
                         <ArrowRight className="w-5 h-5 text-primary/40 group-hover:text-primary group-hover:translate-x-0.5 transition-all shrink-0" />
                       </CardContent>
@@ -497,18 +453,13 @@ const CustomerDashboard = () => {
                   <motion.div whileHover={{ y: -3 }} transition={{ duration: 0.25 }}>
                     <Card className="h-full border-accent/15 bg-gradient-to-br from-accent/[0.04] to-accent/[0.01] hover:border-accent/30 hover:shadow-md rounded-2xl transition-all duration-300 cursor-pointer">
                       <CardContent className="p-5 flex items-center justify-between">
-                        <div className="flex items-center gap-4">
-                          <div className="w-11 h-11 rounded-xl bg-accent/10 flex items-center justify-center group-hover:bg-accent/15 transition-colors shrink-0">
-                            <Search className="w-5 h-5 text-accent-foreground" />
-                          </div>
-                          <div>
-                            <h2 className="text-base font-medium text-foreground mb-0.5">
-                              Find creators
-                            </h2>
-                            <p className="text-sm text-muted-foreground">
-                              Browse talented artisans and studios
-                            </p>
-                          </div>
+                        <div>
+                          <h2 className="text-base font-medium text-foreground mb-0.5">
+                            Find creators
+                          </h2>
+                          <p className="text-sm text-muted-foreground">
+                            Browse talented artisans and studios
+                          </p>
                         </div>
                         <ArrowRight className="w-5 h-5 text-accent-foreground/40 group-hover:text-accent-foreground group-hover:translate-x-0.5 transition-all shrink-0" />
                       </CardContent>

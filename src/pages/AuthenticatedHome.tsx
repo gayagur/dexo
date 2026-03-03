@@ -10,9 +10,7 @@ import { useOffersForProjects } from '@/hooks/useOffers';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import {
-  ArrowRight, Plus, Sparkles, FolderOpen, Send, MessageSquare,
-  Loader2, Search, Lightbulb, CheckCircle2, Circle,
-  Palette, Users, Star, Clock,
+  ArrowRight, Plus, Loader2, CheckCircle2, Circle, Palette,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -118,15 +116,15 @@ const statusProgress: Record<string, number> = {
 
 // ─── Steps ───────────────────────────────────────────────
 const customerSteps = [
-  { icon: Palette, title: 'Describe', desc: 'Tell AI about your dream product' },
-  { icon: Users, title: 'Receive Offers', desc: 'Creators send you proposals' },
-  { icon: Star, title: 'Collaborate', desc: 'Work with your chosen creator' },
+  { num: '01', title: 'Describe', desc: 'Tell AI about your dream product' },
+  { num: '02', title: 'Receive Offers', desc: 'Creators send you proposals' },
+  { num: '03', title: 'Collaborate', desc: 'Work with your chosen creator' },
 ];
 
 const creatorSteps = [
-  { icon: Search, title: 'Discover', desc: 'Browse matched project briefs' },
-  { icon: Send, title: 'Send Offers', desc: 'Submit your price and timeline' },
-  { icon: Star, title: 'Deliver', desc: 'Create and build your reputation' },
+  { num: '01', title: 'Discover', desc: 'Browse matched project briefs' },
+  { num: '02', title: 'Send Offers', desc: 'Submit your price and timeline' },
+  { num: '03', title: 'Deliver', desc: 'Create and build your reputation' },
 ];
 
 // ─── Tips ────────────────────────────────────────────────
@@ -441,14 +439,8 @@ function CustomerHome({ firstName }: { firstName: string }) {
                         <motion.div whileHover={{ y: -4 }} transition={{ duration: 0.25 }}>
                           <Card className="overflow-hidden h-full border-dashed rounded-2xl hover:border-primary/30 hover:shadow-md transition-all duration-300 group cursor-pointer">
                             <CardContent className="p-4 flex flex-col items-center justify-center text-center min-h-[220px]">
-                              <motion.div
-                                whileHover={{ scale: 1.1, rotate: 90 }}
-                                transition={{ duration: 0.3 }}
-                                className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center mb-3"
-                              >
-                                <Plus className="w-6 h-6 text-primary" />
-                              </motion.div>
-                              <h3 className="font-serif font-normal text-foreground">Start new project</h3>
+                              <span className="text-3xl text-primary/30 mb-2">+</span>
+                              <h3 className="font-serif text-foreground">Start new project</h3>
                               <p className="text-xs text-muted-foreground mt-1">Describe your idea to AI</p>
                             </CardContent>
                           </Card>
@@ -466,13 +458,6 @@ function CustomerHome({ firstName }: { firstName: string }) {
                   >
                     <Card className="border-dashed rounded-2xl">
                       <CardContent className="p-10 text-center">
-                        <motion.div
-                          animate={{ scale: [1, 1.1, 1], rotate: [0, 5, -5, 0] }}
-                          transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
-                          className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-5"
-                        >
-                          <Sparkles className="w-8 h-8 text-primary" />
-                        </motion.div>
                         <h3 className="font-serif text-xl mb-2">
                           Your creative journey starts here
                         </h3>
@@ -505,32 +490,26 @@ function CustomerHome({ firstName }: { firstName: string }) {
               >
                 <Card className="rounded-2xl">
                   <CardContent className="p-5">
-                    <h3 className="font-serif font-normal text-foreground mb-5">
-                      How DEXO works for you
+                    <h3 className="text-sm font-medium text-foreground mb-5 tracking-wide uppercase">
+                      How DEXO works
                     </h3>
-                    <div className="relative">
-                      {/* Connecting line */}
-                      <div className="absolute left-4 top-4 bottom-4 w-px bg-gradient-to-b from-primary/20 via-primary/10 to-transparent" />
-                      <div className="space-y-5">
-                        {customerSteps.map((step, i) => (
-                          <motion.div
-                            key={i}
-                            variants={slideInRight}
-                            custom={i * 0.1}
-                            whileHover={{ scale: 1.02, x: 4 }}
-                            transition={{ duration: 0.2 }}
-                            className="flex items-start gap-3 relative cursor-default"
-                          >
-                            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary/15 to-primary/5 flex items-center justify-center shrink-0 mt-0.5 z-10">
-                              <step.icon className="w-4 h-4 text-primary" />
-                            </div>
-                            <div>
-                              <div className="text-sm text-foreground">{step.title}</div>
-                              <div className="text-xs text-muted-foreground">{step.desc}</div>
-                            </div>
-                          </motion.div>
-                        ))}
-                      </div>
+                    <div className="space-y-5">
+                      {customerSteps.map((step, i) => (
+                        <motion.div
+                          key={i}
+                          variants={slideInRight}
+                          custom={i * 0.1}
+                          whileHover={{ x: 4 }}
+                          transition={{ duration: 0.2 }}
+                          className="flex items-start gap-3 cursor-default"
+                        >
+                          <span className="text-xs text-primary/60 font-medium mt-0.5 shrink-0">{step.num}</span>
+                          <div>
+                            <div className="text-sm text-foreground">{step.title}</div>
+                            <div className="text-xs text-muted-foreground">{step.desc}</div>
+                          </div>
+                        </motion.div>
+                      ))}
                     </div>
                   </CardContent>
                 </Card>
@@ -546,16 +525,7 @@ function CustomerHome({ firstName }: { firstName: string }) {
               >
                 <Card className="bg-primary/[0.03] border-primary/10 rounded-2xl">
                   <CardContent className="p-5">
-                    <div className="flex items-center gap-2 mb-3">
-                      <motion.div
-                        animate={{ boxShadow: ['0 0 0 0 hsl(20 70% 44% / 0)', '0 0 12px 2px hsl(20 70% 44% / 0.2)', '0 0 0 0 hsl(20 70% 44% / 0)'] }}
-                        transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
-                        className="rounded-full"
-                      >
-                        <Lightbulb className="w-4 h-4 text-primary" />
-                      </motion.div>
-                      <h3 className="text-sm font-medium text-foreground">Quick Tip</h3>
-                    </div>
+                    <h3 className="text-xs font-medium text-primary/70 mb-2 tracking-wide uppercase">Tip</h3>
                     <RotatingTip tips={customerTips} />
                   </CardContent>
                 </Card>
@@ -680,21 +650,16 @@ function CreatorHome({ firstName }: { firstName: string }) {
                 className="grid sm:grid-cols-3 gap-4"
               >
                 {[
-                  { icon: FolderOpen, label: 'Matched Projects', value: animMatched, gradient: 'from-blue-500/10 to-blue-500/5', iconColor: 'text-blue-600' },
-                  { icon: Clock, label: 'Pending Offers', value: animPending, gradient: 'from-amber-500/10 to-amber-500/5', iconColor: 'text-amber-600' },
-                  { icon: MessageSquare, label: 'Active Jobs', value: animActive, gradient: 'from-green-500/10 to-green-500/5', iconColor: 'text-green-600' },
+                  { label: 'Matched Projects', value: animMatched },
+                  { label: 'Pending Offers', value: animPending },
+                  { label: 'Active Jobs', value: animActive },
                 ].map((stat) => (
                   <motion.div key={stat.label} variants={staggerItem}>
                     <motion.div whileHover={{ y: -2 }} transition={{ duration: 0.2 }}>
                       <Card className="rounded-2xl overflow-hidden">
-                        <CardContent className="p-4 flex items-center gap-4">
-                          <div className={`w-11 h-11 rounded-xl bg-gradient-to-br ${stat.gradient} flex items-center justify-center shrink-0`}>
-                            <stat.icon className={`w-5 h-5 ${stat.iconColor}`} />
-                          </div>
-                          <div>
-                            <div className="text-2xl font-serif font-normal text-foreground">{stat.value}</div>
-                            <div className="text-xs text-muted-foreground">{stat.label}</div>
-                          </div>
+                        <CardContent className="p-5">
+                          <div className="text-3xl font-serif text-foreground">{stat.value}</div>
+                          <div className="text-xs text-muted-foreground mt-1 tracking-wide uppercase">{stat.label}</div>
                         </CardContent>
                       </Card>
                     </motion.div>
@@ -781,14 +746,7 @@ function CreatorHome({ firstName }: { firstName: string }) {
                   >
                     <Card className="border-dashed rounded-2xl">
                       <CardContent className="p-8 text-center">
-                        <motion.div
-                          animate={{ opacity: [0.5, 1, 0.5] }}
-                          transition={{ duration: 2.5, repeat: Infinity, ease: 'easeInOut' }}
-                          className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-3"
-                        >
-                          <FolderOpen className="w-6 h-6 text-primary" />
-                        </motion.div>
-                        <h3 className="font-serif font-normal mb-1.5">Creators are reviewing your profile</h3>
+                        <h3 className="font-serif mb-1.5">No project requests yet</h3>
                         <p className="text-sm text-muted-foreground max-w-xs mx-auto">
                           {business
                             ? 'New projects matching your categories will appear here.'
@@ -832,9 +790,6 @@ function CreatorHome({ firstName }: { firstName: string }) {
                     >
                       <Card className="rounded-2xl cursor-pointer hover:shadow-md transition-shadow duration-300">
                         <CardContent className="p-5 flex items-center gap-4">
-                          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-green-500/10 to-green-500/5 flex items-center justify-center shrink-0">
-                            <MessageSquare className="w-5 h-5 text-green-600" />
-                          </div>
                           <div className="flex-1">
                             <h3 className="text-foreground">Active Conversations</h3>
                             <p className="text-sm text-muted-foreground">
@@ -861,32 +816,26 @@ function CreatorHome({ firstName }: { firstName: string }) {
               >
                 <Card className="rounded-2xl">
                   <CardContent className="p-5">
-                    <h3 className="font-serif font-normal text-foreground mb-5">
-                      How DEXO works for creators
+                    <h3 className="text-sm font-medium text-foreground mb-5 tracking-wide uppercase">
+                      How DEXO works
                     </h3>
-                    <div className="relative">
-                      {/* Connecting line */}
-                      <div className="absolute left-4 top-4 bottom-4 w-px bg-gradient-to-b from-primary/20 via-primary/10 to-transparent" />
-                      <div className="space-y-5">
-                        {creatorSteps.map((step, i) => (
-                          <motion.div
-                            key={i}
-                            variants={slideInRight}
-                            custom={i * 0.1}
-                            whileHover={{ scale: 1.02, x: 4 }}
-                            transition={{ duration: 0.2 }}
-                            className="flex items-start gap-3 relative cursor-default"
-                          >
-                            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary/15 to-primary/5 flex items-center justify-center shrink-0 mt-0.5 z-10">
-                              <step.icon className="w-4 h-4 text-primary" />
-                            </div>
-                            <div>
-                              <div className="text-sm text-foreground">{step.title}</div>
-                              <div className="text-xs text-muted-foreground">{step.desc}</div>
-                            </div>
-                          </motion.div>
-                        ))}
-                      </div>
+                    <div className="space-y-5">
+                      {creatorSteps.map((step, i) => (
+                        <motion.div
+                          key={i}
+                          variants={slideInRight}
+                          custom={i * 0.1}
+                          whileHover={{ x: 4 }}
+                          transition={{ duration: 0.2 }}
+                          className="flex items-start gap-3 cursor-default"
+                        >
+                          <span className="text-xs text-primary/60 font-medium mt-0.5 shrink-0">{step.num}</span>
+                          <div>
+                            <div className="text-sm text-foreground">{step.title}</div>
+                            <div className="text-xs text-muted-foreground">{step.desc}</div>
+                          </div>
+                        </motion.div>
+                      ))}
                     </div>
                   </CardContent>
                 </Card>
@@ -962,14 +911,7 @@ function CreatorHome({ firstName }: { firstName: string }) {
                 >
                   <Card className="border-dashed border-primary/20 bg-primary/[0.02] rounded-2xl">
                     <CardContent className="p-5 text-center">
-                      <motion.div
-                        animate={{ scale: [1, 1.1, 1], rotate: [0, 5, -5, 0] }}
-                        transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
-                        className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-3"
-                      >
-                        <Sparkles className="w-6 h-6 text-primary" />
-                      </motion.div>
-                      <h3 className="font-serif font-normal mb-1.5">Set up your creator profile</h3>
+                      <h3 className="font-serif mb-1.5">Set up your creator profile</h3>
                       <p className="text-xs text-muted-foreground mb-4">
                         Complete your profile to start receiving matched projects.
                       </p>
@@ -996,16 +938,7 @@ function CreatorHome({ firstName }: { firstName: string }) {
               >
                 <Card className="bg-primary/[0.03] border-primary/10 rounded-2xl">
                   <CardContent className="p-5">
-                    <div className="flex items-center gap-2 mb-3">
-                      <motion.div
-                        animate={{ boxShadow: ['0 0 0 0 hsl(20 70% 44% / 0)', '0 0 12px 2px hsl(20 70% 44% / 0.2)', '0 0 0 0 hsl(20 70% 44% / 0)'] }}
-                        transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
-                        className="rounded-full"
-                      >
-                        <Lightbulb className="w-4 h-4 text-primary" />
-                      </motion.div>
-                      <h3 className="text-sm font-medium text-foreground">Quick Tip</h3>
-                    </div>
+                    <h3 className="text-xs font-medium text-primary/70 mb-2 tracking-wide uppercase">Tip</h3>
                     <RotatingTip tips={creatorTips} />
                   </CardContent>
                 </Card>
