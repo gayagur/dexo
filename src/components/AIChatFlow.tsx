@@ -265,8 +265,11 @@ export default function AIChatFlow() {
     if (!isLoading) inputRef.current?.focus();
   }, [isLoading, phase]);
 
-  // Progress from conversation
-  const progress = extractProgress(messages);
+  // Progress overrides — stores manual edits made during chatting phase
+  const [progressOverrides, setProgressOverrides] = useState<Record<string, string>>({});
+
+  // Progress from conversation, merged with manual overrides
+  const progress = { ...extractProgress(messages), ...progressOverrides };
 
   // ─── Send Message ─────────────────────────────────────────
   const sendMessage = useCallback(async (text?: string) => {
@@ -542,8 +545,6 @@ export default function AIChatFlow() {
 
   /** Direct update from sidebar inline input — no chat message, just update state */
   const handleDirectFieldUpdate = useCallback((field: string, value: string) => {
-    if (!briefData) return;
-
     const internalKeyMap: Record<string, keyof InternalBriefData> = {
       category: 'category',
       style_tags: 'style',
@@ -553,9 +554,24 @@ export default function AIChatFlow() {
       timeline: 'timeline',
     };
 
-    const internalKey = internalKeyMap[field];
-    if (internalKey) {
-      setBriefData(prev => prev ? { ...prev, [internalKey]: value } : prev);
+    if (briefData) {
+      // Brief phase — update briefData directly
+      const internalKey = internalKeyMap[field];
+      if (internalKey) {
+        setBriefData(prev => prev ? { ...prev, [internalKey]: value } : prev);
+      }
+    } else {
+      // Chatting phase — update progress overrides (keys match extractProgress output)
+      const progressKeyMap: Record<string, string> = {
+        category: 'category',
+        style_tags: 'style',
+        budget: 'budget',
+        size: 'dimensions',
+        materials: 'materials',
+        timeline: 'timeline',
+      };
+      const progressKey = progressKeyMap[field] || field;
+      setProgressOverrides(prev => ({ ...prev, [progressKey]: value }));
     }
   }, [briefData]);
 
@@ -636,7 +652,7 @@ export default function AIChatFlow() {
   // RENDER
   // ═════════════════════════════════════════════════════════════
   return (
-    <div className="h-screen bg-[#FDFCF8] flex overflow-hidden">
+    <div className="fixed inset-0 bg-[#FDFCF8] flex overflow-hidden">
       {/* Progress Sidebar */}
       <ProgressSidebar
         items={PROGRESS_ITEMS}
@@ -644,7 +660,7 @@ export default function AIChatFlow() {
         editingField={editingField}
         phase={phase}
         onEditField={handleEditField}
-        onDirectUpdate={briefData ? handleDirectFieldUpdate : undefined}
+        onDirectUpdate={handleDirectFieldUpdate}
       />
 
       {/* Main Chat Area */}
