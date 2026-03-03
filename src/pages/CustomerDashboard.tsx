@@ -1,186 +1,350 @@
-import { Link, useNavigate } from 'react-router-dom';
+import { useState, useMemo } from 'react';
+import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { useAuth } from '@/hooks/useAuth';
 import { useProjects } from '@/hooks/useProjects';
 import { useOffersForProjects } from '@/hooks/useOffers';
+import { AppLayout } from '@/components/app/AppLayout';
+import type { ProjectStatus } from '@/lib/database.types';
 import {
-  Plus,
-  Clock,
-  Send,
-  MessageSquare,
-  CheckCircle2,
-  ArrowRight,
-  LogOut,
-  Search,
-  Loader2
+  Plus, MessageSquare, ArrowRight, Search, Loader2,
+  Sparkles, Palette, ArrowUpRight, FolderOpen, Zap, Inbox,
 } from 'lucide-react';
 
-const statusConfig = {
-  draft: { label: 'Draft', color: 'bg-muted text-muted-foreground', icon: Clock },
-  sent: { label: 'Sent to creators', color: 'bg-accent/20 text-accent-foreground', icon: Send },
-  offers_received: { label: 'Offers received', color: 'bg-primary/10 text-primary', icon: MessageSquare },
-  in_progress: { label: 'In progress', color: 'bg-accent/30 text-accent-foreground', icon: Clock },
-  completed: { label: 'Completed', color: 'bg-green-100 text-green-700', icon: CheckCircle2 },
+// ─── Status Config ──────────────────────────────────────────
+const statusConfig: Record<string, { label: string; bg: string; text: string; dot: string }> = {
+  draft: { label: 'Draft', bg: 'bg-muted/80', text: 'text-muted-foreground', dot: 'bg-muted-foreground/50' },
+  sent: { label: 'Sent', bg: 'bg-primary/10', text: 'text-primary', dot: 'bg-primary' },
+  offers_received: { label: 'Offers received', bg: 'bg-accent/15', text: 'text-accent-foreground', dot: 'bg-accent' },
+  in_progress: { label: 'In progress', bg: 'bg-blue-50', text: 'text-blue-700', dot: 'bg-blue-500' },
+  completed: { label: 'Completed', bg: 'bg-green-50', text: 'text-green-700', dot: 'bg-green-500' },
 };
 
-const CustomerDashboard = () => {
-  const navigate = useNavigate();
-  const { user, signOut } = useAuth();
-  const { projects, loading } = useProjects();
-  const { offerCounts } = useOffersForProjects(projects.map(p => p.id));
+// ─── Filter Chips ───────────────────────────────────────────
+const FILTERS: { key: string; label: string }[] = [
+  { key: 'all', label: 'All' },
+  { key: 'active', label: 'Active' },
+  { key: 'offers_received', label: 'Has offers' },
+  { key: 'completed', label: 'Completed' },
+];
 
-  const userName = user?.user_metadata?.name || user?.email?.split('@')[0] || 'there';
+function isActiveStatus(status: string): boolean {
+  return ['sent', 'offers_received', 'in_progress'].includes(status);
+}
 
-  const handleLogout = async () => {
-    await signOut();
-    navigate('/');
+// ─── Metric Card ────────────────────────────────────────────
+function MetricCard({ icon: Icon, label, value, accent = false }: {
+  icon: typeof FolderOpen;
+  label: string;
+  value: number;
+  accent?: boolean;
+}) {
+  return (
+    <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-card border border-border/60">
+      <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${
+        accent ? 'bg-primary/10' : 'bg-muted/70'
+      }`}>
+        <Icon className={`w-4.5 h-4.5 ${accent ? 'text-primary' : 'text-muted-foreground'}`} />
+      </div>
+      <div>
+        <div className="text-xl font-semibold text-foreground leading-none">{value}</div>
+        <div className="text-xs text-muted-foreground mt-0.5">{label}</div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Project Card ───────────────────────────────────────────
+function ProjectCard({
+  project,
+  offerCount,
+}: {
+  project: {
+    id: string;
+    title: string;
+    description: string;
+    budget_min: number;
+    budget_max: number;
+    status: string;
+    ai_concept: string | null;
   };
+  offerCount: number;
+}) {
+  const status = statusConfig[project.status] || statusConfig.draft;
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="sticky top-0 z-50 bg-background/80 backdrop-blur-md border-b border-border">
-        <div className="container mx-auto px-6 h-16 flex items-center justify-between">
-          <Link to="/" className="text-2xl font-serif font-semibold text-primary">DEXO</Link>
-          <div className="flex items-center gap-4">
-            <span className="text-sm text-muted-foreground">
-              Welcome, {userName}
-            </span>
-            <Button variant="ghost" size="sm" onClick={handleLogout}>
-              <LogOut className="w-4 h-4 mr-2" />
-              Sign out
-            </Button>
+    <Link to={`/project/${project.id}`} className="group block">
+      <Card className="h-full overflow-hidden border-border/60 hover:border-primary/20 hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 cursor-pointer">
+        {/* Image Area */}
+        <div className="aspect-[16/10] overflow-hidden relative">
+          {project.ai_concept ? (
+            <img
+              src={project.ai_concept}
+              alt={project.title}
+              className="w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-500"
+            />
+          ) : (
+            <div className="w-full h-full bg-gradient-to-br from-primary/[0.05] via-accent/[0.04] to-secondary flex items-center justify-center">
+              <Palette className="w-10 h-10 text-primary/20" />
+            </div>
+          )}
+          {/* Status Badge */}
+          <div className="absolute top-3 left-3">
+            <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${status.bg} ${status.text} backdrop-blur-sm shadow-sm`}>
+              <span className={`w-1.5 h-1.5 rounded-full ${status.dot}`} />
+              {status.label}
+            </div>
+          </div>
+          {/* Hover arrow */}
+          <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+            <div className="w-8 h-8 rounded-full bg-white/90 backdrop-blur-sm shadow-sm flex items-center justify-center">
+              <ArrowUpRight className="w-4 h-4 text-foreground" />
+            </div>
           </div>
         </div>
-      </header>
 
-      <main className="container mx-auto px-6 py-12">
-        {/* Hero */}
-        <div className="mb-12">
-          <h1 className="text-4xl font-serif mb-4">Your Projects</h1>
-          <p className="text-muted-foreground text-lg">
-            Manage your custom creation projects and connect with creators.
+        <CardContent className="p-5">
+          <h3 className="text-base font-serif font-semibold text-foreground mb-1.5 line-clamp-1 group-hover:text-primary transition-colors duration-200">
+            {project.title}
+          </h3>
+          <p className="text-muted-foreground text-sm line-clamp-2 mb-4 leading-relaxed">
+            {project.description}
           </p>
-        </div>
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-medium text-foreground/80">
+              ${project.budget_min.toLocaleString()} – ${project.budget_max.toLocaleString()}
+            </span>
+            {offerCount > 0 && (
+              <span className="inline-flex items-center gap-1 text-sm font-semibold text-primary">
+                <MessageSquare className="w-3.5 h-3.5" />
+                {offerCount} offer{offerCount > 1 ? 's' : ''}
+              </span>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+    </Link>
+  );
+}
 
-        {/* Action Cards */}
-        <div className="grid md:grid-cols-2 gap-6 mb-8">
+// ─── Empty State ────────────────────────────────────────────
+function EmptyState() {
+  return (
+    <div className="py-16 animate-fade-in">
+      <Card className="max-w-lg mx-auto border-dashed border-2 border-primary/15 bg-gradient-to-br from-primary/[0.02] to-accent/[0.02]">
+        <CardContent className="p-10 text-center">
+          <div className="w-20 h-20 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-6 shadow-sm">
+            <Sparkles className="w-9 h-9 text-primary" />
+          </div>
+          <h3 className="text-2xl font-serif mb-3 text-foreground">
+            Your creative journey starts here
+          </h3>
+          <p className="text-muted-foreground mb-8 max-w-sm mx-auto leading-relaxed">
+            Describe your dream design, and we'll connect you with talented creators who can bring it to life.
+          </p>
           <Link to="/create-project">
-            <Card hover className="h-full bg-gradient-to-br from-primary/5 to-accent/5 border-primary/20">
-              <CardContent className="p-8 flex items-center justify-between">
-                <div className="flex items-center gap-6">
-                  <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center">
-                    <Plus className="w-8 h-8 text-primary" />
-                  </div>
-                  <div>
-                    <h2 className="text-2xl font-serif mb-1">Start a new project</h2>
-                    <p className="text-muted-foreground">
-                      Describe your idea and get matched with creators.
-                    </p>
-                  </div>
-                </div>
-                <ArrowRight className="w-6 h-6 text-primary" />
-              </CardContent>
-            </Card>
+            <Button size="lg" className="gap-2 shadow-md">
+              <Plus className="w-4 h-4" />
+              Create Your First Project
+            </Button>
           </Link>
 
-          <Link to="/browse-businesses">
-            <Card hover className="h-full bg-gradient-to-br from-accent/5 to-secondary/5 border-accent/20">
-              <CardContent className="p-8 flex items-center justify-between">
-                <div className="flex items-center gap-6">
-                  <div className="w-16 h-16 rounded-2xl bg-accent/10 flex items-center justify-center">
-                    <Search className="w-8 h-8 text-accent-foreground" />
-                  </div>
-                  <div>
-                    <h2 className="text-2xl font-serif mb-1">Find creators</h2>
-                    <p className="text-muted-foreground">
-                      Browse and connect directly with talented creators.
-                    </p>
-                  </div>
+          <div className="mt-10 pt-8 border-t border-border/50">
+            <div className="grid grid-cols-3 gap-4">
+              {[
+                { step: '01', label: 'Describe your vision' },
+                { step: '02', label: 'Get matched with creators' },
+                { step: '03', label: 'Bring it to life' },
+              ].map((item) => (
+                <div key={item.step} className="text-center">
+                  <div className="text-xs font-semibold text-primary/60 mb-1">{item.step}</div>
+                  <div className="text-xs text-muted-foreground leading-snug">{item.label}</div>
                 </div>
-                <ArrowRight className="w-6 h-6 text-accent-foreground" />
-              </CardContent>
-            </Card>
-          </Link>
+              ))}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+// ═════════════════════════════════════════════════════════════
+// MAIN
+// ═════════════════════════════════════════════════════════════
+const CustomerDashboard = () => {
+  const { user } = useAuth();
+  const { projects, loading } = useProjects();
+  const { offerCounts } = useOffersForProjects(projects.map((p) => p.id));
+
+  const [activeFilter, setActiveFilter] = useState('all');
+
+  // Metrics
+  const metrics = useMemo(() => {
+    const total = projects.length;
+    const active = projects.filter(p => isActiveStatus(p.status)).length;
+    const withOffers = projects.filter(p => p.status === 'offers_received').length;
+    return { total, active, withOffers };
+  }, [projects]);
+
+  // Filtered projects
+  const filteredProjects = useMemo(() => {
+    if (activeFilter === 'all') return projects;
+    if (activeFilter === 'active') return projects.filter(p => isActiveStatus(p.status));
+    if (activeFilter === 'offers_received') return projects.filter(p => p.status === 'offers_received');
+    if (activeFilter === 'completed') return projects.filter(p => p.status === 'completed');
+    return projects;
+  }, [projects, activeFilter]);
+
+  const firstName = user?.user_metadata?.name?.split(' ')[0]
+    || user?.email?.split('@')[0]
+    || 'there';
+
+  return (
+    <AppLayout>
+      <main className="container mx-auto px-6 py-10">
+        {/* ─── Command Bar: Greeting + Metrics ─── */}
+        <div className="mb-8 animate-fade-in">
+          <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 mb-6">
+            <div>
+              <p className="text-sm font-medium text-primary mb-1">Welcome back, {firstName}</p>
+              <h1 className="text-3xl sm:text-4xl font-serif text-foreground">
+                Your Projects
+              </h1>
+            </div>
+            {projects.length > 0 && (
+              <Link to="/create-project">
+                <Button className="gap-2 shadow-sm">
+                  <Plus className="w-4 h-4" />
+                  New Project
+                </Button>
+              </Link>
+            )}
+          </div>
+
+          {/* Metrics Row */}
+          {projects.length > 0 && (
+            <div className="grid grid-cols-3 gap-3 mb-6">
+              <MetricCard icon={FolderOpen} label="Total projects" value={metrics.total} />
+              <MetricCard icon={Zap} label="Active" value={metrics.active} accent />
+              <MetricCard icon={Inbox} label="Awaiting review" value={metrics.withOffers} accent={metrics.withOffers > 0} />
+            </div>
+          )}
+
+          {/* Action Cards */}
+          <div className="grid sm:grid-cols-2 gap-4">
+            <Link to="/create-project" className="group">
+              <Card className="h-full border-primary/15 bg-gradient-to-br from-primary/[0.04] to-primary/[0.01] hover:border-primary/30 hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 cursor-pointer">
+                <CardContent className="p-5 flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <div className="w-11 h-11 rounded-xl bg-primary/10 flex items-center justify-center group-hover:bg-primary/15 transition-colors shrink-0">
+                      <Plus className="w-5 h-5 text-primary" />
+                    </div>
+                    <div>
+                      <h2 className="text-base font-semibold text-foreground mb-0.5">
+                        Start a new project
+                      </h2>
+                      <p className="text-sm text-muted-foreground">
+                        Describe your idea and get matched
+                      </p>
+                    </div>
+                  </div>
+                  <ArrowRight className="w-5 h-5 text-primary/40 group-hover:text-primary group-hover:translate-x-0.5 transition-all shrink-0" />
+                </CardContent>
+              </Card>
+            </Link>
+
+            <Link to="/browse-businesses" className="group">
+              <Card className="h-full border-accent/15 bg-gradient-to-br from-accent/[0.04] to-accent/[0.01] hover:border-accent/30 hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 cursor-pointer">
+                <CardContent className="p-5 flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <div className="w-11 h-11 rounded-xl bg-accent/10 flex items-center justify-center group-hover:bg-accent/15 transition-colors shrink-0">
+                      <Search className="w-5 h-5 text-accent-foreground" />
+                    </div>
+                    <div>
+                      <h2 className="text-base font-semibold text-foreground mb-0.5">
+                        Find creators
+                      </h2>
+                      <p className="text-sm text-muted-foreground">
+                        Browse talented artisans and studios
+                      </p>
+                    </div>
+                  </div>
+                  <ArrowRight className="w-5 h-5 text-accent-foreground/40 group-hover:text-accent-foreground group-hover:translate-x-0.5 transition-all shrink-0" />
+                </CardContent>
+              </Card>
+            </Link>
+          </div>
         </div>
 
-        {/* Loading State */}
+        {/* ─── Loading ─── */}
         {loading && (
-          <div className="text-center py-16">
+          <div className="text-center py-20">
             <Loader2 className="w-8 h-8 animate-spin text-primary mx-auto mb-4" />
             <p className="text-muted-foreground">Loading your projects...</p>
           </div>
         )}
 
-        {/* Projects Grid */}
+        {/* ─── Projects Section ─── */}
         {!loading && projects.length > 0 && (
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {projects.map((project) => {
-              const status = statusConfig[project.status];
-              const StatusIcon = status.icon;
-              const count = offerCounts[project.id] || 0;
-
-              return (
-                <Link key={project.id} to={`/project/${project.id}`}>
-                  <Card hover className="h-full">
-                    {/* Project Image */}
-                    {project.ai_concept && (
-                      <div className="aspect-video overflow-hidden rounded-t-2xl">
-                        <img
-                          src={project.ai_concept}
-                          alt={project.title}
-                          className="w-full h-full object-cover"
-                        />
-                      </div>
-                    )}
-                    <CardContent className="p-6">
-                      {/* Status Badge */}
-                      <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium mb-4 ${status.color}`}>
-                        <StatusIcon className="w-3 h-3" />
-                        {status.label}
-                      </div>
-
-                      <h3 className="text-xl font-serif mb-2">{project.title}</h3>
-                      <p className="text-muted-foreground text-sm line-clamp-2 mb-4">
-                        {project.description}
-                      </p>
-
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="text-muted-foreground">
-                          ${project.budget_min.toLocaleString()} - ${project.budget_max.toLocaleString()}
-                        </span>
-                        {count > 0 && (
-                          <span className="text-primary font-medium">
-                            {count} offer{count > 1 ? 's' : ''}
-                          </span>
-                        )}
-                      </div>
-                    </CardContent>
-                  </Card>
-                </Link>
-              );
-            })}
-          </div>
-        )}
-
-        {/* Empty State */}
-        {!loading && projects.length === 0 && (
-          <div className="text-center py-16">
-            <div className="w-16 h-16 rounded-2xl bg-muted flex items-center justify-center mx-auto mb-6">
-              <Clock className="w-8 h-8 text-muted-foreground" />
+          <div className="animate-fade-in">
+            {/* Section Header + Filter Chips */}
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
+              <h2 className="text-lg font-serif font-semibold text-foreground">
+                {filteredProjects.length} project{filteredProjects.length !== 1 ? 's' : ''}
+                {activeFilter !== 'all' && (
+                  <span className="text-muted-foreground font-normal text-sm ml-2">
+                    of {projects.length}
+                  </span>
+                )}
+              </h2>
+              <div className="flex items-center gap-1.5">
+                {FILTERS.map(({ key, label }) => (
+                  <button
+                    key={key}
+                    onClick={() => setActiveFilter(key)}
+                    className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                      activeFilter === key
+                        ? 'bg-foreground text-background shadow-sm'
+                        : 'bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
             </div>
-            <h3 className="text-xl font-serif mb-2">No projects yet</h3>
-            <p className="text-muted-foreground mb-6">
-              Start your first project and bring your ideas to life.
-            </p>
-            <Link to="/create-project">
-              <Button>Create Your First Project</Button>
-            </Link>
+
+            {/* Grid */}
+            {filteredProjects.length > 0 ? (
+              <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-6">
+                {filteredProjects.map((project) => (
+                  <ProjectCard
+                    key={project.id}
+                    project={project}
+                    offerCount={offerCounts[project.id] || 0}
+                  />
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-16">
+                <p className="text-muted-foreground">No projects match this filter.</p>
+                <button
+                  onClick={() => setActiveFilter('all')}
+                  className="text-sm text-primary hover:underline mt-2"
+                >
+                  Show all projects
+                </button>
+              </div>
+            )}
           </div>
         )}
+
+        {/* ─── Empty State ─── */}
+        {!loading && projects.length === 0 && <EmptyState />}
       </main>
-    </div>
+    </AppLayout>
   );
 };
 

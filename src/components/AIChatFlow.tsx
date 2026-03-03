@@ -4,370 +4,333 @@ import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/useAuth';
 import { useProjects } from '@/hooks/useProjects';
 import { useToast } from '@/hooks/use-toast';
-import {
-  getConceptImageUrl,
-  preloadImage,
-  buildImagePrompt,
-} from '@/lib/pollinations';
+import { useImageUpload } from '@/hooks/useImageUpload';
+import { streamChat, generateImage, buildImagePrompt } from '@/lib/ai';
 import { motion, AnimatePresence } from 'framer-motion';
+import ReactMarkdown from 'react-markdown';
 import {
-  Sparkles,
-  Send,
-  Loader2,
-  Check,
-  Palette,
-  Ruler,
-  Clock,
-  DollarSign,
-  Tag,
-  Package,
-  Star,
-  ArrowRight,
-  ImageIcon,
+  Sparkles, Send, Loader2, ImageIcon, Square,
+  Check, Tag, Palette, DollarSign, Ruler, Package, Clock, Pencil,
+  ImagePlus, X, Star, ArrowRight,
 } from 'lucide-react';
 
-// ─── Chat Flow Definition ───────────────────────────────────────
-interface ChatStep {
-  id: string;
-  message: string;
-  field: string;
-  type: 'free_text' | 'chips' | 'chips_multi';
-  options?: string[];
-  placeholder?: string;
+import type { ChatMessage } from '@/lib/ai';
+
+// ─── Types ──────────────────────────────────────────────────
+interface DisplayMessage {
+  role: 'ai' | 'user';
+  text: string;
+  images?: string[];
 }
 
-const CHAT_FLOW: ChatStep[] = [
-  {
-    id: 'greeting',
-    message: "Hi! I'm your personal design consultant. Tell me — what kind of custom piece are you dreaming of?",
-    field: 'description',
-    type: 'free_text',
-    placeholder: "Describe your idea...",
-  },
-  {
-    id: 'category',
-    message: "Great idea! Which category fits best?",
-    field: 'category',
-    type: 'chips',
-    options: ['Jewelry', 'Custom Cakes', 'Furniture', 'Fashion', 'Ceramics', 'Personalized Gifts', 'Textiles', '3D Printing'],
-  },
-  {
-    id: 'style',
-    message: "What style are you going for?",
-    field: 'style_tags',
-    type: 'chips_multi',
-    options: ['Minimalist', 'Modern', 'Vintage', 'Bohemian', 'Classic', 'Industrial', 'Rustic', 'Glamorous', 'Playful', 'Organic'],
-  },
-  {
-    id: 'budget',
-    message: "What's your budget range?",
-    field: 'budget',
-    type: 'chips',
-    options: ['Under $100', '$100-$500', '$500-$1,000', '$1,000-$5,000', '$5,000+'],
-  },
-  {
-    id: 'size',
-    message: "Any specific size or dimensions?",
-    field: 'size',
-    type: 'free_text',
-    placeholder: "e.g., 45cm chain, A4 size, 2m wide...",
-  },
-  {
-    id: 'materials',
-    message: "Any material preferences?",
-    field: 'materials',
-    type: 'free_text',
-    placeholder: "e.g., 18k gold, oak wood, fondant...",
-  },
-  {
-    id: 'timeline',
-    message: "When do you need it by?",
-    field: 'timeline',
-    type: 'chips',
-    options: ['No rush', '2-4 weeks', '1-2 months', '3+ months', 'Specific date'],
-  },
-  {
-    id: 'special',
-    message: "Anything else I should know? Special requirements, engraving, personalization?",
-    field: 'special_requirements',
-    type: 'free_text',
-    placeholder: "Any special details...",
-  },
-];
-
-// ─── Category Detection ─────────────────────────────────────────
-function detectCategory(text: string): string | null {
-  const lower = text.toLowerCase();
-  if (/ring|necklace|bracelet|earring|pendant|gold\b|silver\b|jewel/i.test(lower)) return 'Jewelry';
-  if (/cake|cupcake|pastry|bakery|birthday cake|wedding cake/i.test(lower)) return 'Custom Cakes';
-  if (/table|chair|desk|shelf|cabinet|bed|sofa|bench|wood\s*work|furniture/i.test(lower)) return 'Furniture';
-  if (/dress|suit|shirt|jacket|coat|gown|tailor|cloth|fashion/i.test(lower)) return 'Fashion';
-  if (/vase|bowl|mug|pot|planter|ceramic|pottery|clay/i.test(lower)) return 'Ceramics';
-  if (/gift|engrav|personali[sz]|monogram/i.test(lower)) return 'Personalized Gifts';
-  if (/rug|tapestry|curtain|pillow|blanket|quilt|embroidery|textile/i.test(lower)) return 'Textiles';
-  if (/3d\s*print|prototype|figurine|model|filament/i.test(lower)) return '3D Printing';
-  return null;
-}
-
-// ─── Budget Parsing ─────────────────────────────────────────────
-function parseBudgetMin(budget: string): number {
-  if (budget.includes('Under')) return 0;
-  const match = budget.match(/\$([\d,]+)/);
-  return match ? parseInt(match[1].replace(',', ''), 10) : 0;
-}
-function parseBudgetMax(budget: string): number {
-  if (budget.includes('5,000+')) return 10000;
-  if (budget.includes('Under')) return 100;
-  const matches = [...budget.matchAll(/\$([\d,]+)/g)];
-  if (matches.length >= 2) return parseInt(matches[1][1].replace(',', ''), 10);
-  return parseInt((matches[0]?.[1] || '0').replace(',', ''), 10);
-}
-
-// ─── Brief Generation ───────────────────────────────────────────
 interface BriefData {
-  description: string;
+  title: string;
   category: string;
-  style_tags: string[];
+  description: string;
+  style: string;
   budget: string;
-  size: string;
   materials: string;
+  dimensions: string;
   timeline: string;
-  special_requirements: string;
+  specialRequirements: string;
 }
 
-function generateBrief(data: BriefData) {
-  const titleDesc = data.description.length > 50
-    ? data.description.slice(0, 50) + '...'
-    : data.description;
+type Phase = 'chatting' | 'brief' | 'generating_image' | 'done';
+
+// ─── Brief Parsing ──────────────────────────────────────────
+const BRIEF_FIELDS = [
+  { key: 'title', pattern: /\*\*Project Title:\*\*\s*(.+)/i },
+  { key: 'category', pattern: /\*\*Category:\*\*\s*(.+)/i },
+  { key: 'description', pattern: /\*\*Description:\*\*\s*(.+)/i },
+  { key: 'style', pattern: /\*\*Style:\*\*\s*(.+)/i },
+  { key: 'budget', pattern: /\*\*Budget:\*\*\s*(.+)/i },
+  { key: 'materials', pattern: /\*\*Materials:\*\*\s*(.+)/i },
+  { key: 'dimensions', pattern: /\*\*Dimensions:\*\*\s*(.+)/i },
+  { key: 'timeline', pattern: /\*\*Timeline:\*\*\s*(.+)/i },
+  { key: 'specialRequirements', pattern: /\*\*Special Requirements:\*\*\s*(.+)/i },
+] as const;
+
+function parseBrief(text: string): BriefData | null {
+  if (!text.includes('Your design brief is ready') && !text.includes('**Project Title:**')) {
+    return null;
+  }
+  const data: Record<string, string> = {};
+  for (const { key, pattern } of BRIEF_FIELDS) {
+    const match = text.match(pattern);
+    if (match) data[key] = match[1].trim();
+  }
+  if (!data.title || !data.category || !data.description) return null;
   return {
-    title: `Custom ${data.category} — ${titleDesc}`,
+    title: data.title,
     category: data.category,
     description: data.description,
-    style_tags: data.style_tags,
-    budget_min: parseBudgetMin(data.budget),
-    budget_max: parseBudgetMax(data.budget),
-    materials: data.materials ? [data.materials] : [],
-    dimensions: data.size || 'To be discussed',
-    deadline: data.timeline,
-    special_requirements: data.special_requirements || '',
+    style: data.style || '',
+    budget: data.budget || 'To be discussed',
+    materials: data.materials || 'To be discussed',
+    dimensions: data.dimensions || 'To be discussed',
+    timeline: data.timeline || 'Flexible',
+    specialRequirements: data.specialRequirements || 'None',
   };
 }
 
-// ─── Message Types ──────────────────────────────────────────────
-interface Message {
-  role: 'ai' | 'user';
-  text: string;
+function parseBudgetRange(budget: string): { min: number; max: number } {
+  const nums = [...budget.matchAll(/\$?([\d,]+)/g)].map(m => parseInt(m[1].replace(',', ''), 10));
+  if (nums.length >= 2) return { min: nums[0], max: nums[1] };
+  if (nums.length === 1) return { min: 0, max: nums[0] };
+  return { min: 0, max: 1000 };
 }
 
-// ─── Progress Item Icons ────────────────────────────────────────
-const PROGRESS_ITEMS = [
-  { field: 'category', label: 'Category', icon: Tag },
-  { field: 'style_tags', label: 'Style', icon: Palette },
-  { field: 'budget', label: 'Budget', icon: DollarSign },
-  { field: 'size', label: 'Size', icon: Ruler },
-  { field: 'materials', label: 'Materials', icon: Package },
-  { field: 'timeline', label: 'Timeline', icon: Clock },
+// ─── Progress Tracking ──────────────────────────────────────
+// Tracks what info the AI has extracted from conversation so far
+const PROGRESS_FIELDS = [
+  { key: 'category', label: 'Category', icon: Tag },
+  { key: 'style', label: 'Style', icon: Palette },
+  { key: 'budget', label: 'Budget', icon: DollarSign },
+  { key: 'dimensions', label: 'Size', icon: Ruler },
+  { key: 'materials', label: 'Materials', icon: Package },
+  { key: 'timeline', label: 'Timeline', icon: Clock },
+] as const;
+
+function extractProgress(messages: DisplayMessage[]): Record<string, string> {
+  const allText = messages.map(m => m.text).join('\n');
+  const progress: Record<string, string> = {};
+
+  // Category detection from conversation
+  const catPatterns: [RegExp, string][] = [
+    [/ring|necklace|bracelet|earring|pendant|gold\b|silver\b|jewel/i, 'Jewelry'],
+    [/cake|cupcake|pastry|birthday cake|wedding cake/i, 'Custom Cakes'],
+    [/table|chair|desk|shelf|cabinet|bed|sofa|furniture/i, 'Furniture'],
+    [/dress|suit|shirt|jacket|gown|tailor|fashion/i, 'Fashion'],
+    [/vase|bowl|mug|pot|ceramic|pottery|clay/i, 'Ceramics'],
+    [/gift|engrav|personali[sz]|monogram/i, 'Personalized Gifts'],
+    [/rug|tapestry|curtain|pillow|blanket|textile/i, 'Textiles'],
+    [/3d\s*print|prototype|figurine|filament/i, '3D Printing'],
+  ];
+  for (const [pat, cat] of catPatterns) {
+    if (pat.test(allText)) { progress.category = cat; break; }
+  }
+
+  // Style detection
+  const styles = ['minimalist', 'modern', 'vintage', 'bohemian', 'classic', 'industrial', 'rustic', 'glamorous', 'playful', 'organic'];
+  const found = styles.filter(s => allText.toLowerCase().includes(s));
+  if (found.length > 0) progress.style = found.map(s => s[0].toUpperCase() + s.slice(1)).join(', ');
+
+  // Budget detection
+  const budgetMatch = allText.match(/\$[\d,]+\s*[-–]\s*\$[\d,]+|\$[\d,]+/);
+  if (budgetMatch) progress.budget = budgetMatch[0];
+
+  // Dimensions detection
+  const dimMatch = allText.match(/\d+\s*(?:cm|mm|in|inch|feet|ft|m\b|"|')\s*(?:[x×]\s*\d+\s*(?:cm|mm|in|inch|feet|ft|m\b|"|'))?/i);
+  if (dimMatch) progress.dimensions = dimMatch[0];
+
+  // Materials detection
+  const matPatterns = /\b(gold|silver|platinum|wood|oak|walnut|pine|leather|silk|cotton|fondant|marble|ceramic|steel|copper|brass)\b/gi;
+  const mats = [...new Set([...allText.matchAll(matPatterns)].map(m => m[1].toLowerCase()))];
+  if (mats.length > 0) progress.materials = mats.map(m => m[0].toUpperCase() + m.slice(1)).join(', ');
+
+  // Timeline detection
+  const timeMatch = allText.match(/\d+\s*(?:week|month|day)s?|no rush|asap|urgent/i);
+  if (timeMatch) progress.timeline = timeMatch[0];
+
+  return progress;
+}
+
+// ─── Suggestion Chips ───────────────────────────────────────
+const SUGGESTIONS = [
+  'Custom engagement ring 💍',
+  'Handmade wooden shelf 🪵',
+  'Birthday cake design 🎂',
+  'Leather messenger bag 👜',
 ];
 
-// ─── Typing Indicator ───────────────────────────────────────────
-function TypingIndicator() {
-  return (
-    <div className="flex items-center gap-1.5 px-4 py-3">
-      {[0, 1, 2].map((i) => (
-        <motion.span
-          key={i}
-          className="w-2 h-2 rounded-full bg-[#C05621]/50"
-          animate={{ y: [0, -6, 0] }}
-          transition={{ duration: 0.6, repeat: Infinity, delay: i * 0.15, ease: 'easeInOut' }}
-        />
-      ))}
-    </div>
-  );
-}
-
-// ═════════════════════════════════════════════════════════════════
+// ═════════════════════════════════════════════════════════════
 // MAIN COMPONENT
-// ═════════════════════════════════════════════════════════════════
+// ═════════════════════════════════════════════════════════════
 export default function AIChatFlow() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { createProject } = useProjects();
   const { toast } = useToast();
+  const { uploading: imageUploading, uploadMultiple } = useImageUpload();
 
   // Chat state
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [currentStep, setCurrentStep] = useState(0);
-  const [isTyping, setIsTyping] = useState(true); // starts with greeting typing
-  const [inputValue, setInputValue] = useState('');
-  const [selectedChips, setSelectedChips] = useState<string[]>([]);
-  const [briefData, setBriefData] = useState<Partial<BriefData>>({});
-  const [detectedCategory, setDetectedCategory] = useState<string | null>(null);
-  const [awaitingCategoryConfirm, setAwaitingCategoryConfirm] = useState(false);
+  const [messages, setMessages] = useState<DisplayMessage[]>([]);
+  const [input, setInput] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [streamingContent, setStreamingContent] = useState('');
 
-  // Phase: chatting | brief | generating_image | done
-  const [phase, setPhase] = useState<'chatting' | 'brief' | 'generating_image' | 'done'>('chatting');
+  // Brief & project state
+  const [phase, setPhase] = useState<Phase>('chatting');
+  const [briefData, setBriefData] = useState<BriefData | null>(null);
   const [conceptImageUrl, setConceptImageUrl] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  const chatEndRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
+  // Image uploads
+  const [uploadedImages, setUploadedImages] = useState<string[]>([]);
+  const [pendingFiles, setPendingFiles] = useState<File[]>([]);
+  const [pendingPreviews, setPendingPreviews] = useState<string[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const briefFileInputRef = useRef<HTMLInputElement>(null);
 
-  // Scroll to bottom on new messages
-  useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, isTyping]);
+  // Abort controller
+  const abortRef = useRef<AbortController | null>(null);
+  // LLM message history
+  const llmMessagesRef = useRef<ChatMessage[]>([]);
 
-  // Show greeting after initial typing delay
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setMessages([{ role: 'ai', text: CHAT_FLOW[0].message }]);
-      setIsTyping(false);
-    }, 1000);
-    return () => clearTimeout(timer);
-  }, []);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
 
-  // Focus input when typing indicator disappears
+  // Scroll to bottom
   useEffect(() => {
-    if (!isTyping && phase === 'chatting') {
-      inputRef.current?.focus();
+    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
+  }, [messages, streamingContent]);
+
+  // Auto-resize textarea
+  useEffect(() => {
+    if (inputRef.current) {
+      inputRef.current.style.height = 'auto';
+      inputRef.current.style.height = Math.min(inputRef.current.scrollHeight, 150) + 'px';
     }
-  }, [isTyping, phase]);
+  }, [input]);
 
-  const currentStepData = CHAT_FLOW[currentStep];
+  // Focus textarea when not loading
+  useEffect(() => {
+    if (!isLoading) inputRef.current?.focus();
+  }, [isLoading, phase]);
 
-  // Advance to next step with typing animation
-  const advanceStep = useCallback((nextStepIndex: number) => {
-    if (nextStepIndex >= CHAT_FLOW.length) {
-      // All questions done — show brief
-      setPhase('brief');
-      return;
+  // Progress from conversation
+  const progress = extractProgress(messages);
+
+  // ─── Send Message ─────────────────────────────────────────
+  const sendMessage = useCallback(async (text?: string) => {
+    const msgText = (text || input).trim();
+    if (!msgText && pendingFiles.length === 0) return;
+    if (isLoading) return;
+
+    // Upload pending images
+    let imageUrls: string[] = [];
+    if (pendingFiles.length > 0) {
+      imageUrls = await uploadMultiple(pendingFiles, 'project-images');
+      setUploadedImages(prev => [...prev, ...imageUrls]);
+      pendingPreviews.forEach(url => URL.revokeObjectURL(url));
+      setPendingFiles([]);
+      setPendingPreviews([]);
+      if (fileInputRef.current) fileInputRef.current.value = '';
     }
-    setCurrentStep(nextStepIndex);
-    setIsTyping(true);
-    setSelectedChips([]);
-    setInputValue('');
 
-    setTimeout(() => {
-      setMessages((prev) => [...prev, { role: 'ai', text: CHAT_FLOW[nextStepIndex].message }]);
-      setIsTyping(false);
-    }, 600);
-  }, []);
+    const userMsg: DisplayMessage = {
+      role: 'user',
+      text: msgText || '(attached images)',
+      images: imageUrls.length > 0 ? imageUrls : undefined,
+    };
 
-  // Handle user sending a free text answer
-  const handleSend = useCallback(() => {
-    const text = inputValue.trim();
-    if (!text) return;
+    setMessages(prev => [...prev, userMsg]);
+    setInput('');
+    setIsLoading(true);
+    setStreamingContent('');
 
-    setMessages((prev) => [...prev, { role: 'user', text }]);
-    setInputValue('');
+    // Add to LLM context
+    llmMessagesRef.current.push({ role: 'user', content: msgText || '(attached reference images)' });
 
-    const step = CHAT_FLOW[currentStep];
+    let assistantSoFar = '';
 
-    // Step 0 (greeting/description): detect category
-    if (step.id === 'greeting') {
-      setBriefData((prev) => ({ ...prev, description: text }));
-      const detected = detectCategory(text);
-      if (detected) {
-        setDetectedCategory(detected);
-        setAwaitingCategoryConfirm(true);
-        setIsTyping(true);
-        setTimeout(() => {
-          setMessages((prev) => [
-            ...prev,
-            { role: 'ai', text: `Sounds like ${detected}! Is that right?` },
-          ]);
-          setIsTyping(false);
-        }, 600);
-      } else {
-        // No category detected — skip to category chips
-        advanceStep(1);
+    const controller = streamChat(
+      llmMessagesRef.current,
+      null,
+      // onChunk
+      (chunk) => {
+        assistantSoFar += chunk;
+        setStreamingContent(assistantSoFar);
+      },
+      // onDone
+      (fullText) => {
+        setIsLoading(false);
+        setStreamingContent('');
+        setMessages(prev => [...prev, { role: 'ai', text: fullText }]);
+        llmMessagesRef.current.push({ role: 'assistant', content: fullText });
+
+        // Check if AI produced a brief
+        const parsed = parseBrief(fullText);
+        if (parsed) {
+          setBriefData(parsed);
+          setPhase('brief');
+        }
+      },
+      // onError
+      (errMsg) => {
+        setIsLoading(false);
+        setStreamingContent('');
+        toast({ title: 'AI error', description: errMsg, variant: 'destructive' });
       }
-      return;
-    }
-
-    // Save free text data
-    setBriefData((prev) => ({ ...prev, [step.field]: text }));
-    advanceStep(currentStep + 1);
-  }, [inputValue, currentStep, advanceStep]);
-
-  // Handle chip selection (single)
-  const handleChipSelect = useCallback((value: string) => {
-    setMessages((prev) => [...prev, { role: 'user', text: value }]);
-    const step = CHAT_FLOW[currentStep];
-    setBriefData((prev) => ({ ...prev, [step.field]: value }));
-    advanceStep(currentStep + 1);
-  }, [currentStep, advanceStep]);
-
-  // Handle category confirm/change
-  const handleCategoryConfirm = useCallback((confirmed: boolean) => {
-    if (confirmed && detectedCategory) {
-      setMessages((prev) => [...prev, { role: 'user', text: `Yes, ${detectedCategory}!` }]);
-      setBriefData((prev) => ({ ...prev, category: detectedCategory }));
-      setAwaitingCategoryConfirm(false);
-      // Skip the category step (index 1), go to style (index 2)
-      advanceStep(2);
-    } else {
-      setMessages((prev) => [...prev, { role: 'user', text: "Let me pick a different one." }]);
-      setAwaitingCategoryConfirm(false);
-      // Show category chips
-      advanceStep(1);
-    }
-  }, [detectedCategory, advanceStep]);
-
-  // Handle multi-chip confirm (style tags)
-  const handleMultiChipConfirm = useCallback(() => {
-    if (selectedChips.length === 0) return;
-    setMessages((prev) => [...prev, { role: 'user', text: selectedChips.join(', ') }]);
-    const step = CHAT_FLOW[currentStep];
-    setBriefData((prev) => ({ ...prev, [step.field]: selectedChips }));
-    advanceStep(currentStep + 1);
-  }, [selectedChips, currentStep, advanceStep]);
-
-  const toggleChip = useCallback((value: string) => {
-    setSelectedChips((prev) =>
-      prev.includes(value) ? prev.filter((c) => c !== value) : [...prev, value]
     );
-  }, []);
 
-  // ─── Image Generation ───────────────────────────────────────
+    abortRef.current = controller;
+  }, [input, isLoading, pendingFiles, pendingPreviews, uploadMultiple, toast]);
+
+  const handleAbort = useCallback(() => {
+    abortRef.current?.abort();
+    if (streamingContent) {
+      setMessages(prev => [...prev, { role: 'ai', text: streamingContent }]);
+      llmMessagesRef.current.push({ role: 'assistant', content: streamingContent });
+    }
+    setIsLoading(false);
+    setStreamingContent('');
+    abortRef.current = null;
+  }, [streamingContent]);
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage();
+    }
+  };
+
+  // ─── Image Generation ─────────────────────────────────────
   const handleGenerateImage = useCallback(async () => {
+    if (!briefData) return;
     setPhase('generating_image');
-    const data = briefData as BriefData;
-    const prompt = buildImagePrompt(data.description, data.category, data.style_tags || []);
-    const url = getConceptImageUrl(prompt);
-    const loaded = await preloadImage(url);
-    setConceptImageUrl(loaded ? url : null);
-    setPhase('done');
-  }, [briefData]);
+    const styleTags = briefData.style.split(',').map(s => s.trim()).filter(Boolean);
+    const prompt = buildImagePrompt(briefData.description, briefData.category, styleTags, briefData.materials);
 
-  // ─── Submit Project ─────────────────────────────────────────
+    const result = await generateImage(prompt, null);
+    if (result.url) {
+      setConceptImageUrl(result.url);
+    } else {
+      toast({ title: 'Image generation failed', description: result.error || 'Please try again', variant: 'destructive' });
+    }
+    setPhase('done');
+  }, [briefData, toast]);
+
+  // ─── Submit Project ───────────────────────────────────────
   const handleSubmit = useCallback(async () => {
-    if (!user) {
+    if (!user || !briefData) {
       toast({ title: 'Please sign in first', variant: 'destructive' });
       return;
     }
     setSubmitting(true);
-    const data = briefData as BriefData;
-    const brief = generateBrief(data);
+
+    const { min, max } = parseBudgetRange(briefData.budget);
+    const styleTags = briefData.style.split(',').map(s => s.trim()).filter(Boolean);
+    const materials = briefData.materials !== 'To be discussed' ? briefData.materials.split(',').map(s => s.trim()) : [];
 
     const { error } = await createProject({
       customer_id: user.id,
-      title: brief.title,
-      description: brief.description,
-      category: brief.category,
-      style_tags: brief.style_tags,
-      budget_min: brief.budget_min,
-      budget_max: brief.budget_max,
+      title: briefData.title,
+      description: briefData.description,
+      category: briefData.category,
+      style_tags: styleTags,
+      budget_min: min,
+      budget_max: max,
       details: {
-        dimensions: brief.dimensions,
-        deadline: brief.deadline,
-        materials: brief.materials,
-        special_requirements: brief.special_requirements,
+        dimensions: briefData.dimensions,
+        deadline: briefData.timeline,
+        materials,
+        special_requirements: briefData.specialRequirements !== 'None' ? briefData.specialRequirements : '',
       },
-      inspiration_images: conceptImageUrl ? [conceptImageUrl] : [],
-      ai_brief: `${brief.description}. Style: ${brief.style_tags.join(', ')}. Materials: ${brief.materials.join(', ')}. Dimensions: ${brief.dimensions}. Deadline: ${brief.deadline}.`,
+      inspiration_images: [...uploadedImages, ...(conceptImageUrl ? [conceptImageUrl] : [])],
+      ai_brief: `${briefData.description}. Style: ${briefData.style}. Materials: ${briefData.materials}. Dimensions: ${briefData.dimensions}. Timeline: ${briefData.timeline}.`,
       ai_concept: conceptImageUrl,
-      status: 'open',
+      status: 'sent',
     });
 
     setSubmitting(false);
@@ -377,25 +340,46 @@ export default function AIChatFlow() {
       toast({ title: 'Project created!' });
       navigate('/dashboard');
     }
-  }, [user, briefData, conceptImageUrl, createProject, navigate, toast]);
+  }, [user, briefData, conceptImageUrl, uploadedImages, createProject, navigate, toast]);
 
-  // ─── Key handler ────────────────────────────────────────────
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSend();
-    }
-  };
+  // ─── File Handlers ────────────────────────────────────────
+  const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+    setPendingFiles(prev => [...prev, ...files]);
+    setPendingPreviews(prev => [...prev, ...files.map(f => URL.createObjectURL(f))]);
+  }, []);
 
-  // ─── Brief Data for display ─────────────────────────────────
-  const finalBrief = phase !== 'chatting' ? generateBrief(briefData as BriefData) : null;
+  const removePendingFile = useCallback((index: number) => {
+    setPendingPreviews(prev => { URL.revokeObjectURL(prev[index]); return prev.filter((_, i) => i !== index); });
+    setPendingFiles(prev => prev.filter((_, i) => i !== index));
+  }, []);
+
+  const handleBriefFileDrop = useCallback(async (e: React.DragEvent) => {
+    e.preventDefault();
+    if (uploadedImages.length >= 5) return;
+    const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/')).slice(0, 5 - uploadedImages.length);
+    if (files.length === 0) return;
+    const urls = await uploadMultiple(files, 'project-images');
+    setUploadedImages(prev => [...prev, ...urls]);
+  }, [uploadedImages, uploadMultiple]);
+
+  const handleBriefFileSelect = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []).slice(0, 5 - uploadedImages.length);
+    if (files.length === 0) return;
+    const urls = await uploadMultiple(files, 'project-images');
+    setUploadedImages(prev => [...prev, ...urls]);
+    if (briefFileInputRef.current) briefFileInputRef.current.value = '';
+  }, [uploadedImages, uploadMultiple]);
+
+  const canSend = (input.trim().length > 0 || pendingFiles.length > 0) && !isLoading;
 
   // ═════════════════════════════════════════════════════════════
   // RENDER
   // ═════════════════════════════════════════════════════════════
   return (
     <div className="min-h-screen bg-[#FDFCF8] flex">
-      {/* ─── Sidebar: Brief Progress ─── */}
+      {/* Progress Sidebar */}
       <aside className="hidden lg:flex flex-col w-72 border-r border-[#C05621]/[0.08] bg-white/50 p-6">
         <div className="flex items-center gap-2 mb-8">
           <Sparkles className="w-5 h-5 text-[#C05621]" />
@@ -403,35 +387,33 @@ export default function AIChatFlow() {
         </div>
 
         <div className="space-y-3 flex-1">
-          {PROGRESS_ITEMS.map((item) => {
-            const value = briefData[item.field as keyof BriefData];
-            const filled = Array.isArray(value) ? value.length > 0 : !!value;
-            const Icon = item.icon;
+          {PROGRESS_FIELDS.map(({ key, label, icon: Icon }) => {
+            const value = briefData ? (briefData as Record<string, string>)[key] : progress[key];
+            const filled = !!value && value !== 'To be discussed' && value !== 'None' && value !== 'Flexible';
+
             return (
               <div
-                key={item.field}
+                key={key}
                 className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-300 ${
                   filled
                     ? 'bg-[#C05621]/[0.06] border border-[#C05621]/10'
                     : 'bg-white/60 border border-transparent'
                 }`}
               >
-                <div
-                  className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${
-                    filled ? 'bg-[#C05621]/10 text-[#C05621]' : 'bg-gray-100 text-gray-400'
-                  }`}
-                >
+                <div className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${
+                  filled ? 'bg-[#C05621]/10 text-[#C05621]' : 'bg-gray-100 text-gray-400'
+                }`}>
                   {filled ? <Check className="w-4 h-4" /> : <Icon className="w-4 h-4" />}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="text-xs font-medium text-[#4A5568]">{item.label}</div>
+                  <div className="text-xs font-medium text-[#4A5568]">{label}</div>
                   {filled && (
                     <motion.div
                       initial={{ opacity: 0, height: 0 }}
                       animate={{ opacity: 1, height: 'auto' }}
                       className="text-xs text-[#C05621] truncate mt-0.5"
                     >
-                      {Array.isArray(value) ? (value as string[]).join(', ') : String(value)}
+                      {value}
                     </motion.div>
                   )}
                 </div>
@@ -445,11 +427,10 @@ export default function AIChatFlow() {
           <div className="flex justify-between text-xs text-[#4A5568] mb-2">
             <span>Progress</span>
             <span>
-              {PROGRESS_ITEMS.filter((i) => {
-                const v = briefData[i.field as keyof BriefData];
-                return Array.isArray(v) ? v.length > 0 : !!v;
-              }).length}
-              /{PROGRESS_ITEMS.length}
+              {PROGRESS_FIELDS.filter(f => {
+                const v = briefData ? (briefData as Record<string, string>)[f.key] : progress[f.key];
+                return !!v && v !== 'To be discussed' && v !== 'None' && v !== 'Flexible';
+              }).length}/{PROGRESS_FIELDS.length}
             </span>
           </div>
           <div className="h-2 rounded-full bg-gray-100 overflow-hidden">
@@ -457,14 +438,10 @@ export default function AIChatFlow() {
               className="h-full rounded-full bg-[#C05621]"
               initial={{ width: 0 }}
               animate={{
-                width: `${
-                  (PROGRESS_ITEMS.filter((i) => {
-                    const v = briefData[i.field as keyof BriefData];
-                    return Array.isArray(v) ? v.length > 0 : !!v;
-                  }).length /
-                    PROGRESS_ITEMS.length) *
-                  100
-                }%`,
+                width: `${(PROGRESS_FIELDS.filter(f => {
+                  const v = briefData ? (briefData as Record<string, string>)[f.key] : progress[f.key];
+                  return !!v && v !== 'To be discussed' && v !== 'None' && v !== 'Flexible';
+                }).length / PROGRESS_FIELDS.length) * 100}%`,
               }}
               transition={{ duration: 0.5, ease: 'easeOut' }}
             />
@@ -472,7 +449,7 @@ export default function AIChatFlow() {
         </div>
       </aside>
 
-      {/* ─── Main Chat Area ─── */}
+      {/* Main Chat Area */}
       <main className="flex-1 flex flex-col max-w-3xl mx-auto w-full">
         {/* Header */}
         <div className="px-6 py-4 border-b border-[#C05621]/[0.06] bg-white/60 backdrop-blur-sm">
@@ -482,13 +459,44 @@ export default function AIChatFlow() {
             </div>
             <div>
               <h1 className="font-serif font-bold text-[#1B2432]">DEXO Design Assistant</h1>
-              <p className="text-xs text-[#4A5568]">Let's bring your idea to life</p>
+              <p className="text-xs text-[#4A5568]">
+                {isLoading ? 'Thinking...' : "Let's bring your idea to life"}
+              </p>
             </div>
           </div>
         </div>
 
         {/* Messages */}
-        <div className="flex-1 overflow-y-auto px-6 py-6 space-y-4">
+        <div ref={scrollRef} className="flex-1 overflow-y-auto px-6 py-6 space-y-4">
+          {/* Empty state */}
+          {messages.length === 0 && !isLoading && (
+            <div className="flex flex-col items-center justify-center h-full text-center">
+              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-[#C05621]/10 bg-white mb-6">
+                <Sparkles className="w-4 h-4 text-[#C05621]" />
+                <span className="text-sm text-[#4A5568]">AI Design Consultant</span>
+              </div>
+              <h2 className="text-3xl md:text-4xl font-serif font-bold text-[#1B2432] mb-3">
+                What would you like to create?
+              </h2>
+              <p className="text-[#4A5568] max-w-md">
+                Describe your vision — jewelry, furniture, cakes, fashion, or anything custom-made.
+                I'll help you refine every detail.
+              </p>
+              <div className="flex flex-wrap gap-2 mt-8 justify-center">
+                {SUGGESTIONS.map(s => (
+                  <button
+                    key={s}
+                    onClick={() => { setInput(s); setTimeout(() => inputRef.current?.focus(), 50); }}
+                    className="px-4 py-2 rounded-full border border-[#C05621]/10 bg-white text-sm text-[#1B2432] hover:bg-[#C05621]/5 transition-colors"
+                  >
+                    {s}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Message bubbles */}
           <AnimatePresence initial={false}>
             {messages.map((msg, i) => (
               <motion.div
@@ -498,247 +506,319 @@ export default function AIChatFlow() {
                 transition={{ duration: 0.3, ease: 'easeOut' }}
                 className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
               >
-                <div
-                  className={`max-w-[80%] px-5 py-3 rounded-2xl text-[0.92rem] leading-relaxed ${
-                    msg.role === 'user'
-                      ? 'bg-[#C05621] text-white rounded-br-md'
-                      : 'bg-white border border-[#C05621]/[0.06] text-[#1B2432] rounded-bl-md shadow-sm'
-                  }`}
-                >
-                  {msg.text}
+                <div className={`max-w-[80%] px-5 py-3 rounded-2xl text-[0.92rem] leading-relaxed ${
+                  msg.role === 'user'
+                    ? 'bg-[#C05621] text-white rounded-br-md'
+                    : 'bg-white border border-[#C05621]/[0.06] text-[#1B2432] rounded-bl-md shadow-sm'
+                }`}>
+                  {msg.role === 'user' ? (
+                    msg.text
+                  ) : (
+                    <div className="prose prose-sm prose-stone max-w-none [&>p]:mb-2 [&>p:last-child]:mb-0 [&>ul]:mb-2 [&>h1]:text-base [&>h2]:text-sm [&>h3]:text-sm [&>strong]:text-[#1B2432]">
+                      <ReactMarkdown>{msg.text}</ReactMarkdown>
+                    </div>
+                  )}
+                  {msg.images && msg.images.length > 0 && (
+                    <div className="grid grid-cols-2 gap-1.5 mt-2">
+                      {msg.images.map((url, j) => (
+                        <img key={j} src={url} alt="" className="rounded-lg w-full h-24 object-cover" />
+                      ))}
+                    </div>
+                  )}
                 </div>
               </motion.div>
             ))}
           </AnimatePresence>
 
-          {/* Typing indicator */}
-          {isTyping && (
+          {/* Streaming content */}
+          {isLoading && streamingContent && (
             <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
               className="flex justify-start"
             >
-              <div className="bg-white border border-[#C05621]/[0.06] rounded-2xl rounded-bl-md shadow-sm">
-                <TypingIndicator />
+              <div className="max-w-[80%] px-5 py-3 rounded-2xl rounded-bl-md text-[0.92rem] leading-relaxed bg-white border border-[#C05621]/[0.06] text-[#1B2432] shadow-sm">
+                <div className="prose prose-sm prose-stone max-w-none [&>p]:mb-2 [&>p:last-child]:mb-0">
+                  <ReactMarkdown>{streamingContent}</ReactMarkdown>
+                  <span className="inline-block w-1.5 h-4 bg-[#C05621]/60 animate-pulse ml-0.5 align-text-bottom" />
+                </div>
               </div>
             </motion.div>
           )}
 
-          {/* ─── Brief Card (phase: brief / done) ─── */}
-          {(phase === 'brief' || phase === 'done') && finalBrief && (
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5 }}
-              className="bg-white rounded-3xl border border-[#C05621]/[0.08] shadow-md p-8 space-y-6"
-            >
-              <div className="flex items-center gap-2 text-[#C05621]">
-                <Star className="w-5 h-5" />
-                <span className="font-semibold text-sm uppercase tracking-wider">Your Project Brief</span>
-              </div>
-
-              <h3 className="text-2xl font-serif font-bold text-[#1B2432]">{finalBrief.title}</h3>
-              <p className="text-[#4A5568] leading-relaxed">{finalBrief.description}</p>
-
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <div className="bg-[#FDFCF8] rounded-xl p-3 border border-[#C05621]/[0.06]">
-                  <span className="text-[#4A5568] text-xs">Category</span>
-                  <p className="font-medium text-[#1B2432] mt-0.5">{finalBrief.category}</p>
-                </div>
-                <div className="bg-[#FDFCF8] rounded-xl p-3 border border-[#C05621]/[0.06]">
-                  <span className="text-[#4A5568] text-xs">Budget</span>
-                  <p className="font-medium text-[#1B2432] mt-0.5">${finalBrief.budget_min} – ${finalBrief.budget_max}</p>
-                </div>
-                <div className="bg-[#FDFCF8] rounded-xl p-3 border border-[#C05621]/[0.06]">
-                  <span className="text-[#4A5568] text-xs">Timeline</span>
-                  <p className="font-medium text-[#1B2432] mt-0.5">{finalBrief.deadline}</p>
-                </div>
-                <div className="bg-[#FDFCF8] rounded-xl p-3 border border-[#C05621]/[0.06]">
-                  <span className="text-[#4A5568] text-xs">Dimensions</span>
-                  <p className="font-medium text-[#1B2432] mt-0.5">{finalBrief.dimensions}</p>
-                </div>
-              </div>
-
-              {finalBrief.style_tags.length > 0 && (
-                <div className="flex flex-wrap gap-2">
-                  {finalBrief.style_tags.map((tag) => (
-                    <span key={tag} className="px-3 py-1 rounded-full bg-[#C05621]/[0.07] text-[#C05621] text-xs font-medium">
-                      {tag}
-                    </span>
+          {/* Loading dots (before stream starts) */}
+          {isLoading && !streamingContent && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex justify-start">
+              <div className="bg-white border border-[#C05621]/[0.06] rounded-2xl rounded-bl-md shadow-sm px-4 py-3">
+                <div className="flex items-center gap-1.5">
+                  {[0, 1, 2].map(i => (
+                    <motion.span
+                      key={i}
+                      className="w-2 h-2 rounded-full bg-[#C05621]/50"
+                      animate={{ y: [0, -6, 0] }}
+                      transition={{ duration: 0.6, repeat: Infinity, delay: i * 0.15, ease: 'easeInOut' }}
+                    />
                   ))}
                 </div>
-              )}
-
-              {finalBrief.materials.length > 0 && finalBrief.materials[0] && (
-                <p className="text-sm text-[#4A5568]">
-                  <span className="font-medium text-[#1B2432]">Materials:</span> {finalBrief.materials.join(', ')}
-                </p>
-              )}
-
-              {finalBrief.special_requirements && (
-                <p className="text-sm text-[#4A5568]">
-                  <span className="font-medium text-[#1B2432]">Special notes:</span> {finalBrief.special_requirements}
-                </p>
-              )}
-
-              {/* Concept image */}
-              {phase === 'done' && conceptImageUrl && (
-                <div className="rounded-2xl overflow-hidden border border-[#C05621]/[0.08]">
-                  <img src={conceptImageUrl} alt="AI concept" className="w-full h-64 object-cover" />
-                </div>
-              )}
-
-              {phase === 'generating_image' && (
-                <div className="flex items-center justify-center h-48 rounded-2xl bg-[#FDFCF8] border border-[#C05621]/[0.06]">
-                  <Loader2 className="w-8 h-8 text-[#C05621] animate-spin" />
-                </div>
-              )}
-
-              {/* Actions */}
-              <div className="flex flex-col sm:flex-row gap-3 pt-2">
-                {phase === 'brief' && (
-                  <>
-                    <Button
-                      onClick={handleGenerateImage}
-                      className="bg-[#C05621] text-white hover:bg-[#A84A1C] rounded-xl gap-2"
-                      size="lg"
-                    >
-                      <ImageIcon className="w-4 h-4" />
-                      Generate Concept Image
-                    </Button>
-                    <Button
-                      onClick={handleSubmit}
-                      variant="outline"
-                      size="lg"
-                      className="rounded-xl border-[#1B2432]/20 text-[#1B2432] gap-2"
-                      disabled={submitting}
-                    >
-                      {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <ArrowRight className="w-4 h-4" />}
-                      Skip Image & Submit
-                    </Button>
-                  </>
-                )}
-                {phase === 'done' && (
-                  <Button
-                    onClick={handleSubmit}
-                    className="bg-[#C05621] text-white hover:bg-[#A84A1C] rounded-xl gap-2"
-                    size="lg"
-                    disabled={submitting}
-                  >
-                    {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
-                    Confirm & Find Creators
-                  </Button>
-                )}
               </div>
             </motion.div>
           )}
 
-          <div ref={chatEndRef} />
+          {/* Brief Card */}
+          {phase !== 'chatting' && briefData && (
+            <BriefCard
+              brief={briefData}
+              phase={phase}
+              conceptImageUrl={conceptImageUrl}
+              submitting={submitting}
+              imageUploading={imageUploading}
+              uploadedImages={uploadedImages}
+              onGenerateImage={handleGenerateImage}
+              onSubmit={handleSubmit}
+              onBriefFileDrop={handleBriefFileDrop}
+              onBriefFileSelect={handleBriefFileSelect}
+              onRemoveBriefImage={(i) => setUploadedImages(prev => prev.filter((_, idx) => idx !== i))}
+              briefFileInputRef={briefFileInputRef}
+            />
+          )}
+
+          <div style={{ height: 1 }} />
         </div>
 
-        {/* ─── Input Area ─── */}
-        {phase === 'chatting' && !isTyping && (
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="px-6 py-4 border-t border-[#C05621]/[0.06] bg-white/60 backdrop-blur-sm"
-          >
-            {/* Category confirm chips */}
-            {awaitingCategoryConfirm && (
-              <div className="flex flex-wrap gap-2 mb-3">
-                <button
-                  onClick={() => handleCategoryConfirm(true)}
-                  className="px-4 py-2 rounded-full bg-[#C05621] text-white text-sm font-medium hover:bg-[#A84A1C] transition-colors"
-                >
-                  Yes, {detectedCategory}!
-                </button>
-                <button
-                  onClick={() => handleCategoryConfirm(false)}
-                  className="px-4 py-2 rounded-full bg-white border border-[#C05621]/20 text-[#1B2432] text-sm font-medium hover:bg-[#C05621]/5 transition-colors"
-                >
-                  No, let me pick
-                </button>
-              </div>
-            )}
-
-            {/* Single-select chips */}
-            {!awaitingCategoryConfirm && currentStepData?.type === 'chips' && currentStepData.options && (
-              <div className="flex flex-wrap gap-2 mb-3">
-                {currentStepData.options.map((option) => (
+        {/* Input Area */}
+        <div className="px-6 py-4 border-t border-[#C05621]/[0.06] bg-white/60 backdrop-blur-sm">
+          {/* Pending image previews */}
+          {pendingPreviews.length > 0 && (
+            <div className="flex gap-2 flex-wrap mb-2">
+              {pendingPreviews.map((url, i) => (
+                <div key={i} className="relative">
+                  <img src={url} alt="" className="w-16 h-16 rounded-lg object-cover border border-[#C05621]/10" />
                   <button
-                    key={option}
-                    onClick={() => handleChipSelect(option)}
-                    className="px-4 py-2 rounded-full bg-white border border-[#C05621]/15 text-[#1B2432] text-sm font-medium
-                               hover:bg-[#C05621] hover:text-white hover:border-[#C05621] transition-all duration-200"
+                    onClick={() => removePendingFile(i)}
+                    className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-red-500 text-white flex items-center justify-center shadow-sm"
                   >
-                    {option}
+                    <X className="w-3 h-3" />
                   </button>
-                ))}
-              </div>
-            )}
-
-            {/* Multi-select chips (style tags) */}
-            {!awaitingCategoryConfirm && currentStepData?.type === 'chips_multi' && currentStepData.options && (
-              <div className="space-y-3 mb-3">
-                <div className="flex flex-wrap gap-2">
-                  {currentStepData.options.map((option) => {
-                    const selected = selectedChips.includes(option);
-                    return (
-                      <button
-                        key={option}
-                        onClick={() => toggleChip(option)}
-                        className={`px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
-                          selected
-                            ? 'bg-[#C05621] text-white border border-[#C05621]'
-                            : 'bg-white border border-[#C05621]/15 text-[#1B2432] hover:border-[#C05621]/40'
-                        }`}
-                      >
-                        {selected && <Check className="w-3 h-3 inline mr-1" />}
-                        {option}
-                      </button>
-                    );
-                  })}
                 </div>
-                {selectedChips.length > 0 && (
-                  <Button
-                    onClick={handleMultiChipConfirm}
-                    size="sm"
-                    className="bg-[#C05621] text-white hover:bg-[#A84A1C] rounded-full"
-                  >
-                    Continue with {selectedChips.length} selected
-                    <ArrowRight className="w-3.5 h-3.5 ml-1" />
-                  </Button>
-                )}
-              </div>
-            )}
+              ))}
+            </div>
+          )}
 
-            {/* Free text input */}
-            {!awaitingCategoryConfirm && (currentStepData?.type === 'free_text' || !currentStepData) && (
-              <div className="flex items-center gap-3">
-                <input
-                  ref={inputRef}
-                  type="text"
-                  value={inputValue}
-                  onChange={(e) => setInputValue(e.target.value)}
-                  onKeyDown={handleKeyDown}
-                  placeholder={currentStepData?.placeholder || "Type your answer..."}
-                  className="flex-1 px-4 py-3 rounded-xl border border-[#C05621]/10 bg-white text-[#1B2432]
-                             placeholder:text-[#4A5568]/50 focus:outline-none focus:ring-2 focus:ring-[#C05621]/30
-                             focus:border-[#C05621]/30 transition-all"
-                />
-                <Button
-                  onClick={handleSend}
-                  disabled={!inputValue.trim()}
-                  className="bg-[#C05621] text-white hover:bg-[#A84A1C] rounded-xl h-12 w-12 p-0 flex-shrink-0
-                             disabled:opacity-40"
-                >
-                  <Send className="w-4.5 h-4.5" />
-                </Button>
-              </div>
+          <div className="flex items-end gap-2">
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              className="h-12 w-12 flex items-center justify-center rounded-xl border border-[#C05621]/10 bg-white hover:bg-[#C05621]/5 text-[#C05621]/60 hover:text-[#C05621] transition-colors flex-shrink-0"
+              title="Attach images"
+            >
+              <ImagePlus className="w-5 h-5" />
+            </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              multiple
+              className="hidden"
+              onChange={handleFileSelect}
+            />
+            <textarea
+              ref={inputRef}
+              value={input}
+              onChange={e => setInput(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder={phase === 'chatting' ? 'Describe your design idea...' : 'Ask follow-up questions...'}
+              rows={1}
+              disabled={isLoading}
+              className="flex-1 px-4 py-3 rounded-xl border border-[#C05621]/10 bg-white text-[#1B2432]
+                         placeholder:text-[#4A5568]/50 focus:outline-none focus:ring-2 focus:ring-[#C05621]/30
+                         focus:border-[#C05621]/30 transition-all resize-none min-h-[48px] max-h-[150px]
+                         disabled:opacity-50"
+            />
+            {isLoading ? (
+              <Button
+                onClick={handleAbort}
+                className="bg-red-500 text-white hover:bg-red-600 rounded-xl h-12 w-12 p-0 flex-shrink-0"
+                title="Stop generating"
+              >
+                <Square className="w-4 h-4" />
+              </Button>
+            ) : (
+              <Button
+                onClick={() => sendMessage()}
+                disabled={!canSend}
+                className="bg-[#C05621] text-white hover:bg-[#A84A1C] rounded-xl h-12 w-12 p-0 flex-shrink-0 disabled:opacity-40"
+              >
+                <Send className="w-4.5 h-4.5" />
+              </Button>
             )}
-          </motion.div>
-        )}
+          </div>
+        </div>
       </main>
     </div>
+  );
+}
+
+// ─── Brief Card (inline) ────────────────────────────────────
+function BriefCard({
+  brief,
+  phase,
+  conceptImageUrl,
+  submitting,
+  imageUploading,
+  uploadedImages,
+  onGenerateImage,
+  onSubmit,
+  onBriefFileDrop,
+  onBriefFileSelect,
+  onRemoveBriefImage,
+  briefFileInputRef,
+}: {
+  brief: BriefData;
+  phase: Phase;
+  conceptImageUrl: string | null;
+  submitting: boolean;
+  imageUploading: boolean;
+  uploadedImages: string[];
+  onGenerateImage: () => void;
+  onSubmit: () => void;
+  onBriefFileDrop: (e: React.DragEvent) => void;
+  onBriefFileSelect: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  onRemoveBriefImage: (i: number) => void;
+  briefFileInputRef: React.RefObject<HTMLInputElement | null>;
+}) {
+  const { min, max } = parseBudgetRange(brief.budget);
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5 }}
+      className="bg-white rounded-3xl border border-[#C05621]/[0.08] shadow-md p-8 space-y-6"
+    >
+      <div className="flex items-center gap-2 text-[#C05621]">
+        <Star className="w-5 h-5" />
+        <span className="font-semibold text-sm uppercase tracking-wider">Your Project Brief</span>
+      </div>
+
+      <h3 className="text-2xl font-serif font-bold text-[#1B2432]">{brief.title}</h3>
+      <p className="text-[#4A5568] leading-relaxed">{brief.description}</p>
+
+      <div className="grid grid-cols-2 gap-4 text-sm">
+        <div className="bg-[#FDFCF8] rounded-xl p-3 border border-[#C05621]/[0.06]">
+          <span className="text-[#4A5568] text-xs">Category</span>
+          <p className="font-medium text-[#1B2432] mt-0.5">{brief.category}</p>
+        </div>
+        <div className="bg-[#FDFCF8] rounded-xl p-3 border border-[#C05621]/[0.06]">
+          <span className="text-[#4A5568] text-xs">Budget</span>
+          <p className="font-medium text-[#1B2432] mt-0.5">${min} – ${max}</p>
+        </div>
+        <div className="bg-[#FDFCF8] rounded-xl p-3 border border-[#C05621]/[0.06]">
+          <span className="text-[#4A5568] text-xs">Timeline</span>
+          <p className="font-medium text-[#1B2432] mt-0.5">{brief.timeline}</p>
+        </div>
+        <div className="bg-[#FDFCF8] rounded-xl p-3 border border-[#C05621]/[0.06]">
+          <span className="text-[#4A5568] text-xs">Dimensions</span>
+          <p className="font-medium text-[#1B2432] mt-0.5">{brief.dimensions}</p>
+        </div>
+      </div>
+
+      {brief.style && (
+        <div className="flex flex-wrap gap-2">
+          {brief.style.split(',').map(tag => tag.trim()).filter(Boolean).map(tag => (
+            <span key={tag} className="px-3 py-1 rounded-full bg-[#C05621]/[0.07] text-[#C05621] text-xs font-medium">
+              {tag}
+            </span>
+          ))}
+        </div>
+      )}
+
+      {brief.materials && brief.materials !== 'To be discussed' && (
+        <p className="text-sm text-[#4A5568]">
+          <span className="font-medium text-[#1B2432]">Materials:</span> {brief.materials}
+        </p>
+      )}
+
+      {brief.specialRequirements && brief.specialRequirements !== 'None' && (
+        <p className="text-sm text-[#4A5568]">
+          <span className="font-medium text-[#1B2432]">Special notes:</span> {brief.specialRequirements}
+        </p>
+      )}
+
+      {/* Reference images */}
+      <div className="space-y-3">
+        {uploadedImages.length > 0 && (
+          <div>
+            <span className="text-xs font-medium text-[#4A5568]">Reference Images</span>
+            <div className="grid grid-cols-3 gap-2 mt-1.5">
+              {uploadedImages.map((url, i) => (
+                <div key={i} className="relative group">
+                  <img src={url} alt="" className="rounded-xl w-full h-24 object-cover" />
+                  <button
+                    onClick={() => onRemoveBriefImage(i)}
+                    className="absolute top-1 right-1 w-5 h-5 rounded-full bg-black/60 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+        {uploadedImages.length < 5 && (
+          <div
+            onDragOver={e => e.preventDefault()}
+            onDrop={onBriefFileDrop}
+            onClick={() => briefFileInputRef.current?.click()}
+            className="border-2 border-dashed border-[#C05621]/20 rounded-xl p-6 flex flex-col items-center gap-2 cursor-pointer hover:border-[#C05621]/40 hover:bg-[#C05621]/[0.02] transition-colors"
+          >
+            {imageUploading ? (
+              <Loader2 className="w-6 h-6 text-[#C05621] animate-spin" />
+            ) : (
+              <ImagePlus className="w-6 h-6 text-[#C05621]/40" />
+            )}
+            <span className="text-xs text-[#4A5568]">Drop images here or click to browse</span>
+            <span className="text-xs text-[#4A5568]/60">{uploadedImages.length}/5 images</span>
+          </div>
+        )}
+        <input ref={briefFileInputRef} type="file" accept="image/*" multiple className="hidden" onChange={onBriefFileSelect} />
+      </div>
+
+      {/* Concept image */}
+      {(phase === 'done') && conceptImageUrl && (
+        <div className="rounded-2xl overflow-hidden border border-[#C05621]/[0.08]">
+          <img src={conceptImageUrl} alt="AI concept" className="w-full h-64 object-cover" />
+        </div>
+      )}
+
+      {phase === 'generating_image' && (
+        <div className="flex items-center justify-center h-48 rounded-2xl bg-[#FDFCF8] border border-[#C05621]/[0.06]">
+          <div className="text-center space-y-3">
+            <Loader2 className="w-8 h-8 text-[#C05621] animate-spin mx-auto" />
+            <p className="text-sm text-[#4A5568]">Generating concept image...</p>
+          </div>
+        </div>
+      )}
+
+      {/* Actions */}
+      <div className="flex flex-col sm:flex-row gap-3 pt-2">
+        {phase === 'brief' && (
+          <>
+            <Button onClick={onGenerateImage} className="bg-[#C05621] text-white hover:bg-[#A84A1C] rounded-xl gap-2" size="lg">
+              <ImageIcon className="w-4 h-4" />
+              Generate Concept Image
+            </Button>
+            <Button onClick={onSubmit} variant="outline" size="lg" className="rounded-xl border-[#1B2432]/20 text-[#1B2432] gap-2" disabled={submitting}>
+              {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <ArrowRight className="w-4 h-4" />}
+              Skip Image & Submit
+            </Button>
+          </>
+        )}
+        {phase === 'done' && (
+          <Button onClick={onSubmit} className="bg-[#C05621] text-white hover:bg-[#A84A1C] rounded-xl gap-2" size="lg" disabled={submitting}>
+            {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+            Confirm & Find Creators
+          </Button>
+        )}
+      </div>
+    </motion.div>
   );
 }

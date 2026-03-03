@@ -2,14 +2,13 @@ import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { useAuth } from '@/hooks/useAuth';
+import { AppLayout } from '@/components/app/AppLayout';
 import { useBusinessProfile } from '@/hooks/useBusinessProfile';
 import { supabase } from '@/lib/supabase';
 import type { Message, Project } from '@/lib/database.types';
 import {
   ArrowLeft,
   MessageSquare,
-  LogOut,
   ArrowRight,
   Loader2
 } from 'lucide-react';
@@ -22,7 +21,6 @@ interface ConversationItem {
 
 const BusinessConversations = () => {
   const navigate = useNavigate();
-  const { signOut } = useAuth();
   const { business } = useBusinessProfile();
   const [conversations, setConversations] = useState<ConversationItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -81,26 +79,8 @@ const BusinessConversations = () => {
     fetchConversations();
   }, [business]);
 
-  const handleLogout = async () => {
-    await signOut();
-    navigate('/');
-  };
-
   return (
-    <div className="min-h-screen bg-background">
-      <header className="sticky top-0 z-50 bg-background/80 backdrop-blur-md border-b border-border">
-        <div className="container mx-auto px-6 h-16 flex items-center justify-between">
-          <Link to="/" className="text-2xl font-serif font-semibold text-primary">DEXO</Link>
-          <div className="flex items-center gap-4">
-            <span className="text-sm text-muted-foreground">{business?.name ?? ''}</span>
-            <Button variant="ghost" size="sm" onClick={handleLogout}>
-              <LogOut className="w-4 h-4 mr-2" />
-              Sign out
-            </Button>
-          </div>
-        </div>
-      </header>
-
+    <AppLayout>
       <main className="container mx-auto px-6 py-12">
         <div className="flex items-center gap-4 mb-8">
           <Button variant="ghost" size="sm" onClick={() => navigate('/business')}>
@@ -172,7 +152,7 @@ const BusinessConversations = () => {
           </div>
         )}
       </main>
-    </div>
+    </AppLayout>
   );
 };
 

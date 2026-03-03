@@ -63,6 +63,30 @@ export interface Message {
   created_at: string;
 }
 
+export interface AiUsageLog {
+  id: string;
+  user_id: string;
+  function_name: string;
+  model: string;
+  tokens_in: number;
+  tokens_out: number;
+  cost_usd: number;
+  metadata: Record<string, unknown>;
+  created_at: string;
+}
+
+export interface ImageVersion {
+  id: string;
+  project_id: string;
+  parent_version_id: string | null;
+  image_url: string;
+  prompt: string | null;
+  edit_instruction: string | null;
+  version_number: number;
+  is_current: boolean;
+  created_at: string;
+}
+
 export interface Database {
   public: {
     Tables: {
@@ -71,6 +95,8 @@ export interface Database {
       projects: { Row: Project; Insert: Omit<Project, "id" | "created_at">; Update: Partial<Omit<Project, "id">> };
       offers: { Row: Offer; Insert: Omit<Offer, "id" | "created_at">; Update: Partial<Omit<Offer, "id">> };
       messages: { Row: Message; Insert: Omit<Message, "id" | "created_at">; Update: Partial<Omit<Message, "id">> };
+      ai_usage_log: { Row: AiUsageLog; Insert: Omit<AiUsageLog, "id" | "created_at">; Update: Partial<Omit<AiUsageLog, "id">> };
+      image_versions: { Row: ImageVersion; Insert: Omit<ImageVersion, "id" | "created_at">; Update: Partial<Omit<ImageVersion, "id">> };
     };
   };
 }

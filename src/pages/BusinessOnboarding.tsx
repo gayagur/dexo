@@ -1,27 +1,31 @@
-import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useState, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { AppLayout } from '@/components/app/AppLayout';
 import { useAuth } from '@/hooks/useAuth';
 import { useBusinessProfile } from '@/hooks/useBusinessProfile';
+import { useImageUpload } from '@/hooks/useImageUpload';
 import { categories, styleOptions, materialOptions } from '@/lib/data';
 import {
   ArrowLeft,
   ArrowRight,
   Upload,
   Check,
-  LogOut,
-  Loader2
+  Loader2,
+  X,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 const BusinessOnboarding = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { user, signOut } = useAuth();
+  const { user } = useAuth();
   const { createBusiness } = useBusinessProfile();
+  const { uploading: portfolioUploading, uploadMultiple } = useImageUpload();
+  const portfolioInputRef = useRef<HTMLInputElement>(null);
 
   const [step, setStep] = useState(1);
   const [submitting, setSubmitting] = useState(false);
@@ -99,24 +103,8 @@ const BusinessOnboarding = () => {
     setSubmitting(false);
   };
 
-  const handleLogout = async () => {
-    await signOut();
-    navigate('/');
-  };
-
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="sticky top-0 z-50 bg-background/80 backdrop-blur-md border-b border-border">
-        <div className="container mx-auto px-6 h-16 flex items-center justify-between">
-          <Link to="/" className="text-2xl font-serif font-semibold text-primary">DEXO</Link>
-          <Button variant="ghost" size="sm" onClick={handleLogout}>
-            <LogOut className="w-4 h-4 mr-2" />
-            Sign out
-          </Button>
-        </div>
-      </header>
-
+    <AppLayout>
       {/* Progress */}
       <div className="bg-muted/30">
         <div className="container mx-auto px-6">
@@ -316,34 +304,52 @@ const BusinessOnboarding = () => {
 
               <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                 {formData.portfolio.map((img, i) => (
-                  <div key={i} className="aspect-square rounded-xl overflow-hidden">
+                  <div key={i} className="aspect-square rounded-xl overflow-hidden relative group">
                     <img src={img} alt="" className="w-full h-full object-cover" />
+                    <button
+                      type="button"
+                      onClick={() => setFormData({ ...formData, portfolio: formData.portfolio.filter((_, idx) => idx !== i) })}
+                      className="absolute top-2 right-2 w-6 h-6 rounded-full bg-black/60 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
                   </div>
                 ))}
 
                 <button
                   type="button"
-                  onClick={() => {
-                    const sampleImages = [
-                      'https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=400&h=400&fit=crop',
-                      'https://images.unsplash.com/photo-1506439773649-6e0eb8cfb237?w=400&h=400&fit=crop',
-                      'https://images.unsplash.com/photo-1493663284031-b7e3aefcae8e?w=400&h=400&fit=crop',
-                    ];
-                    const nextImage = sampleImages[formData.portfolio.length % sampleImages.length];
-                    setFormData({
-                      ...formData,
-                      portfolio: [...formData.portfolio, nextImage],
-                    });
-                  }}
-                  className="aspect-square rounded-xl border-2 border-dashed border-border hover:border-primary/50 flex flex-col items-center justify-center gap-3 transition-colors"
+                  onClick={() => portfolioInputRef.current?.click()}
+                  disabled={portfolioUploading}
+                  className="aspect-square rounded-xl border-2 border-dashed border-border hover:border-primary/50 flex flex-col items-center justify-center gap-3 transition-colors disabled:opacity-50"
                 >
-                  <Upload className="w-8 h-8 text-muted-foreground" />
-                  <span className="text-sm text-muted-foreground">Add photo</span>
+                  {portfolioUploading ? (
+                    <Loader2 className="w-8 h-8 text-muted-foreground animate-spin" />
+                  ) : (
+                    <Upload className="w-8 h-8 text-muted-foreground" />
+                  )}
+                  <span className="text-sm text-muted-foreground">
+                    {portfolioUploading ? 'Uploading...' : 'Add photo'}
+                  </span>
                 </button>
+
+                <input
+                  ref={portfolioInputRef}
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  className="hidden"
+                  onChange={async (e) => {
+                    const files = Array.from(e.target.files || []);
+                    if (files.length === 0) return;
+                    const urls = await uploadMultiple(files, 'portfolio-images');
+                    setFormData((prev) => ({ ...prev, portfolio: [...prev.portfolio, ...urls] }));
+                    if (portfolioInputRef.current) portfolioInputRef.current.value = '';
+                  }}
+                />
               </div>
 
               <p className="text-xs text-muted-foreground text-center">
-                Click to add demo portfolio images
+                Upload photos of your best work
               </p>
             </div>
           )}
@@ -452,7 +458,7 @@ const BusinessOnboarding = () => {
           </div>
         </div>
       </main>
-    </div>
+    </AppLayout>
   );
 };
 

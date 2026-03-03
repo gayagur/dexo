@@ -5,6 +5,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
+import { AppLayout } from '@/components/app/AppLayout';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/hooks/useAuth';
 import { useBusinessProfile } from '@/hooks/useBusinessProfile';
@@ -129,18 +130,14 @@ const BusinessRequestPage = () => {
   const details = project.details as Record<string, any>;
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="sticky top-0 z-50 bg-background/80 backdrop-blur-md border-b border-border">
-        <div className="container mx-auto px-6 h-16 flex items-center">
+    <AppLayout>
+      <main className="container mx-auto px-6 py-12">
+        <div className="mb-6">
           <Link to="/business" className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors">
             <ArrowLeft className="w-4 h-4" />
             Back to requests
           </Link>
         </div>
-      </header>
-
-      <main className="container mx-auto px-6 py-12">
         <div className="grid lg:grid-cols-3 gap-8">
           {/* Main Content */}
           <div className="lg:col-span-2 space-y-8">
@@ -426,7 +423,7 @@ const BusinessRequestPage = () => {
           </div>
         </div>
       </main>
-    </div>
+    </AppLayout>
   );
 };
 

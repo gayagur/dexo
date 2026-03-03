@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
+import { AppLayout } from '@/components/app/AppLayout';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/hooks/useAuth';
 import { useMessages } from '@/hooks/useMessages';
@@ -11,7 +12,6 @@ import {
   ArrowLeft,
   Star,
   MapPin,
-  LogOut,
   MessageSquare,
   Send,
   DollarSign,
@@ -30,7 +30,7 @@ const BusinessProfilePage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { user, loading: authLoading, signOut } = useAuth();
+  const { user, loading: authLoading } = useAuth();
 
   const [business, setBusiness] = useState<Business | null>(null);
   const [fetched, setFetched] = useState(false);
@@ -88,11 +88,6 @@ const BusinessProfilePage = () => {
     fetchProjects();
   }, [user]);
 
-  const handleLogout = async () => {
-    await signOut();
-    navigate('/');
-  };
-
   const handleSendMessage = async () => {
     if (!messageContent.trim() || !selectedProjectId) return;
 
@@ -145,19 +140,7 @@ const BusinessProfilePage = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <header className="sticky top-0 z-50 bg-background/80 backdrop-blur-md border-b border-border">
-        <div className="container mx-auto px-6 h-16 flex items-center justify-between">
-          <Link to="/" className="text-2xl font-serif font-semibold text-primary">DEXO</Link>
-          <div className="flex items-center gap-4">
-            <Button variant="ghost" size="sm" onClick={handleLogout}>
-              <LogOut className="w-4 h-4 mr-2" />
-              Sign out
-            </Button>
-          </div>
-        </div>
-      </header>
-
+    <AppLayout>
       <main className="container mx-auto px-6 py-12">
         <div className="flex items-center gap-4 mb-8">
           <Button variant="ghost" size="sm" onClick={() => navigate('/browse-businesses')}>
@@ -394,7 +377,7 @@ const BusinessProfilePage = () => {
           </div>
         </DialogContent>
       </Dialog>
-    </div>
+    </AppLayout>
   );
 };
 

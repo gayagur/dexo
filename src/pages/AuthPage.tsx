@@ -140,8 +140,11 @@ const AuthPage = () => {
       setFieldErrors(prev => ({ ...prev, role: "Please select a role first" }));
       return;
     }
+    // Persist role before OAuth redirect — useAuth picks it up on return
+    localStorage.setItem('dexo_oauth_role', selectedRole);
     const { error } = await signInWithGoogle();
     if (error) {
+      localStorage.removeItem('dexo_oauth_role');
       toast({ title: "Google sign-in failed", description: error, variant: "destructive" });
     }
   };

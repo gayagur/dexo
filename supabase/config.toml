@@ -1,0 +1,24 @@
+[api]
+enabled = true
+port = 54321
+schemas = ["public", "storage"]
+
+[db]
+port = 54322
+
+[studio]
+port = 54323
+
+# ── Edge Functions ──────────────────────────────────────────
+# Disable gateway-level JWT verification so our function code
+# handles auth via _shared/auth.ts (which validates the token
+# and returns an authenticated Supabase client).
+
+[functions.design-chat]
+verify_jwt = false
+
+[functions.generate-image]
+verify_jwt = false
+
+[functions.edit-image]
+verify_jwt = false

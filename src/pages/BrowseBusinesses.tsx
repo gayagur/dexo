@@ -6,11 +6,11 @@ import { Card, CardContent } from '@/components/ui/card';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/hooks/useAuth';
 import { categories, styleOptions } from '@/lib/data';
+import { AppLayout } from '@/components/app/AppLayout';
 import type { Business } from '@/lib/database.types';
 import {
   ArrowLeft,
   Search,
-  LogOut,
   Star,
   MapPin,
   Filter,
@@ -20,7 +20,7 @@ import {
 
 const BrowseBusinesses = () => {
   const navigate = useNavigate();
-  const { user, loading: authLoading, signOut } = useAuth();
+  const { user, loading: authLoading } = useAuth();
 
   const [businesses, setBusinesses] = useState<Business[]>([]);
   const [fetched, setFetched] = useState(false);
@@ -71,11 +71,6 @@ const BrowseBusinesses = () => {
     return matchesSearch && matchesCategory && matchesStyles;
   });
 
-  const handleLogout = async () => {
-    await signOut();
-    navigate('/');
-  };
-
   const toggleStyle = (style: string) => {
     setSelectedStyles(prev =>
       prev.includes(style) ? prev.filter(s => s !== style) : [...prev, style]
@@ -91,20 +86,8 @@ const BrowseBusinesses = () => {
   const hasActiveFilters = selectedCategory || selectedStyles.length > 0 || searchQuery;
 
   return (
-    <div className="min-h-screen bg-background">
-      <header className="sticky top-0 z-50 bg-background/80 backdrop-blur-md border-b border-border">
-        <div className="container mx-auto px-6 h-16 flex items-center justify-between">
-          <Link to="/" className="text-2xl font-serif font-semibold text-primary">DEXO</Link>
-          <div className="flex items-center gap-4">
-            <Button variant="ghost" size="sm" onClick={handleLogout}>
-              <LogOut className="w-4 h-4 mr-2" />
-              Sign out
-            </Button>
-          </div>
-        </div>
-      </header>
-
-      <main className="container mx-auto px-6 py-12">
+    <AppLayout>
+      <main className="container mx-auto px-6 py-10">
         <div className="flex items-center gap-4 mb-8">
           <Button variant="ghost" size="sm" onClick={() => navigate('/dashboard')}>
             <ArrowLeft className="w-4 h-4 mr-2" />
@@ -278,7 +261,7 @@ const BrowseBusinesses = () => {
           </div>
         )}
       </main>
-    </div>
+    </AppLayout>
   );
 };
 

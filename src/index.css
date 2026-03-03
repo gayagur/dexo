@@ -27,9 +27,9 @@
     --secondary: 40 30% 95%;
     --secondary-foreground: 215 30% 18%;
 
-    /* Warm muted tones */
-    --muted: 40 25% 94%;
-    --muted-foreground: 215 14% 35%;
+    /* Warm muted tones — darkened for readability */
+    --muted: 40 20% 93%;
+    --muted-foreground: 215 16% 46%;
 
     /* Amber accent */
     --accent: 35 85% 55%;
@@ -38,9 +38,9 @@
     --destructive: 0 65% 55%;
     --destructive-foreground: 0 0% 100%;
 
-    /* Soft warm borders */
-    --border: 35 20% 90%;
-    --input: 35 20% 90%;
+    /* Warm borders — slightly stronger for card separation */
+    --border: 35 18% 88%;
+    --input: 35 18% 88%;
     --ring: 20 70% 44%;
 
     /* Generous rounded corners for warmth */
@@ -146,12 +146,31 @@
 
   body {
     @apply bg-background text-foreground antialiased;
+    font-family: var(--font-sans);
+    font-size: 15px;
+    line-height: 1.6;
     font-feature-settings: "ss01", "ss02", "cv01";
   }
 
+  /* Typography scale — clear hierarchy, warm + readable */
   h1, h2, h3, h4, h5, h6 {
     font-family: var(--font-serif);
     letter-spacing: -0.02em;
+    line-height: 1.2;
+    color: hsl(var(--foreground));
+  }
+
+  h1 { font-size: 2rem; font-weight: 700; }
+  h2 { font-size: 1.5rem; font-weight: 600; }
+  h3 { font-size: 1.25rem; font-weight: 600; }
+
+  p {
+    line-height: 1.65;
+  }
+
+  /* Ensure readable contrast for common patterns */
+  .text-muted-foreground {
+    color: hsl(var(--muted-foreground));
   }
 }
 

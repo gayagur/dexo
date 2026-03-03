@@ -2,25 +2,22 @@ import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { useAuth } from '@/hooks/useAuth';
 import { useBusinessProfile } from '@/hooks/useBusinessProfile';
 import { useMatchedProjects } from '@/hooks/useMatchedProjects';
 import { useBusinessOffers } from '@/hooks/useOffers';
+import { AppLayout } from '@/components/app/AppLayout';
 import {
   Inbox,
   Send,
   MessageSquare,
   DollarSign,
   Clock,
-  LogOut,
   ArrowRight,
-  Settings,
   Loader2
 } from 'lucide-react';
 
 const BusinessDashboard = () => {
   const navigate = useNavigate();
-  const { signOut } = useAuth();
   const { business, loading: bizLoading } = useBusinessProfile();
   const { scoredProjects, loading: projLoading } = useMatchedProjects();
   const { offers: sentOffers } = useBusinessOffers(business?.id);
@@ -35,11 +32,6 @@ const BusinessDashboard = () => {
     }
   }, [bizLoading, business, navigate]);
 
-  const handleLogout = async () => {
-    await signOut();
-    navigate('/');
-  };
-
   if (bizLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -51,28 +43,8 @@ const BusinessDashboard = () => {
   if (!business) return null;
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="sticky top-0 z-50 bg-background/80 backdrop-blur-md border-b border-border">
-        <div className="container mx-auto px-6 h-16 flex items-center justify-between">
-          <Link to="/" className="text-2xl font-serif font-semibold text-primary">DEXO</Link>
-          <div className="flex items-center gap-4">
-            <span className="text-sm text-muted-foreground">
-              {business?.name ?? ''}
-            </span>
-            <Button variant="ghost" size="sm" onClick={() => navigate('/business/onboarding')}>
-              <Settings className="w-4 h-4 mr-2" />
-              Edit Profile
-            </Button>
-            <Button variant="ghost" size="sm" onClick={handleLogout}>
-              <LogOut className="w-4 h-4 mr-2" />
-              Sign out
-            </Button>
-          </div>
-        </div>
-      </header>
-
-      <main className="container mx-auto px-6 py-12">
+    <AppLayout>
+      <main className="container mx-auto px-6 py-10">
         {/* Hero */}
         <div className="mb-12">
           <h1 className="text-4xl font-serif mb-4">Welcome back</h1>
@@ -219,7 +191,7 @@ const BusinessDashboard = () => {
           </div>
         )}
       </main>
-    </div>
+    </AppLayout>
   );
 };
 
