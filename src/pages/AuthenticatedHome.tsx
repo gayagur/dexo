@@ -437,7 +437,7 @@ function CustomerHome({ firstName }: { firstName: string }) {
             icon: Search,
             title: 'Get Matched',
             description: 'Skilled creators see your design brief and send you offers with pricing, timeline, and their approach.',
-            accent: '#2563EB',
+            accent: '#D4793A',
             image: stepCreate,
           },
           {
@@ -445,7 +445,7 @@ function CustomerHome({ firstName }: { firstName: string }) {
             icon: Package,
             title: 'Receive & Enjoy',
             description: 'Your one-of-a-kind product is crafted and delivered — exactly what you envisioned.',
-            accent: '#16A34A',
+            accent: '#E8A065',
             image: stepReceive,
           },
         ]}
@@ -754,7 +754,7 @@ function CreatorHome({ firstName }: { firstName: string }) {
             icon: MessageSquare,
             title: 'Send Your Offer',
             description: 'Review the design brief and submit your price, timeline, and approach. Stand out with a personalized note.',
-            accent: '#2563EB',
+            accent: '#D4793A',
             image: stepCreate,
           },
           {
@@ -762,7 +762,7 @@ function CreatorHome({ firstName }: { firstName: string }) {
             icon: Zap,
             title: 'Create & Deliver',
             description: 'Once accepted, craft the product and communicate with your client. Build your reputation with every delivery.',
-            accent: '#16A34A',
+            accent: '#E8A065',
             image: stepReceive,
           },
         ]}
