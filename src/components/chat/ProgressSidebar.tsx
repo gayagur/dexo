@@ -38,17 +38,18 @@ export function ProgressSidebar({
   }, [inlineField]);
 
   const handleClick = (item: ProgressItem, filled: boolean) => {
-    const canEdit = filled && (phase === "chatting" || phase === "brief");
-    if (!canEdit) return;
+    const canInteract = phase === "chatting" || phase === "brief";
+    if (!canInteract) return;
 
     // All fields use inline editing when onDirectUpdate is provided
+    // Works for BOTH filled (edit) and unfilled (fill) fields
     if (onDirectUpdate) {
       const value = briefData[item.field as keyof BriefData];
       const currentStr = Array.isArray(value) ? value.join(", ") : String(value || "");
       setInlineField(item.field);
-      setInlineValue(currentStr);
-    } else {
-      // Fall back to chat-based flow
+      setInlineValue(filled ? currentStr : "");
+    } else if (filled) {
+      // Fall back to chat-based flow (only for filled fields)
       onEditField(item.field, item.stepIndex);
     }
   };
@@ -91,8 +92,8 @@ export function ProgressSidebar({
           const isEditing = editingField === item.field;
           const isInlineEditing = inlineField === item.field;
           const Icon = item.icon;
-          const canEdit =
-            filled && (phase === "chatting" || phase === "brief");
+          const canInteract =
+            (phase === "chatting" || phase === "brief") && !isInlineEditing;
 
           return (
             <div key={item.field}>
@@ -104,7 +105,7 @@ export function ProgressSidebar({
                     : filled
                     ? "bg-[#C05621]/[0.06] border border-[#C05621]/10"
                     : "bg-white/60 border border-transparent"
-                } ${canEdit && !isInlineEditing ? "cursor-pointer hover:border-[#C05621]/30" : ""}`}
+                } ${canInteract ? "cursor-pointer hover:border-[#C05621]/30" : ""}`}
               >
                 <div
                   className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${
@@ -137,7 +138,7 @@ export function ProgressSidebar({
                     </motion.div>
                   )}
                 </div>
-                {canEdit && !isEditing && !isInlineEditing && (
+                {canInteract && !isEditing && (
                   <Pencil className="w-3.5 h-3.5 text-[#C05621]/40 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
                 )}
               </div>
