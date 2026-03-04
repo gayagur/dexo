@@ -142,9 +142,11 @@ export function ImageEditor({
 
     if (result.error) {
       const code = result.code || "AI_ERROR";
+      // Show the actual API error when available, fall back to generic message
+      const specificError = result.error !== "Image editing failed" ? result.error : null;
       setError({
         code,
-        message: ERROR_MESSAGES[code] || result.error,
+        message: specificError || ERROR_MESSAGES[code] || result.error,
       });
     } else if (result.url) {
       onNewVersion(result.url, result.versionId ?? `local-${Date.now()}`);

@@ -48,6 +48,13 @@ export function streamChat(
 ): AbortController {
   const controller = new AbortController();
 
+  // Safety timeout: abort if stream hangs for >90 seconds
+  let timedOut = false;
+  const timeoutId = setTimeout(() => {
+    timedOut = true;
+    controller.abort();
+  }, 90_000);
+
   (async () => {
     try {
       const headers = await getAuthHeaders();
@@ -60,6 +67,7 @@ export function streamChat(
       });
 
       if (!response.ok) {
+        clearTimeout(timeoutId);
         const err = await response.json().catch(() => ({}));
         // Supabase gateway returns { message }, our functions return { error }
         const msg = err.error || err.message || `HTTP ${response.status}`;
@@ -69,6 +77,7 @@ export function streamChat(
 
       const reader = response.body?.getReader();
       if (!reader) {
+        clearTimeout(timeoutId);
         onError("No response stream");
         return;
       }
@@ -103,10 +112,15 @@ export function streamChat(
         }
       }
 
+      clearTimeout(timeoutId);
       onDone(fullText);
     } catch (err) {
+      clearTimeout(timeoutId);
       if ((err as Error).name === "AbortError") {
-        // Aborted by user — not an error
+        if (timedOut) {
+          onError("Response timed out. Please try again.");
+        }
+        // Otherwise aborted by user — not an error
         return;
       }
       onError((err as Error).message || "Stream failed");

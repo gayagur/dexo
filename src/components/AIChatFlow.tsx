@@ -136,7 +136,7 @@ function extractProgress(messages: DisplayMessage[]): Record<string, string> {
   // Tier 3: extract from user intent ("I want to create a [X]")
   if (!progress.category) {
     const userTexts = messages.filter(m => m.role === 'user').map(m => m.text).join('\n');
-    const intentMatch = userTexts.match(/(?:want|like|need|create|design|make|build)\s+(?:a|an|some|my)?\s*(?:custom\s+)?(.{2,30?})(?:\.|,|!|\?|$)/i);
+    const intentMatch = userTexts.match(/(?:want|like|need|create|design|make|build)\s+(?:a|an|some|my)?\s*(?:custom\s+)?(.{2,30}?)(?:\.|,|!|\?|$)/i);
     if (intentMatch) {
       const raw = intentMatch[1].trim().replace(/\s+/g, ' ');
       // Capitalize first letter of each word
@@ -369,7 +369,7 @@ export default function AIChatFlow() {
     );
 
     abortRef.current = controller;
-  }, [input, isLoading, pendingFiles, pendingPreviews, uploadMultiple, toast]);
+  }, [input, isLoading, pendingFiles, pendingPreviews, uploadMultiple, toast, editingField, handleFieldUpdate]);
 
   const handleAbort = useCallback(() => {
     abortRef.current?.abort();
