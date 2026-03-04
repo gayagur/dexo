@@ -272,6 +272,32 @@ export default function AIChatFlow() {
   // Progress from conversation, merged with manual overrides
   const progress = { ...extractProgress(messages), ...progressOverrides };
 
+  // ─── Field Update (defined before sendMessage to avoid TDZ) ──
+  const handleFieldUpdate = useCallback((field: string, value: string) => {
+    if (!briefData) return;
+
+    const internalKeyMap: Record<string, keyof InternalBriefData> = {
+      category: 'category',
+      style_tags: 'style',
+      budget: 'budget',
+      size: 'dimensions',
+      materials: 'materials',
+      timeline: 'timeline',
+    };
+
+    const internalKey = internalKeyMap[field];
+    if (internalKey) {
+      setBriefData(prev => prev ? { ...prev, [internalKey]: value } : prev);
+    }
+
+    setEditingField(null);
+    setSelectedStyles([]);
+    setMessages(prev => [...prev, {
+      role: 'ai',
+      text: `Updated! I've changed that to **${value}**.`,
+    }]);
+  }, [briefData]);
+
   // ─── Send Message ─────────────────────────────────────────
   const sendMessage = useCallback(async (text?: string) => {
     const msgText = (text || input).trim();
@@ -532,31 +558,6 @@ export default function AIChatFlow() {
     if (field === 'style_tags') {
       setSelectedStyles(briefData.style.split(',').map(s => s.trim()).filter(Boolean));
     }
-  }, [briefData]);
-
-  const handleFieldUpdate = useCallback((field: string, value: string) => {
-    if (!briefData) return;
-
-    const internalKeyMap: Record<string, keyof InternalBriefData> = {
-      category: 'category',
-      style_tags: 'style',
-      budget: 'budget',
-      size: 'dimensions',
-      materials: 'materials',
-      timeline: 'timeline',
-    };
-
-    const internalKey = internalKeyMap[field];
-    if (internalKey) {
-      setBriefData(prev => prev ? { ...prev, [internalKey]: value } : prev);
-    }
-
-    setEditingField(null);
-    setSelectedStyles([]);
-    setMessages(prev => [...prev, {
-      role: 'ai',
-      text: `Updated! I've changed that to **${value}**.`,
-    }]);
   }, [briefData]);
 
   /** Direct update from sidebar inline input — no chat message, just update state */
