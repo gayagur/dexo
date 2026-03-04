@@ -142,6 +142,7 @@ interface StatItem {
   label: string;
   value: number;
   accent?: boolean;
+  to?: string;
 }
 
 function StatStrip({ stats }: { stats: StatItem[] }) {
@@ -155,26 +156,113 @@ function StatStrip({ stats }: { stats: StatItem[] }) {
           variants={staggerContainer}
           className="grid grid-cols-3"
         >
-          {stats.map((stat, i) => (
-            <motion.div
-              key={stat.label}
-              variants={staggerItem}
-              className={`py-7 ${i > 0 ? 'pl-8 border-l border-border/40' : ''}`}
-            >
-              <div className="flex items-center gap-1.5 mb-2">
-                <stat.icon className="w-3.5 h-3.5 text-muted-foreground/50" />
-                <span className="text-[11px] text-muted-foreground uppercase tracking-[0.08em] font-medium">
-                  {stat.label}
-                </span>
-              </div>
-              <span
-                className={`text-4xl font-semibold tracking-tight ${
-                  stat.accent ? 'text-primary' : 'text-foreground'
+          {stats.map((stat, i) => {
+            const content = (
+              <motion.div
+                key={stat.label}
+                variants={staggerItem}
+                whileHover={stat.to ? { y: -2 } : undefined}
+                className={`py-7 ${i > 0 ? 'pl-8 border-l border-border/40' : ''} ${
+                  stat.to ? 'cursor-pointer group transition-colors hover:bg-primary/[0.02] rounded-lg' : ''
                 }`}
-                style={{ fontVariantNumeric: 'tabular-nums' }}
               >
-                {stat.value}
-              </span>
+                <div className="flex items-center gap-1.5 mb-2">
+                  <stat.icon className="w-3.5 h-3.5 text-muted-foreground/50" />
+                  <span className="text-[11px] text-muted-foreground uppercase tracking-[0.08em] font-medium">
+                    {stat.label}
+                  </span>
+                  {stat.to && (
+                    <ArrowRight className="w-3 h-3 text-muted-foreground/0 group-hover:text-primary/50 transition-all ml-auto mr-2" />
+                  )}
+                </div>
+                <span
+                  className={`text-4xl font-semibold tracking-tight ${
+                    stat.accent ? 'text-primary' : 'text-foreground'
+                  }`}
+                  style={{ fontVariantNumeric: 'tabular-nums' }}
+                >
+                  {stat.value}
+                </span>
+              </motion.div>
+            );
+
+            return stat.to ? (
+              <Link key={stat.label} to={stat.to}>{content}</Link>
+            ) : (
+              <div key={stat.label}>{content}</div>
+            );
+          })}
+        </motion.div>
+      </div>
+    </section>
+  );
+}
+
+// ─── How It Works Steps ─────────────────────────────────────
+
+interface StepData {
+  number: number;
+  icon: typeof Sparkles;
+  title: string;
+  description: string;
+  accent: string;
+}
+
+function HowItWorks({ steps, label }: { steps: StepData[]; label: string }) {
+  return (
+    <section className="py-12 border-t border-border/30">
+      <div className="container mx-auto px-6">
+        <motion.div
+          initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeUp}
+          className="mb-8"
+        >
+          <h2 className="text-sm font-medium text-muted-foreground uppercase tracking-[0.08em]">
+            {label}
+          </h2>
+        </motion.div>
+
+        <motion.div
+          initial="hidden" whileInView="visible" viewport={{ once: true }}
+          variants={staggerContainer}
+          className="grid sm:grid-cols-3 gap-6"
+        >
+          {steps.map((step, i) => (
+            <motion.div key={step.number} variants={staggerItem}>
+              <motion.div
+                whileHover={{ y: -4 }}
+                transition={{ duration: 0.25 }}
+                className="relative h-full"
+              >
+                <Card className="h-full rounded-2xl overflow-hidden border-border/50 hover:shadow-md transition-shadow duration-300">
+                  {/* Accent top bar */}
+                  <div className="h-1 w-full" style={{ background: step.accent }} />
+                  <CardContent className="p-6">
+                    {/* Step number + icon */}
+                    <div className="flex items-center gap-3 mb-4">
+                      <div
+                        className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
+                        style={{ background: `${step.accent}12` }}
+                      >
+                        <step.icon className="w-5 h-5" style={{ color: step.accent }} />
+                      </div>
+                      <span
+                        className="text-5xl font-serif font-bold leading-none"
+                        style={{ color: `${step.accent}20` }}
+                      >
+                        {step.number}
+                      </span>
+                    </div>
+                    {/* Title + desc */}
+                    <h3 className="font-serif text-lg text-foreground mb-2">{step.title}</h3>
+                    <p className="text-sm text-muted-foreground leading-relaxed">{step.description}</p>
+                  </CardContent>
+                </Card>
+
+                {/* Connector line between cards */}
+                {i < steps.length - 1 && (
+                  <div className="hidden sm:block absolute top-1/2 -right-3 w-6 border-t border-dashed border-border/40" />
+                )}
+              </motion.div>
             </motion.div>
           ))}
         </motion.div>
@@ -314,10 +402,38 @@ function CustomerHome({ firstName }: { firstName: string }) {
 
       {/* ── Stats ────────────────────────────────────── */}
       <StatStrip stats={[
-        { icon: Briefcase, label: 'Total Projects', value: animProjects },
-        { icon: Eye, label: 'Offers Received', value: animOffers, accent: animOffers > 0 },
-        { icon: Zap, label: 'Active Jobs', value: animActive },
+        { icon: Briefcase, label: 'Total Projects', value: animProjects, to: '/dashboard' },
+        { icon: Eye, label: 'Offers Received', value: animOffers, accent: animOffers > 0, to: '/dashboard' },
+        { icon: Zap, label: 'Active Jobs', value: animActive, to: '/dashboard' },
       ]} />
+
+      {/* ── How It Works ──────────────────────────────── */}
+      <HowItWorks
+        label="How It Works"
+        steps={[
+          {
+            number: 1,
+            icon: Sparkles,
+            title: 'Describe & Design',
+            description: 'Tell us your idea in words. Our AI instantly generates visual mockups of your dream product.',
+            accent: '#C05621',
+          },
+          {
+            number: 2,
+            icon: Search,
+            title: 'Get Matched',
+            description: 'Skilled creators see your design brief and send you offers with pricing, timeline, and their approach.',
+            accent: '#2563EB',
+          },
+          {
+            number: 3,
+            icon: Package,
+            title: 'Receive & Enjoy',
+            description: 'Your one-of-a-kind product is crafted and delivered — exactly what you envisioned.',
+            accent: '#16A34A',
+          },
+        ]}
+      />
 
       {/* ── Continue + Recent Projects ────────────────── */}
       <section className="py-10 lg:py-12">
@@ -600,10 +716,38 @@ function CreatorHome({ firstName }: { firstName: string }) {
 
       {/* ── Stats ────────────────────────────────────── */}
       <StatStrip stats={[
-        { icon: Briefcase, label: 'Matched Projects', value: animMatched },
-        { icon: Clock, label: 'Pending Offers', value: animPending, accent: animPending > 0 },
-        { icon: Zap, label: 'Active Jobs', value: animActive },
+        { icon: Briefcase, label: 'Matched Projects', value: animMatched, to: '/business' },
+        { icon: Clock, label: 'Pending Offers', value: animPending, accent: animPending > 0, to: '/business/offers' },
+        { icon: Zap, label: 'Active Jobs', value: animActive, to: '/business/conversations' },
       ]} />
+
+      {/* ── How It Works ──────────────────────────────── */}
+      <HowItWorks
+        label="How It Works"
+        steps={[
+          {
+            number: 1,
+            icon: Eye,
+            title: 'Discover Projects',
+            description: 'Browse incoming requests that match your skills. Each comes with an AI-generated visual brief and budget.',
+            accent: '#C05621',
+          },
+          {
+            number: 2,
+            icon: MessageSquare,
+            title: 'Send Your Offer',
+            description: 'Review the design brief and submit your price, timeline, and approach. Stand out with a personalized note.',
+            accent: '#2563EB',
+          },
+          {
+            number: 3,
+            icon: Zap,
+            title: 'Create & Deliver',
+            description: 'Once accepted, craft the product and communicate with your client. Build your reputation with every delivery.',
+            accent: '#16A34A',
+          },
+        ]}
+      />
 
       {/* ── Content Grid ─────────────────────────────── */}
       <section className="py-10 lg:py-12">
