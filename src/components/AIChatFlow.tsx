@@ -191,7 +191,7 @@ export default function AIChatFlow() {
   const { user } = useAuth();
   const { createProject } = useProjects();
   const { toast } = useToast();
-  const { uploading: imageUploading, uploadMultiple } = useImageUpload();
+  const { uploading: imageUploading, uploadMultiple, error: uploadError } = useImageUpload();
 
   // Chat state
   const [messages, setMessages] = useState<DisplayMessage[]>([]);
@@ -286,15 +286,24 @@ export default function AIChatFlow() {
       return;
     }
 
-    // Upload pending images
+    // Upload pending images (set loading early to prevent double-sends)
     let imageUrls: string[] = [];
     if (pendingFiles.length > 0) {
+      setIsLoading(true);
       imageUrls = await uploadMultiple(pendingFiles, 'project-images');
-      setUploadedImages(prev => [...prev, ...imageUrls]);
-      pendingPreviews.forEach(url => URL.revokeObjectURL(url));
-      setPendingFiles([]);
-      setPendingPreviews([]);
-      if (fileInputRef.current) fileInputRef.current.value = '';
+      if (imageUrls.length === 0) {
+        // All uploads failed — don't clear files, show error
+        setIsLoading(false);
+        toast({ title: 'Image upload failed', description: 'Could not upload images. Please try again.', variant: 'destructive' });
+        if (!msgText) return; // Only had images, nothing to send
+        // If there was also text, continue sending without images
+      } else {
+        setUploadedImages(prev => [...prev, ...imageUrls]);
+        pendingPreviews.forEach(url => URL.revokeObjectURL(url));
+        setPendingFiles([]);
+        setPendingPreviews([]);
+        if (fileInputRef.current) fileInputRef.current.value = '';
+      }
     }
 
     const userMsg: DisplayMessage = {

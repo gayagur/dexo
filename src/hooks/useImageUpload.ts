@@ -54,12 +54,12 @@ export function useImageUpload() {
   const clearError = useCallback(() => setError(null), []);
 
   const uploadImage = useCallback(
-    async (file: File, bucket: string): Promise<string | null> => {
+    async (file: File, bucket: string, skipLoadingState = false): Promise<string | null> => {
       if (!user) { setError('Please sign in to upload images'); return null; }
       if (!ALLOWED_TYPES.includes(file.type)) { setError('Only JPEG, PNG, WebP and GIF are allowed'); return null; }
       if (file.size > MAX_RAW_SIZE) { setError('File must be under 10 MB'); return null; }
 
-      setUploading(true);
+      if (!skipLoadingState) setUploading(true);
       setError(null);
 
       try {
@@ -79,7 +79,7 @@ export function useImageUpload() {
         setError(e.message || 'Upload failed');
         return null;
       } finally {
-        setUploading(false);
+        if (!skipLoadingState) setUploading(false);
       }
     },
     [user],
@@ -94,7 +94,7 @@ export function useImageUpload() {
       let completed = 0;
       const results = await Promise.allSettled(
         files.map(async (file) => {
-          const url = await uploadImage(file, bucket);
+          const url = await uploadImage(file, bucket, true);
           completed++;
           setProgress(Math.round((completed / files.length) * 100));
           return url;
