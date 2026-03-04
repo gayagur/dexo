@@ -8,6 +8,7 @@ import { fadeUp } from './HeroSection';
 export interface CategoryData {
   image: string;
   title: string;
+  filterValue?: string;
   example: string;
   benefit: string;
 }
@@ -53,33 +54,40 @@ export function CategoriesSection({
           custom={0.1}
           variants={fadeUp}
         >
-          {categories.map((category, i) => (
-            <Card
-              key={i}
-              hover
-              className="group overflow-hidden h-full bg-white/70 backdrop-blur-xl border border-white/50 shadow-sm hover:shadow-md"
-            >
-              <div className="relative h-40 overflow-hidden">
-                <img
-                  src={category.image}
-                  alt={category.title}
-                  className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-card via-card/30 to-transparent" />
-              </div>
-              <CardContent className="p-5">
-                <h3 className="font-serif text-lg mb-2">{category.title}</h3>
-                <p className="text-sm text-muted-foreground mb-3 leading-relaxed">
-                  {category.example}
-                </p>
-                <div className="pt-3 border-t border-border">
-                  <p className="text-xs text-primary font-medium">
-                    ✦ {category.benefit}
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+          {categories.map((category, i) => {
+            const browseUrl = category.filterValue
+              ? `/browse-businesses?search=${encodeURIComponent(category.filterValue)}`
+              : '/browse-businesses';
+
+            return (
+              <Link key={i} to={browseUrl}>
+                <Card
+                  hover
+                  className="group overflow-hidden h-full bg-white/70 backdrop-blur-xl border border-white/50 shadow-sm hover:shadow-md cursor-pointer"
+                >
+                  <div className="relative h-40 overflow-hidden">
+                    <img
+                      src={category.image}
+                      alt={category.title}
+                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-card via-card/30 to-transparent" />
+                  </div>
+                  <CardContent className="p-5">
+                    <h3 className="font-serif text-lg mb-2">{category.title}</h3>
+                    <p className="text-sm text-muted-foreground mb-3 leading-relaxed">
+                      {category.example}
+                    </p>
+                    <div className="pt-3 border-t border-border">
+                      <p className="text-xs text-primary font-medium">
+                        ✦ {category.benefit}
+                      </p>
+                    </div>
+                  </CardContent>
+                </Card>
+              </Link>
+            );
+          })}
         </motion.div>
 
         {ctaButton && (

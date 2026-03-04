@@ -49,14 +49,14 @@ const staggerItem = {
 // ─── Data ───────────────────────────────────────────────────
 
 const categoryCards = [
-  { image: categoryJewelry, title: 'Jewelry', desc: 'Rings, necklaces & custom pieces' },
-  { image: categoryCakes, title: 'Custom Cakes', desc: 'Wedding & celebration creations' },
-  { image: categoryFurniture, title: 'Furniture', desc: 'Bespoke tables & shelving' },
-  { image: categoryFashion, title: 'Fashion', desc: 'Custom suits & tailoring' },
-  { image: categoryCeramics, title: 'Ceramics', desc: 'Dinnerware & sculptural art' },
-  { image: categoryGifts, title: 'Gifts', desc: 'Engraved & personalized items' },
-  { image: categoryTextiles, title: 'Textiles', desc: 'Quilts, monograms & linens' },
-  { image: category3dprint, title: '3D Printing', desc: 'Figurines & prototypes' },
+  { image: categoryJewelry, title: 'Jewelry', search: 'Jewelry', desc: 'Rings, necklaces & custom pieces' },
+  { image: categoryCakes, title: 'Custom Cakes', search: 'Custom Cakes', desc: 'Wedding & celebration creations' },
+  { image: categoryFurniture, title: 'Furniture', search: 'Furniture', desc: 'Bespoke tables & shelving' },
+  { image: categoryFashion, title: 'Fashion', search: 'Clothing', desc: 'Custom suits & tailoring' },
+  { image: categoryCeramics, title: 'Ceramics', search: 'Pottery', desc: 'Dinnerware & sculptural art' },
+  { image: categoryGifts, title: 'Gifts', search: 'Accessories', desc: 'Engraved & personalized items' },
+  { image: categoryTextiles, title: 'Textiles', search: 'Textiles', desc: 'Quilts, monograms & linens' },
+  { image: category3dprint, title: '3D Printing', search: '3D Printing', desc: 'Figurines & prototypes' },
 ];
 
 const customerTips = [
@@ -198,22 +198,29 @@ function CategoryExplorer() {
         <motion.div
           key={cat.title}
           variants={staggerItem}
-          className="group cursor-pointer"
-          whileHover={{ y: -3 }}
-          transition={{ duration: 0.25 }}
         >
-          <div className="aspect-square rounded-2xl overflow-hidden relative mb-2">
-            <img
-              src={cat.image}
-              alt={cat.title}
-              loading="lazy"
-              className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-            />
-            <div className="absolute inset-0 bg-black/20 group-hover:bg-black/10 transition-colors" />
-          </div>
-          <span className="text-xs font-medium text-foreground leading-tight block text-center">
-            {cat.title}
-          </span>
+          <Link
+            to={`/browse-businesses?search=${encodeURIComponent(cat.search)}`}
+            className="group block"
+          >
+            <motion.div
+              whileHover={{ y: -3 }}
+              transition={{ duration: 0.25 }}
+            >
+              <div className="aspect-square rounded-2xl overflow-hidden relative mb-2">
+                <img
+                  src={cat.image}
+                  alt={cat.title}
+                  loading="lazy"
+                  className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                />
+                <div className="absolute inset-0 bg-black/20 group-hover:bg-black/10 transition-colors" />
+              </div>
+              <span className="text-xs font-medium text-foreground leading-tight block text-center">
+                {cat.title}
+              </span>
+            </motion.div>
+          </Link>
         </motion.div>
       ))}
     </motion.div>
