@@ -92,7 +92,7 @@ export default {
       },
       fontFamily: {
         sans: ["Inter", "ui-sans-serif", "system-ui", "-apple-system", "sans-serif"],
-        serif: ["DM Serif Display", "ui-serif", "Georgia", "serif"],
+        serif: ["Playfair Display", "ui-serif", "Georgia", "serif"],
         mono: ["ui-monospace", "SFMono-Regular", "monospace"],
       },
       boxShadow: {
