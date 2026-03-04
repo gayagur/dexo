@@ -16,6 +16,11 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
+// Step images
+import stepDesign from '@/assets/step-design.jpg';
+import stepCreate from '@/assets/step-create.jpg';
+import stepReceive from '@/assets/step-receive.jpg';
+
 // Category images
 import categoryJewelry from '@/assets/category-jewelry.jpg';
 import categoryCakes from '@/assets/category-cakes.jpg';
@@ -206,6 +211,7 @@ interface StepData {
   title: string;
   description: string;
   accent: string;
+  image: string;
 }
 
 function HowItWorks({ steps, label }: { steps: StepData[]; label: string }) {
@@ -234,26 +240,33 @@ function HowItWorks({ steps, label }: { steps: StepData[]; label: string }) {
                 className="relative h-full"
               >
                 <Card className="h-full rounded-2xl overflow-hidden border-border/50 hover:shadow-md transition-shadow duration-300">
-                  {/* Accent top bar */}
-                  <div className="h-1 w-full" style={{ background: step.accent }} />
-                  <CardContent className="p-6">
-                    {/* Step number + icon */}
-                    <div className="flex items-center gap-3 mb-4">
+                  {/* Image */}
+                  <div className="relative h-36 overflow-hidden">
+                    <img
+                      src={step.image}
+                      alt={step.title}
+                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-black/10 to-transparent" />
+                    {/* Step number badge */}
+                    <div
+                      className="absolute top-3 left-3 w-8 h-8 rounded-lg flex items-center justify-center text-white text-sm font-bold shadow-sm"
+                      style={{ background: step.accent }}
+                    >
+                      {step.number}
+                    </div>
+                  </div>
+                  <CardContent className="p-5">
+                    {/* Icon + title */}
+                    <div className="flex items-center gap-2.5 mb-2">
                       <div
-                        className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
+                        className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
                         style={{ background: `${step.accent}12` }}
                       >
-                        <step.icon className="w-5 h-5" style={{ color: step.accent }} />
+                        <step.icon className="w-4 h-4" style={{ color: step.accent }} />
                       </div>
-                      <span
-                        className="text-5xl font-serif font-bold leading-none"
-                        style={{ color: `${step.accent}20` }}
-                      >
-                        {step.number}
-                      </span>
+                      <h3 className="font-serif text-lg text-foreground">{step.title}</h3>
                     </div>
-                    {/* Title + desc */}
-                    <h3 className="font-serif text-lg text-foreground mb-2">{step.title}</h3>
                     <p className="text-sm text-muted-foreground leading-relaxed">{step.description}</p>
                   </CardContent>
                 </Card>
@@ -417,6 +430,7 @@ function CustomerHome({ firstName }: { firstName: string }) {
             title: 'Describe & Design',
             description: 'Tell us your idea in words. Our AI instantly generates visual mockups of your dream product.',
             accent: '#C05621',
+            image: stepDesign,
           },
           {
             number: 2,
@@ -424,6 +438,7 @@ function CustomerHome({ firstName }: { firstName: string }) {
             title: 'Get Matched',
             description: 'Skilled creators see your design brief and send you offers with pricing, timeline, and their approach.',
             accent: '#2563EB',
+            image: stepCreate,
           },
           {
             number: 3,
@@ -431,6 +446,7 @@ function CustomerHome({ firstName }: { firstName: string }) {
             title: 'Receive & Enjoy',
             description: 'Your one-of-a-kind product is crafted and delivered — exactly what you envisioned.',
             accent: '#16A34A',
+            image: stepReceive,
           },
         ]}
       />
@@ -731,6 +747,7 @@ function CreatorHome({ firstName }: { firstName: string }) {
             title: 'Discover Projects',
             description: 'Browse incoming requests that match your skills. Each comes with an AI-generated visual brief and budget.',
             accent: '#C05621',
+            image: stepDesign,
           },
           {
             number: 2,
@@ -738,6 +755,7 @@ function CreatorHome({ firstName }: { firstName: string }) {
             title: 'Send Your Offer',
             description: 'Review the design brief and submit your price, timeline, and approach. Stand out with a personalized note.',
             accent: '#2563EB',
+            image: stepCreate,
           },
           {
             number: 3,
@@ -745,6 +763,7 @@ function CreatorHome({ firstName }: { firstName: string }) {
             title: 'Create & Deliver',
             description: 'Once accepted, craft the product and communicate with your client. Build your reputation with every delivery.',
             accent: '#16A34A',
+            image: stepReceive,
           },
         ]}
       />
