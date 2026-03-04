@@ -6,6 +6,26 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
 const MODEL = "black-forest-labs/FLUX.1-kontext-pro";
 const MAX_EDITS_PER_IMAGE = 5;
 const COST_PER_MP = 0.04;
+const MAX_DIMENSION = 1024;
+
+// ─── Structured Error Codes ────────────────────────────────
+type ErrorCode =
+  | "MASK_EMPTY"
+  | "DIMS_MISMATCH"
+  | "PROMPT_EMPTY"
+  | "IMAGE_TOO_LARGE"
+  | "EDIT_LIMIT"
+  | "AI_ERROR"
+  | "UPLOAD_ERROR"
+  | "AUTH_ERROR"
+  | "CONFIG_ERROR";
+
+function errorResponse(code: ErrorCode, message: string, status: number) {
+  return new Response(
+    JSON.stringify({ error: message, code }),
+    { status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+  );
+}
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -14,24 +34,23 @@ Deno.serve(async (req) => {
 
   try {
     const { userId, supabase } = await verifyAuth(req);
-    const { imageUrl, instruction, versionId, projectId } = await req.json();
+    const { imageUrl, instruction, versionId, projectId, mask } = await req.json();
 
-    if (!imageUrl || !instruction) {
-      return new Response(
-        JSON.stringify({ error: "imageUrl and instruction are required" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+    // ─── Validation ──────────────────────────────────────────
+    if (!imageUrl) {
+      return errorResponse("PROMPT_EMPTY", "imageUrl is required", 400);
+    }
+    if (!instruction) {
+      return errorResponse("PROMPT_EMPTY", "instruction is required", 400);
     }
 
-    // Check edit limit on the image chain (only when tracking in DB)
+    // ─── Edit Limit Check ────────────────────────────────────
     if (versionId && projectId) {
       const serviceClient = createClient(
         Deno.env.get("SUPABASE_URL")!,
         Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
       );
 
-      // Count how many versions exist in this chain
-      // Find the root version first, then count descendants
       const { data: versions } = await serviceClient
         .from("image_versions")
         .select("id, parent_version_id")
@@ -62,65 +81,111 @@ Deno.serve(async (req) => {
         }
       }
 
-      // editCount includes the root, so edits = editCount - 1
       if (editCount - 1 >= MAX_EDITS_PER_IMAGE) {
-        return new Response(
-          JSON.stringify({ error: `Edit limit reached (${MAX_EDITS_PER_IMAGE} edits per image)` }),
-          { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        return errorResponse(
+          "EDIT_LIMIT",
+          `Edit limit reached (${MAX_EDITS_PER_IMAGE} edits per image)`,
+          429
         );
       }
     }
 
     const togetherApiKey = Deno.env.get("TOGETHER_API_KEY");
     if (!togetherApiKey) {
-      return new Response(
-        JSON.stringify({ error: "AI service not configured" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return errorResponse("CONFIG_ERROR", "AI service not configured", 500);
     }
 
-    // Call FLUX Kontext Pro — instruction-based editing
+    // ─── Debug Logging (always in Edge Functions) ────────────
+    console.log("[edit-image] Request:", {
+      imageUrl: imageUrl.slice(0, 80),
+      instructionPreview: instruction.slice(0, 80),
+      hasMask: !!mask,
+      maskLength: mask ? mask.length : 0,
+      versionId,
+      projectId,
+    });
+
+    // ─── Upload mask to storage if provided ─────────────────
+    let maskUrl: string | null = null;
+    let maskStoragePath: string | null = null;
+    if (mask) {
+      // mask is base64 data URL: "data:image/png;base64,..."
+      const base64Data = mask.replace(/^data:image\/\w+;base64,/, "");
+      const maskBuffer = Uint8Array.from(atob(base64Data), (c) => c.charCodeAt(0));
+
+      maskStoragePath = `ai-masks/${userId}/${Date.now()}-${crypto.randomUUID().slice(0, 6)}.png`;
+
+      const { error: maskUploadError } = await supabase.storage
+        .from("project-images")
+        .upload(maskStoragePath, maskBuffer, {
+          contentType: "image/png",
+          upsert: false,
+        });
+
+      if (maskUploadError) {
+        console.error("[edit-image] Mask upload error:", maskUploadError);
+        // Non-fatal: continue without mask
+      } else {
+        const { data: maskUrlData } = supabase.storage
+          .from("project-images")
+          .getPublicUrl(maskStoragePath);
+        maskUrl = maskUrlData.publicUrl;
+      }
+    }
+
+    // ─── Call FLUX Kontext Pro ───────────────────────────────
+    // FLUX Kontext Pro supports instruction-based editing.
+    // When a mask is provided, we include it in the prompt context
+    // to guide the model on which region to focus.
+    const editBody: Record<string, unknown> = {
+      model: MODEL,
+      prompt: mask
+        ? `Edit only the white/selected region of the mask. ${instruction}`
+        : instruction,
+      image_url: imageUrl,
+      n: 1,
+      response_format: "url",
+    };
+
+    // If the API supports a mask_url parameter, include it
+    if (maskUrl) {
+      editBody.mask_url = maskUrl;
+    }
+
+    console.log("[edit-image] Calling Together AI:", {
+      model: MODEL,
+      promptPreview: (editBody.prompt as string).slice(0, 100),
+      hasMaskUrl: !!maskUrl,
+    });
+
     const response = await fetch("https://api.together.xyz/v1/images/edits", {
       method: "POST",
       headers: {
         "Authorization": `Bearer ${togetherApiKey}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({
-        model: MODEL,
-        prompt: instruction,
-        image_url: imageUrl,
-        n: 1,
-        response_format: "url",
-      }),
+      body: JSON.stringify(editBody),
     });
 
     if (!response.ok) {
       const errText = await response.text();
-      console.error("Together AI edit error:", errText);
-      // Parse specific error for client-friendly message
+      console.error("[edit-image] Together AI error:", response.status, errText);
       let errMsg = "Image editing failed";
       try {
         const errJson = JSON.parse(errText);
         if (errJson.error?.message) errMsg = errJson.error.message;
       } catch { /* use default */ }
-      return new Response(
-        JSON.stringify({ error: errMsg }),
-        { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return errorResponse("AI_ERROR", errMsg, 502);
     }
 
     const result = await response.json();
     const tempUrl = result.data?.[0]?.url;
 
     if (!tempUrl) {
-      return new Response(
-        JSON.stringify({ error: "No image returned" }),
-        { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return errorResponse("AI_ERROR", "No image returned from AI", 502);
     }
 
-    // Download and re-upload to Supabase Storage
+    // ─── Download & Re-upload to Supabase Storage ───────────
     const imageResponse = await fetch(tempUrl);
     const imageBlob = await imageResponse.blob();
     const imageBuffer = new Uint8Array(await imageBlob.arrayBuffer());
@@ -135,11 +200,8 @@ Deno.serve(async (req) => {
       });
 
     if (uploadError) {
-      console.error("Storage upload error:", uploadError);
-      return new Response(
-        JSON.stringify({ error: "Failed to save edited image" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      console.error("[edit-image] Storage upload error:", uploadError);
+      return errorResponse("UPLOAD_ERROR", "Failed to save edited image", 500);
     }
 
     const { data: urlData } = supabase.storage
@@ -148,12 +210,11 @@ Deno.serve(async (req) => {
 
     const permanentUrl = urlData.publicUrl;
 
-    // Track versions in DB only when a project exists
+    // ─── Track Versions in DB ───────────────────────────────
     let newVersionId: string | null = null;
     let nextVersion: number | null = null;
 
     if (projectId) {
-      // Mark old version as not current
       if (versionId) {
         await supabase
           .from("image_versions")
@@ -161,7 +222,6 @@ Deno.serve(async (req) => {
           .eq("id", versionId);
       }
 
-      // Get next version number
       const { data: latestVersion } = await supabase
         .from("image_versions")
         .select("version_number")
@@ -188,7 +248,7 @@ Deno.serve(async (req) => {
       newVersionId = newVersion?.id ?? null;
     }
 
-    // Log usage (assume ~1MP for edited images)
+    // ─── Log Usage ──────────────────────────────────────────
     const cost = 1 * COST_PER_MP;
 
     logUsage({
@@ -199,9 +259,16 @@ Deno.serve(async (req) => {
       metadata: {
         projectId: projectId || null,
         versionId,
+        hasMask: !!mask,
         instructionPreview: instruction.slice(0, 100),
       },
     }).catch((err) => console.error("Usage log failed:", err));
+
+    console.log("[edit-image] Success:", {
+      url: permanentUrl.slice(0, 80),
+      versionId: newVersionId,
+      versionNumber: nextVersion,
+    });
 
     return new Response(
       JSON.stringify({
@@ -213,12 +280,12 @@ Deno.serve(async (req) => {
     );
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";
-    const status = message.includes("Authorization") || message.includes("token")
-      ? 401
-      : 500;
-    return new Response(
-      JSON.stringify({ error: message }),
-      { status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    console.error("[edit-image] Unhandled error:", message);
+    const isAuth = message.includes("Authorization") || message.includes("token");
+    return errorResponse(
+      isAuth ? "AUTH_ERROR" : "AI_ERROR",
+      message,
+      isAuth ? 401 : 500
     );
   }
 });

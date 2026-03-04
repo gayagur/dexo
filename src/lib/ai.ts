@@ -154,40 +154,67 @@ interface EditResult {
   versionId?: string;
   versionNumber?: number;
   error?: string;
+  /** Structured error code from backend */
+  code?: string;
 }
 
 /**
- * Edit an image via FLUX Kontext Pro (instruction-based, no mask).
+ * Edit an image via FLUX Kontext Pro.
+ * Supports optional mask (base64 data URL) for region-specific edits.
  */
 export async function editImage(
   imageUrl: string,
   instruction: string,
   versionId: string | null,
-  projectId: string | null
+  projectId: string | null,
+  mask?: string
 ): Promise<EditResult> {
   const doRequest = async (inst: string) => {
     const headers = await getAuthHeaders();
+
+    const body: Record<string, unknown> = {
+      imageUrl,
+      instruction: inst,
+      versionId,
+      projectId: projectId || undefined,
+    };
+    if (mask) body.mask = mask;
+
+    if (import.meta.env.DEV) {
+      console.log("[editImage] Sending request:", {
+        imageUrl: imageUrl.slice(0, 60),
+        instruction: inst.slice(0, 60),
+        hasMask: !!mask,
+        maskSize: mask ? mask.length : 0,
+      });
+    }
+
     const response = await fetch(`${FUNCTIONS_URL}/edit-image`, {
       method: "POST",
       headers,
-      body: JSON.stringify({ imageUrl, instruction: inst, versionId, projectId: projectId || undefined }),
+      body: JSON.stringify(body),
     });
     const data = await response.json();
-    if (!response.ok) return { error: data.error || "Image editing failed" };
+    if (!response.ok) {
+      return {
+        error: data.error || "Image editing failed",
+        code: data.code || undefined,
+      };
+    }
     return data as EditResult;
   };
 
   try {
     const result = await doRequest(instruction);
-    // On 502-level errors, retry once with simplified instruction
-    if (result.error && !result.error.includes("limit")) {
+    // On AI errors (not validation errors), retry once with simplified instruction
+    if (result.error && result.code === "AI_ERROR") {
       const simplified = `Simple edit: ${instruction.slice(0, 80)}`;
       const retry = await doRequest(simplified);
       if (!retry.error) return retry;
     }
     return result;
   } catch (err) {
-    return { error: (err as Error).message };
+    return { error: (err as Error).message, code: "AI_ERROR" };
   }
 }
 

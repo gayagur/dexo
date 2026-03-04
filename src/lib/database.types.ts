@@ -82,6 +82,8 @@ export interface ImageVersion {
   image_url: string;
   prompt: string | null;
   edit_instruction: string | null;
+  mask_path: string | null;
+  edit_type: string | null;
   version_number: number;
   is_current: boolean;
   created_at: string;
