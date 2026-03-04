@@ -9,6 +9,8 @@ import {
   ImagePlus,
   X,
   Pencil,
+  Zap,
+  Users,
 } from "lucide-react";
 
 interface BriefDisplayData {
@@ -32,7 +34,7 @@ interface BriefCardProps {
   imageUploading: boolean;
   uploadedImages: string[];
   onGenerateImage: () => void;
-  onSubmit: () => void;
+  onSubmit: (method: 'auto' | 'manual') => void;
   onEditImage?: () => void;
   onRegenerate?: () => void;
   onBriefFileDrop: (e: React.DragEvent) => void;
@@ -235,9 +237,9 @@ export function BriefCard({
       )}
 
       {/* Actions */}
-      <div className="flex flex-col sm:flex-row gap-3 pt-2">
+      <div className="space-y-4 pt-2">
         {phase === "brief" && (
-          <>
+          <div className="flex flex-col sm:flex-row gap-3">
             <Button
               onClick={onGenerateImage}
               className="bg-[#C05621] text-white hover:bg-[#A84A1C] rounded-xl gap-2"
@@ -246,36 +248,55 @@ export function BriefCard({
               <ImageIcon className="w-4 h-4" />
               Generate Concept Image
             </Button>
-            <Button
-              onClick={onSubmit}
-              variant="outline"
-              size="lg"
-              className="rounded-xl border-[#1B2432]/20 text-[#1B2432] gap-2"
-              disabled={submitting}
-            >
-              {submitting ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <ArrowRight className="w-4 h-4" />
-              )}
-              Skip Image & Submit
-            </Button>
-          </>
+          </div>
         )}
-        {phase === "done" && (
-          <Button
-            onClick={onSubmit}
-            className="bg-[#C05621] text-white hover:bg-[#A84A1C] rounded-xl gap-2"
-            size="lg"
-            disabled={submitting}
-          >
-            {submitting ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : (
-              <Check className="w-4 h-4" />
-            )}
-            Confirm & Find Creators
-          </Button>
+
+        {/* Submission method selection — visible in brief and done phases */}
+        {(phase === "brief" || phase === "done") && (
+          <div className="space-y-3">
+            <p className="text-sm font-medium text-[#1B2432]">
+              How would you like to find creators?
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <button
+                onClick={() => onSubmit('auto')}
+                disabled={submitting}
+                className="group relative flex flex-col items-start gap-2 p-4 rounded-2xl border-2 border-[#C05621]/15 bg-[#FDFCF8] hover:border-[#C05621]/40 hover:bg-[#C05621]/[0.04] transition-all text-left disabled:opacity-50"
+              >
+                <div className="w-10 h-10 rounded-xl bg-[#C05621]/10 flex items-center justify-center">
+                  <Zap className="w-5 h-5 text-[#C05621]" />
+                </div>
+                <span className="font-semibold text-sm text-[#1B2432]">
+                  Auto-Match
+                </span>
+                <span className="text-xs text-[#4A5568] leading-relaxed">
+                  Send my project to relevant creators automatically. Get offers faster.
+                </span>
+                {submitting && (
+                  <Loader2 className="absolute top-4 right-4 w-4 h-4 text-[#C05621] animate-spin" />
+                )}
+              </button>
+
+              <button
+                onClick={() => onSubmit('manual')}
+                disabled={submitting}
+                className="group relative flex flex-col items-start gap-2 p-4 rounded-2xl border-2 border-[#1B2432]/10 bg-[#FDFCF8] hover:border-[#1B2432]/25 hover:bg-[#1B2432]/[0.02] transition-all text-left disabled:opacity-50"
+              >
+                <div className="w-10 h-10 rounded-xl bg-[#1B2432]/[0.07] flex items-center justify-center">
+                  <Users className="w-5 h-5 text-[#1B2432]" />
+                </div>
+                <span className="font-semibold text-sm text-[#1B2432]">
+                  Choose Creators
+                </span>
+                <span className="text-xs text-[#4A5568] leading-relaxed">
+                  Browse creators yourself and send the project to the ones you like.
+                </span>
+                {submitting && (
+                  <Loader2 className="absolute top-4 right-4 w-4 h-4 text-[#1B2432] animate-spin" />
+                )}
+              </button>
+            </div>
+          </div>
         )}
       </div>
     </motion.div>

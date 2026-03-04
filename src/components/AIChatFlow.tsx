@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback, memo, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/useAuth';
 import { useProjects } from '@/hooks/useProjects';
@@ -11,7 +11,7 @@ import ReactMarkdown from 'react-markdown';
 import {
   Sparkles, Send, Loader2, ImageIcon, Square,
   Tag, Palette, DollarSign, Ruler, Package, Clock,
-  ImagePlus, X, ArrowDown,
+  ImagePlus, X, ArrowDown, ArrowLeft,
 } from 'lucide-react';
 
 import type { ChatMessage } from '@/lib/ai';
@@ -204,6 +204,7 @@ export default function AIChatFlow() {
   const [briefData, setBriefData] = useState<InternalBriefData | null>(null);
   const [conceptImageUrl, setConceptImageUrl] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [submissionMethod, setSubmissionMethod] = useState<'auto' | 'manual' | null>(null);
 
   // Field editing state
   const [editingField, setEditingField] = useState<string | null>(null);
@@ -582,7 +583,9 @@ export default function AIChatFlow() {
   }, [briefData]);
 
   // ─── Submit Project ───────────────────────────────────────
-  const handleSubmit = useCallback(async () => {
+  const handleSubmit = useCallback(async (method?: 'auto' | 'manual') => {
+    const matchingMethod = method || submissionMethod;
+    if (!matchingMethod) return; // must pick a method first
     if (!user || !briefData) {
       toast({ title: 'Please sign in first', variant: 'destructive' });
       return;
@@ -606,21 +609,22 @@ export default function AIChatFlow() {
         deadline: briefData.timeline,
         materials,
         special_requirements: briefData.specialRequirements !== 'None' ? briefData.specialRequirements : '',
+        matching_method: matchingMethod,
       },
       inspiration_images: [...uploadedImages, ...(conceptImageUrl ? [conceptImageUrl] : [])],
       ai_brief: `${briefData.description}. Style: ${briefData.style}. Materials: ${briefData.materials}. Dimensions: ${briefData.dimensions}. Timeline: ${briefData.timeline}.`,
       ai_concept: conceptImageUrl,
-      status: 'sent',
+      status: matchingMethod === 'auto' ? 'sent' : 'draft',
     });
 
     setSubmitting(false);
     if (error) {
       toast({ title: 'Error creating project', description: error, variant: 'destructive' });
     } else {
-      toast({ title: 'Project created!' });
-      navigate('/dashboard');
+      toast({ title: matchingMethod === 'auto' ? 'Project sent to creators!' : 'Project saved! Choose your creators.' });
+      navigate(matchingMethod === 'manual' ? '/browse-businesses' : '/dashboard');
     }
-  }, [user, briefData, conceptImageUrl, uploadedImages, createProject, navigate, toast]);
+  }, [user, briefData, conceptImageUrl, uploadedImages, submissionMethod, createProject, navigate, toast]);
 
   // ─── File Handlers ────────────────────────────────────────
   const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
@@ -658,7 +662,7 @@ export default function AIChatFlow() {
   // RENDER
   // ═════════════════════════════════════════════════════════════
   return (
-    <div className="fixed inset-0 bg-[#FDFCF8] flex overflow-hidden">
+    <div className="h-[calc(100vh-4rem)] bg-[#FDFCF8] flex overflow-hidden">
       {/* Progress Sidebar */}
       <ProgressSidebar
         items={PROGRESS_ITEMS}
@@ -674,6 +678,14 @@ export default function AIChatFlow() {
         {/* Header */}
         <div className="px-6 py-4 border-b border-[#C05621]/[0.06] bg-white/60 backdrop-blur-sm">
           <div className="flex items-center gap-3">
+            <Link
+              to="/home"
+              className="flex items-center gap-1 text-xs text-[#4A5568] hover:text-[#C05621] transition-colors mr-1"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" />
+              Back
+            </Link>
+            <div className="w-px h-6 bg-[#C05621]/10" />
             <div className="w-9 h-9 rounded-full bg-[#C05621]/10 flex items-center justify-center">
               <Sparkles className="w-4.5 h-4.5 text-[#C05621]" />
             </div>
