@@ -582,6 +582,20 @@ export default function AIChatFlow() {
     }
   }, [briefData]);
 
+  /** Generate brief from sidebar fields — sends a formatted message to the AI */
+  const handleGenerateBriefFromSidebar = useCallback(() => {
+    if (isLoading) return;
+    const parts: string[] = ['Please generate my complete project brief based on these details:'];
+    if (progress.category) parts.push(`- Category: ${progress.category}`);
+    if (progress.style) parts.push(`- Style: ${progress.style}`);
+    if (progress.budget) parts.push(`- Budget: ${progress.budget}`);
+    if (progress.dimensions) parts.push(`- Size/Dimensions: ${progress.dimensions}`);
+    if (progress.materials) parts.push(`- Materials: ${progress.materials}`);
+    if (progress.timeline) parts.push(`- Timeline: ${progress.timeline}`);
+    parts.push('\nPlease fill in any missing details with sensible defaults and present the complete brief.');
+    sendMessage(parts.join('\n'));
+  }, [isLoading, progress, sendMessage]);
+
   // ─── Submit Project ───────────────────────────────────────
   const handleSubmit = useCallback(async (method?: 'auto' | 'manual') => {
     const matchingMethod = method || submissionMethod;
@@ -671,6 +685,8 @@ export default function AIChatFlow() {
         phase={phase}
         onEditField={handleEditField}
         onDirectUpdate={handleDirectFieldUpdate}
+        onGenerateBrief={handleGenerateBriefFromSidebar}
+        isLoading={isLoading}
       />
 
       {/* Main Chat Area */}

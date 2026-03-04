@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { Check, Pencil, Sparkles } from "lucide-react";
+import { Check, Pencil, Sparkles, ArrowRight } from "lucide-react";
 import { motion } from "framer-motion";
 import type { BriefData, ProgressItem, ChatPhase } from "./types";
 
@@ -11,6 +11,10 @@ interface ProgressSidebarProps {
   onEditField: (field: string, stepIndex: number) => void;
   /** Direct field update — bypasses chat flow for inline editing */
   onDirectUpdate?: (field: string, value: string) => void;
+  /** Generate brief from manually filled fields */
+  onGenerateBrief?: () => void;
+  /** Whether AI is currently loading */
+  isLoading?: boolean;
 }
 
 /** All fields use inline editing */
@@ -22,6 +26,8 @@ export function ProgressSidebar({
   phase,
   onEditField,
   onDirectUpdate,
+  onGenerateBrief,
+  isLoading,
 }: ProgressSidebarProps) {
   const [inlineValue, setInlineValue] = useState("");
   const [inlineField, setInlineField] = useState<string | null>(null);
@@ -182,6 +188,32 @@ export function ProgressSidebar({
           );
         })}
       </div>
+
+      {/* Generate Brief button — visible when fields are filled during chatting phase */}
+      {onGenerateBrief && phase === "chatting" && filledCount >= 1 && (
+        <motion.div
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="pt-4"
+        >
+          <button
+            onClick={onGenerateBrief}
+            disabled={isLoading}
+            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl
+                       bg-[#C05621] text-white text-sm font-medium
+                       hover:bg-[#A84A1C] transition-colors
+                       disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <ArrowRight className="w-3.5 h-3.5" />
+            Generate Brief
+          </button>
+          <p className="text-[10px] text-[#4A5568]/60 text-center mt-1.5">
+            {filledCount < items.length
+              ? `${filledCount}/${items.length} fields filled — missing fields will use defaults`
+              : 'All fields filled — ready to generate!'}
+          </p>
+        </motion.div>
+      )}
 
       {/* Progress bar */}
       <div className="mt-auto pt-6">
