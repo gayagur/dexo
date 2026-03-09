@@ -30,7 +30,7 @@ export function useMatchedProjects() {
         .from("businesses")
         .select("*")
         .eq("user_id", user.id)
-        .single()
+        .maybeSingle()
     );
 
     if (bizError || !biz) {

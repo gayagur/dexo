@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Loader2 } from "lucide-react";
 import { FilerobotEditor } from "./FilerobotEditor";
@@ -10,6 +11,35 @@ interface FilerobotEditorModalProps {
   onClose: () => void;
 }
 
+/** Convert a remote image URL to a base64 data URL (avoids CORS canvas tainting in Filerobot) */
+function useImageAsBase64(url: string, enabled: boolean) {
+  const [dataUrl, setDataUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!enabled || !url) { setDataUrl(null); return; }
+    if (url.startsWith('data:')) { setDataUrl(url); return; }
+
+    let cancelled = false;
+    setDataUrl(null);
+
+    fetch(url)
+      .then(r => r.blob())
+      .then(blob => {
+        const reader = new FileReader();
+        reader.onloadend = () => { if (!cancelled) setDataUrl(reader.result as string); };
+        reader.readAsDataURL(blob);
+      })
+      .catch(() => {
+        // Fallback: pass URL directly and hope Filerobot handles it
+        if (!cancelled) setDataUrl(url);
+      });
+
+    return () => { cancelled = true; };
+  }, [url, enabled]);
+
+  return dataUrl;
+}
+
 export function FilerobotEditorModal({
   isOpen,
   imageSrc,
@@ -17,6 +47,8 @@ export function FilerobotEditorModal({
   onSave,
   onClose,
 }: FilerobotEditorModalProps) {
+  const resolvedSrc = useImageAsBase64(imageSrc, isOpen);
+
   return (
     <AnimatePresence>
       {isOpen && (
@@ -27,7 +59,7 @@ export function FilerobotEditorModal({
           transition={{ duration: 0.2 }}
           className="fixed inset-0 z-50 flex items-center justify-center"
         >
-          {/* Backdrop — no click-to-close to prevent accidental data loss */}
+          {/* Backdrop */}
           <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" />
 
           {/* Editor container */}
@@ -38,11 +70,17 @@ export function FilerobotEditorModal({
             transition={{ duration: 0.2, ease: "easeOut" }}
             className="relative z-10 w-[calc(100vw-2rem)] h-[calc(100vh-2rem)] rounded-2xl overflow-hidden shadow-2xl"
           >
-            <FilerobotEditor
-              imageSrc={imageSrc}
-              onSave={onSave}
-              onClose={onClose}
-            />
+            {resolvedSrc ? (
+              <FilerobotEditor
+                imageSrc={resolvedSrc}
+                onSave={onSave}
+                onClose={onClose}
+              />
+            ) : (
+              <div className="flex items-center justify-center w-full h-full bg-[#0f1724]">
+                <Loader2 className="w-8 h-8 text-white animate-spin" />
+              </div>
+            )}
 
             {/* Saving overlay */}
             {saving && (
