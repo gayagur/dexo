@@ -22,14 +22,14 @@ import stepCreate from '@/assets/step-create.jpg';
 import stepReceive from '@/assets/step-receive.jpg';
 
 // Category images
-import categoryJewelry from '@/assets/category-jewelry.jpg';
-import categoryCakes from '@/assets/category-cakes.jpg';
-import categoryFurniture from '@/assets/category-furniture.jpg';
-import categoryFashion from '@/assets/category-fashion.jpg';
-import categoryCeramics from '@/assets/category-ceramics.jpg';
-import categoryGifts from '@/assets/category-gifts.jpg';
-import categoryTextiles from '@/assets/category-textiles.jpg';
-import category3dprint from '@/assets/category-3dprint.jpg';
+import categoryCarpentry from '@/assets/category-carpentry.png';
+import categoryDecor from '@/assets/category-decor.png';
+import categoryFurniture from '@/assets/category-furniture.png';
+import categoryInterior from '@/assets/category-interior.png';
+import categoryLighting from '@/assets/category-lighting.png';
+import categoryWallart from '@/assets/category-wallart.png';
+import categoryStorage from '@/assets/category-storage.png';
+import categoryOffice from '@/assets/category-office.png';
 
 // ─── Animations ─────────────────────────────────────────────
 
@@ -54,20 +54,20 @@ const staggerItem = {
 // ─── Data ───────────────────────────────────────────────────
 
 const categoryCards = [
-  { image: categoryJewelry, title: 'Jewelry', search: 'Jewelry', desc: 'Rings, necklaces & custom pieces' },
-  { image: categoryCakes, title: 'Custom Cakes', search: 'Custom Cakes', desc: 'Wedding & celebration creations' },
-  { image: categoryFurniture, title: 'Furniture', search: 'Furniture', desc: 'Bespoke tables & shelving' },
-  { image: categoryFashion, title: 'Fashion', search: 'Clothing', desc: 'Custom suits & tailoring' },
-  { image: categoryCeramics, title: 'Ceramics', search: 'Pottery', desc: 'Dinnerware & sculptural art' },
-  { image: categoryGifts, title: 'Gifts', search: 'Accessories', desc: 'Engraved & personalized items' },
-  { image: categoryTextiles, title: 'Textiles', search: 'Textiles', desc: 'Quilts, monograms & linens' },
-  { image: category3dprint, title: '3D Printing', search: '3D Printing', desc: 'Figurines & prototypes' },
+  { image: categoryCarpentry, title: 'Carpentry', search: 'Carpentry & Woodworking', desc: 'Custom furniture & woodwork' },
+  { image: categoryInterior, title: 'Interior Design', search: 'Interior Design & Space Planning', desc: 'Full room transformations' },
+  { image: categoryDecor, title: 'Home Decor', search: 'Home Decor & Styling', desc: 'Accessories & styling' },
+  { image: categoryLighting, title: 'Lighting', search: 'Lighting & Ambiance', desc: 'Fixtures & ambiance design' },
+  { image: categoryWallart, title: 'Wall Art', search: 'Wall Art & Decorative Accessories', desc: 'Art, mirrors & decorative pieces' },
+  { image: categoryFurniture, title: 'Furniture', search: 'Furniture Design & Restoration', desc: 'Design & restoration' },
+  { image: categoryStorage, title: 'Storage', search: 'Storage & Organization Solutions', desc: 'Closets, pantry & shelving' },
+  { image: categoryOffice, title: 'Office Design', search: 'Office Design & Ergonomics', desc: 'Ergonomic workspaces' },
 ];
 
 const customerTips = [
-  'Add reference images to help creators understand your vision better.',
-  'The more details you provide, the more accurate quotes you\'ll receive.',
-  'Check your offers regularly — creators respond within 24 hours.',
+  'Add photos of your current space to help designers understand the starting point.',
+  'Mention your room dimensions and natural lighting for better results.',
+  'Check your offers regularly — designers respond within 24 hours.',
   'You can edit your project brief anytime before accepting an offer.',
 ];
 
@@ -393,7 +393,7 @@ function CustomerHome({ firstName }: { firstName: string }) {
                 Welcome back, {firstName}
               </motion.h1>
               <motion.p custom={0.1} variants={fadeUp} className="text-muted-foreground mt-2 max-w-md">
-                Design something extraordinary and connect with talented creators.
+                Design something extraordinary for your home or office.
               </motion.p>
             </div>
             <motion.div custom={0.15} variants={fadeUp} className="flex gap-3">
@@ -405,7 +405,7 @@ function CustomerHome({ firstName }: { firstName: string }) {
               </Link>
               <Link to="/browse-businesses">
                 <Button variant="outline" size="lg" className="hover:border-primary/40 transition-all">
-                  Browse Creators
+                  Browse Designers
                 </Button>
               </Link>
             </motion.div>
@@ -428,7 +428,7 @@ function CustomerHome({ firstName }: { firstName: string }) {
             number: 1,
             icon: Sparkles,
             title: 'Describe & Design',
-            description: 'Tell us your idea in words. Our AI instantly generates visual mockups of your dream product.',
+            description: 'Describe your space and style. Our AI instantly generates visual design concepts for your room.',
             accent: '#C05621',
             image: stepDesign,
           },
@@ -436,15 +436,15 @@ function CustomerHome({ firstName }: { firstName: string }) {
             number: 2,
             icon: Search,
             title: 'Get Matched',
-            description: 'Skilled creators see your design brief and send you offers with pricing, timeline, and their approach.',
+            description: 'Matched designers review your brief and send offers with pricing, timeline, and their approach.',
             accent: '#D4793A',
             image: stepCreate,
           },
           {
             number: 3,
             icon: Package,
-            title: 'Receive & Enjoy',
-            description: 'Your one-of-a-kind product is crafted and delivered — exactly what you envisioned.',
+            title: 'Transform & Enjoy',
+            description: 'Your space is transformed — exactly as you envisioned.',
             accent: '#E8A065',
             image: stepReceive,
           },
@@ -604,9 +604,9 @@ function CustomerHome({ firstName }: { firstName: string }) {
                   <div className="w-14 h-14 rounded-2xl bg-primary/[0.06] flex items-center justify-center mx-auto mb-5">
                     <Sparkles className="w-6 h-6 text-primary/40" />
                   </div>
-                  <h3 className="font-serif text-lg mb-1.5">Your creative journey starts here</h3>
+                  <h3 className="font-serif text-lg mb-1.5">Your design journey starts here</h3>
                   <p className="text-sm text-muted-foreground mb-5 max-w-sm mx-auto">
-                    Describe your dream product, let AI visualize it, and connect with talented creators.
+                    Describe your dream space, let AI visualize it, and connect with talented designers.
                   </p>
                   <Link to="/create-project">
                     <Button variant="hero" size="lg" className="group shadow-sm">
@@ -710,7 +710,7 @@ function CreatorHome({ firstName }: { firstName: string }) {
                 Welcome back, {firstName}
               </motion.h1>
               <motion.p custom={0.1} variants={fadeUp} className="text-muted-foreground mt-2 max-w-md">
-                Discover new projects, connect with clients, and grow your creative business.
+                Discover new projects, connect with clients, and grow your design business.
               </motion.p>
             </div>
             <motion.div custom={0.15} variants={fadeUp} className="flex gap-3">

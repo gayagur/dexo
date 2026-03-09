@@ -5,47 +5,47 @@ import { Quote, Star, ArrowLeft, ArrowRight } from 'lucide-react';
 const testimonials = [
   {
     name: "Noa Levine",
-    role: "Jewelry Designer",
-    company: "Noa Gold Studio",
+    role: "Interior Designer",
+    company: "Modern Spaces Studio",
     avatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&h=150&fit=crop&crop=face",
     rating: 5,
-    text: "DEXO completely changed how I receive orders. Instead of endless DMs with vague requests, I now get structured briefs with exact specs. My conversion rate tripled.",
-    results: ["3x more conversions", "Clear project briefs", "Less back-and-forth"]
+    text: "Clients arrive with room dimensions, style preferences, and realistic budgets already defined. I spend my time designing, not deciphering vague requests.",
+    results: ["3x more conversions", "Clear room briefs", "Less back-and-forth"]
   },
   {
     name: "Amit Reshef",
-    role: "Custom Furniture Maker",
-    company: "Reshef Woodworks",
+    role: "Carpenter & Woodworker",
+    company: "Oak & Iron Woodworks",
     avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop&crop=face",
     rating: 5,
-    text: "The AI brief generator is incredible. Customers arrive with dimensions, materials, and budget already defined. I spend my time creating, not clarifying.",
-    results: ["70% less admin time", "Better pricing accuracy", "Happier customers"]
+    text: "The AI-generated briefs include exact measurements and material preferences. I can quote accurately and start building faster than ever before.",
+    results: ["70% less admin time", "Accurate quoting", "Happier homeowners"]
   },
   {
     name: "Maya Cohen",
-    role: "Custom Cake Artist",
-    company: "Maya's Cakery",
+    role: "Lighting Designer",
+    company: "Lumen Lighting Design",
     avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&h=150&fit=crop&crop=face",
     rating: 5,
-    text: "I used to lose so many potential clients because of messy communication. DEXO gives me professional briefs with inspiration images and clear timelines. Game changer.",
-    results: ["5x more orders", "Professional workflow", "Zero miscommunication"]
+    text: "I get matched with homeowners who need lighting plans for specific rooms. The briefs include room size, natural light conditions, and ambiance preferences. Game changer.",
+    results: ["5x more projects", "Professional workflow", "Zero miscommunication"]
   },
   {
     name: "Daniel Katz",
-    role: "Ceramic Artist",
-    company: "Katz Ceramics",
+    role: "Home Decorator",
+    company: "Nest Interiors",
     avatar: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face",
     rating: 5,
-    text: "As a small creator, I never had a proper system for quotes and orders. DEXO gave me a professional storefront and a steady stream of qualified leads.",
-    results: ["Steady lead flow", "Professional presence", "Fair pricing"]
+    text: "The visual concepts help clients see possibilities before we even start. They arrive knowing their style, color palette, and budget. It makes every project smoother.",
+    results: ["Steady lead flow", "Visual concepts", "Fair pricing"]
   },
   {
     name: "Shira Ben-David",
-    role: "Fashion Designer",
-    company: "Shira Atelier",
+    role: "Office Design Specialist",
+    company: "DeskFlow Ergonomics",
     avatar: "https://images.unsplash.com/photo-1517841905240-472988babdf9?w=150&h=150&fit=crop&crop=face",
     rating: 5,
-    text: "The matching algorithm connects me with clients who actually match my style and budget range. No more wasted time on projects that aren't the right fit.",
+    text: "Workspace projects come with ergonomic requirements, team size, and workflow needs already mapped out. I can focus on creating productive environments.",
     results: ["Perfect client matches", "Higher project value", "More creative freedom"]
   }
 ];
@@ -113,13 +113,13 @@ export function PremiumTestimonials() {
         {/* Header */}
         <motion.div className="text-center mb-16" variants={fadeUp}>
           <span className="text-sm font-medium text-[#C05621] uppercase tracking-wider">
-            Creator Success Stories
+            Designer Success Stories
           </span>
           <h2 className="text-4xl sm:text-5xl md:text-6xl font-serif font-bold mt-3 mb-6 text-[#1B2432]">
-            Loved by Creators & Makers
+            Loved by Designers & Creators
           </h2>
           <p className="text-lg text-[#4A5568] max-w-3xl mx-auto leading-relaxed">
-            Join hundreds of artisans and small businesses already transforming how they work with custom orders.
+            Join hundreds of designers and creators already transforming how they work with interior projects.
           </p>
         </motion.div>
 
@@ -237,9 +237,9 @@ export function PremiumTestimonials() {
           variants={fadeUp}
         >
           {[
-            { number: "500+", label: "Happy Creators" },
+            { number: "500+", label: "Happy Designers" },
             { number: "98%", label: "Satisfaction Rate" },
-            { number: "10K+", label: "Projects Completed" },
+            { number: "10K+", label: "Spaces Transformed" },
             { number: "3x", label: "Faster Than DMs" }
           ].map((stat, index) => (
             <motion.div

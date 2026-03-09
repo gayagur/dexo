@@ -10,10 +10,12 @@ export interface BriefData {
   category: string;
   style_tags: string[];
   budget: string;
-  size: string;
+  space_size: string;
   materials: string;
   timeline: string;
   special_requirements: string;
+  room_type?: string;
+  color_palette?: string;
 }
 
 export type ChatPhase =

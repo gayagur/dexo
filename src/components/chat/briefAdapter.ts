@@ -11,9 +11,11 @@ export interface InternalBriefData {
   style: string;
   budget: string;
   materials: string;
-  dimensions: string;
+  spaceSize: string;
   timeline: string;
   specialRequirements: string;
+  roomType: string;
+  colorPalette: string;
 }
 
 /**
@@ -27,9 +29,11 @@ export interface BriefDisplayData {
   budget_min: number;
   budget_max: number;
   materials: string[];
-  dimensions: string;
+  space_size: string;
   deadline: string;
   special_requirements: string;
+  room_type: string;
+  color_palette: string;
 }
 
 export function parseBudgetRange(budget: string): { min: number; max: number } {
@@ -55,10 +59,12 @@ export function toBriefDisplayData(b: InternalBriefData): BriefDisplayData {
       b.materials !== "To be discussed"
         ? b.materials.split(",").map(s => s.trim())
         : [],
-    dimensions: b.dimensions,
+    space_size: b.spaceSize,
     deadline: b.timeline,
     special_requirements:
       b.specialRequirements !== "None" ? b.specialRequirements : "",
+    room_type: b.roomType || "",
+    color_palette: b.colorPalette || "",
   };
 }
 
@@ -70,10 +76,12 @@ export function toProgressBriefData(b: InternalBriefData): Partial<SharedBriefDa
     description: b.description,
     style_tags: b.style.split(",").map(s => s.trim()).filter(Boolean),
     budget: b.budget,
-    size: b.dimensions,
+    space_size: b.spaceSize,
     materials: b.materials,
     timeline: b.timeline,
     special_requirements: b.specialRequirements,
+    room_type: b.roomType,
+    color_palette: b.colorPalette,
   };
 }
 
@@ -87,8 +95,10 @@ export function progressToSharedBrief(
       ? progress.style.split(",").map(s => s.trim()).filter(Boolean)
       : undefined,
     budget: progress.budget || undefined,
-    size: progress.dimensions || undefined,
+    space_size: progress.space_size || undefined,
     materials: progress.materials || undefined,
     timeline: progress.timeline || undefined,
+    room_type: progress.room_type || undefined,
+    color_palette: progress.color_palette || undefined,
   };
 }

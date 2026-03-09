@@ -97,9 +97,9 @@ const BrowseBusinesses = () => {
         </div>
 
         <div className="mb-8">
-          <h1 className="text-4xl font-serif mb-4">Find Creators</h1>
+          <h1 className="text-4xl font-serif mb-4">Find Designers</h1>
           <p className="text-muted-foreground text-lg">
-            Browse talented creators and connect directly with the perfect match.
+            Browse talented designers and connect with the perfect match.
           </p>
         </div>
 
@@ -109,7 +109,7 @@ const BrowseBusinesses = () => {
             <div className="relative flex-1">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
               <Input
-                placeholder="Search by name, style, category, or location..."
+                placeholder="Search by name, style, specialty, or location..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-12 h-12"
@@ -187,7 +187,7 @@ const BrowseBusinesses = () => {
         {loading && (
           <div className="text-center py-16">
             <Loader2 className="w-8 h-8 animate-spin text-primary mx-auto mb-4" />
-            <p className="text-muted-foreground">Loading creators...</p>
+            <p className="text-muted-foreground">Loading designers...</p>
           </div>
         )}
 
@@ -248,10 +248,10 @@ const BrowseBusinesses = () => {
             <div className="w-16 h-16 rounded-2xl bg-muted flex items-center justify-center mx-auto mb-6">
               <Search className="w-8 h-8 text-muted-foreground" />
             </div>
-            <h3 className="text-xl font-serif mb-2">No creators found</h3>
+            <h3 className="text-xl font-serif mb-2">No designers found</h3>
             <p className="text-muted-foreground mb-6">
               {businesses.length === 0
-                ? 'No creators have signed up yet. Check back soon!'
+                ? 'No designers have signed up yet. Check back soon!'
                 : 'Try adjusting your search or filters.'}
             </p>
             {hasActiveFilters && (

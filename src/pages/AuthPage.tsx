@@ -229,8 +229,8 @@ const AuthPage = () => {
             </h1>
             <p className="text-muted-foreground">
               {isSignUp
-                ? 'Join DEXO and start creating something unique.'
-                : 'Sign in to continue your creative journey.'}
+                ? 'Join DEXO and start designing your perfect space.'
+                : 'Sign in to continue your design journey.'}
             </p>
           </div>
 
@@ -251,7 +251,7 @@ const AuthPage = () => {
               >
                 <User className={`w-8 h-8 mb-3 ${selectedRole === 'customer' ? 'text-primary' : 'text-muted-foreground'}`} />
                 <div className="font-medium">Customer</div>
-                <div className="text-sm text-muted-foreground">I want custom products</div>
+                <div className="text-sm text-muted-foreground">I want to transform my space</div>
               </button>
               <button
                 type="button"
@@ -266,7 +266,7 @@ const AuthPage = () => {
               >
                 <Briefcase className={`w-8 h-8 mb-3 ${selectedRole === 'business' ? 'text-primary' : 'text-muted-foreground'}`} />
                 <div className="font-medium">Creator</div>
-                <div className="text-sm text-muted-foreground">I create custom work</div>
+                <div className="text-sm text-muted-foreground">I design and create spaces</div>
               </button>
             </div>
             {fieldErrors.role && (
@@ -386,12 +386,12 @@ const AuthPage = () => {
         <div className="max-w-lg text-center space-y-6">
           <div className="text-6xl font-serif text-primary">DEXO</div>
           <p className="text-xl text-muted-foreground leading-relaxed">
-            "The best ideas deserve to become real.
-            DEXO brings together dreamers and makers."
+            "Every space deserves to feel like home.
+            DEXO brings together dreamers and designers."
           </p>
           <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
             <div className="w-8 h-8 rounded-full bg-primary/20" />
-            <span>Trusted by 1,000+ creators worldwide</span>
+            <span>Trusted by 500+ designers worldwide</span>
           </div>
         </div>
       </div>

@@ -21,9 +21,11 @@ interface BriefDisplayData {
   budget_min: number;
   budget_max: number;
   materials: string[];
-  dimensions: string;
+  space_size: string;
   deadline: string;
   special_requirements: string;
+  room_type: string;
+  color_palette: string;
 }
 
 interface BriefCardProps {
@@ -94,12 +96,29 @@ export function BriefCard({
           <p className="font-medium text-[#1B2432] mt-0.5">{brief.deadline}</p>
         </div>
         <div className="bg-[#FDFCF8] rounded-xl p-3 border border-[#C05621]/[0.06]">
-          <span className="text-[#4A5568] text-xs">Dimensions</span>
+          <span className="text-[#4A5568] text-xs">Space Size</span>
           <p className="font-medium text-[#1B2432] mt-0.5">
-            {brief.dimensions}
+            {brief.space_size}
           </p>
         </div>
       </div>
+
+      {(brief.room_type || brief.color_palette) && (
+        <div className="grid grid-cols-2 gap-4 text-sm">
+          {brief.room_type && (
+            <div className="bg-[#FDFCF8] rounded-xl p-3 border border-[#C05621]/[0.06]">
+              <span className="text-[#4A5568] text-xs">Room Type</span>
+              <p className="font-medium text-[#1B2432] mt-0.5">{brief.room_type}</p>
+            </div>
+          )}
+          {brief.color_palette && (
+            <div className="bg-[#FDFCF8] rounded-xl p-3 border border-[#C05621]/[0.06]">
+              <span className="text-[#4A5568] text-xs">Color Palette</span>
+              <p className="font-medium text-[#1B2432] mt-0.5">{brief.color_palette}</p>
+            </div>
+          )}
+        </div>
+      )}
 
       {brief.style_tags.length > 0 && (
         <div className="flex flex-wrap gap-2">
@@ -255,7 +274,7 @@ export function BriefCard({
         {(phase === "brief" || phase === "done") && (
           <div className="space-y-3">
             <p className="text-sm font-medium text-[#1B2432]">
-              How would you like to find creators?
+              How would you like to find designers?
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <button
@@ -270,7 +289,7 @@ export function BriefCard({
                   Auto-Match
                 </span>
                 <span className="text-xs text-[#4A5568] leading-relaxed">
-                  Send my project to relevant creators automatically. Get offers faster.
+                  Send my project to relevant designers automatically. Get offers faster.
                 </span>
                 {submitting && (
                   <Loader2 className="absolute top-4 right-4 w-4 h-4 text-[#C05621] animate-spin" />
@@ -286,10 +305,10 @@ export function BriefCard({
                   <Users className="w-5 h-5 text-[#1B2432]" />
                 </div>
                 <span className="font-semibold text-sm text-[#1B2432]">
-                  Choose Creators
+                  Choose Designers
                 </span>
                 <span className="text-xs text-[#4A5568] leading-relaxed">
-                  Browse creators yourself and send the project to the ones you like.
+                  Browse designers yourself and send the project to the ones you like.
                 </span>
                 {submitting && (
                   <Loader2 className="absolute top-4 right-4 w-4 h-4 text-[#1B2432] animate-spin" />

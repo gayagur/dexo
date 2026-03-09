@@ -14,116 +14,132 @@ import stepCreate from '@/assets/step-create.jpg';
 import stepReceive from '@/assets/step-receive.jpg';
 
 // Category images
-import categoryJewelry from '@/assets/category-jewelry.jpg';
-import categoryCakes from '@/assets/category-cakes.jpg';
-import categoryFurniture from '@/assets/category-furniture.jpg';
-import categoryFashion from '@/assets/category-fashion.jpg';
-import categoryCeramics from '@/assets/category-ceramics.jpg';
-import categoryGifts from '@/assets/category-gifts.jpg';
+import categoryCarpentry from '@/assets/category-carpentry.png';
+import categoryDecor from '@/assets/category-decor.png';
+import categoryFurniture from '@/assets/category-furniture.png';
+import categoryInterior from '@/assets/category-interior.png';
+import categoryLighting from '@/assets/category-lighting.png';
+import categoryWallart from '@/assets/category-wallart.png';
 import categoryTextiles from '@/assets/category-textiles.jpg';
-import category3dprint from '@/assets/category-3dprint.jpg';
+import categoryPlants from '@/assets/category-plants.png';
+import categoryStorage from '@/assets/category-storage.png';
+import categoryOffice from '@/assets/category-office.png';
 
 export const businessCategories = [
   {
-    image: categoryJewelry,
-    title: "Jewelry & Goldsmiths",
-    filterValue: "Jewelry",
-    example: "Custom engagement rings, personalized necklaces",
-    benefit: "Receive detailed design specs with exact measurements and style references",
+    image: categoryCarpentry,
+    title: "Carpentry & Woodworking",
+    filterValue: "Carpentry & Woodworking",
+    example: "Custom shelving, built-in cabinetry, wood paneling",
+    benefit: "Clients arrive with room dimensions, material preferences, and budget ready",
   },
   {
-    image: categoryCakes,
-    title: "Custom Cake Creators",
-    filterValue: "Custom Cakes",
-    example: "Wedding cakes, themed birthday creations",
-    benefit: "Get clear visual briefs with flavor preferences and event details upfront",
+    image: categoryDecor,
+    title: "Home Decor & Styling",
+    filterValue: "Home Decor & Styling",
+    example: "Room styling, accessory curation, seasonal decor",
+    benefit: "Receive visual briefs with style preferences and color palettes upfront",
+  },
+  {
+    image: categoryInterior,
+    title: "Interior Design & Space Planning",
+    filterValue: "Interior Design & Space Planning",
+    example: "Full room redesigns, open-plan layouts, renovations",
+    benefit: "Get detailed room briefs with measurements, style direction, and realistic budgets",
+  },
+  {
+    image: categoryLighting,
+    title: "Lighting & Ambiance",
+    filterValue: "Lighting & Ambiance",
+    example: "Lighting plans, custom fixtures, mood lighting",
+    benefit: "Matched with homeowners who need complete lighting solutions",
+  },
+  {
+    image: categoryWallart,
+    title: "Wall Art & Accessories",
+    filterValue: "Wall Art & Decorative Accessories",
+    example: "Gallery walls, custom art, decorative mirrors",
+    benefit: "AI-generated visual concepts help clients see possibilities before committing",
   },
   {
     image: categoryFurniture,
-    title: "Furniture & Woodworkers",
-    filterValue: "Furniture",
-    example: "Bespoke tables, custom shelving units",
-    benefit: "Clients arrive with dimensions, material choices, and budget ready",
-  },
-  {
-    image: categoryFashion,
-    title: "Fashion & Tailors",
-    filterValue: "Clothing",
-    example: "Custom suits, redesigned vintage pieces",
-    benefit: "Fewer revision rounds with AI-generated style mockups",
-  },
-  {
-    image: categoryCeramics,
-    title: "Ceramic Artists",
-    filterValue: "Pottery",
-    example: "Custom dinnerware sets, sculptural pieces",
-    benefit: "Matched with clients who value handmade artistry",
-  },
-  {
-    image: categoryGifts,
-    title: "Personalized Gift Studios",
-    filterValue: "Accessories",
-    example: "Engraved items, custom packaging",
-    benefit: "Receive ready-to-produce briefs with personalization details",
+    title: "Furniture Design & Restoration",
+    filterValue: "Furniture Design & Restoration",
+    example: "Custom tables, chair restoration, bespoke sofas",
+    benefit: "Clients arrive with style, dimensions, and material preferences defined",
   },
   {
     image: categoryTextiles,
-    title: "Textile & Embroidery",
-    filterValue: "Textiles",
-    example: "Custom quilts, monogrammed linens",
-    benefit: "Visual references and color palettes provided upfront",
+    title: "Textiles & Soft Furnishings",
+    filterValue: "Textiles & Soft Furnishings",
+    example: "Custom curtains, upholstery, rugs, cushions",
+    benefit: "Visual references and fabric preferences provided upfront",
   },
   {
-    image: category3dprint,
-    title: "3D Printing & Prototyping",
-    filterValue: "3D Printing",
-    example: "Custom figurines, product prototypes",
-    benefit: "Get AI-assisted 3D concepts before production starts",
+    image: categoryPlants,
+    title: "Plants & Greenery Styling",
+    filterValue: "Plants & Greenery Styling",
+    example: "Indoor gardens, plant arrangements, green walls",
+    benefit: "Briefs include room lighting, space, and care preferences",
+  },
+  {
+    image: categoryStorage,
+    title: "Storage & Organization",
+    filterValue: "Storage & Organization Solutions",
+    example: "Closet systems, pantry organization, shelving",
+    benefit: "Receive ready-to-build briefs with space measurements and requirements",
+  },
+  {
+    image: categoryOffice,
+    title: "Office Design & Ergonomics",
+    filterValue: "Office Design & Ergonomics",
+    example: "Home office setups, ergonomic workspaces, team offices",
+    benefit: "Workspace projects come with ergonomic needs and productivity goals",
   },
 ];
 
 export const landingSteps = [
   {
     image: stepDesign,
-    alt: "Customer designing with AI on laptop",
+    alt: "Customer describing their dream room with AI assistant",
     number: 1,
     title: "Design",
     badge: "AI-Powered",
-    description: 'Describe your idea in words. Our AI instantly generates <strong>visual design images</strong> of your product — jewelry, furniture, cakes, or fashion.',
+    description: 'Describe your space and style. Our AI generates <strong>visual design concepts</strong> for your room — living room, bedroom, office, or any space.',
     items: [
-      "You describe your vision in simple words",
-      "<strong>AI generates visual mockups</strong> of your product",
+      "You describe your space and style preferences",
+      "<strong>AI generates visual design concepts</strong> for your room",
       "Refine until it matches your vision",
     ],
-    footer: { title: "You + AI", sub: "Turn ideas into visual designs before production" },
+    footer: { title: "You + AI", sub: "Turn ideas into visual room designs before any work begins" },
   },
   {
     image: stepCreate,
-    alt: "Skilled artisan jeweler crafting custom piece",
+    alt: "Interior designer reviewing a room design brief",
     number: 2,
-    title: "Create",
-    priceBadges: ["$2,400", "3 weeks"],
-    description: 'Matched creators receive your visual brief. They review your AI design and submit offers with <strong>pricing, timeline, and their approach</strong>.',
+    title: "Connect",
+    priceBadges: ["$4,500", "6 weeks"],
+    description: 'Matched designers review your brief. They see your AI design concept and submit offers with <strong>pricing, timeline, and their approach</strong>.',
     items: [
-      "Makers see your visual design + details",
+      "Designers see your visual concept + room details",
       "They submit <strong>price + timeline offers</strong>",
       "You choose who to work with",
     ],
-    footer: { title: "Skilled Makers", sub: "Real artisans ready to bring your design to life" },
+    footer: { title: "Skilled Designers", sub: "Real professionals ready to transform your space" },
   },
   {
     image: stepReceive,
-    alt: "Happy customer receiving custom jewelry",
+    alt: "Beautiful transformed living room interior",
     number: 3,
-    title: "Receive",
+    title: "Transform",
     ratingBadge: "★ 5.0 Perfect",
-    description: 'Your custom product is crafted and delivered. <strong>Exactly what you envisioned</strong> — no endless searching, no miscommunication.',
+    description: 'Your space is transformed — <strong>exactly as you envisioned</strong>. No endless searching, no miscommunication.',
     items: [
-      "Maker crafts your one-of-a-kind piece",
+      "Your designer brings the vision to life",
       "Track progress with updates",
-      "<strong>Receive your finished product</strong>",
+      "<strong>Enjoy your transformed space</strong>",
     ],
-    footer: { title: "Happy You", sub: "One-of-a-kind products made just for you" },
+    footer: { title: "Happy You", sub: "Beautiful spaces designed just for you" },
   },
 ];
 
@@ -164,7 +180,7 @@ const LandingPage = () => {
       <HeroSection
         titleLine="From idea to reality,"
         accentWord="together"
-        subtitle="Design your vision with AI. Connect with skilled creators. Receive your custom-made product — jewelry, furniture, cakes, fashion, and more."
+        subtitle="Design your dream interior with AI. Connect with skilled designers, carpenters, and decorators. Transform any room in your home or office."
         primaryCta={{ label: "Start Your Project", to: "/auth?role=customer" }}
         secondaryCta={{ label: "Join as a Creator", to: "/auth?role=business" }}
       />
@@ -172,15 +188,15 @@ const LandingPage = () => {
       <StepsSection
         sectionLabel="How DEXO Works"
         heading="Three steps. One seamless journey."
-        subheading="Design with AI • Connect with skilled makers • Receive your custom product"
+        subheading="Design with AI • Connect with skilled designers • Transform your space"
         steps={landingSteps}
-        ctaButton={{ label: "Start Your Custom Project", to: "/auth?role=customer" }}
+        ctaButton={{ label: "Start Your Design Project", to: "/auth?role=customer" }}
       />
 
       <CategoriesSection
-        sectionLabel="For Creators & Makers"
-        heading="Built for every craft"
-        subheading="Whether you're a jeweler, baker, woodworker, or fashion designer — DEXO connects you with clients who are ready to buy, with clear briefs and realistic budgets."
+        sectionLabel="For Designers & Creators"
+        heading="Built for every interior craft"
+        subheading="Whether you're a carpenter, interior designer, decorator, or lighting specialist — DEXO connects you with clients who are ready to transform their spaces, with clear briefs and realistic budgets."
         categories={businessCategories}
         ctaButton={{
           label: "Join as a Creator",
@@ -195,8 +211,8 @@ const LandingPage = () => {
       <PremiumTestimonials />
 
       <FinalCTA
-        heading="Ready to create something unique?"
-        subheading="Whether you have a clear vision or just a spark of an idea, DEXO helps you bring it to life with the right creator."
+        heading="Ready to transform your space?"
+        subheading="Whether you have a clear vision or just a spark of an idea, DEXO helps you design your perfect interior with the right professional."
         primaryCta={{ label: "Start Your Project", to: "/auth?role=customer" }}
         secondaryCta={{ label: "Join as a Creator", to: "/auth?role=business" }}
       />
@@ -209,11 +225,11 @@ const LandingPage = () => {
               <span className="text-2xl font-serif font-semibold text-primary">DEXO</span>
             </div>
             <div className="flex gap-6 text-sm text-muted-foreground">
-              <Link to="/browse-businesses" className="hover:text-foreground transition-colors">Browse Creators</Link>
+              <Link to="/browse-businesses" className="hover:text-foreground transition-colors">Browse Designers</Link>
               <Link to="/auth?role=business" className="hover:text-foreground transition-colors">Become a Creator</Link>
             </div>
             <div className="text-sm text-muted-foreground">
-              © 2026 DEXO. Crafted with care.
+              © 2026 DEXO. Designed with care.
             </div>
           </div>
         </div>

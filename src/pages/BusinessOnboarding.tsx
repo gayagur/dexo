@@ -134,7 +134,7 @@ const BusinessOnboarding = () => {
                   <Label htmlFor="name">Business / Studio Name</Label>
                   <Input
                     id="name"
-                    placeholder="e.g., Handcrafted by Sarah"
+                    placeholder="e.g., Modern Spaces by Sarah"
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                     className="h-12"
@@ -145,7 +145,7 @@ const BusinessOnboarding = () => {
                   <Label htmlFor="description">About your work</Label>
                   <Textarea
                     id="description"
-                    placeholder="Tell potential clients what makes your work special..."
+                    placeholder="Tell potential clients what makes your design work special..."
                     value={formData.description}
                     onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                     className="min-h-[100px]"
@@ -156,7 +156,7 @@ const BusinessOnboarding = () => {
                   <Label htmlFor="tagline">Tagline (optional)</Label>
                   <Input
                     id="tagline"
-                    placeholder="e.g., Where craftsmanship meets creativity"
+                    placeholder="e.g., Where great design meets great spaces"
                     value={formData.tagline}
                     onChange={(e) => setFormData({ ...formData, tagline: e.target.value })}
                     className="h-12"

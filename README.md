@@ -2,9 +2,9 @@
 
 # ✨ DEXO
 
-### The AI-Powered Marketplace for Custom Creations
+### The AI-Powered Interior Design Marketplace
 
-**From idea to reality, together.**
+**Design your dream space, beautifully.**
 
 [![Live Demo](https://img.shields.io/badge/Live_Demo-dexo.info-cd853f?style=for-the-badge&logo=vercel&logoColor=white)](https://dexo.info)
 [![React](https://img.shields.io/badge/React-18-61DAFB?style=for-the-badge&logo=react&logoColor=white)](https://react.dev)
@@ -23,25 +23,25 @@
 
 ## 🎯 The Problem
 
-The custom-product market ($300B+) is completely fragmented:
+The interior design market is completely fragmented:
 
-| Customer Pain | Creator Pain |
+| Homeowner Pain | Designer Pain |
 |---|---|
-| 😫 Endless DMs to explain what you want | 📩 Vague requests like "how much for something like this?" |
+| 😫 Endless DMs to explain what you want | 📩 Vague requests like "how much to redesign my living room?" |
 | 💸 No transparent pricing | ⏰ Hours wasted on non-serious leads |
-| 🔄 No way to compare makers | 📊 No structured quoting system |
+| 🔄 No way to compare designers | 📊 No structured quoting system |
 
-**DEXO bridges this gap** with an AI-powered platform that generates structured project briefs, matches customers with the right creators, and handles the entire workflow from idea to delivery.
+**DEXO bridges this gap** with an AI-powered platform that generates structured design briefs, matches homeowners with the right designers and craftspeople, and handles the entire workflow from concept to transformed space.
 
 ## ⚡ Key Features
 
-🤖 **AI Brief Generator** — Conversational chat flow that transforms vague ideas into detailed, structured project briefs with category, style, budget, dimensions, materials & timeline
+🤖 **AI Brief Generator** — Conversational chat flow that transforms vague ideas into detailed, structured design briefs with room type, style, budget, space size, materials & timeline
 
-🎯 **Smart Matching** — Algorithm matches projects to creators by category, style, price & rating
+🎯 **Smart Matching** — Algorithm matches projects to designers by category, style, price & rating
 
-💬 **Real-time Chat** — Supabase Realtime powered messaging between customers and creators
+💬 **Real-time Chat** — Supabase Realtime powered messaging between customers and designers
 
-📊 **Creator Dashboard** — Manage incoming requests, send offers, track conversations
+📊 **Designer Dashboard** — Manage incoming requests, send offers, track conversations
 
 🔐 **Secure Auth** — Supabase authentication with role-based access (customer/creator)
 

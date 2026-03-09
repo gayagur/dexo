@@ -146,7 +146,7 @@ const BusinessProfilePage = () => {
         <div className="flex items-center gap-4 mb-8">
           <Button variant="ghost" size="sm" onClick={() => navigate('/browse-businesses')}>
             <ArrowLeft className="w-4 h-4 mr-2" />
-            Back to Creators
+            Back to Designers
           </Button>
         </div>
 

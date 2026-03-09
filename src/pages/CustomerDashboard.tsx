@@ -270,10 +270,10 @@ function EmptyState() {
       <Card className="max-w-lg mx-auto border-dashed border-2 border-primary/15 bg-gradient-to-br from-primary/[0.02] to-accent/[0.02] rounded-2xl">
         <CardContent className="p-10 text-center">
           <h3 className="text-2xl font-serif mb-3 text-foreground">
-            Your creative journey starts here
+            Your design journey starts here
           </h3>
           <p className="text-muted-foreground mb-8 max-w-sm mx-auto leading-relaxed">
-            Describe your dream design, and we'll connect you with talented creators who can bring it to life.
+            Describe your dream space, and we'll connect you with talented designers who can bring it to life.
           </p>
           <Link to="/create-project">
             <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.95 }} className="inline-block">
@@ -287,9 +287,9 @@ function EmptyState() {
           <div className="mt-10 pt-8 border-t border-border/50">
             <div className="grid grid-cols-3 gap-4">
               {[
-                { step: '01', label: 'Describe your vision' },
-                { step: '02', label: 'Get matched with creators' },
-                { step: '03', label: 'Bring it to life' },
+                { step: '01', label: 'Describe your dream space' },
+                { step: '02', label: 'Get matched with designers' },
+                { step: '03', label: 'Transform your space' },
               ].map((item) => (
                 <div key={item.step} className="text-center">
                   <div className="text-xs font-medium text-primary/60 mb-1">{item.step}</div>
@@ -455,10 +455,10 @@ const CustomerDashboard = () => {
                       <CardContent className="p-5 flex items-center justify-between">
                         <div>
                           <h2 className="text-base font-medium text-foreground mb-0.5">
-                            Find creators
+                            Find designers
                           </h2>
                           <p className="text-sm text-muted-foreground">
-                            Browse talented artisans and studios
+                            Browse talented designers and studios
                           </p>
                         </div>
                         <ArrowRight className="w-5 h-5 text-accent-foreground/40 group-hover:text-accent-foreground group-hover:translate-x-0.5 transition-all shrink-0" />

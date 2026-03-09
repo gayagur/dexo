@@ -43,12 +43,12 @@ export const cards: CardData[] = [
     badge: 'For Customers',
     title: 'Stop searching endlessly.',
     description:
-      'Describe what you want, see AI-generated concepts, and let matched creators come to you with offers. Compare pricing, timelines, and portfolios in one place.',
+      'Describe your dream space, see AI-generated design concepts, and let matched designers come to you with offers. Compare pricing, timelines, and portfolios in one place.',
     bullets: [
-      'AI generates visual designs of your product',
-      'Get multiple offers from qualified creators',
+      'AI generates visual concepts for your space',
+      'Get multiple offers from skilled designers',
       'Clear pricing and timeline upfront',
-      'Direct chat with makers — no middlemen',
+      'Direct chat with designers — no middlemen',
     ],
     cta: 'Start a Project',
     link: '/auth?role=customer',
@@ -58,10 +58,10 @@ export const cards: CardData[] = [
     badge: 'For Creators',
     title: 'Stop promoting endlessly.',
     description:
-      'No more chasing leads or managing ads. Projects come to you with detailed briefs, realistic budgets, and clients who are ready to work with you.',
+      'No more chasing leads or managing ads. Interior design projects come to you with detailed room briefs, realistic budgets, and clients who are ready to transform their space.',
     bullets: [
       'Matched projects delivered to your dashboard',
-      'Clear AI-generated briefs reduce back-and-forth',
+      'AI-generated briefs with room details and style preferences',
       'Budget and timeline shown upfront',
       'Focus on your craft, not marketing',
     ],

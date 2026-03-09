@@ -246,7 +246,7 @@ export function buildImagePrompt(
 ): string {
   const styleStr = styleTags.length > 0 ? ` Style: ${styleTags.join(", ")}.` : "";
   const matStr = materials ? ` Materials: ${materials}.` : "";
-  return `Professional product photo of a custom ${category.toLowerCase()}. ${description}.${styleStr}${matStr} Studio lighting, clean background, high quality, artisan craftsmanship.`;
+  return `Professional interior design photo of a ${category.toLowerCase()} project. ${description}.${styleStr}${matStr} Natural lighting, realistic room setting, high quality, professional interior photography.`;
 }
 
 /**

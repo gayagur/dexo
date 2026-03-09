@@ -18,7 +18,7 @@ import { useToast } from '@/hooks/use-toast';
 // ─── Status Config ──────────────────────────────────────────
 const statusConfig: Record<string, { label: string; bg: string; text: string; dot: string }> = {
   draft: { label: 'Draft', bg: 'bg-muted/80', text: 'text-muted-foreground', dot: 'bg-muted-foreground/50' },
-  sent: { label: 'Sent to creators', bg: 'bg-primary/10', text: 'text-primary', dot: 'bg-primary' },
+  sent: { label: 'Sent to designers', bg: 'bg-primary/10', text: 'text-primary', dot: 'bg-primary' },
   offers_received: { label: 'Offers received', bg: 'bg-accent/15', text: 'text-accent-foreground', dot: 'bg-accent' },
   in_progress: { label: 'In progress', bg: 'bg-blue-50', text: 'text-blue-700', dot: 'bg-blue-500' },
   completed: { label: 'Completed', bg: 'bg-green-50', text: 'text-green-700', dot: 'bg-green-500' },
@@ -236,7 +236,7 @@ const ProjectDetailPage = () => {
             {offers.length > 0 && (
               <div className="space-y-4">
                 <div className="flex items-center gap-2">
-                  <h2 className="font-serif text-xl">Offers from Creators</h2>
+                  <h2 className="font-serif text-xl">Offers from Designers</h2>
                   <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-primary/10 text-primary text-xs font-semibold">
                     {offers.length}
                   </span>

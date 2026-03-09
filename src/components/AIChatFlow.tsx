@@ -10,7 +10,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
 import {
   Sparkles, Send, Loader2, ImageIcon, Square,
-  Tag, Palette, DollarSign, Ruler, Package, Clock,
+  Tag, Palette, DollarSign, Ruler, Package, Clock, Home,
   ImagePlus, X, ArrowDown, ArrowLeft,
 } from 'lucide-react';
 
@@ -45,8 +45,10 @@ const BRIEF_FIELDS = [
   { key: 'description', pattern: /\*\*Description:\*\*\s*(.+)/i },
   { key: 'style', pattern: /\*\*Style:\*\*\s*(.+)/i },
   { key: 'budget', pattern: /\*\*Budget:\*\*\s*(.+)/i },
+  { key: 'roomType', pattern: /\*\*Room Type:\*\*\s*(.+)/i },
+  { key: 'spaceSize', pattern: /\*\*Space Size:\*\*\s*(.+)/i },
+  { key: 'colorPalette', pattern: /\*\*Color Palette:\*\*\s*(.+)/i },
   { key: 'materials', pattern: /\*\*Materials:\*\*\s*(.+)/i },
-  { key: 'dimensions', pattern: /\*\*Dimensions:\*\*\s*(.+)/i },
   { key: 'timeline', pattern: /\*\*Timeline:\*\*\s*(.+)/i },
   { key: 'specialRequirements', pattern: /\*\*Special Requirements:\*\*\s*(.+)/i },
 ] as const;
@@ -84,9 +86,11 @@ function parseBrief(text: string): ParseBriefResult {
       style: data.style || '',
       budget: data.budget || 'To be discussed',
       materials: data.materials || 'To be discussed',
-      dimensions: data.dimensions || 'To be discussed',
+      spaceSize: data.spaceSize || 'To be discussed',
       timeline: data.timeline || 'Flexible',
       specialRequirements: data.specialRequirements || 'None',
+      roomType: data.roomType || '',
+      colorPalette: data.colorPalette || '',
     },
     missingRequired: [],
   };
@@ -97,15 +101,15 @@ function parseBrief(text: string): ParseBriefResult {
 const PROGRESS_ITEMS: ProgressItem[] = [
   { field: 'category', label: 'Category', icon: Tag, stepIndex: 0 },
   { field: 'style_tags', label: 'Style', icon: Palette, stepIndex: 1 },
-  { field: 'budget', label: 'Budget', icon: DollarSign, stepIndex: 2 },
-  { field: 'size', label: 'Size', icon: Ruler, stepIndex: 3 },
-  { field: 'materials', label: 'Materials', icon: Package, stepIndex: 4 },
+  { field: 'room_type', label: 'Room', icon: Home, stepIndex: 2 },
+  { field: 'budget', label: 'Budget', icon: DollarSign, stepIndex: 3 },
+  { field: 'space_size', label: 'Space Size', icon: Ruler, stepIndex: 4 },
   { field: 'timeline', label: 'Timeline', icon: Clock, stepIndex: 5 },
 ];
 
 // Chip options for editable fields
-const CATEGORY_OPTIONS = ['Jewelry', 'Custom Cakes', 'Furniture', 'Fashion', 'Ceramics', 'Personalized Gifts', 'Textiles', '3D Printing'];
-const STYLE_OPTIONS = ['Minimalist', 'Modern', 'Vintage', 'Bohemian', 'Classic', 'Industrial', 'Rustic', 'Glamorous', 'Playful', 'Organic'];
+const CATEGORY_OPTIONS = ['Carpentry & Woodworking', 'Home Decor & Styling', 'Furniture Design & Restoration', 'Interior Design & Space Planning', 'Lighting & Ambiance', 'Wall Art & Decorative Accessories', 'Textiles & Soft Furnishings', 'Plants & Greenery Styling', 'Storage & Organization Solutions', 'Office Design & Ergonomics'];
+const STYLE_OPTIONS = ['Minimalist', 'Scandinavian', 'Mid-Century Modern', 'Bohemian', 'Industrial', 'Rustic', 'Contemporary', 'Traditional', 'Art Deco', 'Japandi', 'Farmhouse', 'Coastal'];
 
 function extractProgress(messages: DisplayMessage[]): Record<string, string> {
   const allText = messages.map(m => m.text).join('\n');
@@ -113,14 +117,16 @@ function extractProgress(messages: DisplayMessage[]): Record<string, string> {
 
   // Category detection — Tier 1: keyword patterns for known categories
   const catPatterns: [RegExp, string][] = [
-    [/ring|necklace|bracelet|earring|pendant|gold\b|silver\b|jewel/i, 'Jewelry'],
-    [/cake|cupcake|pastry|birthday cake|wedding cake/i, 'Custom Cakes'],
-    [/table|chair|desk|shelf|cabinet|bed|sofa|furniture/i, 'Furniture'],
-    [/dress|suit|shirt|jacket|gown|tailor|fashion/i, 'Fashion'],
-    [/vase|bowl|mug|pot|ceramic|pottery|clay/i, 'Ceramics'],
-    [/gift|engrav|personali[sz]|monogram/i, 'Personalized Gifts'],
-    [/rug|tapestry|curtain|pillow|blanket|textile/i, 'Textiles'],
-    [/3d\s*print|prototype|figurine|filament/i, '3D Printing'],
+    [/carpentry|woodwork|cabinet|shelv|built-?in/i, 'Carpentry & Woodworking'],
+    [/decor|styling|accessori|vase|cushion/i, 'Home Decor & Styling'],
+    [/furniture|table|chair|desk|sofa|bed|restoration|upholster/i, 'Furniture Design & Restoration'],
+    [/interior design|space plan|room layout|renovation|redesign/i, 'Interior Design & Space Planning'],
+    [/light|lamp|chandelier|sconce|ambient/i, 'Lighting & Ambiance'],
+    [/wall art|paint|frame|mirror|decorat/i, 'Wall Art & Decorative Accessories'],
+    [/textile|curtain|rug|cushion|upholster|fabric|linen/i, 'Textiles & Soft Furnishings'],
+    [/plant|green|garden|indoor plant|planter/i, 'Plants & Greenery Styling'],
+    [/storage|organiz|closet|pantry|shelving system/i, 'Storage & Organization Solutions'],
+    [/office|ergonomic|workspace|standing desk|monitor/i, 'Office Design & Ergonomics'],
   ];
   for (const [pat, cat] of catPatterns) {
     if (pat.test(allText)) { progress.category = cat; break; }
@@ -145,22 +151,27 @@ function extractProgress(messages: DisplayMessage[]): Record<string, string> {
   }
 
   // Style detection
-  const styles = ['minimalist', 'modern', 'vintage', 'bohemian', 'classic', 'industrial', 'rustic', 'glamorous', 'playful', 'organic'];
+  const styles = ['minimalist', 'scandinavian', 'mid-century modern', 'bohemian', 'industrial', 'rustic', 'contemporary', 'traditional', 'art deco', 'japandi', 'farmhouse', 'coastal'];
   const found = styles.filter(s => allText.toLowerCase().includes(s));
-  if (found.length > 0) progress.style = found.map(s => s[0].toUpperCase() + s.slice(1)).join(', ');
+  if (found.length > 0) progress.style = found.map(s => s.split(' ').map(w => w[0].toUpperCase() + w.slice(1)).join(' ')).join(', ');
 
   // Budget detection
   const budgetMatch = allText.match(/\$[\d,]+\s*[-–]\s*\$[\d,]+|\$[\d,]+/);
   if (budgetMatch) progress.budget = budgetMatch[0];
 
-  // Dimensions detection
-  const dimMatch = allText.match(/\d+\s*(?:cm|mm|in|inch|feet|ft|m\b|"|')\s*(?:[x×]\s*\d+\s*(?:cm|mm|in|inch|feet|ft|m\b|"|'))?/i);
-  if (dimMatch) progress.dimensions = dimMatch[0];
+  // Space size detection
+  const sizeMatch = allText.match(/\d+\s*(?:sqm|sq\s*m|sq\s*ft|square\s*(?:feet|meters?|metres?))\b|\d+\s*(?:cm|mm|in|inch|feet|ft|m\b|"|')\s*(?:[x×]\s*\d+\s*(?:cm|mm|in|inch|feet|ft|m\b|"|'))?/i);
+  if (sizeMatch) progress.space_size = sizeMatch[0];
 
   // Materials detection
-  const matPatterns = /\b(gold|silver|platinum|wood|oak|walnut|pine|leather|silk|cotton|fondant|marble|ceramic|steel|copper|brass)\b/gi;
+  const matPatterns = /\b(wood|oak|walnut|pine|metal|steel|glass|fabric|leather|stone|marble|ceramic|tile|bamboo|rattan|copper|brass|linen|cotton)\b/gi;
   const mats = [...new Set([...allText.matchAll(matPatterns)].map(m => m[1].toLowerCase()))];
   if (mats.length > 0) progress.materials = mats.map(m => m[0].toUpperCase() + m.slice(1)).join(', ');
+
+  // Room type detection
+  const roomPatterns = /\b(living room|bedroom|home office|kitchen|bathroom|dining room|outdoor|nursery|hallway|entryway|basement|attic|sunroom|garage)\b/gi;
+  const rooms = [...new Set([...allText.matchAll(roomPatterns)].map(m => m[1].toLowerCase()))];
+  if (rooms.length > 0) progress.room_type = rooms.map(r => r.split(' ').map(w => w[0].toUpperCase() + w.slice(1)).join(' ')).join(', ');
 
   // Timeline detection
   const timeMatch = allText.match(/\d+\s*(?:week|month|day)s?|no rush|asap|urgent/i);
@@ -171,10 +182,10 @@ function extractProgress(messages: DisplayMessage[]): Record<string, string> {
 
 // ─── Suggestion Chips ───────────────────────────────────────
 const SUGGESTIONS = [
-  'Custom engagement ring 💍',
-  'Handmade wooden shelf 🪵',
-  'Birthday cake design 🎂',
-  'Leather messenger bag 👜',
+  'Modern living room redesign 🛋️',
+  'Home office setup ✨',
+  'Custom bookshelf for study 📚',
+  'Cozy bedroom lighting 💡',
 ];
 
 // ─── Memoized Markdown Renderer ──────────────────────────────
@@ -373,7 +384,7 @@ export default function AIChatFlow() {
 
         if (isUnhelpful) {
           // Replace with a redirect message
-          const redirect = "Let me help you with your design! Could you describe what kind of custom product you'd like to create? For example: jewelry, furniture, a cake, fashion piece, or anything else you have in mind.";
+          const redirect = "Let me help you with your space! Could you describe what room or area you'd like to transform? For example: a living room redesign, home office setup, custom shelving, or any interior project you have in mind.";
           setMessages(prev => [...prev, { role: 'ai', text: redirect }]);
           llmMessagesRef.current.push({ role: 'assistant', content: redirect });
         } else {
@@ -716,9 +727,9 @@ export default function AIChatFlow() {
               <Sparkles className="w-4.5 h-4.5 text-[#C05621]" />
             </div>
             <div>
-              <h1 className="font-serif font-bold text-[#1B2432]">DEXO Design Assistant</h1>
+              <h1 className="font-serif font-bold text-[#1B2432]">DEXO Interior Design Assistant</h1>
               <p className="text-xs text-[#4A5568]">
-                {isLoading ? 'Thinking...' : "Let's bring your idea to life"}
+                {isLoading ? 'Thinking...' : "Let's transform your space"}
               </p>
             </div>
           </div>
@@ -735,10 +746,10 @@ export default function AIChatFlow() {
                 <span className="text-sm text-[#4A5568]">AI Design Consultant</span>
               </div>
               <h2 className="text-3xl md:text-4xl font-serif font-bold text-[#1B2432] mb-3">
-                What would you like to create?
+                What space would you like to transform?
               </h2>
               <p className="text-[#4A5568] max-w-md">
-                Describe your vision — jewelry, furniture, cakes, fashion, or anything custom-made.
+                Describe your space — living room, bedroom, office, or any room you'd like to transform.
                 I'll help you refine every detail.
               </p>
               <div className="flex flex-wrap gap-2 mt-8 justify-center">
