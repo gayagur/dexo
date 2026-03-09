@@ -110,5 +110,43 @@ export function useImageUpload() {
     [uploadImage],
   );
 
-  return { uploading, progress, error, uploadImage, uploadMultiple, clearError };
+  const uploadBase64 = useCallback(
+    async (base64: string, bucket: string): Promise<string | null> => {
+      if (!user) { setError('Please sign in to upload images'); return null; }
+
+      setUploading(true);
+      setError(null);
+
+      try {
+        // Strip data URL prefix (e.g. "data:image/png;base64,")
+        const match = base64.match(/^data:image\/(\w+);base64,(.+)$/);
+        if (!match) { setError('Invalid image data'); return null; }
+
+        const ext = match[1] === 'jpeg' ? 'jpg' : match[1];
+        const raw = atob(match[2]);
+        const bytes = new Uint8Array(raw.length);
+        for (let i = 0; i < raw.length; i++) bytes[i] = raw.charCodeAt(i);
+        const blob = new Blob([bytes], { type: `image/${match[1]}` });
+
+        const path = `ai-edited/${user.id}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from(bucket)
+          .upload(path, blob, { contentType: `image/${match[1]}` });
+
+        if (uploadError) { setError(uploadError.message); return null; }
+
+        const { data: urlData } = supabase.storage.from(bucket).getPublicUrl(path);
+        return urlData.publicUrl;
+      } catch (e: any) {
+        setError(e.message || 'Upload failed');
+        return null;
+      } finally {
+        setUploading(false);
+      }
+    },
+    [user],
+  );
+
+  return { uploading, progress, error, uploadImage, uploadMultiple, uploadBase64, clearError };
 }
