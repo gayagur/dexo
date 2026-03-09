@@ -1,4 +1,6 @@
+import { useState, useEffect } from "react";
 import FilerobotImageEditor, { TABS, TOOLS } from "react-filerobot-image-editor";
+import { Loader2 } from "lucide-react";
 
 interface FilerobotEditorProps {
   imageSrc: string;
@@ -27,9 +29,42 @@ const DEXO_THEME = {
 };
 
 export function FilerobotEditor({ imageSrc, onSave, onClose }: FilerobotEditorProps) {
+  const [dataUrl, setDataUrl] = useState<string | null>(null);
+
+  // Convert remote URL to base64 data URL to avoid CORS issues
+  useEffect(() => {
+    if (imageSrc.startsWith('data:')) {
+      setDataUrl(imageSrc);
+      return;
+    }
+    let cancelled = false;
+    fetch(imageSrc)
+      .then(res => res.blob())
+      .then(blob => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          if (!cancelled) setDataUrl(reader.result as string);
+        };
+        reader.readAsDataURL(blob);
+      })
+      .catch(() => {
+        // Fallback: try using the URL directly
+        if (!cancelled) setDataUrl(imageSrc);
+      });
+    return () => { cancelled = true; };
+  }, [imageSrc]);
+
+  if (!dataUrl) {
+    return (
+      <div className="flex items-center justify-center w-full h-full bg-[#0f1724]">
+        <Loader2 className="w-8 h-8 text-white animate-spin" />
+      </div>
+    );
+  }
+
   return (
     <FilerobotImageEditor
-      source={imageSrc}
+      source={dataUrl}
       onSave={(editedImageObject) => {
         if (editedImageObject.imageBase64) {
           onSave(editedImageObject.imageBase64);
