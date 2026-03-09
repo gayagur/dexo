@@ -228,6 +228,7 @@ export default function AIChatFlow() {
 
   // Filerobot manual editor state
   const [filerobotOpen, setFilerobotOpen] = useState(false);
+  const [filerobotSaving, setFilerobotSaving] = useState(false);
 
   // Image uploads
   const [uploadedImages, setUploadedImages] = useState<string[]>([]);
@@ -538,9 +539,12 @@ export default function AIChatFlow() {
 
   // ─── Filerobot Manual Edit ──────────────────────────────────
   const handleManualEditSave = useCallback(async (imageBase64: string) => {
-    setFilerobotOpen(false);
+    setFilerobotSaving(true);
 
     const url = await uploadBase64(imageBase64, 'project-images');
+    setFilerobotSaving(false);
+    setFilerobotOpen(false);
+
     if (!url) {
       toast({ title: 'Upload failed', description: 'Could not save edited image', variant: 'destructive' });
       return;
@@ -1015,6 +1019,7 @@ export default function AIChatFlow() {
         <FilerobotEditorModal
           isOpen={filerobotOpen}
           imageSrc={conceptImageUrl}
+          saving={filerobotSaving}
           onSave={handleManualEditSave}
           onClose={() => setFilerobotOpen(false)}
         />

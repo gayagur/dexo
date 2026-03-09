@@ -118,21 +118,36 @@ export function useImageUpload() {
       setError(null);
 
       try {
-        // Strip data URL prefix (e.g. "data:image/png;base64,")
-        const match = base64.match(/^data:image\/(\w+);base64,(.+)$/);
-        if (!match) { setError('Invalid image data'); return null; }
+        // Parse data URL without regex to avoid doubling memory on large payloads
+        const commaIdx = base64.indexOf(',');
+        if (commaIdx === -1 || !base64.startsWith('data:image/')) {
+          setError('Invalid image data'); return null;
+        }
+        const header = base64.substring(0, commaIdx); // e.g. "data:image/png;base64"
+        const mimeMatch = header.match(/^data:(image\/[\w+.-]+);base64$/);
+        if (!mimeMatch) { setError('Invalid image data'); return null; }
 
-        const ext = match[1] === 'jpeg' ? 'jpg' : match[1];
-        const raw = atob(match[2]);
+        const mimeType = mimeMatch[1];
+        if (!ALLOWED_TYPES.includes(mimeType)) {
+          setError('Only JPEG, PNG, WebP and GIF are allowed'); return null;
+        }
+
+        const subtype = mimeType.split('/')[1];
+        const ext = subtype === 'jpeg' ? 'jpg' : subtype;
+        const raw = atob(base64.substring(commaIdx + 1));
         const bytes = new Uint8Array(raw.length);
         for (let i = 0; i < raw.length; i++) bytes[i] = raw.charCodeAt(i);
-        const blob = new Blob([bytes], { type: `image/${match[1]}` });
+        const blob = new Blob([bytes], { type: mimeType });
+
+        if (blob.size > MAX_RAW_SIZE) {
+          setError('File must be under 10 MB'); return null;
+        }
 
         const path = `ai-edited/${user.id}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
 
         const { error: uploadError } = await supabase.storage
           .from(bucket)
-          .upload(path, blob, { contentType: `image/${match[1]}` });
+          .upload(path, blob, { contentType: mimeType });
 
         if (uploadError) { setError(uploadError.message); return null; }
 

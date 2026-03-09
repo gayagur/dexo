@@ -33,6 +33,9 @@ export function FilerobotEditor({ imageSrc, onSave, onClose }: FilerobotEditorPr
       onSave={(editedImageObject) => {
         if (editedImageObject.imageBase64) {
           onSave(editedImageObject.imageBase64);
+        } else {
+          console.error('Filerobot: save produced no imageBase64');
+          onClose();
         }
       }}
       onClose={onClose}
@@ -45,15 +48,6 @@ export function FilerobotEditor({ imageSrc, onSave, onClose }: FilerobotEditorPr
         text: "DEXO",
         fontSize: 24,
         fontFamily: "Inter",
-      }}
-      Rotate={{ angle: 90, componentType: "slider" }}
-      Crop={{
-        presetsItems: [
-          { titleKey: "square", descriptionKey: "1:1", ratio: 1 },
-          { titleKey: "landscape", descriptionKey: "16:9", ratio: 16 / 9 },
-          { titleKey: "portrait", descriptionKey: "9:16", ratio: 9 / 16 },
-          { titleKey: "classic", descriptionKey: "4:3", ratio: 4 / 3 },
-        ],
       }}
       tabsIds={[TABS.ANNOTATE, TABS.WATERMARK, TABS.RESIZE, TABS.ADJUST]}
       defaultTabId={TABS.ANNOTATE}

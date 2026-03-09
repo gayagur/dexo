@@ -1,9 +1,11 @@
 import { motion, AnimatePresence } from "framer-motion";
+import { Loader2 } from "lucide-react";
 import { FilerobotEditor } from "./FilerobotEditor";
 
 interface FilerobotEditorModalProps {
   isOpen: boolean;
   imageSrc: string;
+  saving?: boolean;
   onSave: (imageBase64: string) => void;
   onClose: () => void;
 }
@@ -11,6 +13,7 @@ interface FilerobotEditorModalProps {
 export function FilerobotEditorModal({
   isOpen,
   imageSrc,
+  saving = false,
   onSave,
   onClose,
 }: FilerobotEditorModalProps) {
@@ -24,11 +27,8 @@ export function FilerobotEditorModal({
           transition={{ duration: 0.2 }}
           className="fixed inset-0 z-50 flex items-center justify-center"
         >
-          {/* Backdrop */}
-          <div
-            className="absolute inset-0 bg-black/80 backdrop-blur-sm"
-            onClick={onClose}
-          />
+          {/* Backdrop — no click-to-close to prevent accidental data loss */}
+          <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" />
 
           {/* Editor container */}
           <motion.div
@@ -43,6 +43,16 @@ export function FilerobotEditorModal({
               onSave={onSave}
               onClose={onClose}
             />
+
+            {/* Saving overlay */}
+            {saving && (
+              <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/60">
+                <div className="flex flex-col items-center gap-3">
+                  <Loader2 className="w-8 h-8 text-white animate-spin" />
+                  <span className="text-sm text-white font-medium">Saving image...</span>
+                </div>
+              </div>
+            )}
           </motion.div>
         </motion.div>
       )}
