@@ -142,8 +142,8 @@ export function HeroSection({
 
             {/* Video card (behind text, right side) */}
             <motion.div
-              className="hidden lg:block absolute z-[1] w-[560px]"
-              style={{ top: '0', right: '5%' }}
+              className="hidden lg:block absolute z-[1] w-[40%] max-w-[560px]"
+              style={{ top: '0', right: '0' }}
               initial={{ opacity: 0, y: 30, scale: 0.97 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               transition={{ duration: 0.8, delay: 0.2, ease: [0.25, 0.1, 0.25, 1.0] }}
@@ -183,7 +183,7 @@ export function HeroSection({
 
             {/* Text block (dominant, overlaps video) */}
             <motion.div
-              className="relative z-[2] w-full lg:w-[65%] space-y-7 text-center lg:text-left"
+              className="relative z-[2] w-full lg:w-[58%] space-y-7 text-center lg:text-left"
               initial="hidden"
               animate="visible"
             >
