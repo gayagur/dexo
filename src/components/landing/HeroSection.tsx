@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { ArrowRight } from 'lucide-react';
@@ -85,6 +85,7 @@ export function HeroSection({
   pathCount = 36,
 }: HeroSectionProps) {
   const [bgVideoReady, setBgVideoReady] = useState(false);
+  const heroVideo = useMemo(() => (Math.random() < 0.5 ? '/dexo.mp4' : '/dexo2.mp4'), []);
 
   return (
     <div className="relative">
@@ -107,7 +108,7 @@ export function HeroSection({
             }`}
             style={{ filter: 'blur(18px) saturate(0.95)' }}
           >
-            <source src="/dexo.mp4" type="video/mp4" />
+            <source src={heroVideo} type="video/mp4" />
           </video>
 
           {/* Layer B: Warm base + cream wash */}
@@ -168,7 +169,7 @@ export function HeroSection({
                     preload="metadata"
                     className="absolute inset-0 w-full h-full object-cover"
                   >
-                    <source src="/dexo.mp4" type="video/mp4" />
+                    <source src={heroVideo} type="video/mp4" />
                   </video>
 
                   {/* Subtle bottom gradient */}
@@ -255,7 +256,7 @@ export function HeroSection({
                   }}
                 >
                   <video autoPlay loop muted playsInline preload="metadata" className="absolute inset-0 w-full h-full object-cover">
-                    <source src="/dexo.mp4" type="video/mp4" />
+                    <source src={heroVideo} type="video/mp4" />
                   </video>
                   <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-transparent" />
                   <div className="pointer-events-none absolute inset-0 rounded-[28px] ring-1 ring-inset ring-white/20" />
