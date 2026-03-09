@@ -20,6 +20,7 @@ import type { ProgressItem } from '@/components/chat/types';
 import { ProgressSidebar } from '@/components/chat/ProgressSidebar';
 import { BriefCard } from '@/components/chat/BriefCard';
 import { ImageEditor } from '@/components/chat/ImageEditor';
+import { FilerobotEditorModal } from '@/components/chat/FilerobotEditorModal';
 import { SingleChipSelector, MultiChipSelector } from '@/components/chat/ChipSelector';
 import {
   toBriefDisplayData,
@@ -202,7 +203,7 @@ export default function AIChatFlow() {
   const { user } = useAuth();
   const { createProject } = useProjects();
   const { toast } = useToast();
-  const { uploading: imageUploading, uploadMultiple, error: uploadError } = useImageUpload();
+  const { uploading: imageUploading, uploadMultiple, uploadBase64, error: uploadError } = useImageUpload();
 
   // Chat state
   const [messages, setMessages] = useState<DisplayMessage[]>([]);
@@ -224,6 +225,9 @@ export default function AIChatFlow() {
   // Image editing state
   const [imageVersions, setImageVersions] = useState<ImageVersion[]>([]);
   const [currentVersionId, setCurrentVersionId] = useState<string | null>(null);
+
+  // Filerobot manual editor state
+  const [filerobotOpen, setFilerobotOpen] = useState(false);
 
   // Image uploads
   const [uploadedImages, setUploadedImages] = useState<string[]>([]);
@@ -531,6 +535,36 @@ export default function AIChatFlow() {
   const handleDoneEditing = useCallback(() => {
     setPhase('done');
   }, []);
+
+  // ─── Filerobot Manual Edit ──────────────────────────────────
+  const handleManualEditSave = useCallback(async (imageBase64: string) => {
+    setFilerobotOpen(false);
+
+    const url = await uploadBase64(imageBase64, 'project-images');
+    if (!url) {
+      toast({ title: 'Upload failed', description: 'Could not save edited image', variant: 'destructive' });
+      return;
+    }
+
+    // Track as a new version
+    const nextNum = imageVersions.length + 1;
+    const newVersion: ImageVersion = {
+      id: `local-${Date.now()}`,
+      project_id: '',
+      parent_version_id: currentVersionId,
+      image_url: url,
+      prompt: null,
+      edit_instruction: 'Manual edit (Filerobot)',
+      mask_path: null,
+      edit_type: 'manual_edit',
+      version_number: nextNum,
+      is_current: true,
+      created_at: new Date().toISOString(),
+    };
+    setImageVersions(prev => [...prev, newVersion]);
+    setCurrentVersionId(newVersion.id);
+    setConceptImageUrl(url);
+  }, [uploadBase64, imageVersions.length, currentVersionId, toast]);
 
   // ─── Field Editing ──────────────────────────────────────
   const handleEditField = useCallback((field: string, _stepIndex: number) => {
@@ -867,6 +901,7 @@ export default function AIChatFlow() {
               onGenerateImage={handleGenerateImage}
               onSubmit={handleSubmit}
               onEditImage={handleStartEditImage}
+              onManualEdit={() => setFilerobotOpen(true)}
               onRegenerate={handleRegenerateImage}
               onBriefFileDrop={handleBriefFileDrop}
               onBriefFileSelect={handleBriefFileSelect}
@@ -974,6 +1009,16 @@ export default function AIChatFlow() {
           </div>
         </div>
       </main>
+
+      {/* Filerobot Manual Image Editor */}
+      {conceptImageUrl && (
+        <FilerobotEditorModal
+          isOpen={filerobotOpen}
+          imageSrc={conceptImageUrl}
+          onSave={handleManualEditSave}
+          onClose={() => setFilerobotOpen(false)}
+        />
+      )}
     </div>
   );
 }
