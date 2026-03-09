@@ -11,6 +11,7 @@ import {
   Pencil,
   Zap,
   Users,
+  Palette,
 } from "lucide-react";
 
 interface BriefDisplayData {
@@ -38,6 +39,7 @@ interface BriefCardProps {
   onGenerateImage: () => void;
   onSubmit: (method: 'auto' | 'manual') => void;
   onEditImage?: () => void;
+  onManualEdit?: () => void;
   onRegenerate?: () => void;
   onBriefFileDrop: (e: React.DragEvent) => void;
   onBriefFileSelect: (e: React.ChangeEvent<HTMLInputElement>) => void;
@@ -55,6 +57,7 @@ export function BriefCard({
   onGenerateImage,
   onSubmit,
   onEditImage,
+  onManualEdit,
   onRegenerate,
   onBriefFileDrop,
   onBriefFileSelect,
@@ -217,6 +220,17 @@ export function BriefCard({
           </div>
           {phase === "done" && (
             <div className="flex gap-2">
+              {onManualEdit && (
+                <Button
+                  onClick={onManualEdit}
+                  variant="outline"
+                  size="sm"
+                  className="rounded-xl border-[#C05621]/20 text-[#C05621] gap-1.5"
+                >
+                  <Palette className="w-3.5 h-3.5" />
+                  Manual Edit
+                </Button>
+              )}
               {onEditImage && (
                 <Button
                   onClick={onEditImage}
@@ -225,7 +239,7 @@ export function BriefCard({
                   className="rounded-xl border-[#C05621]/20 text-[#C05621] gap-1.5"
                 >
                   <Pencil className="w-3.5 h-3.5" />
-                  Edit Image
+                  AI Edit
                 </Button>
               )}
               {onRegenerate && (
