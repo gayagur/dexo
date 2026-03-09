@@ -17,9 +17,9 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 
 // Step images
-import stepDesign from '@/assets/step-design.jpg';
-import stepCreate from '@/assets/step-create.jpg';
-import stepReceive from '@/assets/step-receive.jpg';
+import stepDesign from '@/assets/step-design.png';
+import stepConnect from '@/assets/step-connect.png';
+import stepTransform from '@/assets/step-transform.png';
 
 // Category images
 import categoryCarpentry from '@/assets/category-carpentry.png';
@@ -438,7 +438,7 @@ function CustomerHome({ firstName }: { firstName: string }) {
             title: 'Get Matched',
             description: 'Matched designers review your brief and send offers with pricing, timeline, and their approach.',
             accent: '#D4793A',
-            image: stepCreate,
+            image: stepConnect,
           },
           {
             number: 3,
@@ -446,7 +446,7 @@ function CustomerHome({ firstName }: { firstName: string }) {
             title: 'Transform & Enjoy',
             description: 'Your space is transformed — exactly as you envisioned.',
             accent: '#E8A065',
-            image: stepReceive,
+            image: stepTransform,
           },
         ]}
       />
@@ -755,7 +755,7 @@ function CreatorHome({ firstName }: { firstName: string }) {
             title: 'Send Your Offer',
             description: 'Review the design brief and submit your price, timeline, and approach. Stand out with a personalized note.',
             accent: '#D4793A',
-            image: stepCreate,
+            image: stepConnect,
           },
           {
             number: 3,
@@ -763,7 +763,7 @@ function CreatorHome({ firstName }: { firstName: string }) {
             title: 'Create & Deliver',
             description: 'Once accepted, craft the product and communicate with your client. Build your reputation with every delivery.',
             accent: '#E8A065',
-            image: stepReceive,
+            image: stepTransform,
           },
         ]}
       />

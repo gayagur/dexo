@@ -9,9 +9,9 @@ import { CategoriesSection } from '@/components/landing/CategoriesSection';
 import { FinalCTA } from '@/components/landing/FinalCTA';
 
 // Step images
-import stepDesign from '@/assets/step-design.jpg';
-import stepCreate from '@/assets/step-create.jpg';
-import stepReceive from '@/assets/step-receive.jpg';
+import stepDesign from '@/assets/step-design.png';
+import stepConnect from '@/assets/step-connect.png';
+import stepTransform from '@/assets/step-transform.png';
 
 // Category images
 import categoryCarpentry from '@/assets/category-carpentry.png';
@@ -114,7 +114,7 @@ export const landingSteps = [
     footer: { title: "You + AI", sub: "Turn ideas into visual room designs before any work begins" },
   },
   {
-    image: stepCreate,
+    image: stepConnect,
     alt: "Interior designer reviewing a room design brief",
     number: 2,
     title: "Connect",
@@ -128,7 +128,7 @@ export const landingSteps = [
     footer: { title: "Skilled Designers", sub: "Real professionals ready to transform your space" },
   },
   {
-    image: stepReceive,
+    image: stepTransform,
     alt: "Beautiful transformed living room interior",
     number: 3,
     title: "Transform",
