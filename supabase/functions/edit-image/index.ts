@@ -34,7 +34,7 @@ Deno.serve(async (req) => {
 
   try {
     const { userId, supabase } = await verifyAuth(req);
-    const { imageUrl, instruction, versionId, projectId, mask } = await req.json();
+    const { imageUrl, instruction, versionId, projectId, mask, regionHint } = await req.json();
 
     // ─── Validation ──────────────────────────────────────────
     if (!imageUrl) {
@@ -101,6 +101,7 @@ Deno.serve(async (req) => {
       instructionPreview: instruction.slice(0, 80),
       hasMask: !!mask,
       maskLength: mask ? mask.length : 0,
+      regionHint: regionHint || null,
       versionId,
       projectId,
     });
@@ -133,16 +134,27 @@ Deno.serve(async (req) => {
       }
     }
 
-    // ─── Call FLUX Kontext Pro ───────────────────────────────
-    // Together AI uses /v1/images/generations with an image_url param
-    // for Kontext-based editing (not /v1/images/edits which doesn't exist).
-    // Mask guidance is included in the prompt text since the API has
-    // no separate mask_url parameter.
+    // ─── Build Prompt ──────────────────────────────────────────
+    // Together AI's FLUX Kontext Pro does NOT support mask images via
+    // the API — only prompt + image_url. When the user painted a mask
+    // region, the frontend analyzes it and sends a `regionHint` string
+    // (e.g. "in the top-left area of the image") so we can give the
+    // model spatial guidance via the prompt text.
+    let prompt: string;
+    if (regionHint) {
+      // Region-specific edit: tell the model WHERE and WHAT to change
+      prompt = `${regionHint}, ${instruction}. Keep the rest of the image unchanged.`;
+    } else if (mask) {
+      // Mask provided but no regionHint (fallback)
+      prompt = `${instruction}. Only change the relevant area, keep everything else unchanged.`;
+    } else {
+      // Global edit
+      prompt = instruction;
+    }
+
     const editBody: Record<string, unknown> = {
       model: MODEL,
-      prompt: mask
-        ? `Edit only the masked/selected region of the image. ${instruction}`
-        : instruction,
+      prompt,
       image_url: imageUrl,
       steps: 28,
       n: 1,
@@ -151,8 +163,9 @@ Deno.serve(async (req) => {
 
     console.log("[edit-image] Calling Together AI:", {
       model: MODEL,
-      promptPreview: (editBody.prompt as string).slice(0, 100),
+      prompt: prompt.slice(0, 150),
       hasMask: !!mask,
+      regionHint: regionHint || null,
     });
 
     const response = await fetch("https://api.together.xyz/v1/images/generations", {

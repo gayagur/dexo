@@ -175,13 +175,15 @@ interface EditResult {
 /**
  * Edit an image via FLUX Kontext Pro.
  * Supports optional mask (base64 data URL) for region-specific edits.
+ * regionHint: human-readable description of the mask area (e.g. "in the top-left area")
  */
 export async function editImage(
   imageUrl: string,
   instruction: string,
   versionId: string | null,
   projectId: string | null,
-  mask?: string
+  mask?: string,
+  regionHint?: string
 ): Promise<EditResult> {
   const doRequest = async (inst: string) => {
     const headers = await getAuthHeaders();
@@ -193,15 +195,15 @@ export async function editImage(
       projectId: projectId || undefined,
     };
     if (mask) body.mask = mask;
+    if (regionHint) body.regionHint = regionHint;
 
-    if (import.meta.env.DEV) {
-      console.log("[editImage] Sending request:", {
-        imageUrl: imageUrl.slice(0, 60),
-        instruction: inst.slice(0, 60),
-        hasMask: !!mask,
-        maskSize: mask ? mask.length : 0,
-      });
-    }
+    console.log("[editImage] Sending request:", {
+      imageUrl: imageUrl.slice(0, 60),
+      instruction: inst.slice(0, 60),
+      hasMask: !!mask,
+      maskSize: mask ? mask.length : 0,
+      regionHint,
+    });
 
     const response = await fetch(`${FUNCTIONS_URL}/edit-image`, {
       method: "POST",

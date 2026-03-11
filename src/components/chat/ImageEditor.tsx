@@ -13,7 +13,36 @@ import {
   X,
 } from "lucide-react";
 import type { ImageVersion } from "@/lib/database.types";
-import { MaskCanvas, type MaskCanvasHandle, type MaskTool } from "./MaskCanvas";
+import { MaskCanvas, type MaskCanvasHandle, type MaskTool, type MaskBoundingBox } from "./MaskCanvas";
+
+/** Convert a mask bounding box (normalized 0-1) into a human-readable spatial description */
+function describeMaskRegion(bb: MaskBoundingBox): string {
+  const cy = bb.centerY;
+  const cx = bb.centerX;
+
+  // Vertical position
+  let vPos: string;
+  if (cy < 0.33) vPos = "top";
+  else if (cy > 0.67) vPos = "bottom";
+  else vPos = "middle";
+
+  // Horizontal position
+  let hPos: string;
+  if (cx < 0.33) hPos = "left";
+  else if (cx > 0.67) hPos = "right";
+  else hPos = "center";
+
+  // Coverage (how much of the image the mask covers)
+  const width = bb.right - bb.left;
+  const height = bb.bottom - bb.top;
+  const area = width * height;
+
+  if (area > 0.7) return "across most of the image";
+  if (vPos === "middle" && hPos === "center") return "in the center of the image";
+  if (vPos === "middle") return `on the ${hPos} side of the image`;
+  if (hPos === "center") return `in the ${vPos} area of the image`;
+  return `in the ${vPos}-${hPos} area of the image`;
+}
 
 // Structured error messages for known error codes
 const ERROR_MESSAGES: Record<string, string> = {
@@ -99,21 +128,27 @@ export function ImageEditor({
     setIsEditing(true);
     setError(null);
 
-    // Export mask if not applying globally
+    // Export mask and compute spatial description if not applying globally
     let maskBase64: string | undefined;
+    let regionHint: string | undefined;
     if (!applyGlobally && maskRef.current) {
       const dims = maskRef.current.getDimensions();
       const ratio = maskRef.current.getWhiteRatio();
+      const bbox = maskRef.current.getMaskBoundingBox();
 
-      // Dev-mode debug logging
-      if (import.meta.env.DEV) {
-        console.log("[ImageEditor] Pre-edit debug:", {
-          imageDims: dims,
-          whitePixelRatio: ratio.toFixed(4),
-          applyGlobally,
-          instruction: instruction.trim().slice(0, 80),
-        });
+      if (bbox) {
+        regionHint = describeMaskRegion(bbox);
       }
+
+      // Debug logging (always — helps diagnose production issues)
+      console.log("[ImageEditor] Pre-edit debug:", {
+        imageDims: dims,
+        whitePixelRatio: ratio.toFixed(4),
+        applyGlobally,
+        instruction: instruction.trim().slice(0, 80),
+        maskBBox: bbox,
+        regionHint,
+      });
 
       const maskBlob = await maskRef.current.exportMask();
       if (maskBlob) {
@@ -124,21 +159,35 @@ export function ImageEditor({
           reader.readAsDataURL(maskBlob);
         });
 
-        if (import.meta.env.DEV) {
-          console.log("[ImageEditor] Mask exported:", {
-            blobSize: maskBlob.size,
-            base64Length: maskBase64.length,
-          });
+        console.log("[ImageEditor] Mask exported:", {
+          blobSize: maskBlob.size,
+          base64Length: maskBase64.length,
+          isAllBlack: ratio < 0.001,
+        });
+
+        // Warn if mask looks empty
+        if (ratio < 0.001) {
+          console.warn("[ImageEditor] Mask appears empty (< 0.1% white pixels)");
         }
+      } else {
+        console.warn("[ImageEditor] exportMask() returned null");
       }
     }
+
+    console.log("[ImageEditor] Calling editImage:", {
+      imageUrl: currentImageUrl.slice(0, 60),
+      instruction: instruction.trim().slice(0, 60),
+      hasMask: !!maskBase64,
+      regionHint,
+    });
 
     const result = await editImage(
       currentImageUrl,
       instruction.trim(),
       currentVersionId,
       projectId,
-      maskBase64
+      maskBase64,
+      regionHint
     );
 
     setIsEditing(false);

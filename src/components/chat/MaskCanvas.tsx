@@ -9,6 +9,17 @@ interface MaskCanvasProps {
   onMaskChange?: (hasContent: boolean, whiteRatio: number) => void;
 }
 
+export interface MaskBoundingBox {
+  /** Normalized coordinates (0-1) of the white region bounding box */
+  top: number;
+  left: number;
+  bottom: number;
+  right: number;
+  /** Center of mass (0-1) */
+  centerX: number;
+  centerY: number;
+}
+
 export interface MaskCanvasHandle {
   /** Export the mask as a PNG Blob at natural image resolution */
   exportMask: () => Promise<Blob | null>;
@@ -16,6 +27,8 @@ export interface MaskCanvasHandle {
   getDimensions: () => { width: number; height: number } | null;
   /** Get white pixel ratio (0-1) */
   getWhiteRatio: () => number;
+  /** Get bounding box of white (selected) pixels, normalized 0-1 */
+  getMaskBoundingBox: () => MaskBoundingBox | null;
   /** Set the active tool */
   setTool: (tool: MaskTool) => void;
   /** Set brush size (px in natural space) */
@@ -261,6 +274,46 @@ export const MaskCanvas = forwardRef<MaskCanvasHandle, MaskCanvasProps>(
           if (data.data[i] > 128) whitePixels++;
         }
         return whitePixels / total;
+      },
+
+      getMaskBoundingBox: () => {
+        const maskCanvas = maskCanvasRef.current;
+        if (!maskCanvas || !maskCanvas.width || !maskCanvas.height) return null;
+        const ctx = maskCanvas.getContext("2d");
+        if (!ctx) return null;
+
+        const w = maskCanvas.width;
+        const h = maskCanvas.height;
+        const data = ctx.getImageData(0, 0, w, h).data;
+
+        let minX = w, minY = h, maxX = 0, maxY = 0;
+        let sumX = 0, sumY = 0, count = 0;
+
+        for (let y = 0; y < h; y++) {
+          for (let x = 0; x < w; x++) {
+            const i = (y * w + x) * 4;
+            if (data[i] > 128) { // white pixel
+              if (x < minX) minX = x;
+              if (x > maxX) maxX = x;
+              if (y < minY) minY = y;
+              if (y > maxY) maxY = y;
+              sumX += x;
+              sumY += y;
+              count++;
+            }
+          }
+        }
+
+        if (count === 0) return null;
+
+        return {
+          top: minY / h,
+          left: minX / w,
+          bottom: maxY / h,
+          right: maxX / w,
+          centerX: (sumX / count) / w,
+          centerY: (sumY / count) / h,
+        };
       },
 
       setTool: (tool: MaskTool) => {
