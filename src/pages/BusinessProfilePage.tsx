@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { AppLayout } from '@/components/app/AppLayout';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/hooks/useAuth';
@@ -10,13 +11,20 @@ import { useMessages } from '@/hooks/useMessages';
 import type { Business, Project } from '@/lib/database.types';
 import {
   ArrowLeft,
-  Star,
+  Briefcase,
+  CalendarDays,
+  Check,
+  Clock3,
+  DollarSign,
+  Globe,
+  Instagram,
+  Loader2,
   MapPin,
   MessageSquare,
+  Phone,
   Send,
-  DollarSign,
-  Loader2,
-  Check,
+  Star,
+  UserRound,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -26,6 +34,10 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@/components/ui/dialog';
+import {
+  fetchCreatorPublicProfile,
+  type CreatorPublicProfile,
+} from '@/lib/creatorPublicProfile';
 
 const BusinessProfilePage = () => {
   const { id } = useParams();
@@ -34,7 +46,9 @@ const BusinessProfilePage = () => {
   const { user, loading: authLoading } = useAuth();
 
   const [business, setBusiness] = useState<Business | null>(null);
+  const [creatorProfile, setCreatorProfile] = useState<CreatorPublicProfile | null>(null);
   const [fetched, setFetched] = useState(false);
+  const [profileFetched, setProfileFetched] = useState(false);
   const [userProjects, setUserProjects] = useState<Project[]>([]);
 
   const loading = authLoading || (!fetched && !!user);
@@ -89,6 +103,42 @@ const BusinessProfilePage = () => {
     fetchProjects();
   }, [user]);
 
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadCreatorProfile = async () => {
+      if (!business?.user_id) {
+        setCreatorProfile(null);
+        setProfileFetched(true);
+        return;
+      }
+
+      setProfileFetched(false);
+
+      try {
+        const data = await fetchCreatorPublicProfile(business.user_id);
+        if (!cancelled) {
+          setCreatorProfile(data);
+        }
+      } catch (err) {
+        console.error('[BusinessProfile] public profile fetch error:', err);
+        if (!cancelled) {
+          setCreatorProfile(null);
+        }
+      } finally {
+        if (!cancelled) {
+          setProfileFetched(true);
+        }
+      }
+    };
+
+    loadCreatorProfile();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [business?.user_id]);
+
   const handleSendMessage = async () => {
     if (!messageContent.trim() || !selectedProjectId) return;
 
@@ -140,6 +190,28 @@ const BusinessProfilePage = () => {
     );
   }
 
+  const displayName = creatorProfile?.fullName || business.name;
+  const displayBio = creatorProfile?.bio || business.description;
+  const displayLocation = creatorProfile
+    ? `${creatorProfile.city}, ${creatorProfile.country}`
+    : business.location;
+  const displayPortfolio = creatorProfile?.portfolioItems ?? [];
+  const initials = displayName
+    .split(' ')
+    .map((part) => part[0])
+    .join('')
+    .slice(0, 2)
+    .toUpperCase();
+  const joinedLabel = creatorProfile
+    ? new Date(creatorProfile.joinedAt).toLocaleDateString('en-US', {
+        month: 'long',
+        year: 'numeric',
+      })
+    : new Date(business.created_at).toLocaleDateString('en-US', {
+        month: 'long',
+        year: 'numeric',
+      });
+
   return (
     <AppLayout>
       <main className="container mx-auto px-6 py-12">
@@ -154,33 +226,238 @@ const BusinessProfilePage = () => {
           {/* Main Content */}
           <div className="lg:col-span-2 space-y-8">
             {/* Header */}
-            <div>
-              <h1 className="text-4xl font-serif mb-4">{business.name}</h1>
-              <div className="flex items-center gap-6 text-muted-foreground">
-                <div className="flex items-center gap-2">
-                  <Star className="w-5 h-5 text-amber-500 fill-amber-500" />
-                  <span className="font-medium text-foreground">{business.rating}</span>
-                  <span>rating</span>
+            <Card>
+              <CardContent className="p-6 sm:p-8">
+                <div className="flex flex-col sm:flex-row sm:items-start gap-6">
+                  <Avatar className="h-24 w-24 border border-border/60">
+                    <AvatarImage src={creatorProfile?.profilePhotoUrl} alt={displayName} />
+                    <AvatarFallback className="text-lg font-semibold">
+                      {initials}
+                    </AvatarFallback>
+                  </Avatar>
+
+                  <div className="flex-1 min-w-0">
+                    <div className="flex flex-wrap items-center gap-3 mb-2">
+                      <h1 className="text-4xl font-serif">{displayName}</h1>
+                      {creatorProfile?.username && (
+                        <span className="text-sm text-muted-foreground">
+                          @{creatorProfile.username}
+                        </span>
+                      )}
+                    </div>
+
+                    {creatorProfile?.tagline && (
+                      <p className="text-lg text-foreground/80 mb-4">
+                        {creatorProfile.tagline}
+                      </p>
+                    )}
+
+                    <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
+                      <div className="flex items-center gap-2">
+                        <Star className="w-4 h-4 text-amber-500 fill-amber-500" />
+                        <span className="text-foreground font-medium">
+                          {creatorProfile?.rating ?? business.rating}
+                        </span>
+                        <span>
+                          ({creatorProfile?.reviewCount ?? 'New'} reviews)
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <MapPin className="w-4 h-4" />
+                        <span>{displayLocation}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <CalendarDays className="w-4 h-4" />
+                        <span>Joined {joinedLabel}</span>
+                      </div>
+                      {creatorProfile?.responseTime && (
+                        <div className="flex items-center gap-2">
+                          <Clock3 className="w-4 h-4" />
+                          <span>{creatorProfile.responseTime}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <MapPin className="w-5 h-5" />
-                  <span>{business.location}</span>
-                </div>
-              </div>
-            </div>
+
+                {profileFetched && creatorProfile && (
+                  <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3 mt-6">
+                    <div className="rounded-xl border border-border/60 p-4">
+                      <div className="text-sm text-muted-foreground mb-1">Specialization</div>
+                      <div className="font-medium">{creatorProfile.specialization}</div>
+                    </div>
+                    <div className="rounded-xl border border-border/60 p-4">
+                      <div className="text-sm text-muted-foreground mb-1">Experience</div>
+                      <div className="font-medium">{creatorProfile.yearsExperience} years</div>
+                    </div>
+                    <div className="rounded-xl border border-border/60 p-4">
+                      <div className="text-sm text-muted-foreground mb-1">Completed</div>
+                      <div className="font-medium">
+                        {creatorProfile.completedProjects} projects
+                      </div>
+                    </div>
+                    <div className="rounded-xl border border-border/60 p-4">
+                      <div className="text-sm text-muted-foreground mb-1">Availability</div>
+                      <div className="font-medium">{creatorProfile.availability}</div>
+                    </div>
+                  </div>
+                )}
+
+                {!profileFetched && (
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground mt-6">
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Loading creator details...
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {creatorProfile && (
+              <Card>
+                <CardContent className="p-6">
+                  <h2 className="text-xl font-serif mb-4">Contact & Working Style</h2>
+                  <div className="grid md:grid-cols-2 gap-4 text-sm">
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-3">
+                        <UserRound className="w-4 h-4 text-muted-foreground" />
+                        <span>{creatorProfile.email}</span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <Phone className="w-4 h-4 text-muted-foreground" />
+                        <span>{creatorProfile.phone}</span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <Instagram className="w-4 h-4 text-muted-foreground" />
+                        <span>{creatorProfile.instagram}</span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <Globe className="w-4 h-4 text-muted-foreground" />
+                        <a
+                          href={creatorProfile.website}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-primary hover:underline"
+                        >
+                          {creatorProfile.website}
+                        </a>
+                      </div>
+                    </div>
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-3">
+                        <Briefcase className="w-4 h-4 text-muted-foreground" />
+                        <span>{creatorProfile.priceRangeLabel}</span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <Globe className="w-4 h-4 text-muted-foreground" />
+                        <span>
+                          Remote work: {creatorProfile.offersRemoteWork ? 'Yes' : 'No'}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <MapPin className="w-4 h-4 text-muted-foreground" />
+                        <span>
+                          Travels to client: {creatorProfile.travelsToClient ? 'Yes' : 'No'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {(creatorProfile?.skills?.length || business.styles.length > 0) && (
+              <Card>
+                <CardContent className="p-6">
+                  <h2 className="text-xl font-serif mb-4">Skills & Tags</h2>
+                  <div className="flex flex-wrap gap-2">
+                    {(creatorProfile?.skills ?? business.styles).map((skill) => (
+                      <span
+                        key={skill}
+                        className="px-3 py-1 rounded-full bg-primary/10 text-primary text-sm"
+                      >
+                        {skill}
+                      </span>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {business.styles.length > 0 && (
+              <Card>
+                <CardContent className="p-6">
+                  <h2 className="text-xl font-serif mb-4">Design Styles</h2>
+                  <div className="flex flex-wrap gap-2">
+                    {business.styles.map((style) => (
+                      <span key={style} className="px-3 py-1 bg-accent/20 rounded-full text-sm">
+                        {style}
+                      </span>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {business.categories.length > 0 && (
+              <Card>
+                <CardContent className="p-6">
+                  <h2 className="text-xl font-serif mb-4">Specialties</h2>
+                  <div className="flex flex-wrap gap-2">
+                    {business.categories.map((cat) => (
+                      <span
+                        key={cat}
+                        className="px-3 py-1 bg-secondary rounded-full text-sm"
+                      >
+                        {cat}
+                      </span>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
 
             {/* Description */}
             <Card>
               <CardContent className="p-6">
                 <h2 className="text-xl font-serif mb-4">About</h2>
                 <p className="text-muted-foreground leading-relaxed">
-                  {business.description}
+                  {displayBio}
                 </p>
               </CardContent>
             </Card>
 
             {/* Portfolio */}
-            {business.portfolio.length > 0 && (
+            {displayPortfolio.length > 0 ? (
+              <div>
+                <h2 className="text-xl font-serif mb-4">Portfolio</h2>
+                <div className="grid md:grid-cols-2 gap-5">
+                  {displayPortfolio.map((item) => (
+                    <Card key={`${item.title}-${item.yearCompleted}`} className="overflow-hidden">
+                      <div className="aspect-[4/3] bg-muted">
+                        <img
+                          src={item.imageUrl}
+                          alt={item.title}
+                          className="w-full h-full object-cover object-center hover:scale-105 transition-transform"
+                          loading="lazy"
+                        />
+                      </div>
+                      <CardContent className="p-5">
+                        <div className="flex items-start justify-between gap-3 mb-2">
+                          <h3 className="font-medium text-lg leading-snug">{item.title}</h3>
+                          <span className="text-xs text-muted-foreground whitespace-nowrap">
+                            {item.yearCompleted}
+                          </span>
+                        </div>
+                        <div className="text-xs text-primary mb-3">{item.category}</div>
+                        <p className="text-sm text-muted-foreground leading-relaxed">
+                          {item.description}
+                        </p>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              </div>
+            ) : business.portfolio.length > 0 ? (
               <div>
                 <h2 className="text-xl font-serif mb-4">Portfolio</h2>
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
@@ -200,28 +477,24 @@ const BusinessProfilePage = () => {
                   ))}
                 </div>
               </div>
-            )}
-
-            {/* Styles */}
-            <Card>
-              <CardContent className="p-6">
-                <h3 className="font-medium mb-3">Styles</h3>
-                <div className="flex flex-wrap gap-2">
-                  {business.styles.map((style) => (
-                    <span key={style} className="px-3 py-1 bg-accent/20 rounded-full text-sm">
-                      {style}
-                    </span>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
+            ) : null}
           </div>
 
           {/* Sidebar */}
           <div className="space-y-6">
             <Card>
               <CardContent className="p-6 space-y-4">
-                {(business.min_price || business.max_price) && (
+                {creatorProfile?.priceRangeLabel ? (
+                  <>
+                    <div className="flex items-center gap-2 text-lg font-medium">
+                      <DollarSign className="w-5 h-5" />
+                      {creatorProfile.priceRangeLabel}
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      Typical pricing for new projects
+                    </p>
+                  </>
+                ) : business.min_price || business.max_price ? (
                   <>
                     <div className="flex items-center gap-2 text-lg font-medium">
                       <DollarSign className="w-5 h-5" />
@@ -231,7 +504,7 @@ const BusinessProfilePage = () => {
                       Typical price range for projects
                     </p>
                   </>
-                )}
+                ) : null}
 
                 <div className="pt-4 space-y-3">
                   <Button
@@ -253,18 +526,36 @@ const BusinessProfilePage = () => {
               </CardContent>
             </Card>
 
-            <Card>
-              <CardContent className="p-6">
-                <h3 className="font-medium mb-3">Categories</h3>
-                <div className="flex flex-wrap gap-2">
-                  {business.categories.map((cat) => (
-                    <span key={cat} className="px-3 py-1 bg-primary/10 text-primary rounded-full text-sm">
-                      {cat}
-                    </span>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
+            {creatorProfile && (
+              <Card>
+                <CardContent className="p-6 space-y-4 text-sm">
+                  <h3 className="font-medium text-base">At a Glance</h3>
+                  <div className="flex items-start gap-3">
+                    <Star className="w-4 h-4 mt-0.5 text-amber-500 fill-amber-500" />
+                    <div>
+                      <div className="font-medium">{creatorProfile.rating.toFixed(1)} / 5.0</div>
+                      <div className="text-muted-foreground">
+                        {creatorProfile.reviewCount} verified reviews
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <Briefcase className="w-4 h-4 mt-0.5 text-muted-foreground" />
+                    <div>
+                      <div className="font-medium">{creatorProfile.completedProjects} completed projects</div>
+                      <div className="text-muted-foreground">{creatorProfile.availability}</div>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <Clock3 className="w-4 h-4 mt-0.5 text-muted-foreground" />
+                    <div>
+                      <div className="font-medium">{creatorProfile.responseTime}</div>
+                      <div className="text-muted-foreground">Recent typical response time</div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
           </div>
         </div>
       </main>

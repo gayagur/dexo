@@ -1,0 +1,26 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(curl:*)",
+      "Bash(npx tsc:*)",
+      "Bash(npx vite:*)",
+      "Bash(npx supabase:*)",
+      "Bash(npx vercel:*)",
+      "Bash(gh api:*)",
+      "Bash(ls does:*)",
+      "Bash(xargs grep:*)",
+      "Bash(tasklist:*)",
+      "mcp__plugin_playwright_playwright__browser_navigate",
+      "mcp__plugin_playwright_playwright__browser_click",
+      "mcp__plugin_playwright_playwright__browser_take_screenshot",
+      "mcp__plugin_playwright_playwright__browser_close",
+      "Bash(pkill:*)",
+      "WebSearch",
+      "WebFetch(domain:docs.together.ai)",
+      "Bash(cp:*)",
+      "Bash(npm install:*)",
+      "Bash(npm ls:*)",
+      "Bash(node:*)"
+    ]
+  }
+}
