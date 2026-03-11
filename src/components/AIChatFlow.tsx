@@ -12,8 +12,10 @@ import {
   Sparkles, Send, Loader2, ImageIcon, Square,
   Tag, Palette, DollarSign, Ruler, Package, Clock, Home,
   ImagePlus, X, ArrowDown, ArrowLeft, AlertCircle,
+  Lightbulb, Ban, Accessibility, Sofa, FileText,
 } from 'lucide-react';
 
+import { categories } from '@/lib/data';
 import type { ChatMessage } from '@/lib/ai';
 import type { ImageVersion } from '@/lib/database.types';
 import type { ProgressItem } from '@/components/chat/types';
@@ -106,6 +108,15 @@ const PROGRESS_ITEMS: ProgressItem[] = [
   { field: 'budget', label: 'Budget', icon: DollarSign, stepIndex: 3 },
   { field: 'space_size', label: 'Space Size', icon: Ruler, stepIndex: 4 },
   { field: 'timeline', label: 'Timeline', icon: Clock, stepIndex: 5 },
+];
+
+// Additional detail items shown in the sidebar's "More Details" section
+const ADDITIONAL_DETAIL_ITEMS = [
+  { key: 'inspirations' as const, label: 'Inspirations', placeholder: 'Mood boards, Pinterest, references...', icon: Lightbulb },
+  { key: 'materialsToAvoid' as const, label: 'Avoid Materials', placeholder: 'e.g. no leather, no gloss...', icon: Ban },
+  { key: 'accessibility' as const, label: 'Accessibility', placeholder: 'e.g. wheelchair, low furniture...', icon: Accessibility },
+  { key: 'existingItems' as const, label: 'Existing Items', placeholder: 'Items to keep or reuse...', icon: Sofa },
+  { key: 'otherNotes' as const, label: 'Other Notes', placeholder: 'Anything else...', icon: FileText },
 ];
 
 // Chip options for editable fields
@@ -206,13 +217,7 @@ function extractProgress(messages: DisplayMessage[]): Record<string, string> {
   return progress;
 }
 
-// ─── Suggestion Chips ───────────────────────────────────────
-const SUGGESTIONS = [
-  'Modern living room redesign 🛋️',
-  'Home office setup ✨',
-  'Custom bookshelf for study 📚',
-  'Cozy bedroom lighting 💡',
-];
+// ─── Suggestion Chips (random from full category pool) ──────
 
 // ─── Memoized Markdown Renderer ──────────────────────────────
 const MemoMarkdown = memo(function MemoMarkdown({ text }: { text: string }) {
@@ -914,6 +919,9 @@ export default function AIChatFlow() {
         onDirectUpdate={handleDirectFieldUpdate}
         onGenerateBrief={handleGenerateBriefFromSidebar}
         isLoading={isLoading}
+        additionalDetails={additionalDetails}
+        onAdditionalDetailsChange={setAdditionalDetails}
+        additionalDetailItems={ADDITIONAL_DETAIL_ITEMS}
       />
 
       {/* Main Chat Area */}
@@ -958,16 +966,11 @@ export default function AIChatFlow() {
                 Describe your space — living room, bedroom, office, or any room you'd like to transform.
                 I'll help you refine every detail.
               </p>
-              <div className="flex flex-wrap gap-2 mt-8 justify-center">
-                {SUGGESTIONS.map(s => (
-                  <button
-                    key={s}
-                    onClick={() => { setInput(s); setTimeout(() => inputRef.current?.focus(), 50); }}
-                    className="px-4 py-2 rounded-full border border-[#C05621]/10 bg-white text-sm text-[#1B2432] hover:bg-[#C05621]/5 transition-colors"
-                  >
-                    {s}
-                  </button>
-                ))}
+              <div className="mt-8 flex justify-center">
+                <CategoryChipSelector
+                  allCategories={categories}
+                  onSelect={(cat) => { setInput(cat); setTimeout(() => inputRef.current?.focus(), 50); }}
+                />
               </div>
             </div>
           ) : (

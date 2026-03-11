@@ -1,7 +1,15 @@
 import { useState, useRef, useEffect } from "react";
-import { Check, Pencil, Sparkles, ArrowRight } from "lucide-react";
-import { motion } from "framer-motion";
+import { Check, Pencil, Sparkles, ArrowRight, ChevronDown, ChevronUp, FileText } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 import type { BriefData, ProgressItem, ChatPhase } from "./types";
+import type { AdditionalDetails } from "./BriefCard";
+
+interface AdditionalDetailItem {
+  key: keyof AdditionalDetails;
+  label: string;
+  placeholder: string;
+  icon: React.ComponentType<{ className?: string }>;
+}
 
 interface ProgressSidebarProps {
   items: ProgressItem[];
@@ -15,6 +23,11 @@ interface ProgressSidebarProps {
   onGenerateBrief?: () => void;
   /** Whether AI is currently loading */
   isLoading?: boolean;
+  /** Additional details (optional extras) */
+  additionalDetails?: AdditionalDetails;
+  onAdditionalDetailsChange?: (details: AdditionalDetails) => void;
+  /** Config for which additional detail fields to show */
+  additionalDetailItems?: AdditionalDetailItem[];
 }
 
 /** All fields use inline editing */
@@ -28,6 +41,9 @@ export function ProgressSidebar({
   onDirectUpdate,
   onGenerateBrief,
   isLoading,
+  additionalDetails,
+  onAdditionalDetailsChange,
+  additionalDetailItems,
 }: ProgressSidebarProps) {
   const [inlineValue, setInlineValue] = useState("");
   const [inlineField, setInlineField] = useState<string | null>(null);
@@ -189,6 +205,16 @@ export function ProgressSidebar({
         })}
       </div>
 
+      {/* Additional Details — collapsible */}
+      {additionalDetails && onAdditionalDetailsChange && additionalDetailItems && (
+        <AdditionalDetailsSection
+          details={additionalDetails}
+          onChange={onAdditionalDetailsChange}
+          items={additionalDetailItems}
+          phase={phase}
+        />
+      )}
+
       {/* Generate Brief button — visible when fields are filled during chatting phase */}
       {onGenerateBrief && phase === "chatting" && filledCount >= 1 && (
         <motion.div
@@ -235,5 +261,168 @@ export function ProgressSidebar({
         </div>
       </div>
     </aside>
+  );
+}
+
+// ─── Additional Details collapsible section ──────────────────
+function AdditionalDetailsSection({
+  details,
+  onChange,
+  items,
+  phase,
+}: {
+  details: AdditionalDetails;
+  onChange: (d: AdditionalDetails) => void;
+  items: AdditionalDetailItem[];
+  phase: ChatPhase;
+}) {
+  const [open, setOpen] = useState(false);
+  const [editingKey, setEditingKey] = useState<keyof AdditionalDetails | null>(null);
+  const [editValue, setEditValue] = useState("");
+  const detailInputRef = useRef<HTMLInputElement>(null);
+
+  const filledCount = items.filter((i) => !!details[i.key]).length;
+  const canEdit = phase === "chatting" || phase === "brief";
+
+  useEffect(() => {
+    if (editingKey) detailInputRef.current?.focus();
+  }, [editingKey]);
+
+  const handleSave = () => {
+    if (editingKey) {
+      onChange({ ...details, [editingKey]: editValue.trim() });
+    }
+    setEditingKey(null);
+    setEditValue("");
+  };
+
+  const handleCancel = () => {
+    setEditingKey(null);
+    setEditValue("");
+  };
+
+  return (
+    <div className="mt-4 border-t border-[#C05621]/[0.08] pt-4">
+      <button
+        onClick={() => setOpen(!open)}
+        className="w-full flex items-center justify-between group"
+      >
+        <div className="flex items-center gap-2">
+          <FileText className="w-4 h-4 text-[#C05621]/60" />
+          <span className="text-xs font-semibold text-[#4A5568] uppercase tracking-wider">
+            More Details
+          </span>
+          {filledCount > 0 && (
+            <span className="text-[10px] text-[#C05621] bg-[#C05621]/10 px-1.5 py-0.5 rounded-full">
+              {filledCount}
+            </span>
+          )}
+        </div>
+        {open
+          ? <ChevronUp className="w-3.5 h-3.5 text-[#9CA3AF]" />
+          : <ChevronDown className="w-3.5 h-3.5 text-[#9CA3AF]" />
+        }
+      </button>
+
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="overflow-hidden"
+          >
+            <div className="space-y-2 mt-3">
+              {items.map((item) => {
+                const value = details[item.key];
+                const isEditing = editingKey === item.key;
+                const Icon = item.icon;
+
+                return (
+                  <div key={item.key}>
+                    <div
+                      onClick={() => {
+                        if (!canEdit || isEditing) return;
+                        setEditingKey(item.key);
+                        setEditValue(value || "");
+                      }}
+                      className={`flex items-center gap-3 px-3 py-2 rounded-xl transition-all duration-200 group ${
+                        isEditing
+                          ? "bg-[#C05621]/10 border border-[#C05621]/30"
+                          : value
+                          ? "bg-[#C05621]/[0.04] border border-[#C05621]/10"
+                          : "bg-white/60 border border-transparent"
+                      } ${canEdit && !isEditing ? "cursor-pointer hover:border-[#C05621]/20" : ""}`}
+                    >
+                      <div
+                        className={`w-7 h-7 rounded-lg flex items-center justify-center ${
+                          value
+                            ? "bg-[#C05621]/10 text-[#C05621]"
+                            : "bg-gray-100 text-gray-400"
+                        }`}
+                      >
+                        {value ? <Check className="w-3.5 h-3.5" /> : <Icon className="w-3.5 h-3.5" />}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-[11px] font-medium text-[#4A5568]">
+                          {item.label}
+                        </div>
+                        {value && !isEditing && (
+                          <div className="text-[11px] text-[#C05621] truncate mt-0.5">
+                            {value}
+                          </div>
+                        )}
+                      </div>
+                      {canEdit && !isEditing && (
+                        <Pencil className="w-3 h-3 text-[#C05621]/30 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
+                      )}
+                    </div>
+
+                    {isEditing && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: "auto" }}
+                        className="mt-1 px-1"
+                      >
+                        <input
+                          ref={detailInputRef}
+                          type="text"
+                          value={editValue}
+                          onChange={(e) => setEditValue(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") { e.preventDefault(); handleSave(); }
+                            else if (e.key === "Escape") handleCancel();
+                          }}
+                          onBlur={handleSave}
+                          className="w-full px-2.5 py-1.5 text-xs rounded-lg border border-[#C05621]/20
+                                     bg-white text-[#1B2432] focus:outline-none focus:ring-1
+                                     focus:ring-[#C05621]/40 placeholder:text-[#4A5568]/40"
+                          placeholder={item.placeholder}
+                        />
+                        <div className="flex justify-end gap-1 mt-1">
+                          <button
+                            onMouseDown={(e) => { e.preventDefault(); handleCancel(); }}
+                            className="text-[10px] text-[#4A5568] hover:text-[#1B2432] px-1.5 py-0.5"
+                          >
+                            Esc
+                          </button>
+                          <button
+                            onMouseDown={(e) => { e.preventDefault(); handleSave(); }}
+                            className="text-[10px] text-[#C05621] font-medium hover:text-[#A84A1C] px-1.5 py-0.5"
+                          >
+                            Save
+                          </button>
+                        </div>
+                      </motion.div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
   );
 }
