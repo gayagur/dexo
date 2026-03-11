@@ -216,19 +216,6 @@ const ProjectDetailPage = () => {
                     className="w-full h-full object-cover"
                   />
                 </div>
-                {project.ai_brief && (
-                  <CardContent className="p-5">
-                    <div className="flex items-start gap-3">
-                      <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
-                        <Sparkles className="w-4 h-4 text-primary" />
-                      </div>
-                      <div>
-                        <h3 className="text-sm font-semibold text-foreground mb-1">AI-Generated Brief</h3>
-                        <p className="text-sm text-muted-foreground leading-relaxed">{project.ai_brief}</p>
-                      </div>
-                    </div>
-                  </CardContent>
-                )}
               </Card>
             )}
 
