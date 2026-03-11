@@ -227,6 +227,126 @@ const FILEROBOT_STYLE_OVERRIDES = `
     font-family: Inter, system-ui, sans-serif !important;
   }
 
+  /* ── Annotation options bar (color, stroke, opacity, etc.) ── */
+  .FIE_annotations-options {
+    background: #FDFCF8 !important;
+    padding: 10px 16px !important;
+    gap: 10px !important;
+    border-top: 1px solid #F0EBE4 !important;
+    min-height: 48px;
+  }
+
+  /* Color picker trigger swatch */
+  .FIE_color-picker-triggerer {
+    width: 34px !important;
+    height: 34px !important;
+    border-radius: 10px !important;
+    border: 2px solid #E8E0D8 !important;
+    cursor: pointer !important;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease !important;
+    box-shadow: 0 1px 3px rgba(139, 109, 80, 0.08) !important;
+  }
+  .FIE_color-picker-triggerer:hover {
+    border-color: #C05621 !important;
+    box-shadow: 0 2px 8px rgba(192, 86, 33, 0.15) !important;
+  }
+
+  /* Annotation option icon buttons (stroke, opacity, shadow, position) */
+  .FIE_annotation-option-triggerer {
+    border-radius: 10px !important;
+    padding: 8px !important;
+    transition: all 0.15s ease !important;
+    color: #6B7280 !important;
+  }
+  .FIE_annotation-option-triggerer:hover {
+    background: rgba(192, 86, 33, 0.06) !important;
+    color: #C05621 !important;
+  }
+  .FIE_annotation-option-triggerer:hover svg {
+    color: #C05621 !important;
+  }
+
+  /* Annotation option popup (stroke fields, opacity slider, etc.) */
+  .FIE_annotation-option-popup {
+    border-radius: 14px !important;
+    box-shadow: 0 8px 32px rgba(139, 109, 80, 0.12), 0 2px 8px rgba(0, 0, 0, 0.06) !important;
+    border: 1px solid #E8E0D8 !important;
+    overflow: hidden !important;
+  }
+  .FIE_annotation-option-popup > div {
+    background: #FDFCF8 !important;
+    border-radius: 14px !important;
+    padding: 12px 16px !important;
+    font-family: Inter, system-ui, sans-serif !important;
+  }
+
+  /* Color picker modal */
+  .SfxModal-root {
+    backdrop-filter: blur(4px) !important;
+  }
+  .SfxModal-container {
+    border-radius: 16px !important;
+    box-shadow: 0 20px 60px rgba(139, 109, 80, 0.15), 0 4px 16px rgba(0, 0, 0, 0.08) !important;
+    border: 1px solid #E8E0D8 !important;
+    overflow: hidden !important;
+  }
+  .SfxModal-container,
+  .SfxModalContent-root {
+    background: #FDFCF8 !important;
+  }
+  .SfxModalTitle-root {
+    background: #FAF7F4 !important;
+    border-bottom: 1px solid #F0EBE4 !important;
+  }
+  .SfxModalActions-root {
+    background: #FAF7F4 !important;
+    border-top: 1px solid #F0EBE4 !important;
+    padding: 16px 24px !important;
+  }
+  .SfxModalActions-root .SfxButton-root[color="primary"] {
+    background: #C05621 !important;
+    border-radius: 10px !important;
+    color: #fff !important;
+    border: none !important;
+  }
+  .SfxModalActions-root .SfxButton-root[color="primary"]:hover {
+    background: #A84A1C !important;
+  }
+  .SfxModalActions-root .SfxButton-root[color="basic"] {
+    border-radius: 10px !important;
+    border-color: #E8E0D8 !important;
+    color: #4A5568 !important;
+  }
+
+  /* Color picker component styling */
+  .SfxColorPicker-root {
+    background: #FDFCF8 !important;
+    font-family: Inter, system-ui, sans-serif !important;
+  }
+  .SfxColorPicker-root input {
+    border-radius: 8px !important;
+    border-color: #E8E0D8 !important;
+    font-family: Inter, system-ui, sans-serif !important;
+  }
+  .SfxColorPicker-root input:focus {
+    border-color: #C05621 !important;
+  }
+
+  /* Pinned colors in color picker */
+  .SfxColorPicker-root [class*="pinned"] div,
+  .SfxColorPicker-root [class*="Pinned"] div {
+    border-radius: 6px !important;
+    border: 1.5px solid #E8E0D8 !important;
+  }
+
+  /* Labels inside options */
+  .FIE_root label {
+    font-family: Inter, system-ui, sans-serif !important;
+    color: #4A5568 !important;
+    font-size: 12px !important;
+    font-weight: 500 !important;
+  }
+
   /* Scrollbar styling */
   .FIE_root ::-webkit-scrollbar {
     width: 6px;
@@ -270,13 +390,31 @@ export function FilerobotEditor({ imageSrc, onSave, onClose }: FilerobotEditorPr
         onClose={onClose}
         annotationsCommon={{
           fill: "#C05621",
-          stroke: "#C05621",
+          stroke: "#1B2432",
           strokeWidth: 2,
+          opacity: 1,
         }}
+        Pen={{
+          strokeWidth: 3,
+          tension: 0.4,
+          lineCap: "round" as const,
+          selectAnnotationAfterDrawing: true,
+        }}
+        Line={{ strokeWidth: 2, lineCap: "round" as const }}
+        Arrow={{ strokeWidth: 3, lineCap: "round" as const }}
+        Rect={{ cornerRadius: 4 }}
+        Polygon={{ sides: 4 }}
         Text={{
           text: "DEXO",
           fontSize: 24,
           fontFamily: "Inter",
+          fonts: [
+            { label: "Inter", value: "Inter" },
+            { label: "Playfair Display", value: "Playfair Display" },
+            "Arial",
+            "Georgia",
+            "Tahoma",
+          ],
         }}
         Crop={{
           presetsItems: [
