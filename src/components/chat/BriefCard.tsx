@@ -16,6 +16,7 @@ import {
   ChevronDown,
   ChevronUp,
   FileText,
+  Maximize2,
 } from "lucide-react";
 
 interface BriefDisplayData {
@@ -81,6 +82,7 @@ export function BriefCard({
   briefFileInputRef,
 }: BriefCardProps) {
   const [detailsOpen, setDetailsOpen] = useState(false);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
 
   const updateDetail = (key: keyof AdditionalDetails, value: string) => {
     onAdditionalDetailsChange({ ...additionalDetails, [key]: value });
@@ -232,12 +234,20 @@ export function BriefCard({
       {/* Concept image */}
       {(phase === "done" || phase === "editing_image") && conceptImageUrl && (
         <div className="space-y-2">
-          <div className="rounded-2xl overflow-hidden border border-[#C05621]/[0.08]">
+          <div
+            className="relative rounded-2xl overflow-hidden border border-[#C05621]/[0.08] cursor-pointer group"
+            onClick={() => setLightboxOpen(true)}
+          >
             <img
               src={conceptImageUrl}
               alt="AI concept"
-              className="w-full h-64 object-cover"
+              className="w-full object-contain max-h-[480px]"
             />
+            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center">
+              <div className="opacity-0 group-hover:opacity-100 transition-opacity bg-white/90 rounded-full p-2 shadow-md">
+                <Maximize2 className="w-4 h-4 text-[#1B2432]" />
+              </div>
+            </div>
           </div>
           {phase === "done" && (
             <div className="flex gap-2">
@@ -419,6 +429,41 @@ export function BriefCard({
           </div>
         )}
       </div>
+
+      {/* Full-size image lightbox */}
+      <AnimatePresence>
+        {lightboxOpen && conceptImageUrl && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-[#1B2432]/70 backdrop-blur-sm p-4"
+            onClick={() => setLightboxOpen(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="relative max-w-[90vw] max-h-[90vh]"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <img
+                src={conceptImageUrl}
+                alt="AI concept — full size"
+                className="max-w-full max-h-[90vh] rounded-2xl shadow-2xl object-contain"
+              />
+              <button
+                onClick={() => setLightboxOpen(false)}
+                className="absolute -top-3 -right-3 w-8 h-8 rounded-full bg-white shadow-md flex items-center justify-center hover:bg-gray-100 transition-colors"
+              >
+                <X className="w-4 h-4 text-[#1B2432]" />
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 }
