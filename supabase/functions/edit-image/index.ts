@@ -134,31 +134,28 @@ Deno.serve(async (req) => {
     }
 
     // ─── Call FLUX Kontext Pro ───────────────────────────────
-    // FLUX Kontext Pro supports instruction-based editing.
-    // When a mask is provided, we include it in the prompt context
-    // to guide the model on which region to focus.
+    // Together AI uses /v1/images/generations with an image_url param
+    // for Kontext-based editing (not /v1/images/edits which doesn't exist).
+    // Mask guidance is included in the prompt text since the API has
+    // no separate mask_url parameter.
     const editBody: Record<string, unknown> = {
       model: MODEL,
       prompt: mask
-        ? `Edit only the white/selected region of the mask. ${instruction}`
+        ? `Edit only the masked/selected region of the image. ${instruction}`
         : instruction,
       image_url: imageUrl,
+      steps: 28,
       n: 1,
       response_format: "url",
     };
 
-    // If the API supports a mask_url parameter, include it
-    if (maskUrl) {
-      editBody.mask_url = maskUrl;
-    }
-
     console.log("[edit-image] Calling Together AI:", {
       model: MODEL,
       promptPreview: (editBody.prompt as string).slice(0, 100),
-      hasMaskUrl: !!maskUrl,
+      hasMask: !!mask,
     });
 
-    const response = await fetch("https://api.together.xyz/v1/images/edits", {
+    const response = await fetch("https://api.together.xyz/v1/images/generations", {
       method: "POST",
       headers: {
         "Authorization": `Bearer ${togetherApiKey}`,
