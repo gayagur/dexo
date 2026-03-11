@@ -633,7 +633,7 @@ const BusinessProfilePage = () => {
 
       {/* Send Project Dialog */}
       <Dialog open={showProjectDialog} onOpenChange={setShowProjectDialog}>
-        <DialogContent className="overflow-hidden">
+        <DialogContent className="max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Send a Project to {business.name}</DialogTitle>
             <DialogDescription>
