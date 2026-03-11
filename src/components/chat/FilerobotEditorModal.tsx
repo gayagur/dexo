@@ -59,16 +59,17 @@ export function FilerobotEditorModal({
           transition={{ duration: 0.2 }}
           className="fixed inset-0 z-50 flex items-center justify-center"
         >
-          {/* Backdrop */}
-          <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" />
+          {/* Backdrop — warm tinted overlay */}
+          <div className="absolute inset-0 bg-[#1B2432]/60 backdrop-blur-sm" />
 
           {/* Editor container */}
           <motion.div
-            initial={{ scale: 0.95, opacity: 0 }}
+            initial={{ scale: 0.97, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
-            exit={{ scale: 0.95, opacity: 0 }}
-            transition={{ duration: 0.2, ease: "easeOut" }}
-            className="relative z-10 w-[calc(100vw-2rem)] h-[calc(100vh-2rem)] rounded-2xl overflow-hidden shadow-2xl"
+            exit={{ scale: 0.97, opacity: 0 }}
+            transition={{ duration: 0.25, ease: "easeOut" }}
+            className="relative z-10 w-[calc(100vw-2rem)] h-[calc(100vh-2rem)] rounded-2xl overflow-hidden"
+            style={{ boxShadow: '0 20px 60px rgba(139, 109, 80, 0.2), 0 8px 24px rgba(0, 0, 0, 0.1)' }}
           >
             {resolvedSrc ? (
               <FilerobotEditor
@@ -77,17 +78,17 @@ export function FilerobotEditorModal({
                 onClose={onClose}
               />
             ) : (
-              <div className="flex items-center justify-center w-full h-full bg-[#0f1724]">
-                <Loader2 className="w-8 h-8 text-white animate-spin" />
+              <div className="flex items-center justify-center w-full h-full bg-[#FAF7F4]">
+                <Loader2 className="w-8 h-8 text-[#C05621] animate-spin" />
               </div>
             )}
 
             {/* Saving overlay */}
             {saving && (
-              <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/60">
-                <div className="flex flex-col items-center gap-3">
-                  <Loader2 className="w-8 h-8 text-white animate-spin" />
-                  <span className="text-sm text-white font-medium">Saving image...</span>
+              <div className="absolute inset-0 z-20 flex items-center justify-center bg-[#FAF7F4]/80 backdrop-blur-sm">
+                <div className="flex flex-col items-center gap-3 bg-white/90 rounded-2xl px-8 py-6 shadow-lg border border-[#E8E0D8]">
+                  <Loader2 className="w-8 h-8 text-[#C05621] animate-spin" />
+                  <span className="text-sm text-[#1B2432] font-medium">Saving image...</span>
                 </div>
               </div>
             )}
