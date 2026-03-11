@@ -533,6 +533,18 @@ export default function AIChatFlow() {
     setCurrentVersionId(version.id);
   }, []);
 
+  const handleDeleteVersion = useCallback((version: ImageVersion) => {
+    setImageVersions(prev => {
+      const filtered = prev.filter(v => v.id !== version.id);
+      if (version.id === currentVersionId && filtered.length > 0) {
+        const last = filtered[filtered.length - 1];
+        setConceptImageUrl(last.image_url);
+        setCurrentVersionId(last.id);
+      }
+      return filtered;
+    });
+  }, [currentVersionId]);
+
   const handleDoneEditing = useCallback(() => {
     setPhase('done');
   }, []);
@@ -923,6 +935,7 @@ export default function AIChatFlow() {
               versions={imageVersions}
               onNewVersion={handleNewVersion}
               onRevert={handleRevert}
+              onDeleteVersion={handleDeleteVersion}
               onDone={handleDoneEditing}
             />
           )}
