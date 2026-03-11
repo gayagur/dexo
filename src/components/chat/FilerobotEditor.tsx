@@ -1,5 +1,11 @@
-import { Component, type ReactNode } from "react";
+import React, { Component, type ReactNode } from "react";
 import FilerobotImageEditor, { TABS, TOOLS } from "react-filerobot-image-editor";
+
+// Filerobot's internal @scaleflex/ui uses the classic JSX transform (React.createElement)
+// which requires React on the global scope — Vite's automatic JSX transform doesn't provide this.
+if (typeof window !== "undefined" && !window.React) {
+  (window as unknown as Record<string, unknown>).React = React;
+}
 import { AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
