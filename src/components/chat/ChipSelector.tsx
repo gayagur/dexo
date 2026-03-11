@@ -1,4 +1,5 @@
-import { Check, ArrowRight } from "lucide-react";
+import { useState, useMemo } from "react";
+import { Check, ArrowRight, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface SingleChipSelectorProps {
@@ -94,6 +95,58 @@ export function CategoryConfirmChips({
       >
         No, let me pick
       </button>
+    </div>
+  );
+}
+
+// ─── Category selector with random 5 + expand ───────────────
+interface CategoryChipSelectorProps {
+  allCategories: string[];
+  onSelect: (value: string) => void;
+}
+
+/** Picks `count` random items from an array using Fisher-Yates shuffle */
+function pickRandom<T>(arr: T[], count: number): T[] {
+  const shuffled = [...arr];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  return shuffled.slice(0, count);
+}
+
+export function CategoryChipSelector({ allCategories, onSelect }: CategoryChipSelectorProps) {
+  const [expanded, setExpanded] = useState(false);
+
+  // Pick 5 random categories once per mount (= once per session)
+  const randomFive = useMemo(() => pickRandom(allCategories, 5), [allCategories]);
+
+  const visible = expanded ? allCategories : randomFive;
+
+  return (
+    <div className="space-y-2 mb-3">
+      <div className="flex flex-wrap gap-2">
+        {visible.map((option) => (
+          <button
+            key={option}
+            onClick={() => onSelect(option)}
+            className="px-4 py-2 rounded-full bg-white border border-[#C05621]/15 text-[#1B2432] text-sm font-medium
+                       hover:bg-[#C05621] hover:text-white hover:border-[#C05621] transition-all duration-200"
+          >
+            {option}
+          </button>
+        ))}
+      </div>
+      {!expanded && (
+        <button
+          onClick={() => setExpanded(true)}
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm text-[#C05621] font-medium
+                     hover:bg-[#C05621]/5 rounded-full transition-colors"
+        >
+          <ChevronDown className="w-3.5 h-3.5" />
+          See more categories
+        </button>
+      )}
     </div>
   );
 }

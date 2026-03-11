@@ -1,4 +1,5 @@
-import { motion } from "framer-motion";
+import { useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import {
   Star,
@@ -12,6 +13,9 @@ import {
   Zap,
   Users,
   Palette,
+  ChevronDown,
+  ChevronUp,
+  FileText,
 } from "lucide-react";
 
 interface BriefDisplayData {
@@ -29,6 +33,14 @@ interface BriefDisplayData {
   color_palette: string;
 }
 
+export interface AdditionalDetails {
+  inspirations: string;
+  materialsToAvoid: string;
+  accessibility: string;
+  existingItems: string;
+  otherNotes: string;
+}
+
 interface BriefCardProps {
   brief: BriefDisplayData;
   phase: "brief" | "generating_image" | "editing_image" | "done";
@@ -36,6 +48,8 @@ interface BriefCardProps {
   submitting: boolean;
   imageUploading: boolean;
   uploadedImages: string[];
+  additionalDetails: AdditionalDetails;
+  onAdditionalDetailsChange: (details: AdditionalDetails) => void;
   onGenerateImage: () => void;
   onSubmit: (method: 'auto' | 'manual') => void;
   onEditImage?: () => void;
@@ -54,6 +68,8 @@ export function BriefCard({
   submitting,
   imageUploading,
   uploadedImages,
+  additionalDetails,
+  onAdditionalDetailsChange,
   onGenerateImage,
   onSubmit,
   onEditImage,
@@ -64,6 +80,11 @@ export function BriefCard({
   onRemoveBriefImage,
   briefFileInputRef,
 }: BriefCardProps) {
+  const [detailsOpen, setDetailsOpen] = useState(false);
+
+  const updateDetail = (key: keyof AdditionalDetails, value: string) => {
+    onAdditionalDetailsChange({ ...additionalDetails, [key]: value });
+  };
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -269,6 +290,72 @@ export function BriefCard({
         </div>
       )}
 
+      {/* Additional Details — collapsible section */}
+      {(phase === "brief" || phase === "done") && (
+        <div className="border border-[#C05621]/[0.08] rounded-2xl overflow-hidden">
+          <button
+            onClick={() => setDetailsOpen(!detailsOpen)}
+            className="w-full flex items-center justify-between px-5 py-3.5 bg-[#FDFCF8] hover:bg-[#FAF7F4] transition-colors"
+          >
+            <div className="flex items-center gap-2">
+              <FileText className="w-4 h-4 text-[#C05621]" />
+              <span className="text-sm font-medium text-[#1B2432]">Additional Details</span>
+              <span className="text-xs text-[#4A5568]">(optional)</span>
+            </div>
+            {detailsOpen
+              ? <ChevronUp className="w-4 h-4 text-[#9CA3AF]" />
+              : <ChevronDown className="w-4 h-4 text-[#9CA3AF]" />
+            }
+          </button>
+
+          <AnimatePresence>
+            {detailsOpen && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: "auto", opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.2 }}
+                className="overflow-hidden"
+              >
+                <div className="px-5 py-4 space-y-4 border-t border-[#C05621]/[0.06]">
+                  <DetailField
+                    label="Inspirations or references"
+                    placeholder="Mood board links, Pinterest boards, Instagram posts..."
+                    value={additionalDetails.inspirations}
+                    onChange={(v) => updateDetail("inspirations", v)}
+                  />
+                  <DetailField
+                    label="Materials or finishes to avoid"
+                    placeholder="e.g. no leather, avoid glossy finishes..."
+                    value={additionalDetails.materialsToAvoid}
+                    onChange={(v) => updateDetail("materialsToAvoid", v)}
+                  />
+                  <DetailField
+                    label="Accessibility requirements"
+                    placeholder="e.g. wheelchair accessible, low-height furniture..."
+                    value={additionalDetails.accessibility}
+                    onChange={(v) => updateDetail("accessibility", v)}
+                  />
+                  <DetailField
+                    label="Existing items to incorporate"
+                    placeholder="e.g. keep the oak dining table, reuse the bookshelf..."
+                    value={additionalDetails.existingItems}
+                    onChange={(v) => updateDetail("existingItems", v)}
+                  />
+                  <DetailField
+                    label="Anything else the designer should know"
+                    placeholder="Any other preferences, constraints, or notes..."
+                    value={additionalDetails.otherNotes}
+                    onChange={(v) => updateDetail("otherNotes", v)}
+                    multiline
+                  />
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+      )}
+
       {/* Actions */}
       <div className="space-y-4 pt-2">
         {phase === "brief" && (
@@ -333,5 +420,46 @@ export function BriefCard({
         )}
       </div>
     </motion.div>
+  );
+}
+
+// ─── Detail field for the Additional Details section ──────
+function DetailField({
+  label,
+  placeholder,
+  value,
+  onChange,
+  multiline = false,
+}: {
+  label: string;
+  placeholder: string;
+  value: string;
+  onChange: (v: string) => void;
+  multiline?: boolean;
+}) {
+  const shared =
+    "w-full px-3.5 py-2.5 rounded-xl border border-[#C05621]/10 bg-white text-sm text-[#1B2432] placeholder:text-[#9CA3AF] focus:outline-none focus:border-[#C05621]/30 focus:ring-1 focus:ring-[#C05621]/10 transition-colors";
+
+  return (
+    <div className="space-y-1.5">
+      <label className="text-xs font-medium text-[#4A5568]">{label}</label>
+      {multiline ? (
+        <textarea
+          rows={3}
+          className={`${shared} resize-none`}
+          placeholder={placeholder}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+        />
+      ) : (
+        <input
+          type="text"
+          className={shared}
+          placeholder={placeholder}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+        />
+      )}
+    </div>
   );
 }

@@ -209,12 +209,24 @@
 }
 
 @keyframes scaleIn {
-  from { 
-    opacity: 0; 
-    transform: scale(0.95); 
+  from {
+    opacity: 0;
+    transform: scale(0.95);
   }
-  to { 
-    opacity: 1; 
-    transform: scale(1); 
+  to {
+    opacity: 1;
+    transform: scale(1);
   }
+}
+
+/* Highlight pulse for incomplete brief fields */
+@keyframes fieldHighlightPulse {
+  0%   { box-shadow: 0 0 0 0 rgba(192, 86, 33, 0.4); }
+  40%  { box-shadow: 0 0 0 8px rgba(192, 86, 33, 0.15); }
+  100% { box-shadow: 0 0 0 0 rgba(192, 86, 33, 0); }
+}
+.field-highlight-pulse > div:first-child {
+  animation: fieldHighlightPulse 1.2s ease-out;
+  border-color: rgba(192, 86, 33, 0.4) !important;
+  background: rgba(192, 86, 33, 0.08) !important;
 }

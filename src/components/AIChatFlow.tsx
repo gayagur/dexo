@@ -11,17 +11,17 @@ import ReactMarkdown from 'react-markdown';
 import {
   Sparkles, Send, Loader2, ImageIcon, Square,
   Tag, Palette, DollarSign, Ruler, Package, Clock, Home,
-  ImagePlus, X, ArrowDown, ArrowLeft,
+  ImagePlus, X, ArrowDown, ArrowLeft, AlertCircle,
 } from 'lucide-react';
 
 import type { ChatMessage } from '@/lib/ai';
 import type { ImageVersion } from '@/lib/database.types';
 import type { ProgressItem } from '@/components/chat/types';
 import { ProgressSidebar } from '@/components/chat/ProgressSidebar';
-import { BriefCard } from '@/components/chat/BriefCard';
+import { BriefCard, type AdditionalDetails } from '@/components/chat/BriefCard';
 import { ImageEditor } from '@/components/chat/ImageEditor';
 import { FilerobotEditorModal } from '@/components/chat/FilerobotEditorModal';
-import { SingleChipSelector, MultiChipSelector } from '@/components/chat/ChipSelector';
+import { SingleChipSelector, MultiChipSelector, CategoryChipSelector } from '@/components/chat/ChipSelector';
 import {
   toBriefDisplayData,
   toProgressBriefData,
@@ -109,7 +109,25 @@ const PROGRESS_ITEMS: ProgressItem[] = [
 ];
 
 // Chip options for editable fields
-const CATEGORY_OPTIONS = ['Carpentry & Woodworking', 'Home Decor & Styling', 'Furniture Design & Restoration', 'Interior Design & Space Planning', 'Lighting & Ambiance', 'Wall Art & Decorative Accessories', 'Textiles & Soft Furnishings', 'Plants & Greenery Styling', 'Storage & Organization Solutions', 'Office Design & Ergonomics'];
+const CATEGORY_OPTIONS = [
+  'Carpentry & Custom Woodworking',
+  'Custom Furniture Design',
+  'Furniture Restoration & Upcycling',
+  'Kitchen & Dining Design',
+  'Living Room Design & Styling',
+  'Bedroom Design & Styling',
+  'Home Office Design',
+  'Bathroom Design',
+  'Outdoor & Garden Design',
+  'Lighting Design & Installation',
+  'Wall Art & Gallery Walls',
+  'Shelving & Storage Solutions',
+  'Textile & Soft Furnishings',
+  'Plants & Greenery Styling',
+  'Storage & Organization Solutions',
+  'Office Design & Ergonomics',
+  'Full Interior Design (entire space)',
+];
 const STYLE_OPTIONS = ['Minimalist', 'Scandinavian', 'Mid-Century Modern', 'Bohemian', 'Industrial', 'Rustic', 'Contemporary', 'Traditional', 'Art Deco', 'Japandi', 'Farmhouse', 'Coastal'];
 
 function extractProgress(messages: DisplayMessage[]): Record<string, string> {
@@ -118,16 +136,23 @@ function extractProgress(messages: DisplayMessage[]): Record<string, string> {
 
   // Category detection — Tier 1: keyword patterns for known categories
   const catPatterns: [RegExp, string][] = [
-    [/carpentry|woodwork|cabinet|shelv|built-?in/i, 'Carpentry & Woodworking'],
-    [/decor|styling|accessori|vase|cushion/i, 'Home Decor & Styling'],
-    [/furniture|table|chair|desk|sofa|bed|restoration|upholster/i, 'Furniture Design & Restoration'],
-    [/interior design|space plan|room layout|renovation|redesign/i, 'Interior Design & Space Planning'],
-    [/light|lamp|chandelier|sconce|ambient/i, 'Lighting & Ambiance'],
-    [/wall art|paint|frame|mirror|decorat/i, 'Wall Art & Decorative Accessories'],
-    [/textile|curtain|rug|cushion|upholster|fabric|linen/i, 'Textiles & Soft Furnishings'],
-    [/plant|green|garden|indoor plant|planter/i, 'Plants & Greenery Styling'],
-    [/storage|organiz|closet|pantry|shelving system/i, 'Storage & Organization Solutions'],
-    [/office|ergonomic|workspace|standing desk|monitor/i, 'Office Design & Ergonomics'],
+    [/carpentry|woodwork|cabinet|built-?in|custom wood/i, 'Carpentry & Custom Woodworking'],
+    [/custom furniture|bespoke.*furniture|furniture design/i, 'Custom Furniture Design'],
+    [/restor|upcycl|refinish|refurbish|vintage furniture/i, 'Furniture Restoration & Upcycling'],
+    [/kitchen|dining|pantry|countertop/i, 'Kitchen & Dining Design'],
+    [/living room|lounge|family room|den/i, 'Living Room Design & Styling'],
+    [/bedroom|master.*room|guest.*room|nursery/i, 'Bedroom Design & Styling'],
+    [/home office|workspace|study room|ergonomic|standing desk/i, 'Home Office Design'],
+    [/bathroom|shower|vanity|powder room/i, 'Bathroom Design'],
+    [/outdoor|garden|patio|balcony|terrace|deck/i, 'Outdoor & Garden Design'],
+    [/light|lamp|chandelier|sconce|pendant|fixture/i, 'Lighting Design & Installation'],
+    [/wall art|gallery|frame|mirror|mural/i, 'Wall Art & Gallery Walls'],
+    [/shelv|storage|organiz|closet|bookcase/i, 'Shelving & Storage Solutions'],
+    [/textile|curtain|rug|cushion|upholster|fabric|linen/i, 'Textile & Soft Furnishings'],
+    [/plant|green|indoor plant|planter|succulent/i, 'Plants & Greenery Styling'],
+    [/storage solution|organiz|pantry|closet system/i, 'Storage & Organization Solutions'],
+    [/office design|ergonomic setup|work.*station/i, 'Office Design & Ergonomics'],
+    [/full interior|entire space|whole.*room|complete.*redesign|renovation/i, 'Full Interior Design (entire space)'],
   ];
   for (const [pat, cat] of catPatterns) {
     if (pat.test(allText)) { progress.category = cat; break; }
@@ -217,10 +242,17 @@ export default function AIChatFlow() {
   const [conceptImageUrl, setConceptImageUrl] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [submissionMethod, setSubmissionMethod] = useState<'auto' | 'manual' | null>(null);
+  const [additionalDetails, setAdditionalDetails] = useState<AdditionalDetails>({
+    inspirations: '', materialsToAvoid: '', accessibility: '', existingItems: '', otherNotes: '',
+  });
 
   // Field editing state
   const [editingField, setEditingField] = useState<string | null>(null);
   const [selectedStyles, setSelectedStyles] = useState<string[]>([]);
+
+  // Incomplete brief confirmation modal
+  const [showIncompleteModal, setShowIncompleteModal] = useState(false);
+  const [missingFields, setMissingFields] = useState<string[]>([]);
 
   // Image editing state
   const [imageVersions, setImageVersions] = useState<ImageVersion[]>([]);
@@ -654,7 +686,7 @@ export default function AIChatFlow() {
   }, [briefData]);
 
   /** Generate brief from sidebar fields — sends a formatted message to the AI */
-  const handleGenerateBriefFromSidebar = useCallback(() => {
+  const doGenerateBrief = useCallback(() => {
     if (isLoading) return;
     const parts: string[] = ['Please generate my complete project brief based on these details:'];
     if (progress.category) parts.push(`- Category: ${progress.category}`);
@@ -666,6 +698,45 @@ export default function AIChatFlow() {
     parts.push('\nPlease fill in any missing details with sensible defaults and present the complete brief.');
     sendMessage(parts.join('\n'));
   }, [isLoading, progress, sendMessage]);
+
+  const handleGenerateBriefFromSidebar = useCallback(() => {
+    if (isLoading) return;
+
+    // Check which fields are missing
+    const progressData = briefData ? toProgressBriefData(briefData) : progressToSharedBrief(progress);
+    const missing = PROGRESS_ITEMS.filter(item => {
+      const v = progressData[item.field as keyof typeof progressData];
+      return Array.isArray(v) ? v.length === 0 : !v;
+    }).map(item => item.label);
+
+    if (missing.length > 0) {
+      setMissingFields(missing);
+      setShowIncompleteModal(true);
+    } else {
+      doGenerateBrief();
+    }
+  }, [isLoading, briefData, progress, doGenerateBrief]);
+
+  const handleCompleteBrief = useCallback(() => {
+    setShowIncompleteModal(false);
+    // Find the first missing field and trigger inline editing in the sidebar
+    const progressData = briefData ? toProgressBriefData(briefData) : progressToSharedBrief(progress);
+    const firstMissing = PROGRESS_ITEMS.find(item => {
+      const v = progressData[item.field as keyof typeof progressData];
+      return Array.isArray(v) ? v.length === 0 : !v;
+    });
+    if (firstMissing) {
+      // Scroll the sidebar field into view and trigger editing
+      const fieldEl = document.querySelector(`[data-field="${firstMissing.field}"]`);
+      if (fieldEl) {
+        fieldEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        // Brief flash animation — add highlight class then remove after animation
+        fieldEl.classList.add('field-highlight-pulse');
+        setTimeout(() => fieldEl.classList.remove('field-highlight-pulse'), 1500);
+      }
+      handleEditField(firstMissing.field, firstMissing.stepIndex);
+    }
+  }, [briefData, progress, handleEditField]);
 
   // ─── Submit Project ───────────────────────────────────────
   const handleSubmit = useCallback(async (method?: 'auto' | 'manual') => {
@@ -695,6 +766,12 @@ export default function AIChatFlow() {
         materials,
         special_requirements: briefData.specialRequirements !== 'None' ? briefData.specialRequirements : '',
         matching_method: matchingMethod,
+        // Additional details (optional free-text fields)
+        ...(additionalDetails.inspirations && { inspirations: additionalDetails.inspirations }),
+        ...(additionalDetails.materialsToAvoid && { materials_to_avoid: additionalDetails.materialsToAvoid }),
+        ...(additionalDetails.accessibility && { accessibility: additionalDetails.accessibility }),
+        ...(additionalDetails.existingItems && { existing_items: additionalDetails.existingItems }),
+        ...(additionalDetails.otherNotes && { other_notes: additionalDetails.otherNotes }),
       },
       inspiration_images: [...uploadedImages, ...(conceptImageUrl ? [conceptImageUrl] : [])],
       ai_brief: `${briefData.description}. Style: ${briefData.style}. Materials: ${briefData.materials}. Dimensions: ${briefData.dimensions}. Timeline: ${briefData.timeline}.`,
@@ -748,6 +825,85 @@ export default function AIChatFlow() {
   // ═════════════════════════════════════════════════════════════
   return (
     <div className="h-[calc(100vh-4rem)] bg-[#FDFCF8] flex overflow-hidden">
+
+      {/* ── Incomplete Brief Confirmation Modal ───────────────── */}
+      <AnimatePresence>
+        {showIncompleteModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4"
+          >
+            {/* Backdrop */}
+            <div
+              className="absolute inset-0 bg-[#1B2432]/40 backdrop-blur-sm"
+              onClick={() => setShowIncompleteModal(false)}
+            />
+
+            {/* Modal card */}
+            <motion.div
+              initial={{ y: 40, opacity: 0, scale: 0.97 }}
+              animate={{ y: 0, opacity: 1, scale: 1 }}
+              exit={{ y: 40, opacity: 0, scale: 0.97 }}
+              transition={{ duration: 0.25, ease: 'easeOut' }}
+              className="relative z-10 w-full max-w-md bg-white rounded-2xl shadow-xl border border-[#C05621]/[0.08] overflow-hidden"
+            >
+              {/* Header */}
+              <div className="px-6 pt-6 pb-4">
+                <div className="flex items-start gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-[#C05621]/10 flex items-center justify-center flex-shrink-0">
+                    <AlertCircle className="w-5 h-5 text-[#C05621]" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-semibold text-[#1B2432]">
+                      Some fields are still incomplete
+                    </h3>
+                    <p className="text-sm text-[#4A5568] mt-1 leading-relaxed">
+                      A more detailed brief will help designers give you better, more accurate offers.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Missing fields list */}
+              <div className="px-6 pb-4">
+                <div className="flex flex-wrap gap-1.5">
+                  {missingFields.map(field => (
+                    <span
+                      key={field}
+                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[#FAF7F4] border border-[#C05621]/10 text-xs font-medium text-[#4A5568]"
+                    >
+                      <span className="w-1.5 h-1.5 rounded-full bg-[#C05621]/40" />
+                      {field}
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              {/* Actions */}
+              <div className="px-6 pb-6 flex flex-col sm:flex-row gap-2">
+                <button
+                  onClick={handleCompleteBrief}
+                  className="flex-1 px-4 py-2.5 rounded-xl bg-[#C05621] text-white text-sm font-medium
+                             hover:bg-[#A84A1C] transition-colors"
+                >
+                  Complete my brief
+                </button>
+                <button
+                  onClick={() => { setShowIncompleteModal(false); doGenerateBrief(); }}
+                  className="flex-1 px-4 py-2.5 rounded-xl border border-[#C05621]/20 text-[#1B2432] text-sm font-medium
+                             hover:bg-[#C05621]/[0.04] transition-colors"
+                >
+                  Generate anyway
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Progress Sidebar */}
       <ProgressSidebar
         items={PROGRESS_ITEMS}
@@ -889,8 +1045,8 @@ export default function AIChatFlow() {
 
           {/* Chip selectors for field editing */}
           {editingField === 'category' && (
-            <SingleChipSelector
-              options={CATEGORY_OPTIONS}
+            <CategoryChipSelector
+              allCategories={CATEGORY_OPTIONS}
               onSelect={(val) => handleFieldUpdate('category', val)}
             />
           )}
@@ -914,6 +1070,8 @@ export default function AIChatFlow() {
               submitting={submitting}
               imageUploading={imageUploading}
               uploadedImages={uploadedImages}
+              additionalDetails={additionalDetails}
+              onAdditionalDetailsChange={setAdditionalDetails}
               onGenerateImage={handleGenerateImage}
               onSubmit={handleSubmit}
               onEditImage={handleStartEditImage}

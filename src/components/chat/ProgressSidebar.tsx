@@ -102,7 +102,7 @@ export function ProgressSidebar({
             (phase === "chatting" || phase === "brief") && !isInlineEditing;
 
           return (
-            <div key={item.field}>
+            <div key={item.field} data-field={item.field}>
               <div
                 onClick={() => !isInlineEditing && handleClick(item, filled)}
                 className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-300 group ${

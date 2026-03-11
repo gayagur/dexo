@@ -866,16 +866,23 @@ export const demoReviews: Review[] = [
 
 // Category options
 export const categories = [
-  'Carpentry & Woodworking',
-  'Home Decor & Styling',
-  'Furniture Design & Restoration',
-  'Interior Design & Space Planning',
-  'Lighting & Ambiance',
-  'Wall Art & Decorative Accessories',
-  'Textiles & Soft Furnishings',
+  'Carpentry & Custom Woodworking',
+  'Custom Furniture Design',
+  'Furniture Restoration & Upcycling',
+  'Kitchen & Dining Design',
+  'Living Room Design & Styling',
+  'Bedroom Design & Styling',
+  'Home Office Design',
+  'Bathroom Design',
+  'Outdoor & Garden Design',
+  'Lighting Design & Installation',
+  'Wall Art & Gallery Walls',
+  'Shelving & Storage Solutions',
+  'Textile & Soft Furnishings',
   'Plants & Greenery Styling',
   'Storage & Organization Solutions',
   'Office Design & Ergonomics',
+  'Full Interior Design (entire space)',
 ];
 
 // Style options
