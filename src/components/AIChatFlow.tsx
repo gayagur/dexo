@@ -5,6 +5,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useProjects } from '@/hooks/useProjects';
 import { useToast } from '@/hooks/use-toast';
 import { useImageUpload } from '@/hooks/useImageUpload';
+import { useChatSession, type ChatSessionState } from '@/hooks/useChatSession';
 import { streamChat, generateImage, buildImagePrompt } from '@/lib/ai';
 import { motion, AnimatePresence } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
@@ -285,6 +286,91 @@ export default function AIChatFlow() {
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const isNearBottomRef = useRef(true);
   const [showScrollBtn, setShowScrollBtn] = useState(false);
+
+  // ─── Session Persistence ────────────────────────────────
+  const { sessionInfo, checked: sessionChecked, saveSession, loadSession, deleteSession } = useChatSession();
+  const [showRestoreBanner, setShowRestoreBanner] = useState(false);
+  const [sessionRestored, setSessionRestored] = useState(false);
+  const sessionSaveEnabled = useRef(false); // Only save after initial load completes
+
+  // Show restore banner when we detect an existing session
+  useEffect(() => {
+    if (sessionChecked && sessionInfo.exists && !sessionRestored) {
+      setShowRestoreBanner(true);
+    }
+  }, [sessionChecked, sessionInfo.exists, sessionRestored]);
+
+  // Handle "Continue" — restore the session
+  const handleRestoreSession = useCallback(async () => {
+    setShowRestoreBanner(false);
+    const state = await loadSession();
+    if (!state || state.messages.length === 0) {
+      // Restoration failed — start fresh gracefully
+      toast({ title: 'Starting fresh', description: "We couldn't restore your previous session." });
+      deleteSession();
+      setSessionRestored(true);
+      sessionSaveEnabled.current = true;
+      return;
+    }
+
+    // Restore all state
+    setMessages(state.messages);
+    llmMessagesRef.current = state.llmMessages;
+    setPhase(state.phase);
+    setBriefData(state.briefData);
+    setProgressOverrides(state.progressOverrides);
+    setAdditionalDetails(state.additionalDetails);
+    setUploadedImages(state.uploadedImages);
+    setConceptImageUrl(state.conceptImageUrl);
+
+    setSessionRestored(true);
+    sessionSaveEnabled.current = true;
+
+    // Scroll to bottom after restore
+    setTimeout(() => {
+      scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
+    }, 100);
+  }, [loadSession, deleteSession, toast]);
+
+  // Handle "Start fresh" — delete and start over
+  const handleStartFresh = useCallback(() => {
+    setShowRestoreBanner(false);
+    deleteSession();
+    setSessionRestored(true);
+    sessionSaveEnabled.current = true;
+  }, [deleteSession]);
+
+  // Enable saving after first render if no existing session
+  useEffect(() => {
+    if (sessionChecked && !sessionInfo.exists) {
+      sessionSaveEnabled.current = true;
+    }
+  }, [sessionChecked, sessionInfo.exists]);
+
+  // ─── Auto-save on every meaningful state change ─────────
+  useEffect(() => {
+    if (!sessionSaveEnabled.current) return;
+    if (messages.length === 0 && phase === 'chatting') return; // nothing to save
+
+    // Extract category without depending on `progress` (defined later)
+    const extractedCategory = briefData?.category
+      || progressOverrides.category
+      || extractProgress(messages).category
+      || null;
+
+    const state: ChatSessionState = {
+      messages,
+      llmMessages: llmMessagesRef.current,
+      phase,
+      briefData,
+      progressOverrides,
+      additionalDetails,
+      uploadedImages,
+      conceptImageUrl,
+      category: extractedCategory,
+    };
+    saveSession(state);
+  }, [messages, phase, briefData, progressOverrides, additionalDetails, uploadedImages, conceptImageUrl, saveSession]);
 
   // Smart scroll: track whether user is near the bottom
   const handleScrollEvent = useCallback(() => {
@@ -788,10 +874,12 @@ export default function AIChatFlow() {
     if (error) {
       toast({ title: 'Error creating project', description: error, variant: 'destructive' });
     } else {
+      // Clean up the chat session — project is submitted
+      deleteSession();
       toast({ title: matchingMethod === 'auto' ? 'Project sent to creators!' : 'Project saved! Choose your creators.' });
       navigate(matchingMethod === 'manual' ? '/browse-businesses' : '/dashboard');
     }
-  }, [user, briefData, conceptImageUrl, uploadedImages, submissionMethod, createProject, navigate, toast]);
+  }, [user, briefData, conceptImageUrl, uploadedImages, submissionMethod, createProject, navigate, toast, deleteSession]);
 
   // ─── File Handlers ────────────────────────────────────────
   const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
@@ -949,11 +1037,53 @@ export default function AIChatFlow() {
           </div>
         </div>
 
+        {/* Restore Banner */}
+        <AnimatePresence>
+          {showRestoreBanner && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.3 }}
+              className="overflow-hidden"
+            >
+              <div className="px-6 py-3 bg-gradient-to-r from-[#C05621]/[0.06] to-[#C05621]/[0.02] border-b border-[#C05621]/10">
+                <div className="flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-8 h-8 rounded-full bg-[#C05621]/10 flex items-center justify-center shrink-0">
+                      <Sparkles className="w-4 h-4 text-[#C05621]" />
+                    </div>
+                    <p className="text-sm text-[#1B2432]">
+                      Welcome back! You were setting up
+                      {sessionInfo.category ? ` a **${sessionInfo.category}**` : ' a'} project
+                      — want to pick up where you left off?
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button
+                      onClick={handleStartFresh}
+                      className="px-3 py-1.5 text-xs font-medium text-[#4A5568] hover:text-[#1B2432] transition-colors rounded-lg hover:bg-white/60"
+                    >
+                      Start fresh
+                    </button>
+                    <button
+                      onClick={handleRestoreSession}
+                      className="px-3 py-1.5 text-xs font-medium text-white bg-[#C05621] hover:bg-[#A84A1C] rounded-lg transition-colors"
+                    >
+                      Continue
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         {/* Messages */}
         <div ref={scrollRef} onScroll={handleScrollEvent} className="flex-1 min-h-0 overflow-y-auto px-6 py-6 scroll-smooth">
           <div className="flex flex-col min-h-full">
           {/* Empty state — centered; or spacer that pushes messages to bottom */}
-          {messages.length === 0 && !isLoading ? (
+          {messages.length === 0 && !isLoading && !showRestoreBanner ? (
             <div className="flex-1 flex flex-col items-center justify-center text-center">
               <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-[#C05621]/10 bg-white mb-6">
                 <Sparkles className="w-4 h-4 text-[#C05621]" />
