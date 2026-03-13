@@ -40,6 +40,7 @@ export interface Project {
   ai_brief: string | null;
   ai_concept: string | null;
   status: ProjectStatus;
+  updated_at: string | null;
   created_at: string;
 }
 

@@ -135,7 +135,7 @@ function ProjectCard({
   onDelete: (id: string, title: string) => void;
 }) {
   const status = statusConfig[project.status] || statusConfig.draft;
-  const canEdit = project.status === 'draft';
+  const canEdit = project.status !== 'completed';
   const canDelete = project.status === 'draft' || project.status === 'sent';
   const progress = statusProgress[project.status] || 0.1;
 

@@ -20,7 +20,8 @@ import {
   Sparkles,
   Check,
   Loader2,
-  MessageCircle
+  MessageCircle,
+  RefreshCw,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
@@ -146,6 +147,26 @@ const BusinessRequestPage = () => {
               <Sparkles className="w-4 h-4 inline mr-2 text-primary" />
               You're seeing this project because it fits your profile: {project.category}, {project.style_tags.slice(0, 2).join(', ')}
             </div>
+
+            {/* Updated Badge */}
+            {project.updated_at && (
+              <div className="bg-orange-50 border border-orange-200 rounded-2xl p-4 text-sm text-orange-700 flex items-center gap-2">
+                <RefreshCw className="w-4 h-4 shrink-0" />
+                <span>
+                  <strong>Updated{' '}
+                    {(() => {
+                      const days = Math.floor(
+                        (Date.now() - new Date(project.updated_at!).getTime()) / (1000 * 60 * 60 * 24)
+                      );
+                      if (days === 0) return 'today';
+                      if (days === 1) return '1 day ago';
+                      return `${days} days ago`;
+                    })()}
+                  </strong>
+                  {' '}&mdash; The client has updated their project brief. Please review the changes before submitting your offer.
+                </span>
+              </div>
+            )}
 
             {/* Project Header */}
             <div>

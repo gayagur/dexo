@@ -3,15 +3,20 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/hooks/useAuth';
 import { useOffers } from '@/hooks/useOffers';
 import { useMessages } from '@/hooks/useMessages';
+import { useImageUpload } from '@/hooks/useImageUpload';
 import { AppLayout } from '@/components/app/AppLayout';
-import type { Project, Business } from '@/lib/database.types';
+import { categories, styleOptions } from '@/lib/data';
+import type { Project } from '@/lib/database.types';
 import {
   ArrowLeft, Send, DollarSign, Clock, Star, Check,
   Loader2, MessageSquare, Image as ImageIcon, Tag, Wallet, Sparkles,
+  Pencil, X, Save, Plus, Trash2,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
@@ -24,6 +29,126 @@ const statusConfig: Record<string, { label: string; bg: string; text: string; do
   completed: { label: 'Completed', bg: 'bg-green-50', text: 'text-green-700', dot: 'bg-green-500' },
 };
 
+// ─── Editable Field Wrapper ─────────────────────────────────
+function EditableField({
+  label,
+  value,
+  editing,
+  onSave,
+  type = 'text',
+  icon: Icon,
+}: {
+  label: string;
+  value: string;
+  editing: boolean;
+  onSave: (val: string) => void;
+  type?: 'text' | 'textarea' | 'number';
+  icon?: React.ElementType;
+}) {
+  const [draft, setDraft] = useState(value);
+
+  useEffect(() => { setDraft(value); }, [value]);
+
+  if (!editing) {
+    return (
+      <div className="flex items-start gap-3">
+        {Icon && <Icon className="w-4 h-4 text-muted-foreground mt-0.5 shrink-0" />}
+        <div>
+          <span className="text-xs text-muted-foreground uppercase tracking-wide">{label}</span>
+          <p className="text-sm font-medium text-foreground whitespace-pre-wrap">{value || '—'}</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex items-start gap-3">
+      {Icon && <Icon className="w-4 h-4 text-muted-foreground mt-1.5 shrink-0" />}
+      <div className="flex-1">
+        <Label className="text-xs text-muted-foreground uppercase tracking-wide">{label}</Label>
+        {type === 'textarea' ? (
+          <Textarea
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onBlur={() => onSave(draft)}
+            className="mt-1 min-h-[80px]"
+          />
+        ) : (
+          <Input
+            type={type}
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onBlur={() => onSave(draft)}
+            className="mt-1 h-9"
+          />
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── Tag Selector ───────────────────────────────────────────
+function TagSelector({
+  label,
+  selected,
+  options,
+  editing,
+  onSave,
+}: {
+  label: string;
+  selected: string[];
+  options: string[];
+  editing: boolean;
+  onSave: (tags: string[]) => void;
+}) {
+  if (!editing) {
+    return (
+      <div>
+        <span className="text-xs text-muted-foreground uppercase tracking-wide ml-7">{label}</span>
+        <div className="flex flex-wrap gap-1.5 mt-1.5 ml-7">
+          {selected.map((tag) => (
+            <span key={tag} className="px-2.5 py-1 bg-secondary rounded-full text-xs font-medium text-secondary-foreground">
+              {tag}
+            </span>
+          ))}
+          {selected.length === 0 && <span className="text-sm text-muted-foreground">—</span>}
+        </div>
+      </div>
+    );
+  }
+
+  const toggle = (tag: string) => {
+    const next = selected.includes(tag)
+      ? selected.filter((t) => t !== tag)
+      : [...selected, tag];
+    onSave(next);
+  };
+
+  return (
+    <div>
+      <span className="text-xs text-muted-foreground uppercase tracking-wide ml-7">{label}</span>
+      <div className="flex flex-wrap gap-1.5 mt-1.5 ml-7">
+        {options.map((tag) => {
+          const active = selected.includes(tag);
+          return (
+            <button
+              key={tag}
+              onClick={() => toggle(tag)}
+              className={`px-2.5 py-1 rounded-full text-xs font-medium transition-colors ${
+                active
+                  ? 'bg-primary text-primary-foreground'
+                  : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'
+              }`}
+            >
+              {tag}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 const ProjectDetailPage = () => {
   const { id } = useParams();
   const { user, loading: authLoading } = useAuth();
@@ -31,26 +156,33 @@ const ProjectDetailPage = () => {
   const chatEndRef = useRef<HTMLDivElement>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
   const isNearBottomRef = useRef(true);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [project, setProject] = useState<Project | null>(null);
   const [fetched, setFetched] = useState(false);
   const [newMessage, setNewMessage] = useState('');
   const [completing, setCompleting] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [editDraft, setEditDraft] = useState<Partial<Project>>({});
 
   const loading = authLoading || (!fetched && !!user);
+  const { uploading, uploadImage } = useImageUpload();
 
   const { offers, fetchOffersForProject } = useOffers(id);
-  const [businessMap, setBusinessMap] = useState<Record<string, Business>>({});
+  const [businessMap, setBusinessMap] = useState<Record<string, any>>({});
   const { messages, sendMessage } = useMessages(id);
 
-  // Smart scroll: track if user is near bottom
+  const isOwner = user && project && user.id === project.customer_id;
+  const canEdit = isOwner && project?.status !== 'completed';
+
+  // Smart scroll
   const handleChatScroll = useCallback(() => {
     if (!chatContainerRef.current) return;
     const { scrollTop, scrollHeight, clientHeight } = chatContainerRef.current;
     isNearBottomRef.current = scrollHeight - scrollTop - clientHeight < 120;
   }, []);
 
-  // Auto-scroll only when near bottom
   useEffect(() => {
     if (isNearBottomRef.current) {
       chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -90,13 +222,121 @@ const ProjectDetailPage = () => {
         .select('*')
         .in('id', bizIds);
       if (data) {
-        const map: Record<string, Business> = {};
-        for (const biz of data as Business[]) map[biz.id] = biz;
+        const map: Record<string, any> = {};
+        for (const biz of data) map[biz.id] = biz;
         setBusinessMap(map);
       }
     };
     fetchBusinesses();
   }, [offers]);
+
+  // ─── Edit Handlers ──────────────────────────────────────
+  const startEditing = () => {
+    if (!project) return;
+    setEditDraft({
+      title: project.title,
+      description: project.description,
+      category: project.category,
+      style_tags: [...project.style_tags],
+      budget_min: project.budget_min,
+      budget_max: project.budget_max,
+      details: { ...project.details as Record<string, unknown> },
+      inspiration_images: [...project.inspiration_images],
+    });
+    setEditing(true);
+  };
+
+  const cancelEditing = () => {
+    setEditing(false);
+    setEditDraft({});
+  };
+
+  const updateDraft = (field: string, value: unknown) => {
+    setEditDraft((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const updateDetailField = (field: string, value: unknown) => {
+    setEditDraft((prev) => ({
+      ...prev,
+      details: { ...(prev.details as Record<string, unknown> || {}), [field]: value },
+    }));
+  };
+
+  const handleSaveEdits = async () => {
+    if (!project || !id) return;
+    setSaving(true);
+
+    const updates: Partial<Project> = {};
+    const draft = editDraft;
+
+    // Only include changed fields
+    if (draft.title !== undefined && draft.title !== project.title) updates.title = draft.title;
+    if (draft.description !== undefined && draft.description !== project.description) updates.description = draft.description;
+    if (draft.category !== undefined && draft.category !== project.category) updates.category = draft.category;
+    if (draft.style_tags !== undefined && JSON.stringify(draft.style_tags) !== JSON.stringify(project.style_tags)) updates.style_tags = draft.style_tags;
+    if (draft.budget_min !== undefined && draft.budget_min !== project.budget_min) updates.budget_min = draft.budget_min;
+    if (draft.budget_max !== undefined && draft.budget_max !== project.budget_max) updates.budget_max = draft.budget_max;
+    if (draft.details !== undefined && JSON.stringify(draft.details) !== JSON.stringify(project.details)) updates.details = draft.details as Record<string, unknown>;
+    if (draft.inspiration_images !== undefined && JSON.stringify(draft.inspiration_images) !== JSON.stringify(project.inspiration_images)) updates.inspiration_images = draft.inspiration_images;
+
+    if (Object.keys(updates).length === 0) {
+      toast({ title: 'No changes', description: 'Nothing was modified.' });
+      setEditing(false);
+      setSaving(false);
+      return;
+    }
+
+    const { error } = await supabase
+      .from('projects')
+      .update(updates)
+      .eq('id', id);
+
+    if (error) {
+      toast({ title: 'Error saving', description: error.message, variant: 'destructive' });
+      setSaving(false);
+      return;
+    }
+
+    // Update local state
+    setProject((prev) => prev ? { ...prev, ...updates, updated_at: new Date().toISOString() } : prev);
+
+    // If project was already sent to creators, notify them
+    if (project.status !== 'draft') {
+      await supabase.from('messages').insert({
+        project_id: id,
+        sender_id: user!.id,
+        sender_type: 'customer',
+        content: '📋 The project brief has been updated — please review the latest changes before submitting your offer.',
+      });
+    }
+
+    toast({ title: 'Project updated', description: 'Your changes have been saved.' });
+    setEditing(false);
+    setSaving(false);
+  };
+
+  // ─── Image Handling ─────────────────────────────────────
+  const handleAddImages = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    const currentImages = (editDraft.inspiration_images as string[]) || [];
+    const newUrls: string[] = [];
+
+    for (const file of Array.from(files)) {
+      const url = await uploadImage(file, 'project-images');
+      if (url) newUrls.push(url);
+    }
+
+    updateDraft('inspiration_images', [...currentImages, ...newUrls]);
+    // Reset file input
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const handleRemoveImage = (index: number) => {
+    const current = (editDraft.inspiration_images as string[]) || [];
+    updateDraft('inspiration_images', current.filter((_, i) => i !== index));
+  };
 
   const handleSendMessage = async () => {
     if (!newMessage.trim()) return;
@@ -168,12 +408,15 @@ const ProjectDetailPage = () => {
   const status = statusConfig[project.status] || statusConfig.draft;
   const acceptedOffer = offers.find(o => o.status === 'accepted');
   const hasChat = !!acceptedOffer;
+  const details = (editing ? editDraft.details : project.details) as Record<string, any> || {};
+  const currentImages = editing ? (editDraft.inspiration_images as string[] || []) : project.inspiration_images;
+  const currentStyleTags = editing ? (editDraft.style_tags as string[] || []) : project.style_tags;
 
   return (
     <AppLayout>
       <main className="container mx-auto px-6 py-8">
         {/* Breadcrumb */}
-        <div className="mb-6">
+        <div className="mb-6 flex items-center justify-between">
           <Link
             to="/dashboard"
             className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
@@ -181,7 +424,38 @@ const ProjectDetailPage = () => {
             <ArrowLeft className="w-4 h-4" />
             Back to projects
           </Link>
+
+          {/* Edit Controls */}
+          {canEdit && !editing && (
+            <Button variant="outline" size="sm" onClick={startEditing} className="gap-2">
+              <Pencil className="w-3.5 h-3.5" />
+              Edit Project
+            </Button>
+          )}
+          {editing && (
+            <div className="flex items-center gap-2">
+              <Button variant="ghost" size="sm" onClick={cancelEditing} disabled={saving} className="gap-2">
+                <X className="w-3.5 h-3.5" />
+                Cancel
+              </Button>
+              <Button size="sm" onClick={handleSaveEdits} disabled={saving} className="gap-2">
+                {saving ? (
+                  <><Loader2 className="w-3.5 h-3.5 animate-spin" />Saving...</>
+                ) : (
+                  <><Save className="w-3.5 h-3.5" />Save Changes</>
+                )}
+              </Button>
+            </div>
+          )}
         </div>
+
+        {/* Edit mode banner */}
+        {editing && (
+          <div className="mb-6 p-3 rounded-xl bg-primary/5 border border-primary/20 text-sm text-primary flex items-center gap-2">
+            <Pencil className="w-4 h-4 shrink-0" />
+            You're editing this project. Click fields to modify them, then save your changes.
+          </div>
+        )}
 
         <div className="grid lg:grid-cols-3 gap-8">
           {/* ═══ Main Column ═══ */}
@@ -192,10 +466,34 @@ const ProjectDetailPage = () => {
                 <span className={`w-1.5 h-1.5 rounded-full ${status.dot}`} />
                 {status.label}
               </div>
-              <h1 className="text-3xl md:text-4xl font-serif mb-3">{project.title}</h1>
-              <p className="text-lg text-muted-foreground leading-relaxed">{project.description}</p>
 
-              {project.status === 'in_progress' && (
+              {editing ? (
+                <div className="space-y-4">
+                  <div>
+                    <Label className="text-xs text-muted-foreground uppercase tracking-wide">Title</Label>
+                    <Input
+                      value={(editDraft.title as string) || ''}
+                      onChange={(e) => updateDraft('title', e.target.value)}
+                      className="mt-1 text-2xl font-serif h-auto py-2"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs text-muted-foreground uppercase tracking-wide">Description</Label>
+                    <Textarea
+                      value={(editDraft.description as string) || ''}
+                      onChange={(e) => updateDraft('description', e.target.value)}
+                      className="mt-1 min-h-[100px]"
+                    />
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <h1 className="text-3xl md:text-4xl font-serif mb-3">{project.title}</h1>
+                  <p className="text-lg text-muted-foreground leading-relaxed">{project.description}</p>
+                </>
+              )}
+
+              {project.status === 'in_progress' && !editing && (
                 <Button onClick={handleMarkComplete} disabled={completing} className="mt-5 gap-2">
                   {completing ? (
                     <><Loader2 className="h-4 w-4 animate-spin" />Completing...</>
@@ -240,7 +538,6 @@ const ProjectDetailPage = () => {
                         className={isAccepted ? 'ring-2 ring-primary/60 border-primary/20' : ''}
                       >
                         <CardContent className="p-5">
-                          {/* Creator + Action */}
                           <div className="flex items-start justify-between gap-4 mb-4">
                             <div className="flex items-center gap-3">
                               <div className="w-11 h-11 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
@@ -271,7 +568,6 @@ const ProjectDetailPage = () => {
                             )}
                           </div>
 
-                          {/* Price + Timeline */}
                           <div className="grid grid-cols-2 gap-3 p-3.5 bg-muted/40 rounded-xl mb-3">
                             <div className="flex items-center gap-2.5">
                               <DollarSign className="w-4 h-4 text-primary" />
@@ -289,7 +585,6 @@ const ProjectDetailPage = () => {
                             </div>
                           </div>
 
-                          {/* Note */}
                           <p className="text-sm text-muted-foreground leading-relaxed">{offer.note}</p>
                         </CardContent>
                       </Card>
@@ -313,7 +608,6 @@ const ProjectDetailPage = () => {
                 </div>
 
                 <div className="p-5 flex flex-col" style={{ maxHeight: '32rem' }}>
-                  {/* Messages */}
                   <div ref={chatContainerRef} onScroll={handleChatScroll} className="space-y-3 flex-1 min-h-0 overflow-y-auto mb-4 scroll-smooth">
                     {messages.map((msg) => {
                       const isCustomer = msg.sender_type === 'customer';
@@ -356,7 +650,6 @@ const ProjectDetailPage = () => {
                     <div ref={chatEndRef} />
                   </div>
 
-                  {/* Input */}
                   <div className="flex gap-2.5">
                     <Input
                       placeholder="Type your message..."
@@ -386,66 +679,177 @@ const ProjectDetailPage = () => {
               <CardContent className="p-5">
                 <h3 className="font-serif text-lg mb-4">Project Details</h3>
                 <div className="space-y-4">
-                  <div className="flex items-start gap-3">
-                    <Tag className="w-4 h-4 text-muted-foreground mt-0.5 shrink-0" />
-                    <div>
-                      <span className="text-xs text-muted-foreground uppercase tracking-wide">Category</span>
-                      <p className="text-sm font-medium text-foreground">{project.category}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-start gap-3">
-                    <Wallet className="w-4 h-4 text-muted-foreground mt-0.5 shrink-0" />
-                    <div>
-                      <span className="text-xs text-muted-foreground uppercase tracking-wide">Budget</span>
-                      <p className="text-sm font-medium text-foreground">
-                        ${project.budget_min.toLocaleString()} – ${project.budget_max.toLocaleString()}
-                      </p>
-                    </div>
-                  </div>
-                  <div>
-                    <span className="text-xs text-muted-foreground uppercase tracking-wide ml-7">Style</span>
-                    <div className="flex flex-wrap gap-1.5 mt-1.5 ml-7">
-                      {project.style_tags.map((tag) => (
-                        <span
-                          key={tag}
-                          className="px-2.5 py-1 bg-secondary rounded-full text-xs font-medium text-secondary-foreground"
-                        >
-                          {tag}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                  {(project.details as any)?.timing && (
+                  {/* Category */}
+                  {editing ? (
                     <div className="flex items-start gap-3">
-                      <Clock className="w-4 h-4 text-muted-foreground mt-0.5 shrink-0" />
-                      <div>
-                        <span className="text-xs text-muted-foreground uppercase tracking-wide">Timeline</span>
-                        <p className="text-sm font-medium text-foreground">{(project.details as any).timing}</p>
+                      <Tag className="w-4 h-4 text-muted-foreground mt-1.5 shrink-0" />
+                      <div className="flex-1">
+                        <Label className="text-xs text-muted-foreground uppercase tracking-wide">Category</Label>
+                        <select
+                          value={(editDraft.category as string) || ''}
+                          onChange={(e) => updateDraft('category', e.target.value)}
+                          className="mt-1 w-full h-9 rounded-md border border-input bg-background px-3 text-sm"
+                        >
+                          {categories.map((cat) => (
+                            <option key={cat} value={cat}>{cat}</option>
+                          ))}
+                        </select>
                       </div>
                     </div>
+                  ) : (
+                    <div className="flex items-start gap-3">
+                      <Tag className="w-4 h-4 text-muted-foreground mt-0.5 shrink-0" />
+                      <div>
+                        <span className="text-xs text-muted-foreground uppercase tracking-wide">Category</span>
+                        <p className="text-sm font-medium text-foreground">{project.category}</p>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Budget */}
+                  {editing ? (
+                    <div className="flex items-start gap-3">
+                      <Wallet className="w-4 h-4 text-muted-foreground mt-1.5 shrink-0" />
+                      <div className="flex-1">
+                        <Label className="text-xs text-muted-foreground uppercase tracking-wide">Budget</Label>
+                        <div className="flex gap-2 mt-1">
+                          <Input
+                            type="number"
+                            value={editDraft.budget_min ?? ''}
+                            onChange={(e) => updateDraft('budget_min', parseInt(e.target.value) || 0)}
+                            placeholder="Min"
+                            className="h-9"
+                          />
+                          <span className="text-muted-foreground self-center">–</span>
+                          <Input
+                            type="number"
+                            value={editDraft.budget_max ?? ''}
+                            onChange={(e) => updateDraft('budget_max', parseInt(e.target.value) || 0)}
+                            placeholder="Max"
+                            className="h-9"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex items-start gap-3">
+                      <Wallet className="w-4 h-4 text-muted-foreground mt-0.5 shrink-0" />
+                      <div>
+                        <span className="text-xs text-muted-foreground uppercase tracking-wide">Budget</span>
+                        <p className="text-sm font-medium text-foreground">
+                          ${project.budget_min.toLocaleString()} – ${project.budget_max.toLocaleString()}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Style Tags */}
+                  <TagSelector
+                    label="Style"
+                    selected={currentStyleTags}
+                    options={styleOptions}
+                    editing={editing}
+                    onSave={(tags) => updateDraft('style_tags', tags)}
+                  />
+
+                  {/* Timeline */}
+                  <EditableField
+                    label="Timeline"
+                    value={details?.timing || ''}
+                    editing={editing}
+                    onSave={(val) => updateDetailField('timing', val)}
+                    icon={Clock}
+                  />
+
+                  {/* Size */}
+                  {(details?.size || editing) && (
+                    <EditableField
+                      label="Size"
+                      value={details?.size || ''}
+                      editing={editing}
+                      onSave={(val) => updateDetailField('size', val)}
+                    />
+                  )}
+
+                  {/* Materials */}
+                  {(details?.materials?.length > 0 || editing) && (
+                    <EditableField
+                      label="Materials"
+                      value={Array.isArray(details?.materials) ? details.materials.join(', ') : (details?.materials || '')}
+                      editing={editing}
+                      onSave={(val) => updateDetailField('materials', val.split(',').map((s: string) => s.trim()).filter(Boolean))}
+                    />
+                  )}
+
+                  {/* Special Requirements */}
+                  {(details?.special_requirements || editing) && (
+                    <EditableField
+                      label="Special Requirements"
+                      value={details?.special_requirements || ''}
+                      editing={editing}
+                      onSave={(val) => updateDetailField('special_requirements', val)}
+                      type="textarea"
+                    />
                   )}
                 </div>
               </CardContent>
             </Card>
 
-            {/* Inspiration */}
-            {project.inspiration_images.length > 0 && (
-              <Card>
-                <CardContent className="p-5">
-                  <div className="flex items-center gap-2 mb-4">
-                    <ImageIcon className="w-4 h-4 text-muted-foreground" />
-                    <h3 className="font-serif text-lg">Inspiration</h3>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    {project.inspiration_images.map((img, i) => (
-                      <div key={i} className="aspect-square rounded-xl overflow-hidden">
-                        <img src={img} alt="" className="w-full h-full object-cover hover:scale-105 transition-transform duration-300" />
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            )}
+            {/* Inspiration Images */}
+            <Card>
+              <CardContent className="p-5">
+                <div className="flex items-center gap-2 mb-4">
+                  <ImageIcon className="w-4 h-4 text-muted-foreground" />
+                  <h3 className="font-serif text-lg">Inspiration</h3>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                  {currentImages.map((img, i) => (
+                    <div key={i} className="aspect-square rounded-xl overflow-hidden relative group">
+                      <img src={img} alt="" className="w-full h-full object-cover hover:scale-105 transition-transform duration-300" />
+                      {editing && (
+                        <button
+                          onClick={() => handleRemoveImage(i)}
+                          className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+
+                  {editing && (
+                    <button
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={uploading}
+                      className="aspect-square rounded-xl border-2 border-dashed border-primary/20 flex flex-col items-center justify-center gap-1 text-muted-foreground hover:border-primary/40 hover:text-primary transition-colors"
+                    >
+                      {uploading ? (
+                        <Loader2 className="w-5 h-5 animate-spin" />
+                      ) : (
+                        <>
+                          <Plus className="w-5 h-5" />
+                          <span className="text-[10px]">Add</span>
+                        </>
+                      )}
+                    </button>
+                  )}
+                </div>
+
+                {currentImages.length === 0 && !editing && (
+                  <p className="text-sm text-muted-foreground text-center py-4">No inspiration images</p>
+                )}
+
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,image/gif"
+                  multiple
+                  className="hidden"
+                  onChange={handleAddImages}
+                />
+              </CardContent>
+            </Card>
           </div>
         </div>
       </main>

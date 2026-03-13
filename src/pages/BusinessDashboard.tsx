@@ -144,6 +144,19 @@ const BusinessDashboard = () => {
                               }`}>
                                 {matchScore}% match
                               </span>
+                              {project.updated_at && (
+                                <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400">
+                                  Updated{' '}
+                                  {(() => {
+                                    const days = Math.floor(
+                                      (Date.now() - new Date(project.updated_at!).getTime()) / (1000 * 60 * 60 * 24)
+                                    );
+                                    if (days === 0) return 'today';
+                                    if (days === 1) return '1 day ago';
+                                    return `${days} days ago`;
+                                  })()}
+                                </span>
+                              )}
                             </div>
                             <h3 className="text-xl font-serif mt-1 mb-2">{project.title}</h3>
                             <p className="text-muted-foreground text-sm line-clamp-2 mb-4">
