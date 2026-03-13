@@ -258,6 +258,8 @@ export default function AIChatFlow() {
 
   // Incomplete brief confirmation modal
   const [showIncompleteModal, setShowIncompleteModal] = useState(false);
+  // Leave confirmation modal
+  const [showLeaveModal, setShowLeaveModal] = useState(false);
   const [missingFields, setMissingFields] = useState<string[]>([]);
 
   // Image editing state
@@ -969,6 +971,71 @@ export default function AIChatFlow() {
         )}
       </AnimatePresence>
 
+      {/* ── Leave / Save Draft Modal ─────────────────────────── */}
+      <AnimatePresence>
+        {showLeaveModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4"
+          >
+            <div
+              className="absolute inset-0 bg-[#1B2432]/40 backdrop-blur-sm"
+              onClick={() => setShowLeaveModal(false)}
+            />
+            <motion.div
+              initial={{ y: 40, opacity: 0, scale: 0.97 }}
+              animate={{ y: 0, opacity: 1, scale: 1 }}
+              exit={{ y: 40, opacity: 0, scale: 0.97 }}
+              transition={{ duration: 0.25, ease: 'easeOut' }}
+              className="relative z-10 w-full max-w-sm bg-white rounded-2xl shadow-xl border border-[#C05621]/[0.08] overflow-hidden"
+            >
+              <div className="px-6 pt-6 pb-4">
+                <div className="flex items-start gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-[#C05621]/10 flex items-center justify-center flex-shrink-0">
+                    <Sparkles className="w-5 h-5 text-[#C05621]" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-semibold text-[#1B2432]">
+                      Save your progress?
+                    </h3>
+                    <p className="text-sm text-[#4A5568] mt-1 leading-relaxed">
+                      You can continue this project later from your dashboard.
+                    </p>
+                  </div>
+                </div>
+              </div>
+              <div className="px-6 pb-6 flex flex-col sm:flex-row gap-2">
+                <button
+                  onClick={() => {
+                    // Data is already auto-saved to localStorage — just leave
+                    setShowLeaveModal(false);
+                    navigate('/dashboard');
+                  }}
+                  className="flex-1 px-4 py-2.5 rounded-xl bg-[#C05621] text-white text-sm font-medium
+                             hover:bg-[#A84A1C] transition-colors"
+                >
+                  Save draft
+                </button>
+                <button
+                  onClick={() => {
+                    try { localStorage.removeItem('dexo_chat_session'); } catch {}
+                    setShowLeaveModal(false);
+                    navigate('/dashboard');
+                  }}
+                  className="flex-1 px-4 py-2.5 rounded-xl border border-[#C05621]/20 text-[#1B2432] text-sm font-medium
+                             hover:bg-[#C05621]/[0.04] transition-colors"
+                >
+                  Discard
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Progress Sidebar */}
       <ProgressSidebar
         items={PROGRESS_ITEMS}
@@ -989,13 +1056,19 @@ export default function AIChatFlow() {
         {/* Header */}
         <div className="px-6 py-4 border-b border-[#C05621]/[0.06] bg-white/60 backdrop-blur-sm">
           <div className="flex items-center gap-3">
-            <Link
-              to="/home"
+            <button
+              onClick={() => {
+                if (messages.length > 0) {
+                  setShowLeaveModal(true);
+                } else {
+                  navigate('/home');
+                }
+              }}
               className="flex items-center gap-1 text-xs text-[#4A5568] hover:text-[#C05621] transition-colors mr-1"
             >
               <ArrowLeft className="w-3.5 h-3.5" />
               Back
-            </Link>
+            </button>
             <div className="w-px h-6 bg-[#C05621]/10" />
             <div className="w-9 h-9 rounded-full bg-[#C05621]/10 flex items-center justify-center">
               <Sparkles className="w-4.5 h-4.5 text-[#C05621]" />
