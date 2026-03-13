@@ -1083,7 +1083,7 @@ export default function AIChatFlow() {
         <div ref={scrollRef} onScroll={handleScrollEvent} className="flex-1 min-h-0 overflow-y-auto px-6 py-6 scroll-smooth">
           <div className="flex flex-col min-h-full">
           {/* Empty state — centered; or spacer that pushes messages to bottom */}
-          {messages.length === 0 && !isLoading && !showRestoreBanner ? (
+          {messages.length === 0 && !isLoading ? (
             <div className="flex-1 flex flex-col items-center justify-center text-center">
               <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-[#C05621]/10 bg-white mb-6">
                 <Sparkles className="w-4 h-4 text-[#C05621]" />
