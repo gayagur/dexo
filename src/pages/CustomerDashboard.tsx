@@ -21,10 +21,11 @@ import {
 import { useAuth } from '@/hooks/useAuth';
 import { useProjects } from '@/hooks/useProjects';
 import { useOffersForProjects } from '@/hooks/useOffers';
+import { useChatSession } from '@/hooks/useChatSession';
 import { AppLayout } from '@/components/app/AppLayout';
 import type { ProjectStatus } from '@/lib/database.types';
 import {
-  Plus, MessageSquare, ArrowRight, Loader2,
+  Plus, MessageSquare, ArrowRight, Loader2, Sparkles, X,
   Palette, ArrowUpRight, MoreHorizontal, Pencil, Trash2,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -313,6 +314,11 @@ const CustomerDashboard = () => {
   const { projects, loading, deleteProject } = useProjects();
   const { offerCounts } = useOffersForProjects(projects.map((p) => p.id));
 
+  const { sessionInfo, checked: sessionChecked, deleteSession } = useChatSession();
+  const [sessionDismissed, setSessionDismissed] = useState(false);
+
+  const showContinueBanner = sessionChecked && sessionInfo.exists && !sessionDismissed;
+
   const [activeFilter, setActiveFilter] = useState('all');
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; title: string } | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -420,6 +426,53 @@ const CustomerDashboard = () => {
                 </motion.div>
               </motion.div>
             )}
+
+            {/* Continue Draft Banner */}
+            <AnimatePresence>
+              {showContinueBanner && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  transition={{ duration: 0.3 }}
+                  className="mb-4 overflow-hidden"
+                >
+                  <Card className="border-primary/20 bg-gradient-to-r from-primary/[0.06] to-primary/[0.02] rounded-2xl">
+                    <CardContent className="p-4 flex items-center justify-between gap-4">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                          <Sparkles className="w-4 h-4 text-primary" />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium text-foreground">
+                            You have an unfinished project
+                            {sessionInfo.category ? ` — ${sessionInfo.category}` : ''}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            Pick up where you left off
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <button
+                          onClick={() => { deleteSession(); setSessionDismissed(true); }}
+                          className="p-1.5 text-muted-foreground hover:text-foreground transition-colors rounded-lg hover:bg-background/60"
+                          title="Discard draft"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                        <Link to="/create-project?restore=true">
+                          <Button size="sm" className="gap-1.5">
+                            Continue
+                            <ArrowRight className="w-3.5 h-3.5" />
+                          </Button>
+                        </Link>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </motion.div>
+              )}
+            </AnimatePresence>
 
             {/* Action Cards */}
             <motion.div

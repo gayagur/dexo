@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback, memo, useMemo } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/useAuth';
 import { useProjects } from '@/hooks/useProjects';
@@ -288,64 +288,54 @@ export default function AIChatFlow() {
   const [showScrollBtn, setShowScrollBtn] = useState(false);
 
   // ─── Session Persistence ────────────────────────────────
-  const { sessionInfo, checked: sessionChecked, saveSession, loadSession, deleteSession } = useChatSession();
-  const [showRestoreBanner, setShowRestoreBanner] = useState(false);
-  const [sessionRestored, setSessionRestored] = useState(false);
-  const sessionSaveEnabled = useRef(false); // Only save after initial load completes
+  // Restore only happens when navigating from dashboard with ?restore=true
+  const { saveSession, loadSession, deleteSession } = useChatSession();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const sessionSaveEnabled = useRef(false);
 
-  // Show restore banner when we detect an existing session
+  // Auto-restore session when ?restore=true is present (from dashboard "Continue" card)
   useEffect(() => {
-    if (sessionChecked && sessionInfo.exists && !sessionRestored) {
-      setShowRestoreBanner(true);
-    }
-  }, [sessionChecked, sessionInfo.exists, sessionRestored]);
-
-  // Handle "Continue" — restore the session
-  const handleRestoreSession = useCallback(async () => {
-    setShowRestoreBanner(false);
-    const state = await loadSession();
-    if (!state || state.messages.length === 0) {
-      // Restoration failed — start fresh gracefully
-      toast({ title: 'Starting fresh', description: "We couldn't restore your previous session." });
-      deleteSession();
-      setSessionRestored(true);
+    if (searchParams.get('restore') !== 'true') {
+      // No restore requested — enable saving for a fresh session
       sessionSaveEnabled.current = true;
       return;
     }
 
-    // Restore all state
-    setMessages(state.messages);
-    llmMessagesRef.current = state.llmMessages;
-    setPhase(state.phase);
-    setBriefData(state.briefData);
-    setProgressOverrides(state.progressOverrides);
-    setAdditionalDetails(state.additionalDetails);
-    setUploadedImages(state.uploadedImages);
-    setConceptImageUrl(state.conceptImageUrl);
+    let cancelled = false;
+    (async () => {
+      const state = await loadSession();
+      if (cancelled) return;
 
-    setSessionRestored(true);
-    sessionSaveEnabled.current = true;
+      // Remove ?restore from URL so refresh doesn't re-trigger
+      setSearchParams({}, { replace: true });
 
-    // Scroll to bottom after restore
-    setTimeout(() => {
-      scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
-    }, 100);
-  }, [loadSession, deleteSession, toast]);
+      if (!state || state.messages.length === 0) {
+        // Nothing to restore — start fresh
+        deleteSession();
+        sessionSaveEnabled.current = true;
+        return;
+      }
 
-  // Handle "Start fresh" — delete and start over
-  const handleStartFresh = useCallback(() => {
-    setShowRestoreBanner(false);
-    deleteSession();
-    setSessionRestored(true);
-    sessionSaveEnabled.current = true;
-  }, [deleteSession]);
-
-  // Enable saving after first render if no existing session
-  useEffect(() => {
-    if (sessionChecked && !sessionInfo.exists) {
+      // Restore all state
+      setMessages(state.messages);
+      llmMessagesRef.current = state.llmMessages;
+      setPhase(state.phase);
+      setBriefData(state.briefData);
+      setProgressOverrides(state.progressOverrides);
+      setAdditionalDetails(state.additionalDetails);
+      setUploadedImages(state.uploadedImages);
+      setConceptImageUrl(state.conceptImageUrl);
       sessionSaveEnabled.current = true;
-    }
-  }, [sessionChecked, sessionInfo.exists]);
+
+      // Scroll to bottom after restore
+      setTimeout(() => {
+        scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
+      }, 100);
+    })();
+
+    return () => { cancelled = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Run once on mount only
 
   // ─── Auto-save on every meaningful state change ─────────
   useEffect(() => {
@@ -1036,48 +1026,6 @@ export default function AIChatFlow() {
             </div>
           </div>
         </div>
-
-        {/* Restore Banner */}
-        <AnimatePresence>
-          {showRestoreBanner && (
-            <motion.div
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: 'auto', opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
-              transition={{ duration: 0.3 }}
-              className="overflow-hidden"
-            >
-              <div className="px-6 py-3 bg-gradient-to-r from-[#C05621]/[0.06] to-[#C05621]/[0.02] border-b border-[#C05621]/10">
-                <div className="flex items-center justify-between gap-4">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="w-8 h-8 rounded-full bg-[#C05621]/10 flex items-center justify-center shrink-0">
-                      <Sparkles className="w-4 h-4 text-[#C05621]" />
-                    </div>
-                    <p className="text-sm text-[#1B2432]">
-                      Welcome back! You were setting up
-                      {sessionInfo.category ? ` a **${sessionInfo.category}**` : ' a'} project
-                      — want to pick up where you left off?
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    <button
-                      onClick={handleStartFresh}
-                      className="px-3 py-1.5 text-xs font-medium text-[#4A5568] hover:text-[#1B2432] transition-colors rounded-lg hover:bg-white/60"
-                    >
-                      Start fresh
-                    </button>
-                    <button
-                      onClick={handleRestoreSession}
-                      className="px-3 py-1.5 text-xs font-medium text-white bg-[#C05621] hover:bg-[#A84A1C] rounded-lg transition-colors"
-                    >
-                      Continue
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
 
         {/* Messages */}
         <div ref={scrollRef} onScroll={handleScrollEvent} className="flex-1 min-h-0 overflow-y-auto px-6 py-6 scroll-smooth">
