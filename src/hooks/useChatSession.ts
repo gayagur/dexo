@@ -106,42 +106,47 @@ export function useChatSession() {
     }
 
     const checkSession = async () => {
-      const { data, error } = await supabase
-        .from('chat_sessions')
-        .select('category, updated_at, messages')
-        .eq('user_id', user.id)
-        .maybeSingle();
+      try {
+        const { data, error } = await supabase
+          .from('chat_sessions')
+          .select('category, updated_at, messages')
+          .eq('user_id', user.id)
+          .maybeSingle();
 
-      if (error) {
-        console.error('[useChatSession] check error:', error.message);
-        // Fallback: check localStorage
-        const local = loadFromLocalStorage();
-        if (local && local.messages.length > 0) {
-          setSessionInfo({ exists: true, category: local.category || null, updatedAt: null });
-        }
-        setChecked(true);
-        return;
-      }
-
-      if (data && Array.isArray(data.messages) && (data.messages as unknown[]).length > 0) {
-        // Check if session is stale (> 3 days)
-        const updatedAt = new Date(data.updated_at);
-        const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000);
-        if (updatedAt < threeDaysAgo) {
-          // Auto-cleanup stale session
-          await supabase.from('chat_sessions').delete().eq('user_id', user.id);
-          clearLocalStorage();
+        if (error) {
+          console.error('[useChatSession] check error:', error.message);
+          // Fallback: check localStorage
+          const local = loadFromLocalStorage();
+          if (local && local.messages.length > 0) {
+            setSessionInfo({ exists: true, category: local.category || null, updatedAt: null });
+          }
           setChecked(true);
           return;
         }
 
-        setSessionInfo({
-          exists: true,
-          category: data.category || null,
-          updatedAt: data.updated_at,
-        });
+        if (data && Array.isArray(data.messages) && (data.messages as unknown[]).length > 0) {
+          // Check if session is stale (> 3 days)
+          const updatedAt = new Date(data.updated_at);
+          const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000);
+          if (updatedAt < threeDaysAgo) {
+            await supabase.from('chat_sessions').delete().eq('user_id', user.id).catch(() => {});
+            clearLocalStorage();
+            setChecked(true);
+            return;
+          }
+
+          setSessionInfo({
+            exists: true,
+            category: data.category || null,
+            updatedAt: data.updated_at,
+          });
+        }
+        setChecked(true);
+      } catch (err) {
+        // Table may not exist yet — gracefully continue without sessions
+        console.warn('[useChatSession] check failed (table may not exist):', err);
+        setChecked(true);
       }
-      setChecked(true);
     };
 
     checkSession();
@@ -158,32 +163,35 @@ export function useChatSession() {
     saveTimerRef.current = setTimeout(async () => {
       if (!user) return; // localStorage only for anon users
 
-      const payload = {
-        user_id: user.id,
-        messages: state.messages as unknown,
-        llm_messages: state.llmMessages as unknown,
-        phase: state.phase,
-        brief_data: state.briefData as unknown,
-        progress_overrides: state.progressOverrides as unknown,
-        additional_details: state.additionalDetails as unknown,
-        uploaded_images: state.uploadedImages,
-        concept_image_url: state.conceptImageUrl,
-        category: state.category,
-      };
+      try {
+        const payload = {
+          user_id: user.id,
+          messages: state.messages as unknown,
+          llm_messages: state.llmMessages as unknown,
+          phase: state.phase,
+          brief_data: state.briefData as unknown,
+          progress_overrides: state.progressOverrides as unknown,
+          additional_details: state.additionalDetails as unknown,
+          uploaded_images: state.uploadedImages,
+          concept_image_url: state.conceptImageUrl,
+          category: state.category,
+        };
 
-      // Skip if nothing changed (compare JSON hash)
-      const hash = JSON.stringify(payload);
-      if (hash === lastSavedRef.current) return;
+        // Skip if nothing changed (compare JSON hash)
+        const hash = JSON.stringify(payload);
+        if (hash === lastSavedRef.current) return;
 
-      const { error } = await supabase
-        .from('chat_sessions')
-        .upsert(payload, { onConflict: 'user_id' });
+        const { error } = await supabase
+          .from('chat_sessions')
+          .upsert(payload, { onConflict: 'user_id' });
 
-      if (error) {
-        console.error('[useChatSession] save error:', error.message);
-        // localStorage already has the data as fallback
-      } else {
-        lastSavedRef.current = hash;
+        if (error) {
+          console.error('[useChatSession] save error:', error.message);
+        } else {
+          lastSavedRef.current = hash;
+        }
+      } catch (err) {
+        console.warn('[useChatSession] save failed (table may not exist):', err);
       }
     }, 500);
   }, [user]);
@@ -194,33 +202,34 @@ export function useChatSession() {
       return loadFromLocalStorage();
     }
 
-    const { data, error } = await supabase
-      .from('chat_sessions')
-      .select('*')
-      .eq('user_id', user.id)
-      .maybeSingle();
+    try {
+      const { data, error } = await supabase
+        .from('chat_sessions')
+        .select('*')
+        .eq('user_id', user.id)
+        .maybeSingle();
 
-    if (error || !data) {
-      console.error('[useChatSession] load error:', error?.message);
-      // Fallback to localStorage
+      if (error || !data) {
+        return loadFromLocalStorage();
+      }
+
+      return {
+        messages: (data.messages as DisplayMessage[]) || [],
+        llmMessages: (data.llm_messages as ChatMessage[]) || [],
+        phase: (data.phase as Phase) || 'chatting',
+        briefData: (data.brief_data as InternalBriefData) || null,
+        progressOverrides: (data.progress_overrides as Record<string, string>) || {},
+        additionalDetails: (data.additional_details as AdditionalDetails) || {
+          inspirations: '', materialsToAvoid: '', accessibility: '', existingItems: '', otherNotes: '',
+        },
+        uploadedImages: data.uploaded_images || [],
+        conceptImageUrl: data.concept_image_url || null,
+        category: data.category || null,
+      };
+    } catch (err) {
+      console.warn('[useChatSession] load failed:', err);
       return loadFromLocalStorage();
     }
-
-    const state: ChatSessionState = {
-      messages: (data.messages as DisplayMessage[]) || [],
-      llmMessages: (data.llm_messages as ChatMessage[]) || [],
-      phase: (data.phase as Phase) || 'chatting',
-      briefData: (data.brief_data as InternalBriefData) || null,
-      progressOverrides: (data.progress_overrides as Record<string, string>) || {},
-      additionalDetails: (data.additional_details as AdditionalDetails) || {
-        inspirations: '', materialsToAvoid: '', accessibility: '', existingItems: '', otherNotes: '',
-      },
-      uploadedImages: data.uploaded_images || [],
-      conceptImageUrl: data.concept_image_url || null,
-      category: data.category || null,
-    };
-
-    return state;
   }, [user]);
 
   // ─── Delete session ───────────────────────────────────────
@@ -230,13 +239,10 @@ export function useChatSession() {
 
     if (!user) return;
 
-    const { error } = await supabase
-      .from('chat_sessions')
-      .delete()
-      .eq('user_id', user.id);
-
-    if (error) {
-      console.error('[useChatSession] delete error:', error.message);
+    try {
+      await supabase.from('chat_sessions').delete().eq('user_id', user.id);
+    } catch (err) {
+      console.warn('[useChatSession] delete failed:', err);
     }
   }, [user]);
 
