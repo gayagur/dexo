@@ -5,10 +5,11 @@ import type { Role } from "@/lib/database.types";
 interface ProtectedRouteProps {
   children: React.ReactNode;
   requiredRole?: Role;
+  requireAdmin?: boolean;
 }
 
-export const ProtectedRoute = ({ children, requiredRole }: ProtectedRouteProps) => {
-  const { user, role, loading } = useAuth();
+export const ProtectedRoute = ({ children, requiredRole, requireAdmin }: ProtectedRouteProps) => {
+  const { user, role, isAdmin, loading } = useAuth();
 
   // Still loading session
   if (loading) {
@@ -22,6 +23,11 @@ export const ProtectedRoute = ({ children, requiredRole }: ProtectedRouteProps) 
   // Not logged in — send to landing page
   if (!user) {
     return <Navigate to="/" replace />;
+  }
+
+  // Admin gate — redirect non-admins away from admin routes
+  if (requireAdmin && !isAdmin) {
+    return <Navigate to="/home" replace />;
   }
 
   // Role required but not yet resolved — show spinner while it loads

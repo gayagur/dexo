@@ -20,6 +20,12 @@ import BusinessProfilePage from "./pages/BusinessProfilePage";
 import ProfilePage from "./pages/ProfilePage";
 import AuthenticatedHome from "./pages/AuthenticatedHome";
 import NotFound from "./pages/NotFound";
+import AdminDashboard from "./pages/admin/AdminDashboard";
+import PendingCreators from "./pages/admin/PendingCreators";
+import ManageCreators from "./pages/admin/ManageCreators";
+import ManageClients from "./pages/admin/ManageClients";
+import ManageProjects from "./pages/admin/ManageProjects";
+import ManageReviews from "./pages/admin/ManageReviews";
 import { Loader2 } from "lucide-react";
 
 const queryClient = new QueryClient();
@@ -118,6 +124,38 @@ const App = () => (
             <Route path="/business/offers" element={
               <ProtectedRoute requiredRole="business">
                 <BusinessOffersSent />
+              </ProtectedRoute>
+            } />
+
+            {/* Admin routes */}
+            <Route path="/admin" element={
+              <ProtectedRoute requireAdmin>
+                <AdminDashboard />
+              </ProtectedRoute>
+            } />
+            <Route path="/admin/pending" element={
+              <ProtectedRoute requireAdmin>
+                <PendingCreators />
+              </ProtectedRoute>
+            } />
+            <Route path="/admin/creators" element={
+              <ProtectedRoute requireAdmin>
+                <ManageCreators />
+              </ProtectedRoute>
+            } />
+            <Route path="/admin/clients" element={
+              <ProtectedRoute requireAdmin>
+                <ManageClients />
+              </ProtectedRoute>
+            } />
+            <Route path="/admin/projects" element={
+              <ProtectedRoute requireAdmin>
+                <ManageProjects />
+              </ProtectedRoute>
+            } />
+            <Route path="/admin/reviews" element={
+              <ProtectedRoute requireAdmin>
+                <ManageReviews />
               </ProtectedRoute>
             } />
 

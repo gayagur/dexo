@@ -2,12 +2,16 @@ export type Role = "customer" | "business";
 export type ProjectStatus = "draft" | "sent" | "offers_received" | "in_progress" | "completed";
 export type OfferStatus = "pending" | "accepted" | "declined";
 export type SenderType = "customer" | "business";
+export type BusinessStatus = "pending" | "approved" | "rejected" | "suspended";
+export type NotificationType = "creator_approved" | "creator_rejected" | "system" | "info";
 
 export interface Profile {
   id: string;
   role: Role;
   name: string;
+  email: string;
   avatar_url: string | null;
+  is_admin: boolean;
   created_at: string;
 }
 
@@ -23,6 +27,8 @@ export interface Business {
   rating: number;
   min_price: number | null;
   max_price: number | null;
+  status: BusinessStatus;
+  rejection_reason: string | null;
   created_at: string;
 }
 
@@ -90,6 +96,27 @@ export interface ImageVersion {
   created_at: string;
 }
 
+export interface Notification {
+  id: string;
+  user_id: string;
+  type: NotificationType;
+  title: string;
+  message: string;
+  read: boolean;
+  metadata: Record<string, unknown>;
+  created_at: string;
+}
+
+export interface Review {
+  id: string;
+  project_id: string;
+  customer_id: string;
+  business_id: string;
+  rating: number;
+  comment: string;
+  created_at: string;
+}
+
 export interface Database {
   public: {
     Tables: {
@@ -100,6 +127,8 @@ export interface Database {
       messages: { Row: Message; Insert: Omit<Message, "id" | "created_at">; Update: Partial<Omit<Message, "id">> };
       ai_usage_log: { Row: AiUsageLog; Insert: Omit<AiUsageLog, "id" | "created_at">; Update: Partial<Omit<AiUsageLog, "id">> };
       image_versions: { Row: ImageVersion; Insert: Omit<ImageVersion, "id" | "created_at">; Update: Partial<Omit<ImageVersion, "id">> };
+      notifications: { Row: Notification; Insert: Omit<Notification, "id" | "created_at" | "read">; Update: Partial<Omit<Notification, "id">> };
+      reviews: { Row: Review; Insert: Omit<Review, "id" | "created_at">; Update: Partial<Omit<Review, "id">> };
     };
   };
 }

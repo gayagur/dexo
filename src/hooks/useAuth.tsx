@@ -16,6 +16,7 @@ interface AuthState {
   session: Session | null;
   user: User | null;
   role: Role | null;
+  isAdmin: boolean;
   loading: boolean;
 }
 
@@ -78,22 +79,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     session: null,
     user: null,
     role: null,
+    isAdmin: false,
     loading: true,
   });
 
-  const fetchRole = useCallback(async (user: User): Promise<Role | null> => {
+  const fetchRole = useCallback(async (user: User): Promise<{ role: Role | null; isAdmin: boolean }> => {
     // 1. Check profiles table
     const { data } = await supabase
       .from("profiles")
-      .select("role")
+      .select("role, is_admin")
       .eq("id", user.id)
       .single();
 
-    if (data?.role) return data.role as Role;
+    if (data?.role) return { role: data.role as Role, isAdmin: data.is_admin ?? false };
 
     // 2. Check user_metadata (set during email signUp)
     const metaRole = user.user_metadata?.role as Role | undefined;
-    if (metaRole) return metaRole;
+    if (metaRole) return { role: metaRole, isAdmin: false };
 
     // 3. Check localStorage (Google OAuth flow stashes role here)
     const savedRole = localStorage.getItem(OAUTH_ROLE_KEY) as Role | null;
@@ -109,15 +111,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             email: user.email ?? "",
             name: user.user_metadata?.full_name || user.user_metadata?.name || "",
             role: savedRole,
+            is_admin: false,
           },
           { onConflict: "id" }
         )
         .then(() => {});
-      return savedRole;
+      return { role: savedRole, isAdmin: false };
     }
 
     // 4. Default
-    return "customer";
+    return { role: "customer", isAdmin: false };
   }, []);
 
   useEffect(() => {
@@ -125,24 +128,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const initSession = async () => {
       try {
-        // Don't use withTimeout here — a rejected timeout leaves the
-        // supabase-js lock held, blocking subsequent signIn calls.
         const {
           data: { session },
         } = await supabase.auth.getSession();
         if (!mounted) return;
         let role: Role | null = null;
+        let isAdmin = false;
         if (session?.user) {
           try {
-            role = await fetchRole(session.user);
+            const result = await fetchRole(session.user);
+            role = result.role;
+            isAdmin = result.isAdmin;
           } catch {
-            /* use null */
+            /* use defaults */
           }
         }
-        setState({ session, user: session?.user ?? null, role, loading: false });
+        setState({ session, user: session?.user ?? null, role, isAdmin, loading: false });
       } catch {
         if (mounted) {
-          setState({ session: null, user: null, role: null, loading: false });
+          setState({ session: null, user: null, role: null, isAdmin: false, loading: false });
         }
       }
     };
@@ -154,14 +158,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } = supabase.auth.onAuthStateChange(async (_event, session) => {
       if (!mounted) return;
       let role: Role | null = null;
+      let isAdmin = false;
       if (session?.user) {
         try {
-          role = await fetchRole(session.user);
+          const result = await fetchRole(session.user);
+          role = result.role;
+          isAdmin = result.isAdmin;
         } catch {
-          /* use null */
+          /* use defaults */
         }
       }
-      setState({ session, user: session?.user ?? null, role, loading: false });
+      setState({ session, user: session?.user ?? null, role, isAdmin, loading: false });
     });
 
     return () => {
@@ -202,7 +209,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (data.user) {
           await supabase
             .from("profiles")
-            .upsert({ id: data.user.id, email, name, role }, { onConflict: "id" });
+            .upsert({ id: data.user.id, email, name, role, is_admin: false }, { onConflict: "id" });
         }
 
         return { error: null };
@@ -232,7 +239,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
 
         if (data.user && selectedRole) {
-          const actualRole = await fetchRole(data.user);
+          const { role: actualRole } = await fetchRole(data.user);
           if (actualRole && actualRole !== selectedRole) {
             return { error: null, roleMismatch: { actualRole } };
           }

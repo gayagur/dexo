@@ -10,12 +10,13 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { User, Settings, LogOut, ChevronDown } from 'lucide-react';
+import { User, Settings, LogOut, ChevronDown, Shield } from 'lucide-react';
+import { NotificationBell } from './NotificationBell';
 
 export function AppHeader() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, role, signOut } = useAuth();
+  const { user, role, isAdmin, signOut } = useAuth();
   const [scrolled, setScrolled] = useState(false);
 
   useEffect(() => {
@@ -93,62 +94,79 @@ export function AppHeader() {
           </nav>
         </div>
 
-        {/* Right — Avatar Dropdown */}
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <button className="flex items-center gap-2.5 rounded-full py-1 pl-1 pr-3 hover:bg-muted/60 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
-              <Avatar className="h-8 w-8 ring-2 ring-primary/10">
-                <AvatarImage src={avatarUrl} alt={userName} />
-                <AvatarFallback className="bg-primary/10 text-primary text-xs font-semibold">
-                  {initials}
-                </AvatarFallback>
-              </Avatar>
-              <span className="hidden sm:block text-sm font-medium text-foreground max-w-[120px] truncate">
-                {userName}
-              </span>
-              <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />
-            </button>
-          </DropdownMenuTrigger>
+        {/* Right — Notifications + Avatar Dropdown */}
+        <div className="flex items-center gap-1.5">
+          <NotificationBell />
 
-          <DropdownMenuContent align="end" className="w-56 rounded-xl p-1.5" sideOffset={8}>
-            <DropdownMenuLabel className="px-3 py-2">
-              <div className="flex flex-col">
-                <span className="text-sm font-semibold text-foreground">{userName}</span>
-                <span className="text-xs text-muted-foreground font-normal truncate">
-                  {userEmail}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button className="flex items-center gap-2.5 rounded-full py-1 pl-1 pr-3 hover:bg-muted/60 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
+                <Avatar className="h-8 w-8 ring-2 ring-primary/10">
+                  <AvatarImage src={avatarUrl} alt={userName} />
+                  <AvatarFallback className="bg-primary/10 text-primary text-xs font-semibold">
+                    {initials}
+                  </AvatarFallback>
+                </Avatar>
+                <span className="hidden sm:block text-sm font-medium text-foreground max-w-[120px] truncate">
+                  {userName}
                 </span>
-              </div>
-            </DropdownMenuLabel>
+                <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />
+              </button>
+            </DropdownMenuTrigger>
 
-            <DropdownMenuSeparator className="my-1" />
+            <DropdownMenuContent align="end" className="w-56 rounded-xl p-1.5" sideOffset={8}>
+              <DropdownMenuLabel className="px-3 py-2">
+                <div className="flex flex-col">
+                  <span className="text-sm font-semibold text-foreground">{userName}</span>
+                  <span className="text-xs text-muted-foreground font-normal truncate">
+                    {userEmail}
+                  </span>
+                </div>
+              </DropdownMenuLabel>
 
-            <DropdownMenuItem
-              onClick={() => navigate('/profile')}
-              className="px-3 py-2 rounded-lg cursor-pointer gap-2.5"
-            >
-              <User className="w-4 h-4 text-muted-foreground" />
-              <span>My Profile</span>
-            </DropdownMenuItem>
+              <DropdownMenuSeparator className="my-1" />
 
-            <DropdownMenuItem
-              className="px-3 py-2 rounded-lg cursor-pointer gap-2.5"
-              disabled
-            >
-              <Settings className="w-4 h-4 text-muted-foreground" />
-              <span>Settings</span>
-            </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => navigate('/profile')}
+                className="px-3 py-2 rounded-lg cursor-pointer gap-2.5"
+              >
+                <User className="w-4 h-4 text-muted-foreground" />
+                <span>My Profile</span>
+              </DropdownMenuItem>
 
-            <DropdownMenuSeparator className="my-1" />
+              <DropdownMenuItem
+                className="px-3 py-2 rounded-lg cursor-pointer gap-2.5"
+                disabled
+              >
+                <Settings className="w-4 h-4 text-muted-foreground" />
+                <span>Settings</span>
+              </DropdownMenuItem>
 
-            <DropdownMenuItem
-              onClick={handleLogout}
-              className="px-3 py-2 rounded-lg cursor-pointer gap-2.5 text-destructive focus:text-destructive focus:bg-destructive/10"
-            >
-              <LogOut className="w-4 h-4" />
-              <span>Sign out</span>
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+              {isAdmin && (
+                <>
+                  <DropdownMenuSeparator className="my-1" />
+                  <DropdownMenuItem
+                    onClick={() => navigate('/admin')}
+                    className="px-3 py-2 rounded-lg cursor-pointer gap-2.5"
+                  >
+                    <Shield className="w-4 h-4 text-muted-foreground" />
+                    <span>Admin Panel</span>
+                  </DropdownMenuItem>
+                </>
+              )}
+
+              <DropdownMenuSeparator className="my-1" />
+
+              <DropdownMenuItem
+                onClick={handleLogout}
+                className="px-3 py-2 rounded-lg cursor-pointer gap-2.5 text-destructive focus:text-destructive focus:bg-destructive/10"
+              >
+                <LogOut className="w-4 h-4" />
+                <span>Sign out</span>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       </div>
     </header>
   );
