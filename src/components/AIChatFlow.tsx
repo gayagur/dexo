@@ -5,7 +5,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useProjects } from '@/hooks/useProjects';
 import { useToast } from '@/hooks/use-toast';
 import { useImageUpload } from '@/hooks/useImageUpload';
-import { useChatSession, type ChatSessionState } from '@/hooks/useChatSession';
+import type { ChatSessionState } from '@/hooks/useChatSession';
 import { streamChat, generateImage, buildImagePrompt } from '@/lib/ai';
 import { motion, AnimatePresence } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
@@ -287,80 +287,9 @@ export default function AIChatFlow() {
   const isNearBottomRef = useRef(true);
   const [showScrollBtn, setShowScrollBtn] = useState(false);
 
-  // ─── Session Persistence ────────────────────────────────
-  // Restore only happens when navigating from dashboard with ?restore=true
-  const { saveSession, loadSession, deleteSession } = useChatSession();
+  // ─── Session Persistence (localStorage only — no hook) ──
   const [searchParams, setSearchParams] = useSearchParams();
   const sessionSaveEnabled = useRef(false);
-
-  // Auto-restore session when ?restore=true is present (from dashboard "Continue" card)
-  useEffect(() => {
-    if (searchParams.get('restore') !== 'true') {
-      // No restore requested — enable saving for a fresh session
-      sessionSaveEnabled.current = true;
-      return;
-    }
-
-    let cancelled = false;
-    (async () => {
-      const state = await loadSession();
-      if (cancelled) return;
-
-      // Remove ?restore from URL so refresh doesn't re-trigger
-      setSearchParams({}, { replace: true });
-
-      if (!state || state.messages.length === 0) {
-        // Nothing to restore — start fresh
-        deleteSession();
-        sessionSaveEnabled.current = true;
-        return;
-      }
-
-      // Restore all state
-      setMessages(state.messages);
-      llmMessagesRef.current = state.llmMessages;
-      setPhase(state.phase);
-      setBriefData(state.briefData);
-      setProgressOverrides(state.progressOverrides);
-      setAdditionalDetails(state.additionalDetails);
-      setUploadedImages(state.uploadedImages);
-      setConceptImageUrl(state.conceptImageUrl);
-      sessionSaveEnabled.current = true;
-
-      // Scroll to bottom after restore
-      setTimeout(() => {
-        scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
-      }, 100);
-    })();
-
-    return () => { cancelled = true; };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Run once on mount only
-
-  // ─── Auto-save on every meaningful state change ─────────
-  useEffect(() => {
-    if (!sessionSaveEnabled.current) return;
-    if (messages.length === 0 && phase === 'chatting') return; // nothing to save
-
-    // Extract category without depending on `progress` (defined later)
-    const extractedCategory = briefData?.category
-      || progressOverrides.category
-      || extractProgress(messages).category
-      || null;
-
-    const state: ChatSessionState = {
-      messages,
-      llmMessages: llmMessagesRef.current,
-      phase,
-      briefData,
-      progressOverrides,
-      additionalDetails,
-      uploadedImages,
-      conceptImageUrl,
-      category: extractedCategory,
-    };
-    saveSession(state);
-  }, [messages, phase, briefData, progressOverrides, additionalDetails, uploadedImages, conceptImageUrl, saveSession]);
 
   // Smart scroll: track whether user is near the bottom
   const handleScrollEvent = useCallback(() => {
@@ -400,6 +329,59 @@ export default function AIChatFlow() {
 
   // Progress from conversation, merged with manual overrides
   const progress = { ...extractProgress(messages), ...progressOverrides };
+
+  // ─── Session restore (from dashboard ?restore=true) ────
+  useEffect(() => {
+    if (searchParams.get('restore') !== 'true') {
+      sessionSaveEnabled.current = true;
+      return;
+    }
+    try {
+      const raw = localStorage.getItem('dexo_chat_session');
+      if (raw) {
+        const state = JSON.parse(raw) as ChatSessionState;
+        if (Array.isArray(state.messages) && state.messages.length > 0) {
+          setMessages(state.messages);
+          llmMessagesRef.current = state.llmMessages || [];
+          setPhase(state.phase || 'chatting');
+          setBriefData(state.briefData || null);
+          setProgressOverrides(state.progressOverrides || {});
+          setAdditionalDetails(state.additionalDetails || {
+            inspirations: '', materialsToAvoid: '', accessibility: '', existingItems: '', otherNotes: '',
+          });
+          setUploadedImages(state.uploadedImages || []);
+          setConceptImageUrl(state.conceptImageUrl || null);
+          setTimeout(() => {
+            scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
+          }, 100);
+        }
+      }
+    } catch { /* corrupted data — ignore */ }
+    // Remove ?restore from URL
+    setSearchParams({}, { replace: true });
+    sessionSaveEnabled.current = true;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // ─── Auto-save to localStorage on meaningful state change ─
+  useEffect(() => {
+    if (!sessionSaveEnabled.current) return;
+    if (messages.length === 0 && phase === 'chatting') return;
+    try {
+      const state: ChatSessionState = {
+        messages,
+        llmMessages: llmMessagesRef.current,
+        phase,
+        briefData,
+        progressOverrides,
+        additionalDetails,
+        uploadedImages,
+        conceptImageUrl,
+        category: briefData?.category || progressOverrides.category || extractProgress(messages).category || null,
+      };
+      localStorage.setItem('dexo_chat_session', JSON.stringify(state));
+    } catch { /* quota exceeded — ignore */ }
+  }, [messages, phase, briefData, progressOverrides, additionalDetails, uploadedImages, conceptImageUrl]);
 
   // ─── Field Update (defined before sendMessage to avoid TDZ) ──
   const handleFieldUpdate = useCallback((field: string, value: string) => {
@@ -865,11 +847,11 @@ export default function AIChatFlow() {
       toast({ title: 'Error creating project', description: error, variant: 'destructive' });
     } else {
       // Clean up the chat session — project is submitted
-      deleteSession();
+      try { localStorage.removeItem('dexo_chat_session'); } catch {}
       toast({ title: matchingMethod === 'auto' ? 'Project sent to creators!' : 'Project saved! Choose your creators.' });
       navigate(matchingMethod === 'manual' ? '/browse-businesses' : '/dashboard');
     }
-  }, [user, briefData, conceptImageUrl, uploadedImages, submissionMethod, createProject, navigate, toast, deleteSession]);
+  }, [user, briefData, conceptImageUrl, uploadedImages, submissionMethod, createProject, navigate, toast]);
 
   // ─── File Handlers ────────────────────────────────────────
   const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
