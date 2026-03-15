@@ -33,6 +33,13 @@ const BusinessOffersSent = () => {
 
   const loading = bizLoading || offersLoading;
 
+  // Block non-approved creators
+  useEffect(() => {
+    if (!bizLoading && business && business.status !== 'approved') {
+      navigate('/business', { replace: true });
+    }
+  }, [bizLoading, business, navigate]);
+
   // Fetch projects for the offers
   useEffect(() => {
     if (sentOffers.length === 0) return;

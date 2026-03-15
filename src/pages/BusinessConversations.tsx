@@ -23,6 +23,13 @@ interface ConversationItem {
 const BusinessConversations = () => {
   const navigate = useNavigate();
   const { business } = useBusinessProfile();
+  // Block non-approved creators
+  useEffect(() => {
+    if (business && business.status !== 'approved') {
+      navigate('/business', { replace: true });
+    }
+  }, [business, navigate]);
+
   const [conversations, setConversations] = useState<ConversationItem[]>([]);
   const [loading, setLoading] = useState(true);
 

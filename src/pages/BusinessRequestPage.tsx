@@ -34,6 +34,13 @@ const BusinessRequestPage = () => {
   const { offers, createOffer } = useBusinessOffers(business?.id);
   const { messages, sendMessage } = useMessages(id);
 
+  // Block non-approved creators
+  useEffect(() => {
+    if (business && business.status !== 'approved') {
+      navigate('/business', { replace: true });
+    }
+  }, [business, navigate]);
+
   const [project, setProject] = useState<Project | null>(null);
   const [loading, setLoading] = useState(true);
   const [showOfferForm, setShowOfferForm] = useState(false);
