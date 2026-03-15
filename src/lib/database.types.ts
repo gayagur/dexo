@@ -8,6 +8,7 @@ export type NotificationType = "creator_approved" | "creator_rejected" | "system
 export interface Profile {
   id: string;
   role: Role;
+  active_role: Role;
   name: string;
   email: string;
   avatar_url: string | null;

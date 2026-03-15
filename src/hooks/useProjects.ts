@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/hooks/useAuth";
 import { timed } from "@/lib/timing";
+import { analytics } from "@/lib/analytics";
 import type { Project } from "@/lib/database.types";
 
 export function useProjects() {
@@ -16,22 +17,27 @@ export function useProjects() {
       return;
     }
     setLoading(true);
-    const { data, error } = await timed("useProjects.fetch", () =>
-      supabase
-        .from("projects")
-        .select("*")
-        .eq("customer_id", user.id)
-        .order("created_at", { ascending: false })
-        .limit(50)
-    );
+    try {
+      const { data, error } = await timed("useProjects.fetch", () =>
+        supabase
+          .from("projects")
+          .select("*")
+          .eq("customer_id", user.id)
+          .order("created_at", { ascending: false })
+          .limit(50)
+      );
 
-    if (error) {
-      console.error("[useProjects] fetchMyProjects error:", error.message, error.details, error.hint);
+      if (error) {
+        console.error("[useProjects] fetchMyProjects error:", error.message, error.details, error.hint);
+      }
+      if (data) {
+        setProjects(data as Project[]);
+      }
+    } catch (err) {
+      console.error("[useProjects] fetchMyProjects exception:", err);
+    } finally {
+      setLoading(false);
     }
-    if (data) {
-      setProjects(data as Project[]);
-    }
-    setLoading(false);
   }, [user]);
 
   useEffect(() => {
@@ -98,6 +104,7 @@ export function useProjects() {
     console.log("[useProjects] Project created:", data.id);
     const created = data as Project;
     setProjects((prev) => [created, ...prev]);
+    analytics.projectCreated(created.id, created.category);
     return { data: created, error: null };
   };
 

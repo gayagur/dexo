@@ -2,8 +2,10 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
+import { useEffect } from "react";
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
+import { initGA, trackPageView } from "@/lib/analytics";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import LandingPage from "./pages/LandingPage";
 import AuthPage from "./pages/AuthPage";
@@ -30,9 +32,20 @@ import { Loader2 } from "lucide-react";
 
 const queryClient = new QueryClient();
 
+function AnalyticsTracker() {
+  const location = useLocation();
+  useEffect(() => {
+    initGA();
+  }, []);
+  useEffect(() => {
+    trackPageView(location.pathname);
+  }, [location.pathname]);
+  return null;
+}
+
 /** Landing page with auth-aware redirect */
 function HomeRoute() {
-  const { user, role, loading } = useAuth();
+  const { user, loading } = useAuth();
 
   if (loading) {
     return (
@@ -55,6 +68,7 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
+        <AnalyticsTracker />
         <AuthProvider>
           <Routes>
             {/* Public routes */}
@@ -102,7 +116,7 @@ const App = () => (
 
             {/* Business routes */}
             <Route path="/business/onboarding" element={
-              <ProtectedRoute requiredRole="business">
+              <ProtectedRoute>
                 <BusinessOnboarding />
               </ProtectedRoute>
             } />

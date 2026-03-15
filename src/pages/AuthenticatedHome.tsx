@@ -333,12 +333,12 @@ function CategoryExplorer() {
 // ═════════════════════════════════════════════════════════════
 
 const AuthenticatedHome = () => {
-  const { user, role } = useAuth();
+  const { user, activeRole } = useAuth();
   const firstName =
     user?.user_metadata?.name?.split(' ')[0] ||
     user?.user_metadata?.full_name?.split(' ')[0] ||
     'there';
-  const isCreator = role === 'business';
+  const isCreator = activeRole === 'business';
 
   return (
     <AppLayout>

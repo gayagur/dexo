@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import { useImageUpload } from '@/hooks/useImageUpload';
@@ -7,7 +8,7 @@ import { AppLayout } from '@/components/app/AppLayout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Camera, Save, Loader2, User, Mail, Phone, MapPin, FileText, Link2 } from 'lucide-react';
+import { Camera, Save, Loader2, User, Mail, Phone, MapPin, FileText, Link2, Palette, Briefcase, ArrowRight } from 'lucide-react';
 
 interface ProfileFormData {
   name: string;
@@ -20,13 +21,26 @@ interface ProfileFormData {
 }
 
 const ProfilePage = () => {
-  const { user } = useAuth();
+  const navigate = useNavigate();
+  const { user, activeRole, switchRole } = useAuth();
   const { toast } = useToast();
   const { uploading, uploadImage } = useImageUpload();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [saving, setSaving] = useState(false);
   const [avatarUrl, setAvatarUrl] = useState('');
+  const [hasBusinessProfile, setHasBusinessProfile] = useState<boolean | null>(null);
+
+  // Check if user has a business profile
+  useEffect(() => {
+    if (!user) return;
+    supabase
+      .from('businesses')
+      .select('id')
+      .eq('user_id', user.id)
+      .maybeSingle()
+      .then(({ data }) => setHasBusinessProfile(!!data));
+  }, [user]);
   const [form, setForm] = useState<ProfileFormData>({
     name: '',
     email: '',
@@ -238,6 +252,67 @@ const ProfilePage = () => {
             </div>
           </CardContent>
         </Card>
+
+        {/* Activate Other Role */}
+        {activeRole === 'customer' && !hasBusinessProfile && (
+          <Card className="mt-6 animate-slide-up border-primary/20 bg-primary/[0.03]" style={{ animationDelay: '160ms' }}>
+            <CardContent className="p-6 sm:p-8">
+              <div className="flex items-start gap-4">
+                <div className="p-2.5 rounded-xl bg-primary/10 shrink-0">
+                  <Palette className="w-5 h-5 text-primary" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-lg font-semibold text-foreground">Become a Creator</h3>
+                  <p className="text-sm text-muted-foreground mt-1 leading-relaxed">
+                    Set up your creator profile to showcase your work and receive project requests from clients.
+                  </p>
+                  <Button
+                    onClick={() => navigate('/business/onboarding')}
+                    className="mt-4 gap-2"
+                    size="sm"
+                  >
+                    Set Up Creator Profile
+                    <ArrowRight className="w-4 h-4" />
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {activeRole === 'business' && (
+          <Card className="mt-6 animate-slide-up border-blue-500/20 bg-blue-500/[0.03]" style={{ animationDelay: '160ms' }}>
+            <CardContent className="p-6 sm:p-8">
+              <div className="flex items-start gap-4">
+                <div className="p-2.5 rounded-xl bg-blue-500/10 shrink-0">
+                  <Briefcase className="w-5 h-5 text-blue-600" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-lg font-semibold text-foreground">Switch to Client Mode</h3>
+                  <p className="text-sm text-muted-foreground mt-1 leading-relaxed">
+                    Browse creators and submit your own design projects as a client.
+                  </p>
+                  <Button
+                    variant="outline"
+                    onClick={async () => {
+                      const { error } = await switchRole('customer');
+                      if (error) {
+                        toast({ title: 'Failed to switch', description: error, variant: 'destructive' });
+                        return;
+                      }
+                      navigate('/dashboard');
+                    }}
+                    className="mt-4 gap-2"
+                    size="sm"
+                  >
+                    Switch to Client
+                    <ArrowRight className="w-4 h-4" />
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </main>
     </AppLayout>
   );

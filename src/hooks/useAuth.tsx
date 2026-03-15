@@ -10,12 +10,16 @@ import {
 import { supabase } from "@/lib/supabase";
 import type { Session, User, AuthError } from "@supabase/supabase-js";
 import type { Role } from "@/lib/database.types";
+import { analytics } from "@/lib/analytics";
 
 // ─── Types ──────────────────────────────────────────────────
 interface AuthState {
   session: Session | null;
   user: User | null;
+  /** Original registered role */
   role: Role | null;
+  /** Currently active role (what the UI branches on) */
+  activeRole: Role | null;
   isAdmin: boolean;
   loading: boolean;
 }
@@ -31,6 +35,8 @@ interface AuthContextValue extends AuthState {
   signIn: (email: string, password: string, selectedRole?: Role) => Promise<AuthResult>;
   signInWithGoogle: () => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
+  /** Switch the active role. Returns error string or null. */
+  switchRole: (newRole: Role) => Promise<{ error: string | null }>;
 }
 
 // ─── Helpers ────────────────────────────────────────────────
@@ -79,23 +85,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     session: null,
     user: null,
     role: null,
+    activeRole: null,
     isAdmin: false,
     loading: true,
   });
 
-  const fetchRole = useCallback(async (user: User): Promise<{ role: Role | null; isAdmin: boolean }> => {
+  const fetchRole = useCallback(async (user: User): Promise<{ role: Role | null; activeRole: Role | null; isAdmin: boolean }> => {
     // 1. Check profiles table
     const { data } = await supabase
       .from("profiles")
-      .select("role, is_admin")
+      .select("role, active_role, is_admin")
       .eq("id", user.id)
       .single();
 
-    if (data?.role) return { role: data.role as Role, isAdmin: data.is_admin ?? false };
+    if (data?.role) {
+      return {
+        role: data.role as Role,
+        activeRole: (data.active_role as Role) ?? (data.role as Role),
+        isAdmin: data.is_admin ?? false,
+      };
+    }
 
     // 2. Check user_metadata (set during email signUp)
     const metaRole = user.user_metadata?.role as Role | undefined;
-    if (metaRole) return { role: metaRole, isAdmin: false };
+    if (metaRole) return { role: metaRole, activeRole: metaRole, isAdmin: false };
 
     // 3. Check localStorage (Google OAuth flow stashes role here)
     const savedRole = localStorage.getItem(OAUTH_ROLE_KEY) as Role | null;
@@ -111,16 +124,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             email: user.email ?? "",
             name: user.user_metadata?.full_name || user.user_metadata?.name || "",
             role: savedRole,
+            active_role: savedRole,
             is_admin: false,
           },
           { onConflict: "id" }
         )
         .then(() => {});
-      return { role: savedRole, isAdmin: false };
+      return { role: savedRole, activeRole: savedRole, isAdmin: false };
     }
 
     // 4. Default
-    return { role: "customer", isAdmin: false };
+    return { role: "customer", activeRole: "customer", isAdmin: false };
   }, []);
 
   useEffect(() => {
@@ -130,49 +144,67 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       try {
         const {
           data: { session },
-        } = await supabase.auth.getSession();
+        } = await withTimeout(supabase.auth.getSession(), 10000);
         if (!mounted) return;
         let role: Role | null = null;
+        let activeRole: Role | null = null;
         let isAdmin = false;
         if (session?.user) {
           try {
-            const result = await fetchRole(session.user);
+            const result = await withTimeout(fetchRole(session.user), 8000);
             role = result.role;
+            activeRole = result.activeRole;
             isAdmin = result.isAdmin;
           } catch {
-            /* use defaults */
+            /* use defaults — role will resolve via onAuthStateChange */
           }
         }
-        setState({ session, user: session?.user ?? null, role, isAdmin, loading: false });
+        setState({ session, user: session?.user ?? null, role, activeRole, isAdmin, loading: false });
       } catch {
         if (mounted) {
-          setState({ session: null, user: null, role: null, isAdmin: false, loading: false });
+          setState({ session: null, user: null, role: null, activeRole: null, isAdmin: false, loading: false });
         }
       }
     };
 
     initSession();
 
+    // Safety net: force loading to false after 10 seconds no matter what
+    const safetyTimeout = setTimeout(() => {
+      if (mounted) {
+        setState((prev) => {
+          if (prev.loading) {
+            console.warn("[useAuth] Safety timeout — forcing loading to false after 10s");
+            return { ...prev, loading: false };
+          }
+          return prev;
+        });
+      }
+    }, 10000);
+
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (_event, session) => {
       if (!mounted) return;
       let role: Role | null = null;
+      let activeRole: Role | null = null;
       let isAdmin = false;
       if (session?.user) {
         try {
-          const result = await fetchRole(session.user);
+          const result = await withTimeout(fetchRole(session.user), 8000);
           role = result.role;
+          activeRole = result.activeRole;
           isAdmin = result.isAdmin;
         } catch {
           /* use defaults */
         }
       }
-      setState({ session, user: session?.user ?? null, role, isAdmin, loading: false });
+      setState({ session, user: session?.user ?? null, role, activeRole, isAdmin, loading: false });
     });
 
     return () => {
       mounted = false;
+      clearTimeout(safetyTimeout);
       subscription.unsubscribe();
     };
   }, [fetchRole]);
@@ -209,9 +241,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (data.user) {
           await supabase
             .from("profiles")
-            .upsert({ id: data.user.id, email, name, role, is_admin: false }, { onConflict: "id" });
+            .upsert({ id: data.user.id, email, name, role, active_role: role, is_admin: false }, { onConflict: "id" });
         }
 
+        analytics.userSignedUp('email', role);
         return { error: null };
       } catch (e: any) {
         if (e.message === "TIMEOUT") return { error: "TIMEOUT" };
@@ -238,9 +271,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           return { error: msg };
         }
 
+        // For dual-role users, don't treat role mismatch as error — just use their active_role
         if (data.user && selectedRole) {
           const { role: actualRole } = await fetchRole(data.user);
           if (actualRole && actualRole !== selectedRole) {
+            // Check if they have the other role activated (dual-role user)
+            // For now, still report mismatch so auth page can handle it
             return { error: null, roleMismatch: { actualRole } };
           }
         }
@@ -259,10 +295,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signInWithGoogle = useCallback(async (): Promise<{ error: string | null }> => {
     try {
-      // Use current origin so it works on any deployment (localhost, dexo.info, preview deploys)
       const origin = window.location.origin;
 
-      // Safety: never redirect to localhost in production
       if (origin.includes("localhost") && import.meta.env.PROD) {
         console.error("OAuth blocked: localhost detected in production build");
         return { error: "Configuration error. Please contact support." };
@@ -275,6 +309,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         },
       });
       if (error) return { error: error.message };
+      analytics.userSignedUp('google', 'unknown');
       return { error: null };
     } catch (e: any) {
       return { error: e.message || "Something went wrong, please try again." };
@@ -285,6 +320,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await supabase.auth.signOut();
   }, []);
 
+  const switchRole = useCallback(async (newRole: Role): Promise<{ error: string | null }> => {
+    if (!state.user) return { error: "Not authenticated" };
+
+    const { error } = await supabase
+      .from("profiles")
+      .update({ active_role: newRole })
+      .eq("id", state.user.id);
+
+    if (error) return { error: error.message };
+
+    analytics.roleSwitch(state.activeRole || 'unknown', newRole);
+    setState((prev) => ({ ...prev, activeRole: newRole }));
+    return { error: null };
+  }, [state.user]);
+
   // ─── Memoised context value ─────────────────────────────
   const value = useMemo<AuthContextValue>(
     () => ({
@@ -293,8 +343,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       signIn,
       signInWithGoogle,
       signOut,
+      switchRole,
     }),
-    [state, signUp, signIn, signInWithGoogle, signOut]
+    [state, signUp, signIn, signInWithGoogle, signOut, switchRole]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

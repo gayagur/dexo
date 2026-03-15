@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/hooks/useAuth";
 import { timed } from "@/lib/timing";
+import { analytics } from "@/lib/analytics";
 import type { Offer } from "@/lib/database.types";
 
 export function useOffers(projectId?: string) {
@@ -114,6 +115,7 @@ export function useBusinessOffers(businessId: string | undefined) {
       return { error: error.message };
     }
     setOffers((prev) => [data as Offer, ...prev]);
+    analytics.offerReceived(offer.project_id, offer.business_id);
 
     // Transition project status: sent → offers_received
     await supabase

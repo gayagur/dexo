@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
+import { supabase } from '@/lib/supabase';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
   DropdownMenu,
@@ -10,20 +11,33 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { User, Settings, LogOut, ChevronDown, Shield } from 'lucide-react';
+import { User, Settings, LogOut, ChevronDown, Shield, ArrowLeftRight, Palette, Briefcase } from 'lucide-react';
 import { NotificationBell } from './NotificationBell';
+import { toast } from 'sonner';
 
 export function AppHeader() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, role, isAdmin, signOut } = useAuth();
+  const { user, activeRole, isAdmin, signOut, switchRole } = useAuth();
   const [scrolled, setScrolled] = useState(false);
+  const [hasBusinessProfile, setHasBusinessProfile] = useState<boolean | null>(null);
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 8);
     window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
+
+  // Check if user has a business profile (for showing switch option)
+  useEffect(() => {
+    if (!user) return;
+    supabase
+      .from('businesses')
+      .select('id')
+      .eq('user_id', user.id)
+      .maybeSingle()
+      .then(({ data }) => setHasBusinessProfile(!!data));
+  }, [user]);
 
   const userName = user?.user_metadata?.name || user?.email?.split('@')[0] || 'User';
   const userEmail = user?.email || '';
@@ -41,6 +55,28 @@ export function AppHeader() {
     await signOut();
     navigate('/');
   };
+
+  const handleSwitchRole = async () => {
+    const targetRole = activeRole === 'business' ? 'customer' : 'business';
+
+    if (targetRole === 'business' && !hasBusinessProfile) {
+      // No business profile yet — send to onboarding
+      navigate('/business/onboarding');
+      return;
+    }
+
+    const { error } = await switchRole(targetRole);
+    if (error) {
+      toast.error('Failed to switch role');
+      return;
+    }
+
+    // Navigate to the appropriate dashboard
+    navigate(targetRole === 'business' ? '/business' : '/dashboard');
+  };
+
+  const switchLabel = activeRole === 'business' ? 'Switch to Client' : 'Switch to Creator';
+  const SwitchIcon = activeRole === 'business' ? Briefcase : Palette;
 
   return (
     <header
@@ -61,7 +97,7 @@ export function AppHeader() {
           </Link>
 
           <nav className="hidden md:flex items-center gap-1">
-            {(role === 'business'
+            {(activeRole === 'business'
               ? [
                   { to: '/home', label: 'Home' },
                   { to: '/business', label: 'Projects' },
@@ -94,8 +130,18 @@ export function AppHeader() {
           </nav>
         </div>
 
-        {/* Right — Notifications + Avatar Dropdown */}
+        {/* Right — Role Switcher + Notifications + Avatar Dropdown */}
         <div className="flex items-center gap-1.5">
+          {/* Role Switcher Button */}
+          <button
+            onClick={handleSwitchRole}
+            className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors"
+            title={switchLabel}
+          >
+            <ArrowLeftRight className="w-3.5 h-3.5" />
+            {switchLabel}
+          </button>
+
           <NotificationBell />
 
           <DropdownMenu>
@@ -121,10 +167,22 @@ export function AppHeader() {
                   <span className="text-xs text-muted-foreground font-normal truncate">
                     {userEmail}
                   </span>
+                  <span className="text-[10px] text-primary font-medium mt-0.5 uppercase tracking-wider">
+                    {activeRole === 'business' ? 'Creator mode' : 'Client mode'}
+                  </span>
                 </div>
               </DropdownMenuLabel>
 
               <DropdownMenuSeparator className="my-1" />
+
+              {/* Role switch in dropdown (for mobile too) */}
+              <DropdownMenuItem
+                onClick={handleSwitchRole}
+                className="px-3 py-2 rounded-lg cursor-pointer gap-2.5"
+              >
+                <SwitchIcon className="w-4 h-4 text-muted-foreground" />
+                <span>{switchLabel}</span>
+              </DropdownMenuItem>
 
               <DropdownMenuItem
                 onClick={() => navigate('/profile')}

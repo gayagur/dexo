@@ -537,8 +537,7 @@ const CustomerDashboard = () => {
           {!loading && projects.length > 0 && (
             <motion.div
               initial="hidden"
-              whileInView="visible"
-              viewport={{ once: true }}
+              animate="visible"
               variants={fadeUp}
             >
               {/* Section Header + Filter Chips */}
@@ -573,28 +572,26 @@ const CustomerDashboard = () => {
               {/* Grid with staggered animation */}
               {filteredProjects.length > 0 ? (
                 <motion.div
+                  key={activeFilter}
                   initial="hidden"
-                  whileInView="visible"
-                  viewport={{ once: true }}
+                  animate="visible"
                   variants={staggerContainer}
                   className="grid sm:grid-cols-2 xl:grid-cols-3 gap-6"
                 >
-                  <AnimatePresence>
-                    {filteredProjects.map((project) => (
-                      <motion.div
-                        key={project.id}
-                        variants={staggerItem}
-                        layout
-                      >
-                        <ProjectCard
-                          project={project}
-                          offerCount={offerCounts[project.id] || 0}
-                          onEdit={handleEdit}
-                          onDelete={(id, title) => setDeleteTarget({ id, title })}
-                        />
-                      </motion.div>
-                    ))}
-                  </AnimatePresence>
+                  {filteredProjects.map((project) => (
+                    <motion.div
+                      key={project.id}
+                      variants={staggerItem}
+                      layout
+                    >
+                      <ProjectCard
+                        project={project}
+                        offerCount={offerCounts[project.id] || 0}
+                        onEdit={handleEdit}
+                        onDelete={(id, title) => setDeleteTarget({ id, title })}
+                      />
+                    </motion.div>
+                  ))}
                 </motion.div>
               ) : (
                 <motion.div

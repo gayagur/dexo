@@ -6,7 +6,6 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
 const MODEL = "black-forest-labs/FLUX.1-kontext-pro";
 const MAX_EDITS_PER_IMAGE = 5;
 const COST_PER_MP = 0.04;
-const MAX_DIMENSION = 1024;
 
 // ─── Structured Error Codes ────────────────────────────────
 type ErrorCode =
@@ -95,22 +94,33 @@ Deno.serve(async (req) => {
       return errorResponse("CONFIG_ERROR", "AI service not configured", 500);
     }
 
-    // ─── Debug Logging (always in Edge Functions) ────────────
-    console.log("[edit-image] Request:", {
-      imageUrl: imageUrl.slice(0, 80),
-      instructionPreview: instruction.slice(0, 80),
-      hasMask: !!mask,
-      maskLength: mask ? mask.length : 0,
-      regionHint: regionHint || null,
-      versionId,
-      projectId,
-    });
+    // ─── Step 1: Verify source image is accessible ────────────
+    console.log("[edit-image] === STEP 1: Verifying source image ===");
+    console.log("[edit-image] imageUrl:", imageUrl);
 
-    // ─── Upload mask to storage if provided ─────────────────
-    let maskUrl: string | null = null;
+    let imageAccessible = false;
+    try {
+      const headResp = await fetch(imageUrl, { method: "HEAD" });
+      imageAccessible = headResp.ok;
+      console.log("[edit-image] Image HEAD check:", {
+        status: headResp.status,
+        contentType: headResp.headers.get("content-type"),
+        contentLength: headResp.headers.get("content-length"),
+        accessible: imageAccessible,
+      });
+    } catch (headErr) {
+      console.error("[edit-image] Image HEAD check failed:", headErr);
+    }
+
+    if (!imageAccessible) {
+      console.error("[edit-image] SOURCE IMAGE NOT ACCESSIBLE — Together AI cannot fetch it");
+      return errorResponse("AI_ERROR", "Source image is not accessible. Please try regenerating it.", 400);
+    }
+
+    // ─── Step 2: Upload mask to storage if provided ───────────
+    console.log("[edit-image] === STEP 2: Processing mask ===");
     let maskStoragePath: string | null = null;
     if (mask) {
-      // mask is base64 data URL: "data:image/png;base64,..."
       const base64Data = mask.replace(/^data:image\/\w+;base64,/, "");
       const maskBuffer = Uint8Array.from(atob(base64Data), (c) => c.charCodeAt(0));
 
@@ -125,34 +135,29 @@ Deno.serve(async (req) => {
 
       if (maskUploadError) {
         console.error("[edit-image] Mask upload error:", maskUploadError);
-        // Non-fatal: continue without mask
       } else {
-        const { data: maskUrlData } = supabase.storage
-          .from("project-images")
-          .getPublicUrl(maskStoragePath);
-        maskUrl = maskUrlData.publicUrl;
+        console.log("[edit-image] Mask uploaded:", maskStoragePath);
       }
-    }
-
-    // ─── Build Prompt ──────────────────────────────────────────
-    // Together AI's FLUX Kontext Pro does NOT support mask images via
-    // the API — only prompt + image_url. When the user painted a mask
-    // region, the frontend analyzes it and sends a `regionHint` string
-    // (e.g. "in the top-left area of the image") so we can give the
-    // model spatial guidance via the prompt text.
-    let prompt: string;
-    if (regionHint) {
-      // Region-specific edit: tell the model WHERE and WHAT to change
-      prompt = `${regionHint}, ${instruction}. Keep the rest of the image unchanged.`;
-    } else if (mask) {
-      // Mask provided but no regionHint (fallback)
-      prompt = `${instruction}. Only change the relevant area, keep everything else unchanged.`;
     } else {
-      // Global edit
-      prompt = instruction;
+      console.log("[edit-image] No mask provided (global edit)");
     }
 
-    const editBody: Record<string, unknown> = {
+    // ─── Step 3: Build prompt for Kontext ─────────────────────
+    // Kontext works best with direct, clear transformation instructions.
+    // Do NOT add spatial hints — Kontext doesn't understand "in the top-left area".
+    // Instead, give it a clear editing instruction as the prompt.
+    console.log("[edit-image] === STEP 3: Building prompt ===");
+
+    const prompt = instruction;
+
+    console.log("[edit-image] Final prompt:", prompt);
+    console.log("[edit-image] Original instruction:", instruction);
+    console.log("[edit-image] regionHint (ignored for Kontext):", regionHint || "none");
+
+    // ─── Step 4: Call Together AI ──────────────────────────────
+    console.log("[edit-image] === STEP 4: Calling Together AI ===");
+
+    const editBody = {
       model: MODEL,
       prompt,
       image_url: imageUrl,
@@ -161,12 +166,7 @@ Deno.serve(async (req) => {
       response_format: "url",
     };
 
-    console.log("[edit-image] Calling Together AI:", {
-      model: MODEL,
-      prompt: prompt.slice(0, 150),
-      hasMask: !!mask,
-      regionHint: regionHint || null,
-    });
+    console.log("[edit-image] Request body:", JSON.stringify(editBody, null, 2));
 
     const response = await fetch("https://api.together.xyz/v1/images/generations", {
       method: "POST",
@@ -177,29 +177,71 @@ Deno.serve(async (req) => {
       body: JSON.stringify(editBody),
     });
 
+    console.log("[edit-image] Together AI response status:", response.status);
+    console.log("[edit-image] Together AI response headers:", {
+      contentType: response.headers.get("content-type"),
+      requestId: response.headers.get("x-request-id"),
+    });
+
+    const responseText = await response.text();
+    console.log("[edit-image] Together AI raw response:", responseText.slice(0, 500));
+
     if (!response.ok) {
-      const errText = await response.text();
-      console.error("[edit-image] Together AI error:", response.status, errText);
+      console.error("[edit-image] Together AI ERROR:", response.status, responseText);
       let errMsg = "Image editing failed";
       try {
-        const errJson = JSON.parse(errText);
+        const errJson = JSON.parse(responseText);
         if (errJson.error?.message) errMsg = errJson.error.message;
+        else if (errJson.error) errMsg = typeof errJson.error === "string" ? errJson.error : JSON.stringify(errJson.error);
       } catch { /* use default */ }
       return errorResponse("AI_ERROR", errMsg, 502);
     }
 
-    const result = await response.json();
+    let result;
+    try {
+      result = JSON.parse(responseText);
+    } catch {
+      console.error("[edit-image] Failed to parse response JSON");
+      return errorResponse("AI_ERROR", "Invalid response from AI service", 502);
+    }
+
     const tempUrl = result.data?.[0]?.url;
 
+    console.log("[edit-image] === STEP 5: Checking result ===");
+    console.log("[edit-image] Result structure:", {
+      hasData: !!result.data,
+      dataLength: result.data?.length,
+      firstItem: result.data?.[0] ? Object.keys(result.data[0]) : "none",
+      tempUrl: tempUrl ? tempUrl.slice(0, 100) : "MISSING",
+      resultId: result.id,
+      model: result.model,
+    });
+
     if (!tempUrl) {
+      console.error("[edit-image] No image URL in response. Full result:", JSON.stringify(result).slice(0, 500));
       return errorResponse("AI_ERROR", "No image returned from AI", 502);
     }
 
-    // ─── Download & Re-upload to Supabase Storage ───────────
+    // ─── Step 6: Verify edited image is different ─────────────
+    console.log("[edit-image] === STEP 6: Downloading edited image ===");
+    console.log("[edit-image] Downloading from:", tempUrl.slice(0, 100));
+
     const imageResponse = await fetch(tempUrl);
+    if (!imageResponse.ok) {
+      console.error("[edit-image] Failed to download edited image:", imageResponse.status);
+      return errorResponse("AI_ERROR", "Failed to download edited image from AI", 502);
+    }
+
     const imageBlob = await imageResponse.blob();
     const imageBuffer = new Uint8Array(await imageBlob.arrayBuffer());
 
+    console.log("[edit-image] Downloaded edited image:", {
+      size: imageBuffer.length,
+      contentType: imageResponse.headers.get("content-type"),
+    });
+
+    // ─── Step 7: Upload to Supabase Storage ───────────────────
+    console.log("[edit-image] === STEP 7: Uploading to storage ===");
     const fileName = `ai-edited/${userId}/${Date.now()}-${crypto.randomUUID().slice(0, 6)}.png`;
 
     const { error: uploadError } = await supabase.storage
@@ -219,8 +261,10 @@ Deno.serve(async (req) => {
       .getPublicUrl(fileName);
 
     const permanentUrl = urlData.publicUrl;
+    console.log("[edit-image] Uploaded to:", permanentUrl.slice(0, 100));
 
-    // ─── Track Versions in DB ───────────────────────────────
+    // ─── Step 8: Track Versions in DB ─────────────────────────
+    console.log("[edit-image] === STEP 8: Tracking version ===");
     let newVersionId: string | null = null;
     let nextVersion: number | null = null;
 
@@ -242,6 +286,8 @@ Deno.serve(async (req) => {
 
       nextVersion = (latestVersion?.version_number ?? 0) + 1;
 
+      const editType = mask ? "masked_inpaint" : "global_edit";
+
       const { data: newVersion } = await supabase
         .from("image_versions")
         .insert({
@@ -249,6 +295,8 @@ Deno.serve(async (req) => {
           parent_version_id: versionId || null,
           image_url: permanentUrl,
           edit_instruction: instruction,
+          mask_path: maskStoragePath || null,
+          edit_type: editType,
           version_number: nextVersion,
           is_current: true,
         })
@@ -256,9 +304,10 @@ Deno.serve(async (req) => {
         .single();
 
       newVersionId = newVersion?.id ?? null;
+      console.log("[edit-image] Version tracked:", { newVersionId, nextVersion, editType });
     }
 
-    // ─── Log Usage ──────────────────────────────────────────
+    // ─── Step 9: Log Usage ────────────────────────────────────
     const cost = 1 * COST_PER_MP;
 
     logUsage({
@@ -274,8 +323,11 @@ Deno.serve(async (req) => {
       },
     }).catch((err) => console.error("Usage log failed:", err));
 
+    console.log("[edit-image] === DONE ===");
     console.log("[edit-image] Success:", {
-      url: permanentUrl.slice(0, 80),
+      inputUrl: imageUrl.slice(0, 60),
+      outputUrl: permanentUrl.slice(0, 60),
+      sameUrl: imageUrl === permanentUrl,
       versionId: newVersionId,
       versionNumber: nextVersion,
     });
@@ -291,6 +343,7 @@ Deno.serve(async (req) => {
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";
     console.error("[edit-image] Unhandled error:", message);
+    console.error("[edit-image] Stack:", err instanceof Error ? err.stack : "no stack");
     const isAuth = message.includes("Authorization") || message.includes("token");
     return errorResponse(
       isAuth ? "AUTH_ERROR" : "AI_ERROR",

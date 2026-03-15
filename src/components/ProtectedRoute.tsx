@@ -9,7 +9,7 @@ interface ProtectedRouteProps {
 }
 
 export const ProtectedRoute = ({ children, requiredRole, requireAdmin }: ProtectedRouteProps) => {
-  const { user, role, isAdmin, loading } = useAuth();
+  const { user, activeRole, isAdmin, loading } = useAuth();
 
   // Still loading session
   if (loading) {
@@ -31,7 +31,7 @@ export const ProtectedRoute = ({ children, requiredRole, requireAdmin }: Protect
   }
 
   // Role required but not yet resolved — show spinner while it loads
-  if (requiredRole && !role) {
+  if (requiredRole && !activeRole) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
@@ -39,9 +39,9 @@ export const ProtectedRoute = ({ children, requiredRole, requireAdmin }: Protect
     );
   }
 
-  // Role mismatch — redirect to correct dashboard
-  if (requiredRole && role && role !== requiredRole) {
-    return <Navigate to={role === "business" ? "/business" : "/dashboard"} replace />;
+  // Active role mismatch — redirect to correct dashboard
+  if (requiredRole && activeRole && activeRole !== requiredRole) {
+    return <Navigate to={activeRole === "business" ? "/business" : "/dashboard"} replace />;
   }
 
   return <>{children}</>;

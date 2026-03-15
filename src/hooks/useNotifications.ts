@@ -16,19 +16,24 @@ export function useNotifications() {
       setLoading(false);
       return;
     }
-    const { data } = await supabase
-      .from("notifications")
-      .select("*")
-      .eq("user_id", user.id)
-      .order("created_at", { ascending: false })
-      .limit(50);
+    try {
+      const { data } = await supabase
+        .from("notifications")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false })
+        .limit(50);
 
-    if (data) {
-      const typed = data as Notification[];
-      setNotifications(typed);
-      setUnreadCount(typed.filter((n) => !n.read).length);
+      if (data) {
+        const typed = data as Notification[];
+        setNotifications(typed);
+        setUnreadCount(typed.filter((n) => !n.read).length);
+      }
+    } catch (err) {
+      console.error("[useNotifications] fetch error:", err);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }, [user]);
 
   useEffect(() => {

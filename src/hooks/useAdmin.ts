@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
 import { createNotification } from "@/lib/notifications";
+import { analytics } from "@/lib/analytics";
 import type {
   Profile,
   Business,
@@ -235,6 +236,7 @@ export function useAdmin() {
       message: "You can now receive project requests. Welcome to DEXO!",
     });
 
+    analytics.creatorApproved(businessId);
     return { error: null };
   }, []);
 
