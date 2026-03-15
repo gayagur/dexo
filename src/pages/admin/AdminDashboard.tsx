@@ -141,9 +141,6 @@ export default function AdminDashboard() {
     setGa4Loading(true);
     setGa4Error(null);
     try {
-      // Refresh session first to ensure a valid access token
-      await supabase.auth.refreshSession();
-
       const { data, error } = await supabase.functions.invoke("ga4-metrics");
 
       if (error) {
