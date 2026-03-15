@@ -8,6 +8,7 @@ import { AppLayout } from '@/components/app/AppLayout';
 import { useAuth } from '@/hooks/useAuth';
 import { useBusinessProfile } from '@/hooks/useBusinessProfile';
 import { useImageUpload } from '@/hooks/useImageUpload';
+import { supabase } from '@/lib/supabase';
 import { categories, styleOptions, materialOptions } from '@/lib/data';
 import {
   ArrowLeft,
@@ -16,8 +17,12 @@ import {
   Check,
   Loader2,
   X,
+  Instagram,
+  Sparkles,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+
+const TOTAL_STEPS = 5;
 
 const BusinessOnboarding = () => {
   const navigate = useNavigate();
@@ -29,6 +34,12 @@ const BusinessOnboarding = () => {
 
   const [step, setStep] = useState(1);
   const [submitting, setSubmitting] = useState(false);
+
+  // Instagram import state
+  const [igUrl, setIgUrl] = useState('');
+  const [igImporting, setIgImporting] = useState(false);
+  const [igImported, setIgImported] = useState(false);
+
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -71,6 +82,69 @@ const BusinessOnboarding = () => {
     }));
   };
 
+  // ── Instagram import ─────────────────────────────────
+  const handleInstagramImport = async () => {
+    if (!igUrl.trim()) return;
+    setIgImporting(true);
+
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData.session?.access_token;
+
+      const res = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/instagram-import`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ instagramUrl: igUrl.trim() }),
+        },
+      );
+
+      const result = await res.json();
+
+      if (!res.ok) {
+        toast({
+          title: 'Import failed',
+          description: result.error || "We couldn't find this profile. Make sure it's public and try again.",
+          variant: 'destructive',
+        });
+        setIgImporting(false);
+        return;
+      }
+
+      // Auto-fill form fields
+      setFormData(prev => ({
+        ...prev,
+        name: result.fullName || prev.name,
+        description: result.bio || prev.description,
+        portfolio: [
+          ...prev.portfolio,
+          ...(result.portfolioImages || []),
+        ],
+      }));
+
+      setIgImported(true);
+      toast({
+        title: 'Profile imported!',
+        description: "We found your profile! Review and edit your details below.",
+      });
+
+      // Auto-advance to step 2 (business details)
+      setStep(2);
+    } catch {
+      toast({
+        title: 'Import failed',
+        description: 'Something went wrong. Please try again or fill in manually.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIgImporting(false);
+    }
+  };
+
   const handleSubmit = async () => {
     if (!user) return;
     setSubmitting(true);
@@ -111,7 +185,7 @@ const BusinessOnboarding = () => {
           <div className="h-1 bg-muted rounded-full overflow-hidden">
             <div
               className="h-full bg-primary transition-all duration-500"
-              style={{ width: `${(step / 4) * 100}%` }}
+              style={{ width: `${(step / TOTAL_STEPS) * 100}%` }}
             />
           </div>
         </div>
@@ -119,14 +193,87 @@ const BusinessOnboarding = () => {
 
       <main className="container mx-auto px-6 py-12">
         <div className="max-w-2xl mx-auto">
+
+          {/* ─── Step 1: Instagram Import (optional) ─── */}
           {step === 1 && (
             <div className="space-y-8 animate-fade-in">
               <div className="text-center">
-                <span className="text-sm text-primary font-medium">Step 1 of 4</span>
+                <span className="text-sm text-primary font-medium">Step 1 of {TOTAL_STEPS}</span>
+                <h1 className="text-3xl font-serif mt-2">Set up your creator profile</h1>
+                <p className="text-muted-foreground mt-2">
+                  Want to save time? Import your profile from Instagram.
+                </p>
+              </div>
+
+              <div className="bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-950/20 dark:to-pink-950/20 rounded-2xl p-8 space-y-6">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
+                    <Instagram className="w-6 h-6 text-white" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold">Import from Instagram</h3>
+                    <p className="text-sm text-muted-foreground">
+                      We'll fill in your name, bio, and portfolio images automatically.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  <Input
+                    placeholder="https://instagram.com/yourusername"
+                    value={igUrl}
+                    onChange={(e) => setIgUrl(e.target.value)}
+                    className="h-12 bg-white dark:bg-background"
+                    disabled={igImporting}
+                  />
+                  <Button
+                    onClick={handleInstagramImport}
+                    disabled={!igUrl.trim() || igImporting}
+                    className="w-full h-12 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white"
+                  >
+                    {igImporting ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                        Importing your profile from Instagram...
+                      </>
+                    ) : (
+                      <>
+                        <Instagram className="w-4 h-4 mr-2" />
+                        Import from Instagram
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </div>
+
+              <div className="text-center">
+                <button
+                  onClick={() => setStep(2)}
+                  className="text-sm text-muted-foreground hover:text-foreground transition-colors underline underline-offset-4"
+                >
+                  Skip, I'll fill in manually
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* ─── Step 2: Business Details ─── */}
+          {step === 2 && (
+            <div className="space-y-8 animate-fade-in">
+              <div className="text-center">
+                <span className="text-sm text-primary font-medium">Step 2 of {TOTAL_STEPS}</span>
                 <h1 className="text-3xl font-serif mt-2">Tell us about your business</h1>
                 <p className="text-muted-foreground mt-2">
-                  This helps customers find and understand your work.
+                  {igImported
+                    ? "We imported your details — feel free to edit anything before continuing."
+                    : "This helps customers find and understand your work."}
                 </p>
+                {igImported && (
+                  <div className="inline-flex items-center gap-1.5 mt-3 px-3 py-1.5 rounded-full bg-green-100 text-green-700 text-xs font-medium">
+                    <Sparkles className="w-3.5 h-3.5" />
+                    Imported from Instagram — edit as needed
+                  </div>
+                )}
               </div>
 
               <div className="space-y-4">
@@ -187,10 +334,11 @@ const BusinessOnboarding = () => {
             </div>
           )}
 
-          {step === 2 && (
+          {/* ─── Step 3: Style & Materials ─── */}
+          {step === 3 && (
             <div className="space-y-8 animate-fade-in">
               <div className="text-center">
-                <span className="text-sm text-primary font-medium">Step 2 of 4</span>
+                <span className="text-sm text-primary font-medium">Step 3 of {TOTAL_STEPS}</span>
                 <h1 className="text-3xl font-serif mt-2">Your style & materials</h1>
               </div>
 
@@ -292,13 +440,16 @@ const BusinessOnboarding = () => {
             </div>
           )}
 
-          {step === 3 && (
+          {/* ─── Step 4: Portfolio ─── */}
+          {step === 4 && (
             <div className="space-y-8 animate-fade-in">
               <div className="text-center">
-                <span className="text-sm text-primary font-medium">Step 3 of 4</span>
+                <span className="text-sm text-primary font-medium">Step 4 of {TOTAL_STEPS}</span>
                 <h1 className="text-3xl font-serif mt-2">Showcase your work</h1>
                 <p className="text-muted-foreground mt-2">
-                  Add some photos of your best pieces.
+                  {formData.portfolio.length > 0 && igImported
+                    ? "We imported some photos from your Instagram. Add more or remove any you don't want."
+                    : "Add some photos of your best pieces."}
                 </p>
               </div>
 
@@ -354,10 +505,11 @@ const BusinessOnboarding = () => {
             </div>
           )}
 
-          {step === 4 && (
+          {/* ─── Step 5: Review ─── */}
+          {step === 5 && (
             <div className="space-y-8 animate-fade-in">
               <div className="text-center">
-                <span className="text-sm text-primary font-medium">Step 4 of 4</span>
+                <span className="text-sm text-primary font-medium">Step 5 of {TOTAL_STEPS}</span>
                 <h1 className="text-3xl font-serif mt-2">Review your profile</h1>
                 <p className="text-muted-foreground mt-2">
                   Make sure everything looks good before going live.
@@ -410,10 +562,25 @@ const BusinessOnboarding = () => {
                       <p className="font-medium">{formData.location || 'Not set'}</p>
                     </div>
                   </div>
+
+                  {/* Portfolio preview in review */}
+                  {formData.portfolio.length > 0 && (
+                    <div>
+                      <span className="text-sm text-muted-foreground">Portfolio ({formData.portfolio.length} photos)</span>
+                      <div className="grid grid-cols-4 gap-2 mt-2">
+                        {formData.portfolio.slice(0, 4).map((img, i) => (
+                          <div key={i} className="aspect-square rounded-lg overflow-hidden">
+                            <img src={img} alt="" className="w-full h-full object-cover" />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
           )}
+
           {/* Navigation */}
           <div className="flex items-center justify-between mt-12 pt-8 border-t border-border">
             <Button
@@ -426,10 +593,10 @@ const BusinessOnboarding = () => {
               Back
             </Button>
 
-            {step < 4 ? (
+            {step < TOTAL_STEPS ? (
               <Button
                 onClick={() => setStep(step + 1)}
-                disabled={step === 1 && (!formData.name || formData.categories.length === 0)}
+                disabled={step === 2 && (!formData.name || formData.categories.length === 0)}
                 className="gap-2"
               >
                 Continue
