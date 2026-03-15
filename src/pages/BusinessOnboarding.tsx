@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -28,7 +28,7 @@ const BusinessOnboarding = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { user } = useAuth();
-  const { createBusiness } = useBusinessProfile();
+  const { business, loading: bizLoading, createBusiness, updateBusiness } = useBusinessProfile();
   const { uploading: portfolioUploading, uploadMultiple } = useImageUpload();
   const portfolioInputRef = useRef<HTMLInputElement>(null);
 
@@ -39,6 +39,9 @@ const BusinessOnboarding = () => {
   const [igUrl, setIgUrl] = useState('');
   const [igImporting, setIgImporting] = useState(false);
   const [igImported, setIgImported] = useState(false);
+
+  // Whether we're editing an existing profile
+  const isEditing = !!business;
 
   const [formData, setFormData] = useState({
     name: '',
@@ -54,6 +57,28 @@ const BusinessOnboarding = () => {
     leadTime: '',
     portfolio: [] as string[],
   });
+
+  // Pre-fill form when editing an existing business
+  useEffect(() => {
+    if (business) {
+      setFormData({
+        name: business.name || '',
+        description: business.description || '',
+        tagline: '',
+        categories: business.categories || [],
+        styles: business.styles || [],
+        materials: [],
+        priceMin: business.min_price?.toString() || '',
+        priceMax: business.max_price?.toString() || '',
+        location: business.location || '',
+        serviceArea: '',
+        leadTime: '',
+        portfolio: business.portfolio || [],
+      });
+      // Skip Instagram step when editing — go straight to details
+      setStep(2);
+    }
+  }, [business]);
 
   const toggleCategory = (cat: string) => {
     setFormData(prev => ({
@@ -149,8 +174,7 @@ const BusinessOnboarding = () => {
     if (!user) return;
     setSubmitting(true);
 
-    const { error } = await createBusiness({
-      user_id: user.id,
+    const profileData = {
       name: formData.name,
       description: formData.description,
       categories: formData.categories,
@@ -159,23 +183,56 @@ const BusinessOnboarding = () => {
       location: formData.location,
       min_price: parseInt(formData.priceMin) || null,
       max_price: parseInt(formData.priceMax) || null,
-    });
+    };
+
+    let error: string | null;
+
+    if (isEditing && business) {
+      // Update existing profile — set back to pending for re-review
+      const result = await updateBusiness(business.id, {
+        ...profileData,
+        status: 'pending',
+        rejection_reason: null,
+      });
+      error = result.error;
+    } else {
+      // Create new profile
+      const result = await createBusiness({
+        ...profileData,
+        user_id: user.id,
+        status: 'pending',
+        rejection_reason: null,
+      });
+      error = result.error;
+    }
 
     if (error) {
       toast({
-        title: "Failed to create profile",
+        title: "Failed to save profile",
         description: error,
         variant: "destructive",
       });
     } else {
       toast({
-        title: "Welcome to DEXO!",
-        description: "Your creator profile is ready. Projects matching your profile will appear soon.",
+        title: isEditing ? "Profile updated!" : "Welcome to DEXO!",
+        description: isEditing
+          ? "Your profile has been resubmitted for review."
+          : "Your creator profile has been submitted for review.",
       });
       navigate('/business');
     }
     setSubmitting(false);
   };
+
+  if (bizLoading) {
+    return (
+      <AppLayout>
+        <div className="min-h-[60vh] flex items-center justify-center">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        </div>
+      </AppLayout>
+    );
+  }
 
   return (
     <AppLayout>
@@ -612,11 +669,11 @@ const BusinessOnboarding = () => {
                 {submitting ? (
                   <>
                     <Loader2 className="w-4 h-4 animate-spin" />
-                    Creating...
+                    {isEditing ? 'Saving...' : 'Creating...'}
                   </>
                 ) : (
                   <>
-                    Complete Setup
+                    {isEditing ? 'Save & Resubmit' : 'Complete Setup'}
                     <Check className="w-4 h-4" />
                   </>
                 )}
