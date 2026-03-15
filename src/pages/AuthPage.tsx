@@ -14,7 +14,7 @@ const AuthPage = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { toast } = useToast();
-  const { user, role, loading: authLoading, signIn, signUp, signInWithGoogle } = useAuth();
+  const { user, role, loading: authLoading, signIn, signUp, signInWithGoogle, switchRole } = useAuth();
 
   const [isSignUp, setIsSignUp] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -185,13 +185,16 @@ const AuthPage = () => {
           return;
         }
 
-        // Role mismatch: user picked wrong role
+        // Role mismatch: user's DB role differs from selected role
         if (result.roleMismatch) {
-          const actual = result.roleMismatch.actualRole;
-          const label = actual === 'business' ? 'Creator' : 'Customer';
+          // User wants to use a different role — switch their active role
+          // e.g. customer wanting to become a creator, or vice versa
+          await switchRole(selectedRole!);
           toast({
-            title: `This account is registered as a ${label}`,
-            description: "Switching you to the right dashboard.",
+            title: "Welcome back!",
+            description: selectedRole === 'business'
+              ? "Let's set up your creator profile."
+              : "Redirecting you to your dashboard.",
           });
           navigate('/home');
           return;
