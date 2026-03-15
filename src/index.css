@@ -219,11 +219,13 @@
   }
 }
 
-/* Hide Corebee chat widget on pages with input bars (create-project) */
-body.hide-chat-widget > button:last-of-type,
-body.hide-chat-widget > iframe[src*="corebee"],
-body.hide-chat-widget > div[class*="corebee"] {
-  display: none !important;
+/* Hide Corebee chat widget on AI chat page — mobile only */
+@media (max-width: 768px) {
+  body.hide-chat-widget > button:last-of-type,
+  body.hide-chat-widget > iframe[src*="corebee"],
+  body.hide-chat-widget > div[class*="corebee"] {
+    display: none !important;
+  }
 }
 
 /* Highlight pulse for incomplete brief fields */
