@@ -219,6 +219,16 @@
   }
 }
 
+/* Mobile: push Corebee chat widget up so it doesn't block input bars */
+@media (max-width: 768px) {
+  /* Corebee widget button — move it higher to avoid overlapping inputs */
+  .corebee-widget-button,
+  [class*="corebee"] > button,
+  iframe[src*="corebee"] + button {
+    bottom: 80px !important;
+  }
+}
+
 /* Highlight pulse for incomplete brief fields */
 @keyframes fieldHighlightPulse {
   0%   { box-shadow: 0 0 0 0 rgba(192, 86, 33, 0.4); }

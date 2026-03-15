@@ -891,7 +891,7 @@ export default function AIChatFlow() {
   // RENDER
   // ═════════════════════════════════════════════════════════════
   return (
-    <div className="h-[calc(100vh-4rem)] bg-[#FDFCF8] flex overflow-hidden">
+    <div className="h-[calc(100dvh-4rem)] bg-[#FDFCF8] flex overflow-hidden">
 
       {/* ── Incomplete Brief Confirmation Modal ───────────────── */}
       <AnimatePresence>
@@ -1053,9 +1053,9 @@ export default function AIChatFlow() {
 
       {/* Main Chat Area */}
       <main className="flex-1 flex flex-col max-w-3xl mx-auto w-full min-h-0">
-        {/* Header */}
-        <div className="px-6 py-4 border-b border-[#C05621]/[0.06] bg-white/60 backdrop-blur-sm">
-          <div className="flex items-center gap-3">
+        {/* Header — compact on mobile */}
+        <div className="px-3 py-2 md:px-6 md:py-4 border-b border-[#C05621]/[0.06] bg-white/60 backdrop-blur-sm shrink-0">
+          <div className="flex items-center gap-2 md:gap-3">
             <button
               onClick={() => {
                 if (messages.length > 0) {
@@ -1064,42 +1064,46 @@ export default function AIChatFlow() {
                   navigate('/home');
                 }
               }}
-              className="flex items-center gap-1 text-xs text-[#4A5568] hover:text-[#C05621] transition-colors mr-1"
+              className="flex items-center gap-1 text-xs text-[#4A5568] hover:text-[#C05621] transition-colors mr-1 min-h-[44px] min-w-[44px] justify-center md:justify-start md:min-w-0"
             >
               <ArrowLeft className="w-3.5 h-3.5" />
-              Back
+              <span className="hidden md:inline">Back</span>
             </button>
-            <div className="w-px h-6 bg-[#C05621]/10" />
-            <div className="w-9 h-9 rounded-full bg-[#C05621]/10 flex items-center justify-center">
-              <Sparkles className="w-4.5 h-4.5 text-[#C05621]" />
+            <div className="w-px h-6 bg-[#C05621]/10 hidden md:block" />
+            <div className="w-7 h-7 md:w-9 md:h-9 rounded-full bg-[#C05621]/10 flex items-center justify-center shrink-0">
+              <Sparkles className="w-3.5 h-3.5 md:w-4.5 md:h-4.5 text-[#C05621]" />
             </div>
-            <div>
-              <h1 className="font-serif font-bold text-[#1B2432]">DEXO Interior Design Assistant</h1>
-              <p className="text-xs text-[#4A5568]">
+            <div className="min-w-0 flex-1">
+              <h1 className="font-serif font-bold text-[#1B2432] text-sm md:text-base truncate">Design Assistant</h1>
+              <p className="text-[10px] md:text-xs text-[#4A5568] hidden md:block">
                 {isLoading ? 'Thinking...' : "Let's transform your space"}
               </p>
             </div>
+            {isLoading && (
+              <div className="md:hidden">
+                <Loader2 className="w-4 h-4 animate-spin text-[#C05621]" />
+              </div>
+            )}
           </div>
         </div>
 
         {/* Messages */}
-        <div ref={scrollRef} onScroll={handleScrollEvent} className="flex-1 min-h-0 overflow-y-auto px-6 py-6 scroll-smooth">
+        <div ref={scrollRef} onScroll={handleScrollEvent} className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-3 py-4 md:px-6 md:py-6 scroll-smooth" style={{ WebkitOverflowScrolling: 'touch' }}>
           <div className="flex flex-col min-h-full">
           {/* Empty state — centered; or spacer that pushes messages to bottom */}
           {messages.length === 0 && !isLoading ? (
-            <div className="flex-1 flex flex-col items-center justify-center text-center">
-              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-[#C05621]/10 bg-white mb-6">
-                <Sparkles className="w-4 h-4 text-[#C05621]" />
-                <span className="text-sm text-[#4A5568]">AI Design Consultant</span>
+            <div className="flex-1 flex flex-col items-center justify-center text-center px-2">
+              <div className="inline-flex items-center gap-2 px-3 py-1.5 md:px-4 md:py-2 rounded-full border border-[#C05621]/10 bg-white mb-4 md:mb-6">
+                <Sparkles className="w-3.5 h-3.5 md:w-4 md:h-4 text-[#C05621]" />
+                <span className="text-xs md:text-sm text-[#4A5568]">AI Design Consultant</span>
               </div>
-              <h2 className="text-3xl md:text-4xl font-serif font-bold text-[#1B2432] mb-3">
+              <h2 className="text-xl md:text-3xl lg:text-4xl font-serif font-bold text-[#1B2432] mb-2 md:mb-3">
                 What space would you like to transform?
               </h2>
-              <p className="text-[#4A5568] max-w-md">
+              <p className="text-sm md:text-base text-[#4A5568] max-w-md">
                 Describe your space — living room, bedroom, office, or any room you'd like to transform.
-                I'll help you refine every detail.
               </p>
-              <div className="mt-8 flex justify-center">
+              <div className="mt-4 md:mt-8 flex justify-center">
                 <CategoryChipSelector
                   allCategories={categories}
                   onSelect={(cat) => { setInput(cat); setTimeout(() => inputRef.current?.focus(), 50); }}
@@ -1252,8 +1256,9 @@ export default function AIChatFlow() {
           </div>
         )}
 
-        {/* Input Area */}
-        <div className="px-6 py-4 border-t border-[#C05621]/[0.06] bg-white/60 backdrop-blur-sm">
+        {/* Input Area — extra bottom padding on mobile for browser chrome + chat widget */}
+        <div className="px-3 py-2 md:px-6 md:py-4 border-t border-[#C05621]/[0.06] bg-white/60 backdrop-blur-sm shrink-0"
+             style={{ paddingBottom: 'max(0.5rem, env(safe-area-inset-bottom, 0px))' }}>
           {/* Pending image previews */}
           {pendingPreviews.length > 0 && (
             <div className="flex gap-2 flex-wrap mb-2">

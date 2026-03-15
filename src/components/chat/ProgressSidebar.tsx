@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { Check, Pencil, Sparkles, ArrowRight, ChevronDown, ChevronUp, FileText } from "lucide-react";
+import { Check, Pencil, Sparkles, ArrowRight, ChevronDown, ChevronUp, FileText, X, ListChecks } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import type { BriefData, ProgressItem, ChatPhase } from "./types";
 import type { AdditionalDetails } from "./BriefCard";
@@ -98,7 +98,98 @@ export function ProgressSidebar({
     }
   };
 
+  const [mobileOpen, setMobileOpen] = useState(false);
+
   return (
+    <>
+    {/* ── Mobile: floating progress pill + bottom sheet ── */}
+    <div className="lg:hidden fixed bottom-20 right-3 z-40"
+         style={{ bottom: 'max(5rem, calc(4.5rem + env(safe-area-inset-bottom, 0px)))' }}>
+      <button
+        onClick={() => setMobileOpen(true)}
+        className="flex items-center gap-2 px-3 py-2 rounded-full bg-white border border-[#C05621]/20 shadow-lg text-xs font-medium text-[#1B2432]"
+      >
+        <ListChecks className="w-4 h-4 text-[#C05621]" />
+        <span>{filledCount}/{items.length}</span>
+        <div className="w-12 h-1.5 rounded-full bg-gray-100 overflow-hidden">
+          <div
+            className="h-full rounded-full bg-[#C05621] transition-all duration-500"
+            style={{ width: `${(filledCount / items.length) * 100}%` }}
+          />
+        </div>
+      </button>
+    </div>
+
+    {/* Mobile bottom sheet */}
+    <AnimatePresence>
+      {mobileOpen && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.2 }}
+          className="lg:hidden fixed inset-0 z-50"
+        >
+          <div className="absolute inset-0 bg-[#1B2432]/40" onClick={() => setMobileOpen(false)} />
+          <motion.div
+            initial={{ y: '100%' }}
+            animate={{ y: 0 }}
+            exit={{ y: '100%' }}
+            transition={{ duration: 0.3, ease: 'easeOut' }}
+            className="absolute bottom-0 left-0 right-0 bg-white rounded-t-2xl shadow-xl max-h-[75vh] flex flex-col"
+            style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
+          >
+            <div className="flex items-center justify-between px-5 py-3 border-b border-[#C05621]/[0.08]">
+              <div className="flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-[#C05621]" />
+                <span className="font-serif text-sm font-bold text-[#1B2432]">Brief Progress</span>
+                <span className="text-xs text-[#4A5568]">{filledCount}/{items.length}</span>
+              </div>
+              <button onClick={() => setMobileOpen(false)} className="p-2 -mr-2 min-h-[44px] min-w-[44px] flex items-center justify-center">
+                <X className="w-5 h-5 text-[#4A5568]" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-4 space-y-2">
+              {items.map((item) => {
+                const value = briefData[item.field as keyof BriefData];
+                const filled = Array.isArray(value) ? value.length > 0 : !!value;
+                const Icon = item.icon;
+                return (
+                  <div key={item.field} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl ${
+                    filled ? 'bg-[#C05621]/[0.06] border border-[#C05621]/10' : 'bg-white/60 border border-transparent'
+                  }`}>
+                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
+                      filled ? 'bg-[#C05621]/10 text-[#C05621]' : 'bg-gray-100 text-gray-400'
+                    }`}>
+                      {filled ? <Check className="w-4 h-4" /> : <Icon className="w-4 h-4" />}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-xs font-medium text-[#4A5568]">{item.label}</div>
+                      {filled && (
+                        <div className="text-xs text-[#C05621] truncate mt-0.5">
+                          {Array.isArray(value) ? (value as string[]).join(', ') : String(value)}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            {/* Progress bar */}
+            <div className="px-5 py-3 border-t border-[#C05621]/[0.08]">
+              <div className="h-2 rounded-full bg-gray-100 overflow-hidden">
+                <div
+                  className="h-full rounded-full bg-[#C05621] transition-all duration-500"
+                  style={{ width: `${(filledCount / items.length) * 100}%` }}
+                />
+              </div>
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+
+    {/* ── Desktop sidebar ── */}
     <aside className="hidden lg:flex flex-col w-72 min-h-0 border-r border-[#C05621]/[0.08] bg-white/50 p-6">
       <div className="flex items-center gap-2 mb-8">
         <Sparkles className="w-5 h-5 text-[#C05621]" />
@@ -261,6 +352,7 @@ export function ProgressSidebar({
         </div>
       </div>
     </aside>
+    </>
   );
 }
 
