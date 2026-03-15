@@ -83,6 +83,22 @@ export default function ManageReviews() {
       render: (row) => <StarRating rating={row.rating} />,
     },
     {
+      key: "tags",
+      label: "Tags",
+      sortable: false,
+      searchable: false,
+      render: (row) => (
+        <div className="flex flex-wrap gap-1">
+          {(row.tags ?? []).map((tag: string) => (
+            <span key={tag} className="px-1.5 py-0.5 rounded-full bg-blue-50 text-blue-700 text-[10px] font-medium">
+              {tag}
+            </span>
+          ))}
+          {(!row.tags || row.tags.length === 0) && <span className="text-gray-400">—</span>}
+        </div>
+      ),
+    },
+    {
       key: "comment",
       label: "Comment",
       sortable: false,
@@ -182,6 +198,18 @@ export default function ManageReviews() {
                   <StarRating rating={viewReview.rating} />
                 </div>
               </div>
+              {viewReview.tags && viewReview.tags.length > 0 && (
+                <div>
+                  <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">Tags</p>
+                  <div className="flex flex-wrap gap-1.5 mt-1">
+                    {viewReview.tags.map((tag: string) => (
+                      <span key={tag} className="px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 text-xs font-medium">
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
               <div>
                 <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">Comment</p>
                 <p className="text-sm text-gray-900 mt-0.5 whitespace-pre-wrap">

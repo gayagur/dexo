@@ -115,6 +115,7 @@ export interface Review {
   business_id: string;
   rating: number;
   comment: string;
+  tags: string[];
   created_at: string;
 }
 

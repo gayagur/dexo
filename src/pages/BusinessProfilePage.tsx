@@ -8,7 +8,7 @@ import { AppLayout } from '@/components/app/AppLayout';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/hooks/useAuth';
 import { useMessages } from '@/hooks/useMessages';
-import type { Business, Project } from '@/lib/database.types';
+import type { Business, Project, Review } from '@/lib/database.types';
 import {
   ArrowLeft,
   Briefcase,
@@ -57,6 +57,8 @@ const BusinessProfilePage = () => {
   const [showProjectDialog, setShowProjectDialog] = useState(false);
   const [messageContent, setMessageContent] = useState('');
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
+  const [reviews, setReviews] = useState<(Review & { customer_name: string })[]>([]);
+  const [reviewStats, setReviewStats] = useState<{ avg: number; count: number }>({ avg: 0, count: 0 });
 
   // For sending messages to a selected project
   const { sendMessage } = useMessages(selectedProjectId ?? undefined);
@@ -138,6 +140,39 @@ const BusinessProfilePage = () => {
       cancelled = true;
     };
   }, [business?.user_id]);
+
+  // Fetch reviews for this business
+  useEffect(() => {
+    if (!business) return;
+    const fetchReviews = async () => {
+      const { data } = await supabase
+        .from('reviews')
+        .select('*')
+        .eq('business_id', business.id)
+        .order('created_at', { ascending: false });
+      if (!data || data.length === 0) {
+        setReviews([]);
+        setReviewStats({ avg: 0, count: 0 });
+        return;
+      }
+      // Get customer names
+      const customerIds = [...new Set(data.map((r: any) => r.customer_id))];
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('id, name')
+        .in('id', customerIds);
+      const nameMap = new Map((profiles ?? []).map((p: any) => [p.id, p.name]));
+      const enriched = data.map((r: any) => ({
+        ...r,
+        tags: r.tags ?? [],
+        customer_name: nameMap.get(r.customer_id)?.split(' ')[0] || 'Client',
+      }));
+      setReviews(enriched);
+      const avg = data.reduce((sum: number, r: any) => sum + r.rating, 0) / data.length;
+      setReviewStats({ avg: Math.round(avg * 10) / 10, count: data.length });
+    };
+    fetchReviews();
+  }, [business?.id]);
 
   const handleSendMessage = async () => {
     if (!messageContent.trim() || !selectedProjectId) return;
@@ -256,10 +291,10 @@ const BusinessProfilePage = () => {
                       <div className="flex items-center gap-2">
                         <Star className="w-4 h-4 text-amber-500 fill-amber-500" />
                         <span className="text-foreground font-medium">
-                          {creatorProfile?.rating ?? business.rating}
+                          {reviewStats.count > 0 ? reviewStats.avg : (creatorProfile?.rating ?? business.rating)}
                         </span>
                         <span>
-                          ({creatorProfile?.reviewCount ?? 'New'} reviews)
+                          ({reviewStats.count > 0 ? `${reviewStats.count} review${reviewStats.count !== 1 ? 's' : ''}` : 'New'})
                         </span>
                       </div>
                       <div className="flex items-center gap-2">
@@ -478,6 +513,53 @@ const BusinessProfilePage = () => {
                 </div>
               </div>
             ) : null}
+
+            {/* ─── Reviews Section ─── */}
+            {reviews.length > 0 && (
+              <div>
+                <div className="flex items-center gap-3 mb-5">
+                  <h2 className="text-xl font-serif">Reviews</h2>
+                  <div className="flex items-center gap-1.5 text-sm">
+                    <Star className="w-4 h-4 fill-amber-400 text-amber-400" />
+                    <span className="font-semibold">{reviewStats.avg}</span>
+                    <span className="text-muted-foreground">({reviewStats.count} review{reviewStats.count !== 1 ? 's' : ''})</span>
+                  </div>
+                </div>
+                <div className="space-y-4">
+                  {reviews.map((review) => (
+                    <Card key={review.id}>
+                      <CardContent className="p-5">
+                        <div className="flex items-start justify-between mb-2">
+                          <div>
+                            <span className="text-sm font-medium text-foreground">{review.customer_name}</span>
+                            <div className="flex items-center gap-0.5 mt-0.5">
+                              {[1, 2, 3, 4, 5].map((i) => (
+                                <Star key={i} className={`w-3.5 h-3.5 ${i <= review.rating ? 'fill-amber-400 text-amber-400' : 'text-gray-300'}`} />
+                              ))}
+                            </div>
+                          </div>
+                          <span className="text-xs text-muted-foreground">
+                            {new Date(review.created_at).toLocaleDateString()}
+                          </span>
+                        </div>
+                        {review.tags && review.tags.length > 0 && (
+                          <div className="flex flex-wrap gap-1.5 mb-2">
+                            {review.tags.map((tag) => (
+                              <span key={tag} className="px-2 py-0.5 rounded-full bg-primary/10 text-primary text-xs font-medium">
+                                {tag}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                        {review.comment && (
+                          <p className="text-sm text-muted-foreground leading-relaxed">{review.comment}</p>
+                        )}
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Sidebar */}

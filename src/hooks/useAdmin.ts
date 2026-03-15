@@ -24,6 +24,7 @@ export interface AdminProject extends Project {
 export interface AdminReview extends Review {
   customer_name?: string;
   business_name?: string;
+  tags: string[];
 }
 
 export interface AdminAnalytics {

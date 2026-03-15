@@ -12,7 +12,8 @@ import { useMessages } from '@/hooks/useMessages';
 import { useImageUpload } from '@/hooks/useImageUpload';
 import { AppLayout } from '@/components/app/AppLayout';
 import { categories, styleOptions } from '@/lib/data';
-import type { Project } from '@/lib/database.types';
+import type { Project, Review } from '@/lib/database.types';
+import { createNotification } from '@/lib/notifications';
 import {
   ArrowLeft, Send, DollarSign, Clock, Star, Check,
   Loader2, MessageSquare, Image as ImageIcon, Tag, Wallet, Sparkles,
@@ -166,6 +167,16 @@ const ProjectDetailPage = () => {
   const [saving, setSaving] = useState(false);
   const [editDraft, setEditDraft] = useState<Partial<Project>>({});
 
+  // Review state
+  const [existingReview, setExistingReview] = useState<Review | null>(null);
+  const [reviewChecked, setReviewChecked] = useState(false);
+  const [showReviewForm, setShowReviewForm] = useState(false);
+  const [reviewRating, setReviewRating] = useState(0);
+  const [reviewHover, setReviewHover] = useState(0);
+  const [reviewComment, setReviewComment] = useState('');
+  const [reviewTags, setReviewTags] = useState<string[]>([]);
+  const [submittingReview, setSubmittingReview] = useState(false);
+
   const loading = authLoading || (!fetched && !!user);
   const { uploading, uploadImage } = useImageUpload();
 
@@ -229,6 +240,69 @@ const ProjectDetailPage = () => {
     };
     fetchBusinesses();
   }, [offers]);
+
+  // ─── Check for existing review ─────────────────────────
+  useEffect(() => {
+    if (!id || !user || !project || project.status !== 'completed' || !isOwner) return;
+    const checkReview = async () => {
+      const { data } = await supabase
+        .from('reviews')
+        .select('*')
+        .eq('project_id', id)
+        .eq('customer_id', user.id)
+        .maybeSingle();
+      setExistingReview(data as Review | null);
+      setReviewChecked(true);
+    };
+    checkReview();
+  }, [id, user, project?.status]);
+
+  const REVIEW_TAG_OPTIONS = [
+    'Professional', 'Creative', 'On time',
+    'Great communication', 'Exceeded expectations', 'Good value',
+  ];
+
+  const handleSubmitReview = async () => {
+    if (!id || !user || !acceptedOffer || reviewRating === 0) return;
+    if (reviewComment.trim() && reviewComment.trim().length < 10) {
+      toast({ title: 'Review too short', description: 'Please write at least 10 characters.', variant: 'destructive' });
+      return;
+    }
+
+    setSubmittingReview(true);
+    const { error } = await supabase.from('reviews').insert({
+      project_id: id,
+      customer_id: user.id,
+      business_id: acceptedOffer.business_id,
+      rating: reviewRating,
+      comment: reviewComment.trim() || null,
+      tags: reviewTags,
+    });
+
+    if (error) {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+      setSubmittingReview(false);
+      return;
+    }
+
+    // Update business average rating
+    const { data: allReviews } = await supabase
+      .from('reviews')
+      .select('rating')
+      .eq('business_id', acceptedOffer.business_id);
+    if (allReviews && allReviews.length > 0) {
+      const avg = allReviews.reduce((sum, r) => sum + r.rating, 0) / allReviews.length;
+      await supabase
+        .from('businesses')
+        .update({ rating: Math.round(avg * 10) / 10 })
+        .eq('id', acceptedOffer.business_id);
+    }
+
+    toast({ title: 'Review submitted!', description: 'Thank you for your feedback.' });
+    setExistingReview({ id: '', project_id: id, customer_id: user.id, business_id: acceptedOffer.business_id, rating: reviewRating, comment: reviewComment, tags: reviewTags, created_at: new Date().toISOString() });
+    setShowReviewForm(false);
+    setSubmittingReview(false);
+  };
 
   // ─── Edit Handlers ──────────────────────────────────────
   const startEditing = () => {
@@ -357,6 +431,18 @@ const ProjectDetailPage = () => {
     } else {
       setProject(prev => prev ? { ...prev, status: 'completed' } : prev);
       toast({ title: 'Project completed!', description: 'This project has been marked as finished.' });
+
+      // Send review request notification to the client
+      if (user && acceptedOffer) {
+        const creatorName = businessMap[acceptedOffer.business_id]?.name || 'your creator';
+        createNotification({
+          userId: user.id,
+          type: 'info',
+          title: 'Your project is complete!',
+          message: `How was your experience with ${creatorName}? Leave a review to help others.`,
+          metadata: { projectId: id, businessId: acceptedOffer.business_id },
+        });
+      }
     }
     setCompleting(false);
   };
@@ -501,6 +587,135 @@ const ProjectDetailPage = () => {
                     <><Check className="h-4 w-4" />Mark as Complete</>
                   )}
                 </Button>
+              )}
+
+              {/* ─── Review Section (completed projects) ─── */}
+              {project.status === 'completed' && isOwner && reviewChecked && !existingReview && !showReviewForm && (
+                <div className="mt-6 p-4 rounded-xl bg-amber-50 border border-amber-200">
+                  <div className="flex items-start gap-3">
+                    <Star className="w-5 h-5 text-amber-500 mt-0.5 shrink-0" />
+                    <div>
+                      <h3 className="font-semibold text-foreground">How was your experience?</h3>
+                      <p className="text-sm text-muted-foreground mt-0.5">Leave a review to help other clients find great creators.</p>
+                      <Button size="sm" className="mt-3 gap-2" onClick={() => setShowReviewForm(true)}>
+                        <Star className="w-3.5 h-3.5" />
+                        Leave a Review
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {project.status === 'completed' && isOwner && existingReview && (
+                <div className="mt-6 p-4 rounded-xl bg-green-50 border border-green-200">
+                  <div className="flex items-start gap-3">
+                    <Check className="w-5 h-5 text-green-600 mt-0.5 shrink-0" />
+                    <div>
+                      <h3 className="font-semibold text-foreground">Review submitted</h3>
+                      <div className="flex items-center gap-1 mt-1">
+                        {[1, 2, 3, 4, 5].map((i) => (
+                          <Star key={i} className={`w-4 h-4 ${i <= existingReview.rating ? 'fill-amber-400 text-amber-400' : 'text-gray-300'}`} />
+                        ))}
+                      </div>
+                      {existingReview.comment && (
+                        <p className="text-sm text-muted-foreground mt-1">{existingReview.comment}</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {showReviewForm && (
+                <Card className="mt-6">
+                  <CardContent className="p-5 space-y-5">
+                    <h3 className="font-serif text-lg">Leave a Review</h3>
+
+                    {/* Star Rating */}
+                    <div>
+                      <label className="text-sm font-medium text-foreground">Rating</label>
+                      <div className="flex items-center gap-1 mt-1.5">
+                        {[1, 2, 3, 4, 5].map((i) => (
+                          <button
+                            key={i}
+                            type="button"
+                            onMouseEnter={() => setReviewHover(i)}
+                            onMouseLeave={() => setReviewHover(0)}
+                            onClick={() => setReviewRating(i)}
+                            className="p-0.5 transition-transform hover:scale-110"
+                          >
+                            <Star className={`w-7 h-7 ${
+                              i <= (reviewHover || reviewRating)
+                                ? 'fill-amber-400 text-amber-400'
+                                : 'text-gray-300'
+                            }`} />
+                          </button>
+                        ))}
+                        {reviewRating > 0 && (
+                          <span className="text-sm text-muted-foreground ml-2">
+                            {['', 'Poor', 'Fair', 'Good', 'Very Good', 'Excellent'][reviewRating]}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Tags */}
+                    <div>
+                      <label className="text-sm font-medium text-foreground">What stood out?</label>
+                      <div className="flex flex-wrap gap-2 mt-1.5">
+                        {REVIEW_TAG_OPTIONS.map((tag) => {
+                          const active = reviewTags.includes(tag);
+                          return (
+                            <button
+                              key={tag}
+                              type="button"
+                              onClick={() => setReviewTags(active ? reviewTags.filter(t => t !== tag) : [...reviewTags, tag])}
+                              className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                                active
+                                  ? 'bg-primary text-primary-foreground'
+                                  : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'
+                              }`}
+                            >
+                              {tag}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* Comment */}
+                    <div>
+                      <label className="text-sm font-medium text-foreground">Written review (optional)</label>
+                      <Textarea
+                        value={reviewComment}
+                        onChange={(e) => setReviewComment(e.target.value)}
+                        placeholder="Share your experience..."
+                        className="mt-1.5 min-h-[80px]"
+                      />
+                      {reviewComment.trim().length > 0 && reviewComment.trim().length < 10 && (
+                        <p className="text-xs text-destructive mt-1">Minimum 10 characters</p>
+                      )}
+                    </div>
+
+                    {/* Actions */}
+                    <div className="flex justify-end gap-2 pt-1">
+                      <Button variant="outline" size="sm" onClick={() => setShowReviewForm(false)}>
+                        Cancel
+                      </Button>
+                      <Button
+                        size="sm"
+                        onClick={handleSubmitReview}
+                        disabled={reviewRating === 0 || submittingReview || (reviewComment.trim().length > 0 && reviewComment.trim().length < 10)}
+                        className="gap-2"
+                      >
+                        {submittingReview ? (
+                          <><Loader2 className="w-3.5 h-3.5 animate-spin" />Submitting...</>
+                        ) : (
+                          'Submit Review'
+                        )}
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
               )}
             </div>
 
