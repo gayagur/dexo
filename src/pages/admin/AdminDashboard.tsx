@@ -136,32 +136,42 @@ export default function AdminDashboard() {
     };
   }, [fetchAnalytics]);
 
-  // Fetch GA4 metrics from edge function
+  // Fetch GA4 metrics from edge function (using fetch directly for better error visibility)
   const fetchGA4 = async () => {
     setGa4Loading(true);
     setGa4Error(null);
     try {
-      const { data, error } = await supabase.functions.invoke("ga4-metrics");
-
-      if (error) {
-        // Try to extract the actual error message from the response
-        let msg = "Failed to load GA4 data";
-        try {
-          const body = error.context ? await error.context.json() : null;
-          if (body?.error) msg = body.hint || body.error;
-        } catch {
-          msg = error.message || msg;
-        }
-        setGa4Error(msg);
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        setGa4Error("Not authenticated");
         return;
       }
 
-      if (data?.error) {
-        setGa4Error(data.hint || data.error);
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+      const res = await fetch(`${supabaseUrl}/functions/v1/ga4-metrics`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+          apikey: supabaseKey,
+        },
+      });
+
+      const body = await res.json();
+
+      if (!res.ok) {
+        setGa4Error(body?.error || body?.message || `HTTP ${res.status}`);
         return;
       }
 
-      setGa4(data as GA4Metrics);
+      if (body?.error) {
+        setGa4Error(body.hint || body.error);
+        return;
+      }
+
+      setGa4(body as GA4Metrics);
     } catch (err: any) {
       console.error("[admin] GA4 fetch error:", err);
       setGa4Error(err.message || "Failed to load GA4 data");
