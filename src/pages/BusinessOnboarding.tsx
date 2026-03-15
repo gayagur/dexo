@@ -141,21 +141,46 @@ const BusinessOnboarding = () => {
         return;
       }
 
-      // Auto-fill form fields
+      console.log('[ig-import] Full result:', result);
+
+      // Auto-fill ALL form fields from Instagram + AI suggestions
       setFormData(prev => ({
         ...prev,
         name: result.fullName || prev.name,
         description: result.bio || prev.description,
+        tagline: result.suggestedTagline || prev.tagline,
+        location: result.location || prev.location,
+        categories: (result.suggestedCategories?.length > 0) ? result.suggestedCategories : prev.categories,
+        styles: (result.suggestedStyles?.length > 0) ? result.suggestedStyles : prev.styles,
         portfolio: [
           ...prev.portfolio,
           ...(result.portfolioImages || []),
         ],
       }));
 
+      // Update profile photo in user metadata if available
+      if (result.profilePhoto && user) {
+        supabase.from('profiles')
+          .update({ avatar_url: result.profilePhoto })
+          .eq('id', user.id)
+          .then(() => {});
+      }
+
       setIgImported(true);
+
+      const filledFields = [
+        result.fullName && 'name',
+        result.bio && 'bio',
+        result.suggestedTagline && 'tagline',
+        result.location && 'location',
+        result.suggestedCategories?.length && 'categories',
+        result.suggestedStyles?.length && 'styles',
+        result.portfolioImages?.length && `${result.portfolioImages.length} portfolio photos`,
+      ].filter(Boolean);
+
       toast({
         title: 'Profile imported!',
-        description: "We found your profile! Review and edit your details below.",
+        description: `Auto-filled: ${filledFields.join(', ')}. Review and edit below.`,
       });
 
       // Auto-advance to step 2 (business details)
@@ -271,7 +296,7 @@ const BusinessOnboarding = () => {
                   <div>
                     <h3 className="font-semibold">Import from Instagram</h3>
                     <p className="text-sm text-muted-foreground">
-                      We'll fill in your name, bio, and portfolio images automatically.
+                      We'll fill in your name, bio, portfolio, categories, styles, and tagline automatically.
                     </p>
                   </div>
                 </div>
@@ -329,7 +354,7 @@ const BusinessOnboarding = () => {
                 {igImported && (
                   <div className="inline-flex items-center gap-1.5 mt-3 px-3 py-1.5 rounded-full bg-green-100 text-green-700 text-xs font-medium">
                     <Sparkles className="w-3.5 h-3.5" />
-                    Imported from Instagram — edit as needed
+                    Imported from Instagram + AI suggestions — edit as needed
                   </div>
                 )}
               </div>
