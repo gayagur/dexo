@@ -4,6 +4,7 @@ export type OfferStatus = "pending" | "accepted" | "declined";
 export type SenderType = "customer" | "business";
 export type BusinessStatus = "pending" | "approved" | "rejected" | "suspended";
 export type NotificationType = "creator_approved" | "creator_rejected" | "system" | "info";
+export type MilestoneStatus = "pending" | "in_progress" | "submitted" | "approved" | "payment_requested" | "paid" | "released" | "disputed";
 
 export interface Profile {
   id: string;
@@ -119,6 +120,19 @@ export interface Review {
   created_at: string;
 }
 
+export interface Milestone {
+  id: string;
+  project_id: string;
+  milestone_number: 1 | 2 | 3;
+  title: string;
+  percentage: number;
+  amount: number;
+  status: MilestoneStatus;
+  paid_at: string | null;
+  released_at: string | null;
+  created_at: string;
+}
+
 export interface Database {
   public: {
     Tables: {
@@ -131,6 +145,7 @@ export interface Database {
       image_versions: { Row: ImageVersion; Insert: Omit<ImageVersion, "id" | "created_at">; Update: Partial<Omit<ImageVersion, "id">> };
       notifications: { Row: Notification; Insert: Omit<Notification, "id" | "created_at" | "read">; Update: Partial<Omit<Notification, "id">> };
       reviews: { Row: Review; Insert: Omit<Review, "id" | "created_at">; Update: Partial<Omit<Review, "id">> };
+      milestones: { Row: Milestone; Insert: Omit<Milestone, "id" | "created_at">; Update: Partial<Omit<Milestone, "id">> };
     };
   };
 }

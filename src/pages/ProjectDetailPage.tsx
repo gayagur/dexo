@@ -12,8 +12,10 @@ import { useMessages } from '@/hooks/useMessages';
 import { useImageUpload } from '@/hooks/useImageUpload';
 import { AppLayout } from '@/components/app/AppLayout';
 import { categories, styleOptions } from '@/lib/data';
-import type { Project, Review } from '@/lib/database.types';
+import type { Project, Review, Milestone } from '@/lib/database.types';
 import { createNotification } from '@/lib/notifications';
+import { ProgressStepper } from '@/components/project/ProgressStepper';
+import { MilestoneCard } from '@/components/project/MilestoneCard';
 import {
   ArrowLeft, Send, DollarSign, Clock, Star, Check,
   Loader2, MessageSquare, Image as ImageIcon, Tag, Wallet, Sparkles,
@@ -177,6 +179,9 @@ const ProjectDetailPage = () => {
   const [reviewTags, setReviewTags] = useState<string[]>([]);
   const [submittingReview, setSubmittingReview] = useState(false);
 
+  // Milestones state
+  const [milestones, setMilestones] = useState<Milestone[]>([]);
+
   const loading = authLoading || (!fetched && !!user);
   const { uploading, uploadImage } = useImageUpload();
 
@@ -256,6 +261,20 @@ const ProjectDetailPage = () => {
     };
     checkReview();
   }, [id, user, project?.status]);
+
+  // ─── Fetch milestones ────────────────────────────────────
+  useEffect(() => {
+    if (!id || !project) return;
+    const fetchMilestones = async () => {
+      const { data } = await supabase
+        .from('milestones')
+        .select('*')
+        .eq('project_id', id)
+        .order('milestone_number', { ascending: true });
+      setMilestones((data as Milestone[]) ?? []);
+    };
+    fetchMilestones();
+  }, [id, project?.status]);
 
   const REVIEW_TAG_OPTIONS = [
     'Professional', 'Creative', 'On time',
@@ -448,6 +467,7 @@ const ProjectDetailPage = () => {
   };
 
   const handleAcceptOffer = async (offerId: string) => {
+    const offer = offers.find(o => o.id === offerId);
     const { error } = await supabase
       .from('offers')
       .update({ status: 'accepted' })
@@ -463,6 +483,21 @@ const ProjectDetailPage = () => {
       .update({ status: 'in_progress' })
       .eq('id', id);
     setProject(prev => prev ? { ...prev, status: 'in_progress' } : prev);
+
+    // Auto-create 3 milestones based on offer price
+    if (offer && id) {
+      const price = offer.price;
+      const milestoneDefs = [
+        { milestone_number: 1, title: 'Design Concept & Planning', percentage: 10, amount: +(price * 0.10).toFixed(2) },
+        { milestone_number: 2, title: 'Development & Progress Review', percentage: 30, amount: +(price * 0.30).toFixed(2) },
+        { milestone_number: 3, title: 'Final Delivery & Approval', percentage: 60, amount: +(price * 0.60).toFixed(2) },
+      ];
+      const { data: newMilestones } = await supabase
+        .from('milestones')
+        .insert(milestoneDefs.map(m => ({ ...m, project_id: id, status: 'pending' })))
+        .select();
+      if (newMilestones) setMilestones(newMilestones as Milestone[]);
+    }
 
     toast({
       title: 'Offer accepted!',
@@ -541,6 +576,11 @@ const ProjectDetailPage = () => {
             <Pencil className="w-4 h-4 shrink-0" />
             You're editing this project. Click fields to modify them, then save your changes.
           </div>
+        )}
+
+        {/* Progress Stepper */}
+        {project.status !== 'draft' && (
+          <ProgressStepper status={project.status} />
         )}
 
         <div className="grid lg:grid-cols-3 gap-8">
@@ -1009,6 +1049,25 @@ const ProjectDetailPage = () => {
                 </div>
               </CardContent>
             </Card>
+
+            {/* Milestones */}
+            {milestones.length > 0 && (
+              <Card>
+                <CardContent className="p-5">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="font-serif text-lg">Milestones</h3>
+                    <span className="text-xs text-muted-foreground">
+                      {milestones.filter(m => ['approved', 'paid', 'released'].includes(m.status)).length}/{milestones.length} done
+                    </span>
+                  </div>
+                  <div className="space-y-3">
+                    {milestones.map(m => (
+                      <MilestoneCard key={m.id} milestone={m} />
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
 
             {/* Inspiration Images */}
             <Card>
