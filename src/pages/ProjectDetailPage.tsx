@@ -262,7 +262,7 @@ const ProjectDetailPage = () => {
     checkReview();
   }, [id, user, project?.status]);
 
-  // ─── Fetch milestones ────────────────────────────────────
+  // ─── Fetch milestones (+ backfill for existing projects) ──
   useEffect(() => {
     if (!id || !project) return;
     const fetchMilestones = async () => {
@@ -271,7 +271,36 @@ const ProjectDetailPage = () => {
         .select('*')
         .eq('project_id', id)
         .order('milestone_number', { ascending: true });
-      setMilestones((data as Milestone[]) ?? []);
+
+      if (data && data.length > 0) {
+        setMilestones(data as Milestone[]);
+        return;
+      }
+
+      // Backfill: create milestones for existing in_progress/completed projects
+      if (['in_progress', 'completed'].includes(project.status)) {
+        const { data: accepted } = await supabase
+          .from('offers')
+          .select('price')
+          .eq('project_id', id)
+          .eq('status', 'accepted')
+          .single();
+
+        if (accepted) {
+          const price = accepted.price;
+          const defs = [
+            { milestone_number: 1, title: 'Design Concept & Planning', percentage: 10, amount: +(price * 0.10).toFixed(2) },
+            { milestone_number: 2, title: 'Development & Progress Review', percentage: 30, amount: +(price * 0.30).toFixed(2) },
+            { milestone_number: 3, title: 'Final Delivery & Approval', percentage: 60, amount: +(price * 0.60).toFixed(2) },
+          ];
+          const status = project.status === 'completed' ? 'approved' : 'pending';
+          const { data: created } = await supabase
+            .from('milestones')
+            .insert(defs.map(m => ({ ...m, project_id: id, status })))
+            .select();
+          if (created) setMilestones(created as Milestone[]);
+        }
+      }
     };
     fetchMilestones();
   }, [id, project?.status]);
