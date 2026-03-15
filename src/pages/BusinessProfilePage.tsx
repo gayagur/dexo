@@ -633,87 +633,76 @@ const BusinessProfilePage = () => {
 
       {/* Send Project Dialog */}
       <Dialog open={showProjectDialog} onOpenChange={setShowProjectDialog}>
-        <DialogContent className="max-h-[85vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Send a Project to {business.name}</DialogTitle>
-            <DialogDescription>
-              Select one of your projects to share with this creator.
+        <DialogContent className="max-w-md gap-2 p-4">
+          <DialogHeader className="space-y-1">
+            <DialogTitle className="text-base">Send a Project to {business.name}</DialogTitle>
+            <DialogDescription className="text-xs">
+              Select a project to share with this creator.
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4">
-            {userProjects.length > 0 ? (
-              <div className="space-y-2 max-h-[50vh] overflow-y-auto -mx-1 px-1">
-                {userProjects.map((project) => {
-                  const isSelected = selectedProjectId === project.id;
-                  return (
-                    <button
-                      key={project.id}
-                      onClick={() => setSelectedProjectId(project.id)}
-                      className={`w-full flex items-center gap-3 p-4 rounded-lg border text-left
-                        outline-none transition-all duration-150
-                        focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1
-                        ${isSelected
-                          ? 'border-primary bg-primary/5 shadow-sm'
-                          : 'border-border/60 hover:border-primary/40 hover:bg-accent/30'
-                        }`}
-                    >
-                      <div className="flex-1 min-w-0">
-                        <h4 className="font-medium text-foreground leading-snug">
-                          {project.title}
-                        </h4>
-                        {project.description && (
-                          <p className="text-sm text-muted-foreground mt-0.5 truncate">
-                            {project.description}
-                          </p>
-                        )}
-                        {(project.budget_min || project.status) && (
-                          <div className="flex items-center gap-3 mt-1.5">
-                            {project.budget_min && (
-                              <span className="text-xs text-muted-foreground">
-                                ${project.budget_min.toLocaleString()}
-                                {project.budget_max ? `–$${project.budget_max.toLocaleString()}` : '+'}
-                              </span>
-                            )}
-                            {project.status && (
-                              <span className="text-xs px-2 py-0.5 rounded-full bg-accent/40 text-accent-foreground capitalize">
-                                {project.status}
-                              </span>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                      <div className={`flex-shrink-0 w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors
-                        ${isSelected
-                          ? 'border-primary bg-primary text-primary-foreground'
-                          : 'border-border/80'
-                        }`}>
-                        {isSelected && <Check className="w-3 h-3" />}
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            ) : (
-              <div className="text-center py-8">
-                <p className="text-muted-foreground mb-4">
-                  You don't have any projects yet.
-                </p>
-                <Button onClick={() => navigate('/create-project')}>
-                  Create a Project
-                </Button>
-              </div>
-            )}
-            {userProjects.length > 0 && (
-              <div className="flex justify-end gap-3 pt-2 border-t border-border/40">
-                <Button variant="outline" onClick={() => setShowProjectDialog(false)}>
-                  Cancel
-                </Button>
-                <Button onClick={handleSendProject} disabled={!selectedProjectId}>
-                  Send Project
-                </Button>
-              </div>
-            )}
-          </div>
+          {userProjects.length > 0 ? (
+            <div className="space-y-1.5 max-h-[45vh] overflow-y-auto -mx-1 px-1">
+              {userProjects.map((project) => {
+                const isSelected = selectedProjectId === project.id;
+                return (
+                  <button
+                    key={project.id}
+                    onClick={() => setSelectedProjectId(project.id)}
+                    className={`w-full flex items-center gap-2 px-3 py-2 rounded-md border text-left
+                      outline-none transition-all duration-150
+                      focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1
+                      ${isSelected
+                        ? 'border-primary bg-primary/5 shadow-sm'
+                        : 'border-border/60 hover:border-primary/40 hover:bg-accent/30'
+                      }`}
+                  >
+                    <div className="flex-1 min-w-0 flex items-center gap-2">
+                      <span className="text-sm font-medium text-foreground truncate">
+                        {project.title}
+                      </span>
+                      {project.status && (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-accent/40 text-accent-foreground capitalize flex-shrink-0">
+                          {project.status}
+                        </span>
+                      )}
+                      {project.budget_min && (
+                        <span className="text-xs text-muted-foreground flex-shrink-0 ml-auto">
+                          ${project.budget_min.toLocaleString()}
+                          {project.budget_max ? `–$${project.budget_max.toLocaleString()}` : '+'}
+                        </span>
+                      )}
+                    </div>
+                    <div className={`flex-shrink-0 w-4 h-4 rounded-full border-2 flex items-center justify-center transition-colors
+                      ${isSelected
+                        ? 'border-primary bg-primary text-primary-foreground'
+                        : 'border-border/80'
+                      }`}>
+                      {isSelected && <Check className="w-2.5 h-2.5" />}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="text-center py-6">
+              <p className="text-sm text-muted-foreground mb-3">
+                You don't have any projects yet.
+              </p>
+              <Button size="sm" onClick={() => navigate('/create-project')}>
+                Create a Project
+              </Button>
+            </div>
+          )}
+          {userProjects.length > 0 && (
+            <div className="flex justify-end gap-2 pt-2 border-t border-border/40">
+              <Button variant="outline" size="sm" onClick={() => setShowProjectDialog(false)}>
+                Cancel
+              </Button>
+              <Button size="sm" onClick={handleSendProject} disabled={!selectedProjectId}>
+                Send Project
+              </Button>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </AppLayout>
