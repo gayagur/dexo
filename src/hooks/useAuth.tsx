@@ -314,12 +314,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           return { error: msg };
         }
 
-        // For dual-role users, don't treat role mismatch as error — just use their active_role
+        // Handle role mismatch: user selected a different role than their DB role
+        // Update active_role in DB immediately so onAuthStateChange reads the correct value
         if (data.user && selectedRole) {
           const { role: actualRole } = await fetchRole(data.user);
           if (actualRole && actualRole !== selectedRole) {
-            // Check if they have the other role activated (dual-role user)
-            // For now, still report mismatch so auth page can handle it
+            // Switch active_role in DB before onAuthStateChange fires
+            await supabase
+              .from("profiles")
+              .update({ active_role: selectedRole })
+              .eq("id", data.user.id);
+            // Update local state immediately
+            setState((prev) => ({ ...prev, activeRole: selectedRole }));
             return { error: null, roleMismatch: { actualRole } };
           }
         }

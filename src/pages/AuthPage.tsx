@@ -186,10 +186,8 @@ const AuthPage = () => {
         }
 
         // Role mismatch: user's DB role differs from selected role
+        // signIn already switched active_role in DB, just navigate
         if (result.roleMismatch) {
-          // User wants to use a different role — switch their active role
-          // e.g. customer wanting to become a creator, or vice versa
-          await switchRole(selectedRole!);
           toast({
             title: "Welcome back!",
             description: selectedRole === 'business'
