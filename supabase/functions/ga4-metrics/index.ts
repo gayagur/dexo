@@ -1,49 +1,27 @@
 import { corsHeaders } from "../_shared/cors.ts";
 import { verifyAuth } from "../_shared/auth.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
-import {
-  create,
-  getNumericDate,
-} from "https://deno.land/x/djwt@v3.0.2/mod.ts";
+import { SignJWT, importPKCS8 } from "https://esm.sh/jose@5.2.0";
 
 // ─── Helpers ──────────────────────────────────────────────
-
-/** Import a PEM private key for RS256 signing */
-async function importPrivateKey(pem: string): Promise<CryptoKey> {
-  const pemContents = pem
-    .replace(/-----BEGIN PRIVATE KEY-----/, "")
-    .replace(/-----END PRIVATE KEY-----/, "")
-    .replace(/\s/g, "");
-
-  const binaryDer = Uint8Array.from(atob(pemContents), (c) => c.charCodeAt(0));
-
-  return await crypto.subtle.importKey(
-    "pkcs8",
-    binaryDer,
-    { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" },
-    false,
-    ["sign"],
-  );
-}
 
 /** Create a signed JWT and exchange it for a Google access token */
 async function getAccessToken(
   serviceAccountKey: { client_email: string; private_key: string },
 ): Promise<string> {
-  const now = Math.floor(Date.now() / 1000);
-  const key = await importPrivateKey(serviceAccountKey.private_key);
-
-  const jwt = await create(
-    { alg: "RS256", typ: "JWT" },
-    {
-      iss: serviceAccountKey.client_email,
-      scope: "https://www.googleapis.com/auth/analytics.readonly",
-      aud: "https://oauth2.googleapis.com/token",
-      iat: now,
-      exp: now + 3600,
-    },
-    key,
+  const privateKey = await importPKCS8(
+    serviceAccountKey.private_key,
+    "RS256",
   );
+
+  const jwt = await new SignJWT({
+    iss: serviceAccountKey.client_email,
+    scope: "https://www.googleapis.com/auth/analytics.readonly",
+    aud: "https://oauth2.googleapis.com/token",
+  })
+    .setProtectedHeader({ alg: "RS256", typ: "JWT" })
+    .setIssuedAt()
+    .setExpirationTime("1h")
+    .sign(privateKey);
 
   const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
     method: "POST",
@@ -56,8 +34,10 @@ async function getAccessToken(
 
   const tokenData = await tokenRes.json();
   if (!tokenData.access_token) {
-    console.error("[ga4] Token exchange failed:", tokenData);
-    throw new Error("Failed to obtain access token");
+    console.error("[ga4] Token exchange failed:", JSON.stringify(tokenData));
+    throw new Error(
+      `Failed to obtain access token: ${tokenData.error_description || tokenData.error || "unknown"}`,
+    );
   }
 
   return tokenData.access_token;
@@ -121,7 +101,10 @@ Deno.serve(async (req) => {
     if (!profile?.is_admin) {
       return new Response(
         JSON.stringify({ error: "Admin access required" }),
-        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        {
+          status: 200,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
       );
     }
 
@@ -133,9 +116,13 @@ Deno.serve(async (req) => {
       return new Response(
         JSON.stringify({
           error: "GA4 not configured",
-          hint: "Set GA_SERVICE_ACCOUNT_KEY and GA_PROPERTY_ID in Supabase secrets",
+          hint:
+            "Set GA_SERVICE_ACCOUNT_KEY and GA_PROPERTY_ID in Supabase secrets",
         }),
-        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        {
+          status: 200,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
       );
     }
 
@@ -145,14 +132,20 @@ Deno.serve(async (req) => {
     } catch {
       return new Response(
         JSON.stringify({ error: "Invalid GA_SERVICE_ACCOUNT_KEY JSON" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        {
+          status: 200,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
       );
     }
 
     // 3. Get access token
+    console.log("[ga4] Requesting access token...");
     const accessToken = await getAccessToken(serviceAccountKey);
+    console.log("[ga4] Access token obtained");
 
     // 4. Run all reports in parallel
+    console.log("[ga4] Running 8 parallel reports for property:", propertyId);
     const [
       activeUsersToday,
       activeUsersWeek,
@@ -163,32 +156,26 @@ Deno.serve(async (req) => {
       topPagesReport,
       newVsReturningReport,
     ] = await Promise.all([
-      // Active users today
       runReport(propertyId, accessToken, {
         dateRanges: [{ startDate: "today", endDate: "today" }],
         metrics: [{ name: "activeUsers" }],
       }),
-      // Active users this week
       runReport(propertyId, accessToken, {
         dateRanges: [{ startDate: "7daysAgo", endDate: "today" }],
         metrics: [{ name: "activeUsers" }],
       }),
-      // Page views last 7 days
       runReport(propertyId, accessToken, {
         dateRanges: [{ startDate: "7daysAgo", endDate: "today" }],
         metrics: [{ name: "screenPageViews" }],
       }),
-      // Average session duration
       runReport(propertyId, accessToken, {
         dateRanges: [{ startDate: "7daysAgo", endDate: "today" }],
         metrics: [{ name: "averageSessionDuration" }],
       }),
-      // Bounce rate
       runReport(propertyId, accessToken, {
         dateRanges: [{ startDate: "7daysAgo", endDate: "today" }],
         metrics: [{ name: "bounceRate" }],
       }),
-      // Top sources
       runReport(propertyId, accessToken, {
         dateRanges: [{ startDate: "7daysAgo", endDate: "today" }],
         dimensions: [{ name: "sessionSource" }],
@@ -196,21 +183,22 @@ Deno.serve(async (req) => {
         orderBys: [{ metric: { metricName: "sessions" }, desc: true }],
         limit: 5,
       }),
-      // Top pages
       runReport(propertyId, accessToken, {
         dateRanges: [{ startDate: "7daysAgo", endDate: "today" }],
         dimensions: [{ name: "pagePath" }],
         metrics: [{ name: "screenPageViews" }],
-        orderBys: [{ metric: { metricName: "screenPageViews" }, desc: true }],
+        orderBys: [
+          { metric: { metricName: "screenPageViews" }, desc: true },
+        ],
         limit: 5,
       }),
-      // New vs returning users
       runReport(propertyId, accessToken, {
         dateRanges: [{ startDate: "7daysAgo", endDate: "today" }],
         dimensions: [{ name: "newVsReturning" }],
         metrics: [{ name: "activeUsers" }],
       }),
     ]);
+    console.log("[ga4] All reports complete");
 
     // 5. Parse results
     const avgSessionSec = parseFloat(
@@ -220,19 +208,16 @@ Deno.serve(async (req) => {
       bounceRateReport?.rows?.[0]?.metricValues?.[0]?.value ?? "0",
     );
 
-    // Top sources
     const topSources = (topSourcesReport?.rows ?? []).map((row: any) => ({
       source: row.dimensionValues[0].value || "(direct)",
       sessions: parseInt(row.metricValues[0].value, 10),
     }));
 
-    // Top pages
     const topPages = (topPagesReport?.rows ?? []).map((row: any) => ({
       path: row.dimensionValues[0].value,
       views: parseInt(row.metricValues[0].value, 10),
     }));
 
-    // New vs returning
     let newUsers = 0;
     let returningUsers = 0;
     for (const row of newVsReturningReport?.rows ?? []) {
@@ -259,10 +244,13 @@ Deno.serve(async (req) => {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (err: any) {
-    console.error("[ga4-metrics] Error:", err.message);
+    console.error("[ga4-metrics] Error:", err.message, err.stack);
     return new Response(
       JSON.stringify({ error: err.message }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      },
     );
   }
 });

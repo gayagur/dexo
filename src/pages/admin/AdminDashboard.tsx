@@ -141,17 +141,22 @@ export default function AdminDashboard() {
     setGa4Loading(true);
     setGa4Error(null);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) throw new Error("Not authenticated");
+      const { data, error } = await supabase.functions.invoke("ga4-metrics");
 
-      const res = await supabase.functions.invoke("ga4-metrics", {
-        headers: { Authorization: `Bearer ${session.access_token}` },
-      });
+      if (error) {
+        // Try to extract the actual error message from the response
+        let msg = "Failed to load GA4 data";
+        try {
+          const body = error.context ? await error.context.json() : null;
+          if (body?.error) msg = body.hint || body.error;
+        } catch {
+          msg = error.message || msg;
+        }
+        setGa4Error(msg);
+        return;
+      }
 
-      if (res.error) throw new Error(res.error.message);
-
-      const data = res.data;
-      if (data.error) {
+      if (data?.error) {
         setGa4Error(data.hint || data.error);
         return;
       }
