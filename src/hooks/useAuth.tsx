@@ -156,6 +156,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     let mounted = true;
+    // Track whether initSession has completed so onAuthStateChange
+    // doesn't race it with a duplicate fetchRole call.
+    let initDone = false;
 
     const initSession = async () => {
       try {
@@ -182,6 +185,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setState({ session: null, user: null, role: null, activeRole: null, isAdmin: false, loading: false });
         }
       }
+      initDone = true;
     };
 
     initSession();
@@ -201,22 +205,44 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (_event, session) => {
+    } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (!mounted) return;
+
+      // Skip INITIAL_SESSION — initSession() already handles it.
+      // This prevents a race where both call fetchRole and the loser
+      // overwrites isAdmin back to false.
+      if (event === "INITIAL_SESSION") return;
+
+      // For SIGNED_OUT, clear everything immediately — no fetch needed
+      if (!session?.user) {
+        setState({ session: null, user: null, role: null, activeRole: null, isAdmin: false, loading: false });
+        return;
+      }
+
+      // For real auth changes (SIGNED_IN, TOKEN_REFRESHED, etc.),
+      // wait for initSession to finish first to avoid overwriting its result.
+      if (!initDone) {
+        // initSession is still in-flight — it will handle this session.
+        return;
+      }
+
       let role: Role | null = null;
       let activeRole: Role | null = null;
       let isAdmin = false;
-      if (session?.user) {
-        try {
-          const result = await withTimeout(fetchRole(session.user), 8000);
-          role = result.role;
-          activeRole = result.activeRole;
-          isAdmin = result.isAdmin;
-        } catch {
-          /* use defaults */
-        }
+      try {
+        const result = await withTimeout(fetchRole(session.user), 8000);
+        role = result.role;
+        activeRole = result.activeRole;
+        isAdmin = result.isAdmin;
+      } catch {
+        // On timeout/error, preserve existing isAdmin to prevent flicker
+        setState((prev) => ({
+          session, user: session.user, role: prev.role, activeRole: prev.activeRole,
+          isAdmin: prev.isAdmin, loading: false,
+        }));
+        return;
       }
-      setState({ session, user: session?.user ?? null, role, activeRole, isAdmin, loading: false });
+      setState({ session, user: session.user, role, activeRole, isAdmin, loading: false });
     });
 
     return () => {
