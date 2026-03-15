@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { Pencil, Trash2 } from "lucide-react";
+import { Crown, Pencil, ShieldCheck, ShieldOff, Trash2 } from "lucide-react";
 import type { Profile } from "@/lib/database.types";
 
 function formatDate(iso: string): string {
@@ -31,6 +31,11 @@ export default function ManageClients() {
   // Delete confirm state
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteClient, setDeleteClient] = useState<Profile | null>(null);
+
+  // Admin toggle state
+  const [adminOpen, setAdminOpen] = useState(false);
+  const [adminClient, setAdminClient] = useState<Profile | null>(null);
+  const [adminSaving, setAdminSaving] = useState(false);
 
   const loadClients = async () => {
     setLoading(true);
@@ -79,6 +84,28 @@ export default function ManageClients() {
     setDeleteClient(null);
   };
 
+  // ── Admin toggle handlers ─────────────────────────────
+  const openAdminToggle = (client: Profile) => {
+    setAdminClient(client);
+    setAdminOpen(true);
+  };
+
+  const handleConfirmAdminToggle = async () => {
+    if (!adminClient) return;
+    setAdminSaving(true);
+    const newValue = !adminClient.is_admin;
+    const { error } = await updateProfile(adminClient.id, { is_admin: newValue });
+    setAdminSaving(false);
+    if (error) {
+      toast.error("Failed to update admin status: " + error);
+      return;
+    }
+    toast.success(newValue ? `${adminClient.name || "User"} is now an admin` : `Admin access removed from ${adminClient.name || "User"}`);
+    setAdminOpen(false);
+    setAdminClient(null);
+    await loadClients();
+  };
+
   // ── Table columns ──────────────────────────────────────
   const columns: Column<Profile>[] = [
     {
@@ -86,6 +113,17 @@ export default function ManageClients() {
       label: "Name",
       sortable: true,
       searchable: true,
+      render: (row) => (
+        <div className="flex items-center gap-2">
+          <span>{row.name}</span>
+          {row.is_admin && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">
+              <Crown className="w-3 h-3" />
+              ADMIN
+            </span>
+          )}
+        </div>
+      ),
     },
     {
       key: "email",
@@ -117,6 +155,25 @@ export default function ManageClients() {
             }}
           >
             <Pencil className="w-4 h-4" />
+          </Button>
+          <Button
+            variant={row.is_admin ? "outline" : "ghost"}
+            size="sm"
+            className={
+              row.is_admin
+                ? "h-8 gap-1 px-2 text-xs text-gray-500 border-gray-300 hover:text-red-600 hover:border-red-300"
+                : "h-8 gap-1 px-2 text-xs text-amber-700 hover:text-amber-800 hover:bg-amber-50"
+            }
+            onClick={(e) => {
+              e.stopPropagation();
+              openAdminToggle(row);
+            }}
+          >
+            {row.is_admin ? (
+              <><ShieldOff className="w-3.5 h-3.5" /> Remove Admin</>
+            ) : (
+              <><ShieldCheck className="w-3.5 h-3.5" /> Make Admin</>
+            )}
           </Button>
           <Button
             variant="ghost"
@@ -202,6 +259,22 @@ export default function ManageClients() {
         description="This will permanently remove this client and all their data."
         confirmLabel="Delete"
         variant="destructive"
+      />
+
+      {/* Admin toggle confirm modal */}
+      <ConfirmModal
+        open={adminOpen}
+        onCancel={() => { setAdminOpen(false); setAdminClient(null); }}
+        onConfirm={handleConfirmAdminToggle}
+        loading={adminSaving}
+        title={adminClient?.is_admin ? "Remove Admin Access" : "Grant Admin Access"}
+        description={
+          adminClient?.is_admin
+            ? `Are you sure you want to remove admin access from ${adminClient?.name || "this user"}? They will no longer be able to access the admin panel.`
+            : `Are you sure you want to give admin access to ${adminClient?.name || "this user"}? They will have full access to the admin panel.`
+        }
+        confirmLabel={adminClient?.is_admin ? "Remove Admin" : "Make Admin"}
+        variant={adminClient?.is_admin ? "destructive" : "default"}
       />
     </AdminLayout>
   );
