@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { AdminLayout } from "@/components/admin/AdminLayout";
 import { StatCard } from "@/components/admin/StatCard";
 import { useAdmin, type AdminAnalytics } from "@/hooks/useAdmin";
+import { supabase } from "@/lib/supabase";
 import {
   Users,
   UserPlus,
@@ -13,6 +14,13 @@ import {
   TrendingUp,
   Activity,
   ArrowUpRight,
+  Globe,
+  Eye,
+  Timer,
+  MousePointerClick,
+  ExternalLink,
+  RefreshCw,
+  AlertCircle,
 } from "lucide-react";
 import {
   PieChart,
@@ -87,11 +95,29 @@ function CustomBarTooltip({ active, payload, label }: any) {
   );
 }
 
+// ─── GA4 Types ──────────────────────────────────────────────
+interface GA4Metrics {
+  activeUsersToday: number;
+  activeUsersWeek: number;
+  pageViews7d: number;
+  avgSessionDuration: string;
+  bounceRate: string;
+  topSources: { source: string; sessions: number }[];
+  topPages: { path: string; views: number }[];
+  newUsers: number;
+  returningUsers: number;
+}
+
 // ─── Main Component ──────────────────────────────────────────
 export default function AdminDashboard() {
   const { fetchAnalytics } = useAdmin();
   const [analytics, setAnalytics] = useState<AdminAnalytics | null>(null);
   const [loading, setLoading] = useState(true);
+
+  // GA4 state
+  const [ga4, setGa4] = useState<GA4Metrics | null>(null);
+  const [ga4Loading, setGa4Loading] = useState(true);
+  const [ga4Error, setGa4Error] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -109,6 +135,39 @@ export default function AdminDashboard() {
       cancelled = true;
     };
   }, [fetchAnalytics]);
+
+  // Fetch GA4 metrics from edge function
+  const fetchGA4 = async () => {
+    setGa4Loading(true);
+    setGa4Error(null);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error("Not authenticated");
+
+      const res = await supabase.functions.invoke("ga4-metrics", {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      });
+
+      if (res.error) throw new Error(res.error.message);
+
+      const data = res.data;
+      if (data.error) {
+        setGa4Error(data.hint || data.error);
+        return;
+      }
+
+      setGa4(data as GA4Metrics);
+    } catch (err: any) {
+      console.error("[admin] GA4 fetch error:", err);
+      setGa4Error(err.message || "Failed to load GA4 data");
+    } finally {
+      setGa4Loading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchGA4();
+  }, []);
 
   // Pie chart data
   const pieData = analytics
@@ -382,63 +441,234 @@ export default function AdminDashboard() {
         </div>
       ) : null}
 
-      {/* ─── GA4 Analytics Placeholder ─── */}
+      {/* ─── GA4 Site Analytics ─── */}
       <div className="mt-8">
         <div className="bg-white rounded-2xl border border-gray-100 p-6">
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center justify-between mb-5">
             <div>
               <h2 className="text-sm font-semibold text-gray-900">
                 Site Analytics
               </h2>
               <p className="text-xs text-gray-400 mt-0.5">
-                Google Analytics 4 — set VITE_GA_MEASUREMENT_ID to enable
+                Google Analytics 4 — Last 7 days
               </p>
             </div>
-            <a
-              href="https://analytics.google.com"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-1.5 text-xs text-[#C05621] hover:text-[#A84A1C] font-medium transition-colors"
-            >
-              Open GA4
-              <ArrowUpRight className="w-3.5 h-3.5" />
-            </a>
-          </div>
-          <div className="grid grid-cols-5 gap-4">
-            {[
-              { label: "Active Users", value: "—", hint: "Daily / Weekly" },
-              { label: "Page Views", value: "—", hint: "Last 7 days" },
-              { label: "Avg. Session", value: "—", hint: "Duration" },
-              { label: "Bounce Rate", value: "—", hint: "Last 7 days" },
-              { label: "Top Source", value: "—", hint: "Acquisition" },
-            ].map(({ label, value, hint }) => (
-              <div
-                key={label}
-                className="text-center p-4 rounded-xl bg-gray-50/80 border border-gray-100/50"
+            <div className="flex items-center gap-2">
+              <button
+                onClick={fetchGA4}
+                disabled={ga4Loading}
+                className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-gray-600 transition-colors disabled:opacity-50"
+                title="Refresh GA4 data"
               >
-                <p className="text-xl font-semibold text-gray-300 tabular-nums">
-                  {value}
-                </p>
-                <p className="text-xs font-medium text-gray-500 mt-1">
-                  {label}
-                </p>
-                <p className="text-[10px] text-gray-400 mt-0.5">{hint}</p>
-              </div>
-            ))}
+                <RefreshCw className={`w-3.5 h-3.5 ${ga4Loading ? "animate-spin" : ""}`} />
+              </button>
+              <a
+                href="https://analytics.google.com"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1.5 text-xs text-[#C05621] hover:text-[#A84A1C] font-medium transition-colors"
+              >
+                Open GA4
+                <ArrowUpRight className="w-3.5 h-3.5" />
+              </a>
+            </div>
           </div>
-          <p className="text-[11px] text-gray-400 mt-4 text-center">
-            These metrics will populate once GA4 is configured and collecting data.
-            View full reports in the{" "}
-            <a
-              href="https://analytics.google.com"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-[#C05621] hover:underline"
-            >
-              GA4 dashboard
-            </a>
-            .
-          </p>
+
+          {/* Loading state */}
+          {ga4Loading && !ga4 && (
+            <div className="grid grid-cols-5 gap-4">
+              {[1, 2, 3, 4, 5].map((i) => (
+                <div key={i} className="text-center p-4 rounded-xl bg-gray-50/80 border border-gray-100/50">
+                  <div className="animate-pulse space-y-2">
+                    <div className="h-6 w-12 bg-gray-100 rounded-md mx-auto" />
+                    <div className="h-3 w-20 bg-gray-100 rounded-md mx-auto" />
+                    <div className="h-2 w-16 bg-gray-50 rounded-md mx-auto" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Error / not configured state */}
+          {!ga4Loading && ga4Error && (
+            <div className="flex items-center gap-3 p-4 rounded-xl bg-amber-50/80 border border-amber-100/50">
+              <AlertCircle className="w-4 h-4 text-amber-500 shrink-0" />
+              <div>
+                <p className="text-sm text-amber-800 font-medium">GA4 not available</p>
+                <p className="text-xs text-amber-600 mt-0.5">{ga4Error}</p>
+              </div>
+            </div>
+          )}
+
+          {/* Live data */}
+          {ga4 && (
+            <>
+              {/* Top metric cards */}
+              <div className="grid grid-cols-5 gap-4 mb-6">
+                {[
+                  {
+                    label: "Active Users",
+                    value: ga4.activeUsersToday.toLocaleString(),
+                    hint: `${ga4.activeUsersWeek.toLocaleString()} this week`,
+                    icon: Users,
+                    color: "text-blue-600",
+                  },
+                  {
+                    label: "Page Views",
+                    value: ga4.pageViews7d.toLocaleString(),
+                    hint: "Last 7 days",
+                    icon: Eye,
+                    color: "text-violet-600",
+                  },
+                  {
+                    label: "Avg. Session",
+                    value: ga4.avgSessionDuration,
+                    hint: "Duration",
+                    icon: Timer,
+                    color: "text-emerald-600",
+                  },
+                  {
+                    label: "Bounce Rate",
+                    value: ga4.bounceRate,
+                    hint: "Last 7 days",
+                    icon: MousePointerClick,
+                    color: "text-amber-600",
+                  },
+                  {
+                    label: "Top Source",
+                    value: ga4.topSources[0]?.source || "—",
+                    hint: ga4.topSources[0] ? `${ga4.topSources[0].sessions} sessions` : "No data",
+                    icon: Globe,
+                    color: "text-[#C05621]",
+                  },
+                ].map(({ label, value, hint, icon: Icon, color }) => (
+                  <div
+                    key={label}
+                    className="text-center p-4 rounded-xl bg-gray-50/80 border border-gray-100/50"
+                  >
+                    <Icon className={`w-4 h-4 ${color} mx-auto mb-1.5`} />
+                    <p className="text-xl font-semibold text-gray-900 tabular-nums">
+                      {value}
+                    </p>
+                    <p className="text-xs font-medium text-gray-500 mt-1">
+                      {label}
+                    </p>
+                    <p className="text-[10px] text-gray-400 mt-0.5">{hint}</p>
+                  </div>
+                ))}
+              </div>
+
+              {/* Bottom row: Top Pages + Top Sources + New vs Returning */}
+              <div className="grid grid-cols-3 gap-4">
+                {/* Top Pages */}
+                <div className="rounded-xl bg-gray-50/80 border border-gray-100/50 p-4">
+                  <h3 className="text-xs font-semibold text-gray-900 mb-3 flex items-center gap-1.5">
+                    <Eye className="w-3.5 h-3.5 text-gray-400" />
+                    Most Visited Pages
+                  </h3>
+                  <div className="space-y-2">
+                    {ga4.topPages.length === 0 && (
+                      <p className="text-xs text-gray-400">No data yet</p>
+                    )}
+                    {ga4.topPages.map(({ path, views }, i) => (
+                      <div key={path} className="flex items-center gap-2">
+                        <span className="text-[10px] font-semibold text-gray-300 w-4">{i + 1}</span>
+                        <span className="text-xs text-gray-600 flex-1 truncate" title={path}>
+                          {path}
+                        </span>
+                        <span className="text-xs font-medium text-gray-900 tabular-nums">
+                          {views.toLocaleString()}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Top Sources */}
+                <div className="rounded-xl bg-gray-50/80 border border-gray-100/50 p-4">
+                  <h3 className="text-xs font-semibold text-gray-900 mb-3 flex items-center gap-1.5">
+                    <Globe className="w-3.5 h-3.5 text-gray-400" />
+                    Traffic Sources
+                  </h3>
+                  <div className="space-y-2">
+                    {ga4.topSources.length === 0 && (
+                      <p className="text-xs text-gray-400">No data yet</p>
+                    )}
+                    {ga4.topSources.map(({ source, sessions }, i) => {
+                      const maxSessions = ga4.topSources[0]?.sessions || 1;
+                      return (
+                        <div key={source} className="space-y-1">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs text-gray-600 truncate">{source}</span>
+                            <span className="text-xs font-medium text-gray-900 tabular-nums ml-2">
+                              {sessions.toLocaleString()}
+                            </span>
+                          </div>
+                          <div className="h-1 bg-gray-100 rounded-full overflow-hidden">
+                            <div
+                              className="h-full bg-[#C05621] rounded-full transition-all"
+                              style={{ width: `${(sessions / maxSessions) * 100}%` }}
+                            />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* New vs Returning */}
+                <div className="rounded-xl bg-gray-50/80 border border-gray-100/50 p-4">
+                  <h3 className="text-xs font-semibold text-gray-900 mb-3 flex items-center gap-1.5">
+                    <UserPlus className="w-3.5 h-3.5 text-gray-400" />
+                    New vs Returning
+                  </h3>
+                  {(() => {
+                    const total = ga4.newUsers + ga4.returningUsers;
+                    const newPct = total > 0 ? Math.round((ga4.newUsers / total) * 100) : 0;
+                    const retPct = total > 0 ? 100 - newPct : 0;
+                    return (
+                      <div className="space-y-3">
+                        <div className="flex items-center gap-2">
+                          <div className="flex-1 h-3 bg-gray-100 rounded-full overflow-hidden flex">
+                            <div
+                              className="h-full bg-emerald-500 rounded-l-full transition-all"
+                              style={{ width: `${newPct}%` }}
+                            />
+                            <div
+                              className="h-full bg-blue-500 rounded-r-full transition-all"
+                              style={{ width: `${retPct}%` }}
+                            />
+                          </div>
+                        </div>
+                        <div className="flex justify-between">
+                          <div>
+                            <div className="flex items-center gap-1.5">
+                              <div className="w-2 h-2 rounded-full bg-emerald-500" />
+                              <span className="text-xs text-gray-500">New</span>
+                            </div>
+                            <p className="text-lg font-semibold text-gray-900 mt-0.5 tabular-nums">
+                              {ga4.newUsers.toLocaleString()}
+                              <span className="text-xs text-gray-400 font-normal ml-1">{newPct}%</span>
+                            </p>
+                          </div>
+                          <div className="text-right">
+                            <div className="flex items-center gap-1.5 justify-end">
+                              <div className="w-2 h-2 rounded-full bg-blue-500" />
+                              <span className="text-xs text-gray-500">Returning</span>
+                            </div>
+                            <p className="text-lg font-semibold text-gray-900 mt-0.5 tabular-nums">
+                              {ga4.returningUsers.toLocaleString()}
+                              <span className="text-xs text-gray-400 font-normal ml-1">{retPct}%</span>
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </div>
+              </div>
+            </>
+          )}
         </div>
       </div>
     </AdminLayout>

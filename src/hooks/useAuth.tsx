@@ -91,8 +91,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   });
 
   const fetchRole = useCallback(async (user: User): Promise<{ role: Role | null; activeRole: Role | null; isAdmin: boolean }> => {
-    // 1. Check profiles table
-    const { data } = await supabase
+    // 1. Check profiles table — try with active_role first, fall back without it
+    const { data, error } = await supabase
       .from("profiles")
       .select("role, active_role, is_admin")
       .eq("id", user.id)
@@ -104,6 +104,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         activeRole: (data.active_role as Role) ?? (data.role as Role),
         isAdmin: data.is_admin ?? false,
       };
+    }
+
+    // If query failed (e.g. active_role column doesn't exist yet), retry without it
+    if (error) {
+      const { data: fallback } = await supabase
+        .from("profiles")
+        .select("role, is_admin")
+        .eq("id", user.id)
+        .single();
+
+      if (fallback?.role) {
+        return {
+          role: fallback.role as Role,
+          activeRole: fallback.role as Role,
+          isAdmin: fallback.is_admin ?? false,
+        };
+      }
     }
 
     // 2. Check user_metadata (set during email signUp)
