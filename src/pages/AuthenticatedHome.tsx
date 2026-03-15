@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { AppLayout } from '@/components/app/AppLayout';
 import { useAuth } from '@/hooks/useAuth';
 import { useProjects } from '@/hooks/useProjects';
@@ -659,6 +659,7 @@ function CustomerHome({ firstName }: { firstName: string }) {
 // ═════════════════════════════════════════════════════════════
 
 function CreatorHome({ firstName }: { firstName: string }) {
+  const navigate = useNavigate();
   const { business, loading: bizLoading } = useBusinessProfile();
   const { projects: matchedProjects, loading: matchLoading } = useMatchedProjects();
   const { offers, loading: offersLoading } = useBusinessOffers(business?.id);
@@ -684,7 +685,21 @@ function CreatorHome({ firstName }: { firstName: string }) {
   const profileTotal = profileChecks.length;
   const profileIncomplete = !business || profileScore < profileTotal;
 
-  if (loading) {
+  // Redirect: no business profile → onboarding
+  useEffect(() => {
+    if (!bizLoading && !business) {
+      navigate('/business/onboarding', { replace: true });
+    }
+  }, [bizLoading, business, navigate]);
+
+  // Redirect: business exists but not approved → pending screen at /business
+  useEffect(() => {
+    if (!bizLoading && business && business.status !== 'approved') {
+      navigate('/business', { replace: true });
+    }
+  }, [bizLoading, business, navigate]);
+
+  if (loading || !business || business.status !== 'approved') {
     return (
       <div className="flex items-center justify-center py-32">
         <Loader2 className="w-5 h-5 animate-spin text-primary" />
