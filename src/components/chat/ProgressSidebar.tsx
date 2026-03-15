@@ -99,6 +99,15 @@ export function ProgressSidebar({
   };
 
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [mobileEditField, setMobileEditField] = useState<string | null>(null);
+  const [mobileEditValue, setMobileEditValue] = useState("");
+  const mobileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (mobileEditField) mobileInputRef.current?.focus();
+  }, [mobileEditField]);
+
+  const canInteractMobile = phase === "chatting" || phase === "brief";
 
   return (
     <>
@@ -107,7 +116,7 @@ export function ProgressSidebar({
          style={{ bottom: 'max(5rem, calc(4.5rem + env(safe-area-inset-bottom, 0px)))' }}>
       <button
         onClick={() => setMobileOpen(true)}
-        className="flex items-center gap-2 px-3 py-2 rounded-full bg-white border border-[#C05621]/20 shadow-lg text-xs font-medium text-[#1B2432]"
+        className="flex items-center gap-2 px-3 py-2 rounded-full bg-white border border-[#C05621]/20 shadow-lg text-xs font-medium text-[#1B2432] min-h-[44px]"
       >
         <ListChecks className="w-4 h-4 text-[#C05621]" />
         <span>{filledCount}/{items.length}</span>
@@ -136,7 +145,7 @@ export function ProgressSidebar({
             animate={{ y: 0 }}
             exit={{ y: '100%' }}
             transition={{ duration: 0.3, ease: 'easeOut' }}
-            className="absolute bottom-0 left-0 right-0 bg-white rounded-t-2xl shadow-xl max-h-[75vh] flex flex-col"
+            className="absolute bottom-0 left-0 right-0 bg-white rounded-t-2xl shadow-xl max-h-[80vh] flex flex-col"
             style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
           >
             <div className="flex items-center justify-between px-5 py-3 border-b border-[#C05621]/[0.08]">
@@ -154,27 +163,111 @@ export function ProgressSidebar({
                 const value = briefData[item.field as keyof BriefData];
                 const filled = Array.isArray(value) ? value.length > 0 : !!value;
                 const Icon = item.icon;
+                const isEditingThis = mobileEditField === item.field;
                 return (
-                  <div key={item.field} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl ${
-                    filled ? 'bg-[#C05621]/[0.06] border border-[#C05621]/10' : 'bg-white/60 border border-transparent'
-                  }`}>
-                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
-                      filled ? 'bg-[#C05621]/10 text-[#C05621]' : 'bg-gray-100 text-gray-400'
-                    }`}>
-                      {filled ? <Check className="w-4 h-4" /> : <Icon className="w-4 h-4" />}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="text-xs font-medium text-[#4A5568]">{item.label}</div>
-                      {filled && (
-                        <div className="text-xs text-[#C05621] truncate mt-0.5">
-                          {Array.isArray(value) ? (value as string[]).join(', ') : String(value)}
-                        </div>
+                  <div key={item.field}>
+                    <div
+                      onClick={() => {
+                        if (!canInteractMobile || isEditingThis) return;
+                        if (onDirectUpdate) {
+                          const currentStr = Array.isArray(value) ? (value as string[]).join(', ') : String(value || '');
+                          setMobileEditField(item.field);
+                          setMobileEditValue(filled ? currentStr : '');
+                        }
+                      }}
+                      className={`flex items-center gap-3 px-3 py-2.5 rounded-xl min-h-[44px] ${
+                        isEditingThis
+                          ? 'bg-[#C05621]/10 border border-[#C05621]/30'
+                          : filled
+                            ? 'bg-[#C05621]/[0.06] border border-[#C05621]/10'
+                            : 'bg-white/60 border border-transparent'
+                      } ${canInteractMobile && !isEditingThis ? 'cursor-pointer active:bg-[#C05621]/10' : ''}`}
+                    >
+                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
+                        filled ? 'bg-[#C05621]/10 text-[#C05621]' : 'bg-gray-100 text-gray-400'
+                      }`}>
+                        {filled ? <Check className="w-4 h-4" /> : <Icon className="w-4 h-4" />}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-xs font-medium text-[#4A5568]">{item.label}</div>
+                        {filled && !isEditingThis && (
+                          <div className="text-xs text-[#C05621] truncate mt-0.5">
+                            {Array.isArray(value) ? (value as string[]).join(', ') : String(value)}
+                          </div>
+                        )}
+                      </div>
+                      {canInteractMobile && !isEditingThis && (
+                        <Pencil className="w-3.5 h-3.5 text-[#C05621]/40 shrink-0" />
                       )}
                     </div>
+                    {/* Inline edit */}
+                    {isEditingThis && (
+                      <div className="mt-1 px-1">
+                        <input
+                          ref={mobileInputRef}
+                          type="text"
+                          value={mobileEditValue}
+                          onChange={(e) => setMobileEditValue(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              if (mobileEditValue.trim() && onDirectUpdate) {
+                                onDirectUpdate(item.field, mobileEditValue.trim());
+                              }
+                              setMobileEditField(null);
+                              setMobileEditValue('');
+                            } else if (e.key === 'Escape') {
+                              setMobileEditField(null);
+                              setMobileEditValue('');
+                            }
+                          }}
+                          className="w-full px-3 py-2 text-sm rounded-lg border border-[#C05621]/20
+                                     bg-white text-[#1B2432] focus:outline-none focus:ring-1
+                                     focus:ring-[#C05621]/40 placeholder:text-[#4A5568]/40 min-h-[44px]"
+                          placeholder={`Enter ${item.label.toLowerCase()}...`}
+                        />
+                        <div className="flex justify-end gap-2 mt-1.5">
+                          <button
+                            onClick={() => { setMobileEditField(null); setMobileEditValue(''); }}
+                            className="text-xs text-[#4A5568] px-3 py-1.5 min-h-[36px]"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            onClick={() => {
+                              if (mobileEditValue.trim() && onDirectUpdate) {
+                                onDirectUpdate(item.field, mobileEditValue.trim());
+                              }
+                              setMobileEditField(null);
+                              setMobileEditValue('');
+                            }}
+                            className="text-xs text-[#C05621] font-medium px-3 py-1.5 min-h-[36px]"
+                          >
+                            Save
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 );
               })}
             </div>
+            {/* Generate brief button on mobile */}
+            {onGenerateBrief && phase === "chatting" && filledCount >= 1 && (
+              <div className="px-5 py-2 border-t border-[#C05621]/[0.08]">
+                <button
+                  onClick={() => { setMobileOpen(false); onGenerateBrief(); }}
+                  disabled={isLoading}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl
+                             bg-[#C05621] text-white text-sm font-medium
+                             hover:bg-[#A84A1C] transition-colors min-h-[44px]
+                             disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <ArrowRight className="w-3.5 h-3.5" />
+                  Generate Brief
+                </button>
+              </div>
+            )}
             {/* Progress bar */}
             <div className="px-5 py-3 border-t border-[#C05621]/[0.08]">
               <div className="h-2 rounded-full bg-gray-100 overflow-hidden">

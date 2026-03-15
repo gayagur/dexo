@@ -219,14 +219,11 @@
   }
 }
 
-/* Mobile: push Corebee chat widget up so it doesn't block input bars */
-@media (max-width: 768px) {
-  /* Corebee widget button — move it higher to avoid overlapping inputs */
-  .corebee-widget-button,
-  [class*="corebee"] > button,
-  iframe[src*="corebee"] + button {
-    bottom: 80px !important;
-  }
+/* Hide Corebee chat widget on pages with input bars (create-project) */
+body.hide-chat-widget > button:last-of-type,
+body.hide-chat-widget > iframe[src*="corebee"],
+body.hide-chat-widget > div[class*="corebee"] {
+  display: none !important;
 }
 
 /* Highlight pulse for incomplete brief fields */

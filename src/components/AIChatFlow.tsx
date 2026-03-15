@@ -236,6 +236,12 @@ export default function AIChatFlow() {
   const { toast } = useToast();
   const { uploading: imageUploading, uploadMultiple, uploadBase64, error: uploadError } = useImageUpload();
 
+  // Hide external chat widget on this page (it overlaps the input bar on mobile)
+  useEffect(() => {
+    document.body.classList.add('hide-chat-widget');
+    return () => { document.body.classList.remove('hide-chat-widget'); };
+  }, []);
+
   // Chat state
   const [messages, setMessages] = useState<DisplayMessage[]>([]);
   const [input, setInput] = useState('');
