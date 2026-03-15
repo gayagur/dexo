@@ -136,42 +136,36 @@ export default function AdminDashboard() {
     };
   }, [fetchAnalytics]);
 
-  // Fetch GA4 metrics from edge function (using fetch directly for better error visibility)
+  // Fetch GA4 metrics from edge function
   const fetchGA4 = async () => {
     setGa4Loading(true);
     setGa4Error(null);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        setGa4Error("Not authenticated");
+      // Refresh session first to ensure a valid access token
+      await supabase.auth.refreshSession();
+
+      const { data, error } = await supabase.functions.invoke("ga4-metrics");
+
+      if (error) {
+        // Extract real error from response context if available
+        let msg = error.message || "Failed to load GA4 data";
+        try {
+          if (error.context && typeof error.context.json === "function") {
+            const body = await error.context.json();
+            if (body?.error) msg = body.hint || body.error;
+            else if (body?.message) msg = body.message;
+          }
+        } catch { /* use default msg */ }
+        setGa4Error(msg);
         return;
       }
 
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-      const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-
-      const res = await fetch(`${supabaseUrl}/functions/v1/ga4-metrics`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${session.access_token}`,
-          apikey: supabaseKey,
-        },
-      });
-
-      const body = await res.json();
-
-      if (!res.ok) {
-        setGa4Error(body?.error || body?.message || `HTTP ${res.status}`);
+      if (data?.error) {
+        setGa4Error(data.hint || data.error);
         return;
       }
 
-      if (body?.error) {
-        setGa4Error(body.hint || body.error);
-        return;
-      }
-
-      setGa4(body as GA4Metrics);
+      setGa4(data as GA4Metrics);
     } catch (err: any) {
       console.error("[admin] GA4 fetch error:", err);
       setGa4Error(err.message || "Failed to load GA4 data");
