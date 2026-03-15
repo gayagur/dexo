@@ -2,6 +2,12 @@ import { corsHeaders } from "../_shared/cors.ts";
 import { verifyAuth } from "../_shared/auth.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
 
+const JSON_HEADERS = { ...corsHeaders, "Content-Type": "application/json" };
+
+function jsonResponse(body: Record<string, unknown>, status = 200) {
+  return new Response(JSON.stringify(body), { status, headers: JSON_HEADERS });
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -12,34 +18,31 @@ Deno.serve(async (req) => {
     const { instagramUrl } = await req.json();
 
     if (!instagramUrl || typeof instagramUrl !== "string") {
-      return new Response(
-        JSON.stringify({ error: "instagramUrl is required" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-      );
+      return jsonResponse({ error: "instagramUrl is required" });
     }
 
     // Extract username from URL
     const username = extractUsername(instagramUrl);
+    console.log("[ig-import] Extracted username:", username, "from:", instagramUrl);
+
     if (!username) {
-      return new Response(
-        JSON.stringify({ error: "Invalid Instagram URL. Use a format like https://instagram.com/username" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-      );
+      return jsonResponse({ error: "Invalid Instagram URL. Use a format like https://instagram.com/username" });
     }
 
     const apifyKey = Deno.env.get("APIFY_API_KEY");
     if (!apifyKey) {
-      console.error("[instagram-import] APIFY_API_KEY not set");
-      return new Response(
-        JSON.stringify({ error: "Instagram import is not configured" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-      );
+      console.error("[ig-import] APIFY_API_KEY not set");
+      return jsonResponse({
+        error: "Instagram import is not configured. Set APIFY_API_KEY in Supabase secrets.",
+      });
     }
+    console.log("[ig-import] APIFY_API_KEY is set, length:", apifyKey.length);
 
-    // Call Apify Instagram Profile Scraper
+    // Call Apify Instagram Profile Scraper (synchronous run)
     const apifyUrl =
       `https://api.apify.com/v2/acts/apify~instagram-profile-scraper/run-sync-get-dataset-items?token=${apifyKey}`;
 
+    console.log("[ig-import] Calling Apify for username:", username);
     const apifyRes = await fetch(apifyUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -49,31 +52,34 @@ Deno.serve(async (req) => {
       }),
     });
 
+    console.log("[ig-import] Apify response status:", apifyRes.status);
+
     if (!apifyRes.ok) {
-      console.error("[instagram-import] Apify error:", apifyRes.status, await apifyRes.text());
-      return new Response(
-        JSON.stringify({ error: "Failed to fetch Instagram profile. Please try again later." }),
-        { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-      );
+      const errText = await apifyRes.text();
+      console.error("[ig-import] Apify error:", apifyRes.status, errText);
+      return jsonResponse({
+        error: "Failed to fetch Instagram profile. Please try again later.",
+        debug: { apifyStatus: apifyRes.status, apifyError: errText.slice(0, 500) },
+      });
     }
 
     const apifyData = await apifyRes.json();
+    console.log("[ig-import] Apify returned", Array.isArray(apifyData) ? apifyData.length : 0, "results");
 
     if (!Array.isArray(apifyData) || apifyData.length === 0) {
-      return new Response(
-        JSON.stringify({ error: "We couldn't find this profile. Make sure it's public and try again." }),
-        { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-      );
+      console.error("[ig-import] Empty results. Raw:", JSON.stringify(apifyData).slice(0, 500));
+      return jsonResponse({
+        error: "We couldn't find this profile. Make sure it's public and try again.",
+        debug: { rawType: typeof apifyData, isArray: Array.isArray(apifyData), length: Array.isArray(apifyData) ? apifyData.length : 0 },
+      });
     }
 
     const profile = apifyData[0];
+    console.log("[ig-import] Profile found:", profile.username, "| private:", profile.private, "| posts:", profile.latestPosts?.length ?? 0);
 
     // Check if profile is private
     if (profile.private) {
-      return new Response(
-        JSON.stringify({ error: "This profile is private. Make it public and try again." }),
-        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-      );
+      return jsonResponse({ error: "This profile is private. Make it public and try again." });
     }
 
     // Use service role client for storage uploads (bypass RLS)
@@ -109,34 +115,31 @@ Deno.serve(async (req) => {
       if (uploaded) postImages.push(uploaded);
     }
 
-    return new Response(
-      JSON.stringify({
-        fullName: profile.fullName || profile.username || "",
-        bio: profile.biography || "",
-        profilePhoto: profilePhotoUrl,
-        portfolioImages: postImages,
-        username: profile.username || username,
-      }),
-      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-    );
+    console.log("[ig-import] Success! Photos uploaded:", postImages.length);
+
+    return jsonResponse({
+      fullName: profile.fullName || profile.username || "",
+      bio: profile.biography || "",
+      profilePhoto: profilePhotoUrl,
+      portfolioImages: postImages,
+      username: profile.username || username,
+    });
   } catch (err: any) {
-    console.error("[instagram-import] Error:", err.message);
-    const status = err.message.includes("Invalid") || err.message.includes("Missing") ? 401 : 500;
-    return new Response(
-      JSON.stringify({ error: err.message || "Something went wrong" }),
-      { status, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-    );
+    console.error("[ig-import] Error:", err.message, err.stack);
+    return jsonResponse({ error: err.message || "Something went wrong" });
   }
 });
 
 // ── Helpers ────────────────────────────────────────────
 
 function extractUsername(url: string): string | null {
-  // Handle plain usernames
-  if (/^[\w][\w.]{0,29}$/.test(url.trim())) return url.trim();
+  const trimmed = url.trim();
+
+  // Handle plain usernames (e.g. "corebeechat")
+  if (/^[\w][\w.]{0,29}$/.test(trimmed)) return trimmed;
 
   try {
-    const parsed = new URL(url.trim());
+    const parsed = new URL(trimmed);
     if (!parsed.hostname.includes("instagram.com")) return null;
     // Path like /username/ or /username
     const parts = parsed.pathname.split("/").filter(Boolean);
@@ -158,7 +161,10 @@ async function downloadAndUpload(
 ): Promise<string | null> {
   try {
     const res = await fetch(imageUrl);
-    if (!res.ok) return null;
+    if (!res.ok) {
+      console.error("[ig-import] Image download failed:", res.status, imageUrl.slice(0, 100));
+      return null;
+    }
     const blob = await res.blob();
     const contentType = res.headers.get("content-type") || "image/jpeg";
 
@@ -167,14 +173,14 @@ async function downloadAndUpload(
       .upload(path, blob, { contentType, upsert: true });
 
     if (error) {
-      console.error("[instagram-import] Upload error:", error.message);
+      console.error("[ig-import] Upload error:", error.message);
       return null;
     }
 
     const { data } = supabase.storage.from(bucket).getPublicUrl(path);
     return data.publicUrl;
   } catch (err: any) {
-    console.error("[instagram-import] Download/upload error:", err.message);
+    console.error("[ig-import] Download/upload error:", err.message);
     return null;
   }
 }

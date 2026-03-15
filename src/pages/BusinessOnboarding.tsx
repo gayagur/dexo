@@ -130,7 +130,8 @@ const BusinessOnboarding = () => {
 
       const result = await res.json();
 
-      if (!res.ok) {
+      if (!res.ok || result.error) {
+        console.error('[ig-import] Error:', result);
         toast({
           title: 'Import failed',
           description: result.error || "We couldn't find this profile. Make sure it's public and try again.",
