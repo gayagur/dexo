@@ -158,7 +158,11 @@ export default function AdminDashboard() {
       }
 
       if (data?.error) {
-        setGa4Error(data.hint || data.error);
+        let msg = data.hint || data.error;
+        if (data.debug) {
+          msg += `\nProperty ID: ${data.debug.propertyId}\nService Account: ${data.debug.serviceAccount}\nAccessible Properties: ${data.debug.accessibleProperties}`;
+        }
+        setGa4Error(msg);
         return;
       }
 
@@ -501,7 +505,7 @@ export default function AdminDashboard() {
               <AlertCircle className="w-4 h-4 text-amber-500 shrink-0" />
               <div>
                 <p className="text-sm text-amber-800 font-medium">GA4 not available</p>
-                <p className="text-xs text-amber-600 mt-0.5">{ga4Error}</p>
+                <p className="text-xs text-amber-600 mt-0.5 whitespace-pre-line">{ga4Error}</p>
               </div>
             </div>
           )}

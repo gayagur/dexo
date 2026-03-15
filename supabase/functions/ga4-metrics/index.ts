@@ -50,6 +50,8 @@ async function runReport(
   body: Record<string, unknown>,
 ): Promise<any> {
   const url = `https://analyticsdata.googleapis.com/v1beta/properties/${propertyId}:runReport`;
+  console.log("[ga4] runReport URL:", url);
+
   const res = await fetch(url, {
     method: "POST",
     headers: {
@@ -62,7 +64,16 @@ async function runReport(
   if (!res.ok) {
     const text = await res.text();
     console.error(`[ga4] runReport failed (${res.status}):`, text);
-    throw new Error(`GA4 API error: ${res.status}`);
+    // Parse the Google error for details
+    let detail = `GA4 API error: ${res.status}`;
+    try {
+      const errBody = JSON.parse(text);
+      const msg = errBody?.error?.message || "";
+      const status = errBody?.error?.status || "";
+      detail = `GA4 API ${res.status} (${status}): ${msg}`;
+      console.error("[ga4] Error details:", JSON.stringify(errBody?.error, null, 2));
+    } catch { /* use default */ }
+    throw new Error(detail);
   }
 
   return res.json();
@@ -139,13 +150,69 @@ Deno.serve(async (req) => {
       );
     }
 
-    // 3. Get access token
+    // 3. Log config for debugging
+    console.log("[ga4] Service account email:", serviceAccountKey.client_email);
+    console.log("[ga4] Property ID:", propertyId);
+    console.log("[ga4] Property ID type:", typeof propertyId, "length:", propertyId.length);
+
+    // 4. Get access token
     console.log("[ga4] Requesting access token...");
     const accessToken = await getAccessToken(serviceAccountKey);
-    console.log("[ga4] Access token obtained");
+    console.log("[ga4] Access token obtained, length:", accessToken.length);
 
-    // 4. Run all reports in parallel
-    console.log("[ga4] Running 8 parallel reports for property:", propertyId);
+    // 5. Test access with a single report first to get clear error message
+    console.log("[ga4] Testing API access with single report...");
+    try {
+      await runReport(propertyId, accessToken, {
+        dateRanges: [{ startDate: "today", endDate: "today" }],
+        metrics: [{ name: "activeUsers" }],
+      });
+      console.log("[ga4] Test report succeeded!");
+    } catch (testErr: any) {
+      console.error("[ga4] Test report FAILED:", testErr.message);
+
+      // List accessible properties and return full debug info to the client
+      let accessibleProperties = "Could not list";
+      try {
+        const listRes = await fetch(
+          "https://analyticsadmin.googleapis.com/v1beta/accountSummaries",
+          { headers: { Authorization: `Bearer ${accessToken}` } },
+        );
+        const listBody = await listRes.json();
+        console.log("[ga4] Accessible:", JSON.stringify(listBody, null, 2));
+
+        if (listBody.accountSummaries) {
+          const props: string[] = [];
+          for (const acct of listBody.accountSummaries) {
+            for (const ps of acct.propertySummaries ?? []) {
+              props.push(`${ps.displayName} (${ps.property?.replace("properties/", "")})`);
+            }
+          }
+          accessibleProperties = props.length > 0 ? props.join(", ") : "None found";
+        } else if (listBody.error) {
+          accessibleProperties = `API error: ${listBody.error.message}`;
+        } else {
+          accessibleProperties = "No accounts returned";
+        }
+      } catch (listErr: any) {
+        accessibleProperties = `List failed: ${listErr.message}`;
+      }
+
+      return new Response(
+        JSON.stringify({
+          error: testErr.message,
+          debug: {
+            propertyId,
+            serviceAccount: serviceAccountKey.client_email,
+            accessibleProperties,
+          },
+        }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
+    // 6. Run all reports in parallel
+    console.log("[ga4] Running all 8 reports...");
     const [
       activeUsersToday,
       activeUsersWeek,
