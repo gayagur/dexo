@@ -48,21 +48,7 @@ export default function BusinessOverview() {
   const { kpis, activity, projects, pageViews, loading } = useBusinessDashboard();
   const { scoredProjects } = useMatchedProjects();
 
-  if (bizLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-[#C87D5A]" />
-      </div>
-    );
-  }
-
-  if (!business) return null;
-
-  // Gate: non-approved
-  if (business.status !== "approved") {
-    navigate("/business/onboarding", { replace: true });
-    return null;
-  }
+  if (bizLoading || !business) return null;
 
   const attentionProjects = projects.filter(p => p.status === "in_progress");
   const newRequests = scoredProjects.length;
