@@ -2,13 +2,13 @@ import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { AppLayout } from '@/components/app/AppLayout';
+
+import { BusinessDashboardLayout } from '@/components/business/BusinessDashboardLayout';
 import { useBusinessProfile } from '@/hooks/useBusinessProfile';
 import { useBusinessOffers } from '@/hooks/useOffers';
 import { supabase } from '@/lib/supabase';
 import type { Project } from '@/lib/database.types';
 import {
-  ArrowLeft,
   Send,
   DollarSign,
   Clock,
@@ -63,18 +63,11 @@ const BusinessOffersSent = () => {
   }, [sentOffers]);
 
   return (
-    <AppLayout>
-      <main className="container mx-auto px-6 py-12">
-        <div className="flex items-center gap-4 mb-8">
-          <Button variant="ghost" size="sm" onClick={() => navigate('/business')}>
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Back to Dashboard
-          </Button>
-        </div>
-
-        <div className="mb-12">
-          <h1 className="text-4xl font-serif mb-4">Offers Sent</h1>
-          <p className="text-muted-foreground text-lg">
+    <BusinessDashboardLayout>
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-2xl font-semibold text-gray-900">Offers Sent</h1>
+          <p className="text-sm text-gray-500 mt-1">
             Track the status of your proposals.
           </p>
         </div>
@@ -155,8 +148,8 @@ const BusinessOffersSent = () => {
             )}
           </div>
         )}
-      </main>
-    </AppLayout>
+      </div>
+    </BusinessDashboardLayout>
   );
 };
 

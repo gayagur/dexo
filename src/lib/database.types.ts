@@ -133,6 +133,13 @@ export interface Milestone {
   created_at: string;
 }
 
+export interface BusinessPageView {
+  id: string;
+  business_id: string;
+  viewer_id: string | null;
+  viewed_at: string;
+}
+
 export interface Database {
   public: {
     Tables: {
@@ -146,6 +153,7 @@ export interface Database {
       notifications: { Row: Notification; Insert: Omit<Notification, "id" | "created_at" | "read">; Update: Partial<Omit<Notification, "id">> };
       reviews: { Row: Review; Insert: Omit<Review, "id" | "created_at">; Update: Partial<Omit<Review, "id">> };
       milestones: { Row: Milestone; Insert: Omit<Milestone, "id" | "created_at">; Update: Partial<Omit<Milestone, "id">> };
+      business_page_views: { Row: BusinessPageView; Insert: Omit<BusinessPageView, "id" | "viewed_at">; Update: never };
     };
   };
 }

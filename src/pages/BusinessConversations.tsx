@@ -1,14 +1,12 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { AppLayout } from '@/components/app/AppLayout';
+import { BusinessDashboardLayout } from '@/components/business/BusinessDashboardLayout';
 import { useBusinessProfile } from '@/hooks/useBusinessProfile';
 import { supabase } from '@/lib/supabase';
 import { timed } from '@/lib/timing';
 import type { Message, Project } from '@/lib/database.types';
 import {
-  ArrowLeft,
   MessageSquare,
   ArrowRight,
   Loader2
@@ -103,18 +101,11 @@ const BusinessConversations = () => {
   }, [business]);
 
   return (
-    <AppLayout>
-      <main className="container mx-auto px-6 py-12">
-        <div className="flex items-center gap-4 mb-8">
-          <Button variant="ghost" size="sm" onClick={() => navigate('/business')}>
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Back to Dashboard
-          </Button>
-        </div>
-
-        <div className="mb-12">
-          <h1 className="text-4xl font-serif mb-4">Active Conversations</h1>
-          <p className="text-muted-foreground text-lg">
+    <BusinessDashboardLayout>
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-2xl font-semibold text-gray-900">Messages</h1>
+          <p className="text-sm text-gray-500 mt-1">
             All your ongoing project conversations in one place.
           </p>
         </div>
@@ -174,8 +165,8 @@ const BusinessConversations = () => {
             )}
           </div>
         )}
-      </main>
-    </AppLayout>
+      </div>
+    </BusinessDashboardLayout>
   );
 };
 

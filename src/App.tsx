@@ -17,6 +17,11 @@ import BusinessDashboard from "./pages/BusinessDashboard";
 import BusinessRequestPage from "./pages/BusinessRequestPage";
 import BusinessConversations from "./pages/BusinessConversations";
 import BusinessOffersSent from "./pages/BusinessOffersSent";
+import BusinessOverview from "./pages/business/BusinessOverview";
+import BusinessProjects from "./pages/business/BusinessProjects";
+import BusinessCustomers from "./pages/business/BusinessCustomers";
+import BusinessRevenue from "./pages/business/BusinessRevenue";
+import BusinessInsights from "./pages/business/BusinessInsights";
 import BrowseBusinesses from "./pages/BrowseBusinesses";
 import BusinessProfilePage from "./pages/BusinessProfilePage";
 import ProfilePage from "./pages/ProfilePage";
@@ -122,7 +127,27 @@ const App = () => (
             } />
             <Route path="/business" element={
               <ProtectedRoute requiredRole="business">
-                <BusinessDashboard />
+                <BusinessOverview />
+              </ProtectedRoute>
+            } />
+            <Route path="/business/projects" element={
+              <ProtectedRoute requiredRole="business">
+                <BusinessProjects />
+              </ProtectedRoute>
+            } />
+            <Route path="/business/customers" element={
+              <ProtectedRoute requiredRole="business">
+                <BusinessCustomers />
+              </ProtectedRoute>
+            } />
+            <Route path="/business/revenue" element={
+              <ProtectedRoute requiredRole="business">
+                <BusinessRevenue />
+              </ProtectedRoute>
+            } />
+            <Route path="/business/insights" element={
+              <ProtectedRoute requiredRole="business">
+                <BusinessInsights />
               </ProtectedRoute>
             } />
             <Route path="/business/request/:id" element={

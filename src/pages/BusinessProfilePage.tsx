@@ -91,6 +91,15 @@ const BusinessProfilePage = () => {
     fetchBusiness();
   }, [id, authLoading, user]);
 
+  // Track page view
+  useEffect(() => {
+    if (!id || !fetched || !business) return;
+    supabase
+      .from('business_page_views')
+      .insert({ business_id: id, viewer_id: user?.id ?? null })
+      .then(() => {});
+  }, [id, fetched, business]);
+
   // Fetch user's projects for "Send a Project" dialog
   useEffect(() => {
     if (!user) return;

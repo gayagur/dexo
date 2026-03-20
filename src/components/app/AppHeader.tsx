@@ -64,8 +64,8 @@ export function AppHeader() {
             {(activeRole === 'business'
               ? [
                   { to: '/home', label: 'Home' },
-                  { to: '/business', label: 'Projects' },
-                  { to: '/business/offers', label: 'Offers' },
+                  { to: '/business', label: 'Dashboard' },
+                  { to: '/business/projects', label: 'Projects' },
                   { to: '/business/conversations', label: 'Messages' },
                 ]
               : [
