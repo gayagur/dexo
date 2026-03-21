@@ -172,6 +172,25 @@ export function FurnitureEditor({
         handleDeletePanel(selectedPanelId);
         return;
       }
+
+      // Arrow keys — nudge selected panel position
+      const nudge = e.shiftKey ? 0.001 : 0.01; // 1mm with shift, 10mm without
+      if (selectedPanelId && ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.key)) {
+        e.preventDefault();
+        const panel = panels.find((p) => p.id === selectedPanelId);
+        if (panel) {
+          const pos = [...panel.position] as [number, number, number];
+          switch (e.key) {
+            case "ArrowLeft": pos[0] -= nudge; break;
+            case "ArrowRight": pos[0] += nudge; break;
+            case "ArrowUp": pos[1] += nudge; break;
+            case "ArrowDown": pos[1] -= nudge; break;
+          }
+          handleUpdatePanel(selectedPanelId, { position: pos });
+        }
+        return;
+      }
+
       switch (e.key) {
         case "g": case "w": case "G": case "W": setTransformMode("translate"); break;
         case "r": case "e": case "R": case "E": setTransformMode("rotate"); break;
@@ -181,7 +200,7 @@ export function FurnitureEditor({
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [selectedPanelId, handleDuplicatePanel, handleDeletePanel, undo, redo]);
+  }, [selectedPanelId, panels, handleUpdatePanel, handleDuplicatePanel, handleDeletePanel, undo, redo]);
 
   const handleReset = useCallback(() => {
     const template = getDefaultTemplate(furnitureType.id, dims);
@@ -454,6 +473,10 @@ export function FurnitureEditor({
                     ["Delete", "Delete selected element"],
                     ["Click", "Select an element"],
                     ["Click empty", "Deselect all"],
+                    ["Arrow keys", "Nudge selected element (10mm)"],
+                    ["Shift + Arrow", "Fine nudge (1mm)"],
+                    ["Drag gizmo", "Move / rotate / scale element"],
+                    ["Drag handle", "Resize from edge (Scale mode)"],
                   ].map(([key, desc]) => (
                     <div key={key} className="flex items-center gap-3">
                       <kbd className="min-w-[56px] px-2 py-1 bg-gray-100 rounded-md text-xs font-mono text-gray-600 text-center">{key}</kbd>

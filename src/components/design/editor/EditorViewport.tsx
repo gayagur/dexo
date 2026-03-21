@@ -109,14 +109,23 @@ export function EditorViewport({
           />
         ))}
 
-        {/* TransformControls for selected non-door/drawer panel */}
+        {/* TransformControls + Resize handles for selected non-door/drawer panel */}
         {selectedPanel && !isDoor(selectedPanel.label) && !isDrawer(selectedPanel.label) && (
-          <TransformGizmo
-            panel={selectedPanel}
-            mode={transformMode}
-            snapEnabled={snapEnabled}
-            onUpdate={onUpdatePanel}
-          />
+          <>
+            <TransformGizmo
+              panel={selectedPanel}
+              mode={transformMode}
+              snapEnabled={snapEnabled}
+              onUpdate={onUpdatePanel}
+            />
+            {transformMode === "scale" && (
+              <ResizeHandles
+                panel={selectedPanel}
+                onUpdate={onUpdatePanel}
+                snapEnabled={snapEnabled}
+              />
+            )}
+          </>
         )}
 
         <OrbitControls
@@ -175,55 +184,44 @@ function TransformGizmo({
   snapEnabled: boolean;
   onUpdate: (id: string, updates: Partial<PanelData>) => void;
 }) {
-  const meshRef = useRef<THREE.Mesh>(null!);
+  const objRef = useRef<THREE.Group>(null!);
   const controlsRef = useRef<any>(null);
-  const { gl } = useThree();
 
-  // Sync mesh position/rotation from panel data
+  // Sync from panel data
   useEffect(() => {
-    if (!meshRef.current) return;
-    meshRef.current.position.set(...panel.position);
+    if (!objRef.current) return;
+    objRef.current.position.set(...panel.position);
     const rot = panel.rotation ?? [0, 0, 0];
-    meshRef.current.rotation.set(...rot);
+    objRef.current.rotation.set(...rot);
+    objRef.current.scale.set(1, 1, 1);
   }, [panel.position, panel.rotation]);
 
-  // When transform ends, write back to panel data
+  // On transform end → write back
   useEffect(() => {
     const controls = controlsRef.current;
     if (!controls) return;
 
     const onEnd = () => {
-      if (!meshRef.current) return;
-      const pos = meshRef.current.position;
-      const rot = meshRef.current.rotation;
-      const gridSize = 0.01; // 10mm
-
-      let newPos: [number, number, number] = [pos.x, pos.y, pos.z];
-      if (snapEnabled && mode === "translate") {
-        newPos = [
-          snapToGrid(pos.x, gridSize),
-          snapToGrid(pos.y, gridSize),
-          snapToGrid(pos.z, gridSize),
-        ];
-        meshRef.current.position.set(...newPos);
-      }
+      if (!objRef.current) return;
+      const pos = objRef.current.position;
+      const rot = objRef.current.rotation;
+      const gridSize = 0.01;
 
       const updates: Partial<PanelData> = {};
+
       if (mode === "translate") {
+        let newPos: [number, number, number] = [pos.x, pos.y, pos.z];
+        if (snapEnabled) {
+          newPos = [snapToGrid(pos.x, gridSize), snapToGrid(pos.y, gridSize), snapToGrid(pos.z, gridSize)];
+          objRef.current.position.set(...newPos);
+        }
         updates.position = newPos;
       } else if (mode === "rotate") {
         updates.rotation = [rot.x, rot.y, rot.z];
-      }
-      // Scale mode: update size
-      if (mode === "scale") {
-        const scl = meshRef.current.scale;
-        const newSize: [number, number, number] = [
-          panel.size[0] * scl.x,
-          panel.size[1] * scl.y,
-          panel.size[2] * scl.z,
-        ];
-        meshRef.current.scale.set(1, 1, 1);
-        updates.size = newSize;
+      } else if (mode === "scale") {
+        const scl = objRef.current.scale;
+        updates.size = [panel.size[0] * scl.x, panel.size[1] * scl.y, panel.size[2] * scl.z];
+        objRef.current.scale.set(1, 1, 1);
       }
 
       onUpdate(panel.id, updates);
@@ -233,13 +231,13 @@ function TransformGizmo({
     return () => controls.removeEventListener("mouseUp", onEnd);
   }, [panel.id, panel.size, mode, snapEnabled, onUpdate]);
 
-  // Set snap values on controls
+  // Snap settings
   useEffect(() => {
     const controls = controlsRef.current;
     if (!controls) return;
     if (snapEnabled) {
-      controls.setTranslationSnap(0.01); // 10mm
-      controls.setRotationSnap(THREE.MathUtils.degToRad(15)); // 15°
+      controls.setTranslationSnap(0.01);
+      controls.setRotationSnap(THREE.MathUtils.degToRad(15));
       controls.setScaleSnap(0.05);
     } else {
       controls.setTranslationSnap(null);
@@ -248,31 +246,191 @@ function TransformGizmo({
     }
   }, [snapEnabled]);
 
-  const shape = panel.shape ?? "box";
-  const radius = panel.size[0] / 2;
-  const cylHeight = panel.size[1];
-
   return (
     <>
-      <mesh ref={meshRef} visible={false}>
-        {shape === "cylinder" ? (
-          <cylinderGeometry args={[radius, radius, cylHeight, 24]} />
-        ) : shape === "sphere" ? (
-          <sphereGeometry args={[radius, 24, 24]} />
-        ) : shape === "cone" ? (
-          <coneGeometry args={[radius, cylHeight, 24]} />
-        ) : (
-          <boxGeometry args={panel.size} />
-        )}
-        <meshBasicMaterial visible={false} />
-      </mesh>
-      <TransformControls
-        ref={controlsRef}
-        object={meshRef.current!}
-        mode={mode}
-        size={0.6}
-      />
+      {/* Invisible target group for TransformControls */}
+      <group ref={objRef} />
+      {objRef.current && (
+        <TransformControls
+          ref={controlsRef}
+          object={objRef.current}
+          mode={mode}
+          size={0.6}
+        />
+      )}
     </>
+  );
+}
+
+// ─── Resize Handles (corner drag for boxes) ────────────
+
+function ResizeHandles({
+  panel,
+  onUpdate,
+  snapEnabled,
+}: {
+  panel: PanelData;
+  onUpdate: (id: string, updates: Partial<PanelData>) => void;
+  snapEnabled: boolean;
+}) {
+  const shape = panel.shape ?? "box";
+  // Only show resize handles for box shapes
+  if (shape !== "box") return null;
+
+  const [w, h, d] = panel.size;
+  const pos = panel.position;
+
+  // 6 face-center handles (one per face direction)
+  const handles: { axis: 0 | 1 | 2; dir: 1 | -1; offset: [number, number, number] }[] = [
+    { axis: 0, dir: 1, offset: [w / 2, 0, 0] },   // +X (right)
+    { axis: 0, dir: -1, offset: [-w / 2, 0, 0] },  // -X (left)
+    { axis: 1, dir: 1, offset: [0, h / 2, 0] },    // +Y (top)
+    { axis: 1, dir: -1, offset: [0, -h / 2, 0] },  // -Y (bottom)
+    { axis: 2, dir: 1, offset: [0, 0, d / 2] },    // +Z (back)
+    { axis: 2, dir: -1, offset: [0, 0, -d / 2] },  // -Z (front)
+  ];
+
+  return (
+    <group>
+      {handles.map((handle, i) => (
+        <ResizeHandle
+          key={i}
+          panelId={panel.id}
+          panelPos={pos}
+          panelSize={panel.size}
+          axis={handle.axis}
+          dir={handle.dir}
+          offset={handle.offset}
+          onUpdate={onUpdate}
+          snapEnabled={snapEnabled}
+        />
+      ))}
+    </group>
+  );
+}
+
+function ResizeHandle({
+  panelId,
+  panelPos,
+  panelSize,
+  axis,
+  dir,
+  offset,
+  onUpdate,
+  snapEnabled,
+}: {
+  panelId: string;
+  panelPos: [number, number, number];
+  panelSize: [number, number, number];
+  axis: 0 | 1 | 2;
+  dir: 1 | -1;
+  offset: [number, number, number];
+  onUpdate: (id: string, updates: Partial<PanelData>) => void;
+  snapEnabled: boolean;
+}) {
+  const meshRef = useRef<THREE.Mesh>(null!);
+  const [dragging, setDragging] = useState(false);
+  const [hovered, setHovered] = useState(false);
+  const dragStart = useRef<{ point: THREE.Vector3; size: [number, number, number]; pos: [number, number, number] } | null>(null);
+  const { camera, raycaster, gl } = useThree();
+
+  const handlePos: [number, number, number] = [
+    panelPos[0] + offset[0],
+    panelPos[1] + offset[1],
+    panelPos[2] + offset[2],
+  ];
+
+  // Drag logic
+  useEffect(() => {
+    if (!dragging) return;
+
+    const plane = new THREE.Plane();
+    const axisVec = new THREE.Vector3(
+      axis === 0 ? 1 : 0,
+      axis === 1 ? 1 : 0,
+      axis === 2 ? 1 : 0
+    );
+
+    // Create a plane perpendicular to the camera, containing the drag axis
+    const camDir = new THREE.Vector3();
+    camera.getWorldDirection(camDir);
+    const planeNormal = new THREE.Vector3().crossVectors(axisVec, camDir).cross(axisVec).normalize();
+    if (planeNormal.lengthSq() < 0.001) planeNormal.copy(camDir);
+    plane.setFromNormalAndCoplanarPoint(planeNormal, new THREE.Vector3(...handlePos));
+
+    const onPointerMove = (e: PointerEvent) => {
+      if (!dragStart.current) return;
+
+      const rect = gl.domElement.getBoundingClientRect();
+      const mouse = new THREE.Vector2(
+        ((e.clientX - rect.left) / rect.width) * 2 - 1,
+        -((e.clientY - rect.top) / rect.height) * 2 + 1
+      );
+
+      raycaster.setFromCamera(mouse, camera);
+      const intersection = new THREE.Vector3();
+      raycaster.ray.intersectPlane(plane, intersection);
+      if (!intersection) return;
+
+      const delta = intersection.clone().sub(dragStart.current.point);
+      const axisDelta = [delta.x, delta.y, delta.z][axis] * dir;
+
+      let newSize = [...dragStart.current.size] as [number, number, number];
+      let newPos = [...dragStart.current.pos] as [number, number, number];
+
+      // Resize: grow from the dragged face, keep opposite face fixed
+      newSize[axis] = Math.max(0.005, dragStart.current.size[axis] + axisDelta);
+      // Move center to keep opposite face fixed
+      newPos[axis] = dragStart.current.pos[axis] + (axisDelta / 2) * dir;
+
+      if (snapEnabled) {
+        newSize[axis] = snapToGrid(newSize[axis], 0.01);
+        newPos[axis] = snapToGrid(newPos[axis], 0.005);
+      }
+
+      onUpdate(panelId, { size: newSize, position: newPos });
+    };
+
+    const onPointerUp = () => {
+      setDragging(false);
+      dragStart.current = null;
+      gl.domElement.style.cursor = "";
+    };
+
+    gl.domElement.addEventListener("pointermove", onPointerMove);
+    gl.domElement.addEventListener("pointerup", onPointerUp);
+    return () => {
+      gl.domElement.removeEventListener("pointermove", onPointerMove);
+      gl.domElement.removeEventListener("pointerup", onPointerUp);
+    };
+  }, [dragging, axis, dir, panelId, panelPos, panelSize, handlePos, camera, raycaster, gl, onUpdate, snapEnabled]);
+
+  return (
+    <mesh
+      ref={meshRef}
+      position={handlePos}
+      onPointerDown={(e) => {
+        e.stopPropagation();
+        setDragging(true);
+        dragStart.current = {
+          point: e.point.clone(),
+          size: [...panelSize] as [number, number, number],
+          pos: [...panelPos] as [number, number, number],
+        };
+        gl.domElement.style.cursor = "ew-resize";
+      }}
+      onPointerEnter={() => { setHovered(true); gl.domElement.style.cursor = "ew-resize"; }}
+      onPointerLeave={() => { if (!dragging) { setHovered(false); gl.domElement.style.cursor = ""; } }}
+    >
+      <sphereGeometry args={[0.012, 12, 12]} />
+      <meshStandardMaterial
+        color={dragging ? "#e8470a" : hovered ? "#C87D5A" : "#ffffff"}
+        emissive={dragging ? "#e8470a" : hovered ? "#C87D5A" : "#888"}
+        emissiveIntensity={0.3}
+        roughness={0.4}
+        metalness={0.2}
+      />
+    </mesh>
   );
 }
 
