@@ -4,6 +4,7 @@ import { EditorSidebar } from "./EditorSidebar";
 import { EditorParameters } from "./EditorParameters";
 import { DesignChatPanel } from "./DesignChatPanel";
 import { AddPartPicker } from "./AddPartPicker";
+import { LibraryBrowser } from "./LibraryBrowser";
 import { Button } from "@/components/ui/button";
 import {
   getDefaultTemplate,
@@ -11,7 +12,8 @@ import {
   type PanelShape,
   type FurnitureOption,
 } from "@/lib/furnitureData";
-import { ArrowLeft, Save, RotateCcw, MessageSquare, Move, RotateCw, Maximize2, Magnet, HelpCircle, X } from "lucide-react";
+import type { LibraryTemplate } from "@/lib/libraryData";
+import { ArrowLeft, Save, RotateCcw, MessageSquare, Move, RotateCw, Maximize2, Magnet, HelpCircle, X, BookOpen } from "lucide-react";
 
 interface FurnitureEditorProps {
   furnitureType: FurnitureOption;
@@ -37,6 +39,7 @@ export function FurnitureEditor({
   const [style, setStyle] = useState("Modern");
   const [chatOpen, setChatOpen] = useState(true);
   const [showAddPicker, setShowAddPicker] = useState(false);
+  const [showLibrary, setShowLibrary] = useState(false);
   const [transformMode, setTransformMode] = useState<TransformMode>("translate");
   const [snapEnabled, setSnapEnabled] = useState(true);
   const [showHelp, setShowHelp] = useState(false);
@@ -139,6 +142,15 @@ export function FurnitureEditor({
     });
   }, [panels, dims, style, furnitureType.id, onSave]);
 
+  const handleLoadTemplate = useCallback((template: LibraryTemplate) => {
+    const newDims = template.dims;
+    setDims(newDims);
+    const newPanels = template.buildPanels(newDims);
+    setPanels(newPanels);
+    setSelectedPanelId(null);
+    setShowLibrary(false);
+  }, []);
+
   // ─── Chat panel callbacks ──────────────────────────────
 
   const handleUpdatePanelMaterial = useCallback(
@@ -222,6 +234,16 @@ export function FurnitureEditor({
             <HelpCircle className="w-3.5 h-3.5" />
           </button>
 
+          <Button
+            variant={showLibrary ? "default" : "outline"}
+            size="sm"
+            onClick={() => setShowLibrary((v) => !v)}
+            className={`h-8 ${showLibrary ? "bg-[#1B2432] hover:bg-[#2A3544] text-white" : ""}`}
+          >
+            <BookOpen className="w-3.5 h-3.5 mr-1.5" />
+            Library
+          </Button>
+
           <div className="w-px h-6 bg-gray-200 mx-1" />
 
           <Button
@@ -254,14 +276,21 @@ export function FurnitureEditor({
 
       {/* Four-panel layout */}
       <div className="flex-1 flex overflow-hidden">
-        <EditorSidebar
-          panels={panels}
-          selectedPanelId={selectedPanelId}
-          onSelectPanel={setSelectedPanelId}
-          onAddPanel={() => setShowAddPicker(true)}
-          onDuplicatePanel={handleDuplicatePanel}
-          onDeletePanel={handleDeletePanel}
-        />
+        {showLibrary ? (
+          <LibraryBrowser
+            onSelectTemplate={handleLoadTemplate}
+            onClose={() => setShowLibrary(false)}
+          />
+        ) : (
+          <EditorSidebar
+            panels={panels}
+            selectedPanelId={selectedPanelId}
+            onSelectPanel={setSelectedPanelId}
+            onAddPanel={() => setShowAddPicker(true)}
+            onDuplicatePanel={handleDuplicatePanel}
+            onDeletePanel={handleDeletePanel}
+          />
+        )}
 
         <div className="flex-1 p-3">
           <EditorViewport
