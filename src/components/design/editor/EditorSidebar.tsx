@@ -43,7 +43,7 @@ export function EditorSidebar({
   };
 
   return (
-    <div className="w-64 bg-white border-r border-gray-200 flex flex-col h-full">
+    <div className="w-56 bg-white border-r border-gray-200 flex flex-col h-full shrink-0">
       {/* Header */}
       <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
         <h3 className="text-sm font-semibold text-gray-900">Panels</h3>

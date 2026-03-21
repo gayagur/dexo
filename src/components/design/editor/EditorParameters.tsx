@@ -29,7 +29,7 @@ export function EditorParameters({
   const matCategories = [...new Set(MATERIALS.map((m) => m.category))];
 
   return (
-    <div className="w-72 bg-white border-l border-gray-200 flex flex-col h-full overflow-y-auto">
+    <div className="w-60 bg-white border-l border-gray-200 flex flex-col h-full overflow-y-auto shrink-0">
       {/* Overall Dimensions */}
       <div className="p-4 border-b border-gray-100">
         <div className="flex items-center gap-2 mb-3">
