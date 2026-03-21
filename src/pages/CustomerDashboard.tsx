@@ -23,6 +23,8 @@ import { useProjects } from '@/hooks/useProjects';
 import { useOffersForProjects } from '@/hooks/useOffers';
 import { useChatSession } from '@/hooks/useChatSession';
 import { AppLayout } from '@/components/app/AppLayout';
+import { FurniturePreview } from '@/components/design/FurniturePreview';
+import type { PanelData } from '@/lib/furnitureData';
 import type { ProjectStatus } from '@/lib/database.types';
 import {
   Plus, MessageSquare, ArrowRight, Loader2, Sparkles, X,
@@ -130,6 +132,7 @@ function ProjectCard({
     budget_max: number;
     status: string;
     ai_concept: string | null;
+    details: Record<string, unknown> | null;
   };
   offerCount: number;
   onEdit: (id: string) => void;
@@ -150,7 +153,12 @@ function ProjectCard({
           <Card className="h-full overflow-hidden border-border/60 rounded-2xl hover:shadow-lg transition-shadow duration-300 cursor-pointer">
             {/* Image Area */}
             <div className="aspect-[16/10] overflow-hidden relative">
-              {project.ai_concept ? (
+              {project.details?.furniture_design && (project.details.furniture_design as Record<string, unknown>).panels ? (
+                <FurniturePreview
+                  panels={(project.details.furniture_design as Record<string, unknown>).panels as PanelData[]}
+                  className="w-full h-full"
+                />
+              ) : project.ai_concept ? (
                 <motion.img
                   whileHover={{ scale: 1.05 }}
                   transition={{ duration: 0.5 }}

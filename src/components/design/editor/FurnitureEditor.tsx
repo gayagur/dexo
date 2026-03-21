@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { EditorViewport, type TransformMode } from "./EditorViewport";
 import { EditorSidebar } from "./EditorSidebar";
 import { EditorParameters } from "./EditorParameters";
@@ -13,7 +13,7 @@ import {
   type FurnitureOption,
 } from "@/lib/furnitureData";
 import type { LibraryTemplate } from "@/lib/libraryData";
-import { ArrowLeft, Save, RotateCcw, MessageSquare, Move, RotateCw, Maximize2, Magnet, HelpCircle, X, BookOpen } from "lucide-react";
+import { ArrowLeft, Save, RotateCcw, MessageSquare, Move, RotateCw, Maximize2, Magnet, HelpCircle, X, BookOpen, Undo2, Redo2 } from "lucide-react";
 
 interface FurnitureEditorProps {
   furnitureType: FurnitureOption;
@@ -48,13 +48,56 @@ export function FurnitureEditor({
   const [panels, setPanels] = useState<PanelData[]>(defaultTemplate.panels);
   const [selectedPanelId, setSelectedPanelId] = useState<string | null>(null);
 
+  // ─── Undo / Redo History ───────────────────────────────
+  const MAX_HISTORY = 50;
+  const historyRef = useRef<PanelData[][]>([structuredClone(defaultTemplate.panels)]);
+  const historyIndexRef = useRef(0);
+  const [, setHistoryVersion] = useState(0);
+
+  const pushHistory = useCallback((newPanels: PanelData[]) => {
+    historyRef.current = historyRef.current.slice(0, historyIndexRef.current + 1);
+    historyRef.current.push(structuredClone(newPanels));
+    if (historyRef.current.length > MAX_HISTORY) {
+      historyRef.current = historyRef.current.slice(-MAX_HISTORY);
+    }
+    historyIndexRef.current = historyRef.current.length - 1;
+    setHistoryVersion((v) => v + 1);
+  }, []);
+
+  const undo = useCallback(() => {
+    if (historyIndexRef.current <= 0) return;
+    historyIndexRef.current--;
+    const prev = structuredClone(historyRef.current[historyIndexRef.current]);
+    setPanels(prev);
+    setSelectedPanelId(null);
+    setHistoryVersion((v) => v + 1);
+  }, []);
+
+  const redo = useCallback(() => {
+    if (historyIndexRef.current >= historyRef.current.length - 1) return;
+    historyIndexRef.current++;
+    const next = structuredClone(historyRef.current[historyIndexRef.current]);
+    setPanels(next);
+    setSelectedPanelId(null);
+    setHistoryVersion((v) => v + 1);
+  }, []);
+
+  /** Wrapper that updates panels AND pushes to history */
+  const updatePanels = useCallback((updater: (prev: PanelData[]) => PanelData[]) => {
+    setPanels((prev) => {
+      const next = updater(prev);
+      pushHistory(next);
+      return next;
+    });
+  }, [pushHistory]);
+
   const selectedPanel = panels.find((p) => p.id === selectedPanelId) ?? null;
 
   const handleUpdatePanel = useCallback((id: string, updates: Partial<PanelData>) => {
-    setPanels((prev) =>
+    updatePanels((prev) =>
       prev.map((p) => (p.id === id ? { ...p, ...updates } : p))
     );
-  }, []);
+  }, [updatePanels]);
 
   const handleAddPart = useCallback((preset: {
     shape: PanelShape;
@@ -73,9 +116,9 @@ export function FurnitureEditor({
       size: preset.size,
       materialId: preset.materialId,
     };
-    setPanels((prev) => [...prev, newPanel]);
+    updatePanels((prev) => [...prev, newPanel]);
     setSelectedPanelId(id);
-  }, []);
+  }, [updatePanels]);
 
   const handleDuplicatePanel = useCallback((id: string) => {
     const source = panels.find((p) => p.id === id);
@@ -92,20 +135,33 @@ export function FurnitureEditor({
         source.position[2] - 0.05,
       ],
     };
-    setPanels((prev) => [...prev, clone]);
+    updatePanels((prev) => [...prev, clone]);
     setSelectedPanelId(newId);
-  }, [panels]);
+  }, [panels, updatePanels]);
 
   const handleDeletePanel = useCallback((id: string) => {
-    setPanels((prev) => prev.filter((p) => p.id !== id));
+    updatePanels((prev) => prev.filter((p) => p.id !== id));
     if (selectedPanelId === id) setSelectedPanelId(null);
-  }, [selectedPanelId]);
+  }, [selectedPanelId, updatePanels]);
 
-  // Keyboard shortcuts for transform modes + duplicate + delete
+  // Keyboard shortcuts for transform modes + duplicate + delete + undo/redo
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
       const tag = (e.target as HTMLElement).tagName;
       if (tag === "INPUT" || tag === "TEXTAREA") return;
+
+      // Undo / Redo
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z") {
+        e.preventDefault();
+        if (e.shiftKey) redo();
+        else undo();
+        return;
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "y") {
+        e.preventDefault();
+        redo();
+        return;
+      }
 
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "d") {
         e.preventDefault();
@@ -125,13 +181,13 @@ export function FurnitureEditor({
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [selectedPanelId, handleDuplicatePanel, handleDeletePanel]);
+  }, [selectedPanelId, handleDuplicatePanel, handleDeletePanel, undo, redo]);
 
   const handleReset = useCallback(() => {
     const template = getDefaultTemplate(furnitureType.id, dims);
-    setPanels(template.panels);
+    updatePanels(() => template.panels);
     setSelectedPanelId(null);
-  }, [furnitureType.id, dims]);
+  }, [furnitureType.id, dims, updatePanels]);
 
   const handleSave = useCallback(() => {
     onSave?.({
@@ -146,16 +202,16 @@ export function FurnitureEditor({
     const newDims = template.dims;
     setDims(newDims);
     const newPanels = template.buildPanels(newDims);
-    setPanels(newPanels);
+    updatePanels(() => newPanels);
     setSelectedPanelId(null);
     setShowLibrary(false);
-  }, []);
+  }, [updatePanels]);
 
   // ─── Chat panel callbacks ──────────────────────────────
 
   const handleUpdatePanelMaterial = useCallback(
     (panelLabel: string, materialId: string) => {
-      setPanels((prev) =>
+      updatePanels((prev) =>
         prev.map((p) =>
           p.label.toLowerCase() === panelLabel.toLowerCase()
             ? { ...p, materialId }
@@ -163,12 +219,12 @@ export function FurnitureEditor({
         )
       );
     },
-    []
+    [updatePanels]
   );
 
   const handleUpdateAllMaterials = useCallback((materialId: string) => {
-    setPanels((prev) => prev.map((p) => ({ ...p, materialId })));
-  }, []);
+    updatePanels((prev) => prev.map((p) => ({ ...p, materialId })));
+  }, [updatePanels]);
 
   return (
     <div className="h-screen flex flex-col bg-[#FAFAFA]">
@@ -258,6 +314,26 @@ export function FurnitureEditor({
           >
             <MessageSquare className="w-3.5 h-3.5 mr-1.5" />
             AI Assistant
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={undo}
+            disabled={historyIndexRef.current <= 0}
+            className="h-8 px-2"
+            title="Undo (Ctrl+Z)"
+          >
+            <Undo2 className="w-3.5 h-3.5" />
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={redo}
+            disabled={historyIndexRef.current >= historyRef.current.length - 1}
+            className="h-8 px-2"
+            title="Redo (Ctrl+Shift+Z)"
+          >
+            <Redo2 className="w-3.5 h-3.5" />
           </Button>
           <Button variant="outline" size="sm" onClick={handleReset} className="h-8">
             <RotateCcw className="w-3.5 h-3.5 mr-1.5" />
@@ -372,6 +448,8 @@ export function FurnitureEditor({
                 <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Actions</h4>
                 <div className="space-y-1.5">
                   {[
+                    ["Ctrl + Z", "Undo last action"],
+                    ["Ctrl + Shift + Z", "Redo last action"],
                     ["Ctrl + D", "Duplicate selected element"],
                     ["Delete", "Delete selected element"],
                     ["Click", "Select an element"],

@@ -107,6 +107,18 @@ export default function NewProjectChoice() {
         return;
       }
 
+      // Store design data in localStorage so AIChatFlow can embed it in project details
+      try {
+        localStorage.setItem('dexo_pending_design', JSON.stringify({
+          panels: data.panels,
+          dims: data.dims,
+          style: data.style,
+          furnitureId: data.furnitureId,
+          roomId: state.roomId,
+          spaceType: state.spaceType,
+        }));
+      } catch { /* quota exceeded — non-critical */ }
+
       toast({
         title: "Design saved!",
         description: "Continuing to project creation…",

@@ -910,6 +910,12 @@ Now let's complete your project brief so designers can give you accurate quotes.
     const styleTags = briefData.style.split(',').map(s => s.trim()).filter(Boolean);
     const materials = briefData.materials !== 'To be discussed' ? briefData.materials.split(',').map(s => s.trim()) : [];
 
+    // Read pending design data from localStorage (saved by NewProjectChoice editor flow)
+    const pendingDesign = (() => {
+      try { return JSON.parse(localStorage.getItem('dexo_pending_design') || 'null'); }
+      catch { return null; }
+    })();
+
     const { error } = await createProject({
       customer_id: user.id,
       title: briefData.title,
@@ -930,6 +936,8 @@ Now let's complete your project brief so designers can give you accurate quotes.
         ...(additionalDetails.accessibility && { accessibility: additionalDetails.accessibility }),
         ...(additionalDetails.existingItems && { existing_items: additionalDetails.existingItems }),
         ...(additionalDetails.otherNotes && { other_notes: additionalDetails.otherNotes }),
+        // Embed 3D design data when user came from the editor
+        ...(pendingDesign && { furniture_design: pendingDesign }),
       },
       inspiration_images: [...uploadedImages, ...(conceptImageUrl ? [conceptImageUrl] : [])],
       ai_brief: `${briefData.description}. Style: ${briefData.style}. Materials: ${briefData.materials}. Dimensions: ${briefData.dimensions}. Timeline: ${briefData.timeline}.`,
@@ -942,8 +950,9 @@ Now let's complete your project brief so designers can give you accurate quotes.
     if (error) {
       toast({ title: 'Error creating project', description: error, variant: 'destructive' });
     } else {
-      // Clean up the chat session — project is submitted
+      // Clean up the chat session and pending design — project is submitted
       try { localStorage.removeItem('dexo_chat_session'); } catch {}
+      try { localStorage.removeItem('dexo_pending_design'); } catch {}
       toast({ title: matchingMethod === 'auto' ? 'Project sent to creators!' : 'Project saved! Choose your creators.' });
       navigate(matchingMethod === 'manual' ? '/browse-businesses' : '/dashboard');
     }

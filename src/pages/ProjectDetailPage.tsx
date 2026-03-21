@@ -11,6 +11,8 @@ import { useOffers } from '@/hooks/useOffers';
 import { useMessages } from '@/hooks/useMessages';
 import { useImageUpload } from '@/hooks/useImageUpload';
 import { AppLayout } from '@/components/app/AppLayout';
+import { FurniturePreview } from '@/components/design/FurniturePreview';
+import type { PanelData } from '@/lib/furnitureData';
 import { categories, styleOptions } from '@/lib/data';
 import type { Project, Review, Milestone } from '@/lib/database.types';
 import { createNotification } from '@/lib/notifications';
@@ -788,8 +790,17 @@ const ProjectDetailPage = () => {
               )}
             </div>
 
-            {/* ─── AI Concept Visual Anchor ─── */}
-            {project.ai_concept && (
+            {/* ─── 3D Design / AI Concept Visual Anchor ─── */}
+            {project.details?.furniture_design && (project.details.furniture_design as Record<string, unknown>).panels ? (
+              <Card className="overflow-hidden">
+                <div className="aspect-video">
+                  <FurniturePreview
+                    panels={(project.details.furniture_design as Record<string, unknown>).panels as PanelData[]}
+                    className="w-full h-full"
+                  />
+                </div>
+              </Card>
+            ) : project.ai_concept ? (
               <Card className="overflow-hidden">
                 <div className="aspect-video overflow-hidden">
                   <img
@@ -799,7 +810,7 @@ const ProjectDetailPage = () => {
                   />
                 </div>
               </Card>
-            )}
+            ) : null}
 
             {/* ─── Offers Section ─── */}
             {offers.length > 0 && (
