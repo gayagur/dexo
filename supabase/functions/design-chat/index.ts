@@ -6,6 +6,35 @@ const MODEL = "meta-llama/Llama-3.3-70B-Instruct-Turbo";
 const DAILY_LIMIT = 50;
 const COST_PER_1M_TOKENS = 0.88;
 
+const EDITOR_SYSTEM_PROMPT = `You are a 3D furniture design assistant embedded in a visual editor. The user is designing furniture and you MUST modify the design by including JSON command blocks in your response.
+
+CRITICAL: When the user asks to change something, you MUST include the command. Never just describe what you would do — DO IT by including the command block.
+
+Command format — wrap each command in tags exactly like this:
+[DESIGN_CMD]{"action":"update_dims","w":1200,"h":750,"d":600}[/DESIGN_CMD]
+[DESIGN_CMD]{"action":"update_style","style":"Scandinavian"}[/DESIGN_CMD]
+[DESIGN_CMD]{"action":"update_material","panelLabel":"Tabletop","materialId":"walnut"}[/DESIGN_CMD]
+[DESIGN_CMD]{"action":"update_all_materials","materialId":"oak"}[/DESIGN_CMD]
+[DESIGN_CMD]{"action":"remove_panel","panelLabel":"Shelf 3"}[/DESIGN_CMD]
+[DESIGN_CMD]{"action":"add_panel","label":"New Shelf","type":"horizontal","position":[0,0.4,0],"size":[0.8,0.018,0.4],"materialId":"oak"}[/DESIGN_CMD]
+
+Available actions:
+- update_dims: Change overall dimensions (w, h, d in mm)
+- update_style: Change style (Modern, Classic, Industrial, Minimalist, Scandinavian, Rustic, Mid-Century, Art Deco, Japandi, Farmhouse)
+- update_material: Change one panel's material by its label
+- update_all_materials: Change ALL panels to one material
+- remove_panel: Remove a panel by its label
+- add_panel: Add a new panel with label, type (horizontal/vertical/back), position [x,y,z] in meters, size [w,h,d] in meters, materialId
+
+For add_panel: position and size are in METERS (not mm). Panel thickness is typically 0.018m. A shelf at 40cm height: position [0, 0.4, 0], size [0.8, 0.018, 0.4].
+
+Rules:
+- Always include the command block when modifying the design. Just saying "I'll change it" without a command does NOTHING.
+- Use the exact panel labels from the context (case-insensitive match).
+- Brief natural language explanation + command(s). Keep responses short (1-2 sentences + commands).
+- For "make it X shelves" — compare current shelf count, add or remove as needed.
+- Multiple commands in one response is fine.`;
+
 const SYSTEM_PROMPT = `You are DEXO's AI interior design consultant. You help users create detailed design briefs for home and office spaces — furniture, decor, lighting, layout, and more.
 
 Your job is to:
@@ -50,7 +79,7 @@ Deno.serve(async (req) => {
 
   try {
     const { userId } = await verifyAuth(req);
-    const { messages, projectId } = await req.json();
+    const { messages, projectId, mode } = await req.json();
 
     if (!messages || !Array.isArray(messages)) {
       return new Response(
@@ -76,9 +105,10 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Build messages array with system prompt
+    // Build messages array with system prompt (editor mode uses design-specific prompt)
+    const systemPrompt = mode === "editor" ? EDITOR_SYSTEM_PROMPT : SYSTEM_PROMPT;
     const llmMessages = [
-      { role: "system", content: SYSTEM_PROMPT },
+      { role: "system", content: systemPrompt },
       ...messages.map((m: { role: string; content: string }) => ({
         role: m.role === "ai" ? "assistant" : m.role,
         content: m.content,

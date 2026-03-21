@@ -245,6 +245,33 @@ export function FurnitureEditor({
     updatePanels((prev) => prev.map((p) => ({ ...p, materialId })));
   }, [updatePanels]);
 
+  // AI chat: remove panel by label
+  const handleChatRemovePanel = useCallback((panelLabel: string) => {
+    updatePanels((prev) =>
+      prev.filter((p) => p.label.toLowerCase() !== panelLabel.toLowerCase())
+    );
+  }, [updatePanels]);
+
+  // AI chat: add panel
+  const handleChatAddPanel = useCallback((preset: {
+    label: string;
+    type: PanelData["type"];
+    position: [number, number, number];
+    size: [number, number, number];
+    materialId: string;
+  }) => {
+    const id = `p${++nextPanelId}`;
+    const newPanel: PanelData = {
+      id,
+      type: preset.type,
+      label: preset.label,
+      position: preset.position,
+      size: preset.size,
+      materialId: preset.materialId,
+    };
+    updatePanels((prev) => [...prev, newPanel]);
+  }, [updatePanels]);
+
   return (
     <div className="h-screen flex flex-col bg-[#FAFAFA]">
       {/* Top bar */}
@@ -417,6 +444,8 @@ export function FurnitureEditor({
             onUpdateStyle={setStyle}
             onUpdatePanelMaterial={handleUpdatePanelMaterial}
             onUpdateAllMaterials={handleUpdateAllMaterials}
+            onRemovePanel={handleChatRemovePanel}
+            onAddPanel={handleChatAddPanel}
             onClose={() => setChatOpen(false)}
           />
         )}

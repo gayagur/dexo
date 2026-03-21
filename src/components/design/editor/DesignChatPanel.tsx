@@ -24,6 +24,8 @@ interface DesignChatPanelProps {
   onUpdateStyle: (style: string) => void;
   onUpdatePanelMaterial: (panelLabel: string, materialId: string) => void;
   onUpdateAllMaterials: (materialId: string) => void;
+  onRemovePanel: (panelLabel: string) => void;
+  onAddPanel: (panel: { label: string; type: PanelData["type"]; position: [number, number, number]; size: [number, number, number]; materialId: string }) => void;
   onClose: () => void;
 }
 
@@ -99,6 +101,8 @@ export function DesignChatPanel({
   onUpdateStyle,
   onUpdatePanelMaterial,
   onUpdateAllMaterials,
+  onRemovePanel,
+  onAddPanel,
   onClose,
 }: DesignChatPanelProps) {
   const [messages, setMessages] = useState<DisplayMessage[]>([]);
@@ -156,10 +160,24 @@ export function DesignChatPanel({
             }
             break;
           }
+          case "remove_panel": {
+            const label = String(cmd.panelLabel);
+            onRemovePanel(label);
+            break;
+          }
+          case "add_panel": {
+            const label = String(cmd.label || "New Panel");
+            const type = (cmd.type as PanelData["type"]) || "horizontal";
+            const position = (cmd.position as [number, number, number]) || [0, 0.5, 0];
+            const size = (cmd.size as [number, number, number]) || [0.5, 0.018, 0.3];
+            const matId = String(cmd.materialId || "oak");
+            onAddPanel({ label, type, position, size, materialId: matId });
+            break;
+          }
         }
       }
     },
-    [dims, onUpdateDims, onUpdateStyle, onUpdatePanelMaterial, onUpdateAllMaterials]
+    [dims, onUpdateDims, onUpdateStyle, onUpdatePanelMaterial, onUpdateAllMaterials, onRemovePanel, onAddPanel]
   );
 
   const handleSend = useCallback(() => {
@@ -225,7 +243,8 @@ export function DesignChatPanel({
         setIsStreaming(false);
         setStreamingText("");
         setError(errMsg);
-      }
+      },
+      "editor" // Use editor-specific system prompt
     );
 
     abortRef.current = controller;

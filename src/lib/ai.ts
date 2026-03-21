@@ -44,7 +44,8 @@ export function streamChat(
   projectId: string | null,
   onChunk: (text: string) => void,
   onDone: (fullText: string) => void,
-  onError: (error: string) => void
+  onError: (error: string) => void,
+  mode?: "chat" | "editor"
 ): AbortController {
   const controller = new AbortController();
 
@@ -62,7 +63,7 @@ export function streamChat(
       const response = await fetch(`${FUNCTIONS_URL}/design-chat`, {
         method: "POST",
         headers,
-        body: JSON.stringify({ messages, projectId }),
+        body: JSON.stringify({ messages, projectId, mode: mode || "chat" }),
         signal: controller.signal,
       });
 
