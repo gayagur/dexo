@@ -254,7 +254,7 @@ export function DesignChatPanel({
   const displayStreamingText = streamingText.replace(CMD_REGEX, "").replace(/\[DESIGN_CMD\][^[]*$/s, "").trim();
 
   return (
-    <div className="w-72 bg-[#1B2432] flex flex-col border-l border-[#2A3544] shrink-0 h-full">
+    <div className="w-80 bg-[#1B2432] flex flex-col border-l border-[#2A3544] shrink-0 h-full">
       {/* Header */}
       <div className="px-4 py-3 border-b border-[#2A3544] shrink-0">
         <div className="flex items-center justify-between">

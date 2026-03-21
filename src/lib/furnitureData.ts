@@ -285,25 +285,30 @@ export function getDefaultTemplate(furnitureId: string, dims: { w: number; h: nu
     case "meeting_table":
     case "conference_table":
     case "product_table": {
-      // Clean dining table: thick top + 4 cylindrical legs, no rails
-      const topT = 0.030;
+      // Top panel + 4 cylindrical legs + stretcher rails
+      const topT = 0.030; // 30mm thick top
       const legH = h - topT;
       return {
         panels: [
           panel("horizontal", "Tabletop", [0, h - topT / 2, 0], [w, topT, d]),
-          ...fourLegs(w, h, d, legH, 0.05, 0.08),
+          ...fourLegs(w, h, d, legH, 0.05, 0.06),
+          // Side stretcher rails
+          panel("horizontal", "Front Rail", [0, 0.12, -d / 2 + 0.06], [w - 0.18, 0.04, 0.03], "black_metal"),
+          panel("horizontal", "Back Rail", [0, 0.12, d / 2 - 0.06], [w - 0.18, 0.04, 0.03], "black_metal"),
         ],
       };
     }
 
     case "coffee_table": {
-      // Low coffee table: thick top + 4 short legs
+      // Lower table with thick top + 4 short legs
       const topT = 0.025;
       const legH = h - topT;
       return {
         panels: [
           panel("horizontal", "Tabletop", [0, h - topT / 2, 0], [w, topT, d]),
-          ...fourLegs(w, h, d, legH, 0.04, 0.06),
+          ...fourLegs(w, h, d, legH, 0.045, 0.05),
+          // Lower shelf
+          panel("horizontal", "Lower Shelf", [0, h * 0.25, 0], [w - 0.14, t, d - 0.14]),
         ],
       };
     }
@@ -487,13 +492,17 @@ export function getDefaultTemplate(furnitureId: string, dims: { w: number; h: nu
     case "desk":
     case "study_desk":
     case "office_desk_c": {
-      // Clean desk: top + 4 cylindrical legs
+      // Top + 4 cylindrical legs + back modesty panel + optional drawer unit
       const topT = 0.025;
       const legH = h - topT;
       return {
         panels: [
           panel("horizontal", "Desktop", [0, h - topT / 2, 0], [w, topT, d]),
-          ...fourLegs(w, h, d, legH, 0.045, 0.06, "black_metal"),
+          ...fourLegs(w, h, d, legH, 0.045, 0.05, "black_metal"),
+          // Modesty panel (back)
+          panel("back", "Modesty Panel", [0, h * 0.3, d / 2 - 0.01], [w - 0.12, h * 0.4, t]),
+          // Cable tray bar
+          panel("horizontal", "Cable Tray", [0, h * 0.08, d / 2 - 0.08], [w * 0.5, 0.02, 0.1], "black_metal"),
         ],
       };
     }
