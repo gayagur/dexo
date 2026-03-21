@@ -713,7 +713,7 @@ const BusinessProfilePage = () => {
                 <p className="text-muted-foreground mb-4">
                   Create a project first to message this creator.
                 </p>
-                <Button onClick={() => navigate('/create-project')}>
+                <Button onClick={() => navigate('/new-project')}>
                   Create a Project
                 </Button>
               </div>
@@ -779,7 +779,7 @@ const BusinessProfilePage = () => {
               <p className="text-sm text-muted-foreground mb-3">
                 You don't have any projects yet.
               </p>
-              <Button size="sm" onClick={() => navigate('/create-project')}>
+              <Button size="sm" onClick={() => navigate('/new-project')}>
                 Create a Project
               </Button>
             </div>

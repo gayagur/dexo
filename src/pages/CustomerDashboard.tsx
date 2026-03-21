@@ -276,7 +276,7 @@ function EmptyState() {
           <p className="text-muted-foreground mb-8 max-w-sm mx-auto leading-relaxed">
             Describe your dream space, and we'll connect you with talented designers who can bring it to life.
           </p>
-          <Link to="/create-project">
+          <Link to="/new-project">
             <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.95 }} className="inline-block">
               <Button size="lg" className="gap-2 shadow-md">
                 <Plus className="w-4 h-4" />
@@ -395,7 +395,7 @@ const CustomerDashboard = () => {
               </div>
               {projects.length > 0 && (
                 <motion.div custom={0.15} variants={fadeUp}>
-                  <Link to="/create-project">
+                  <Link to="/new-project">
                     <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.95 }}>
                       <Button className="gap-2 shadow-md hover:shadow-lg transition-shadow">
                         <Plus className="w-4 h-4" />
@@ -482,7 +482,7 @@ const CustomerDashboard = () => {
               className="grid sm:grid-cols-2 gap-4"
             >
               <motion.div variants={staggerItem}>
-                <Link to="/create-project" className="group block">
+                <Link to="/new-project" className="group block">
                   <motion.div whileHover={{ y: -3 }} transition={{ duration: 0.25 }}>
                     <Card className="h-full border-primary/15 bg-gradient-to-br from-primary/[0.04] to-primary/[0.01] hover:border-primary/30 hover:shadow-md rounded-2xl transition-all duration-300 cursor-pointer">
                       <CardContent className="p-5 flex items-center justify-between">

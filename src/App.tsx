@@ -26,6 +26,7 @@ import BrowseBusinesses from "./pages/BrowseBusinesses";
 import BusinessProfilePage from "./pages/BusinessProfilePage";
 import ProfilePage from "./pages/ProfilePage";
 import AuthenticatedHome from "./pages/AuthenticatedHome";
+import NewProjectChoice from "./pages/NewProjectChoice";
 import NotFound from "./pages/NotFound";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import PendingCreators from "./pages/admin/PendingCreators";
@@ -99,6 +100,11 @@ const App = () => (
             <Route path="/project/:id" element={
               <ProtectedRoute requiredRole="customer">
                 <ProjectDetailPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/new-project" element={
+              <ProtectedRoute requiredRole="customer">
+                <NewProjectChoice />
               </ProtectedRoute>
             } />
             <Route path="/browse-businesses" element={

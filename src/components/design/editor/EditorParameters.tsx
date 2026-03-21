@@ -1,0 +1,245 @@
+import { useState } from "react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { MATERIALS, type PanelData, type MaterialOption } from "@/lib/furnitureData";
+import { Ruler, Layers, Palette, RotateCw, ChevronDown, ChevronRight } from "lucide-react";
+
+interface EditorParametersProps {
+  panel: PanelData | null;
+  overallDims: { w: number; h: number; d: number };
+  onUpdatePanel: (id: string, updates: Partial<PanelData>) => void;
+  onUpdateDims: (dims: { w: number; h: number; d: number }) => void;
+  style: string;
+  onStyleChange: (style: string) => void;
+}
+
+const STYLES = [
+  "Modern", "Classic", "Industrial", "Minimalist", "Scandinavian", "Rustic",
+  "Mid-Century", "Art Deco", "Japandi", "Farmhouse",
+];
+
+export function EditorParameters({
+  panel,
+  overallDims,
+  onUpdatePanel,
+  onUpdateDims,
+  style,
+  onStyleChange,
+}: EditorParametersProps) {
+  const matCategories = [...new Set(MATERIALS.map((m) => m.category))];
+
+  return (
+    <div className="w-72 bg-white border-l border-gray-200 flex flex-col h-full overflow-y-auto">
+      {/* Overall Dimensions */}
+      <div className="p-4 border-b border-gray-100">
+        <div className="flex items-center gap-2 mb-3">
+          <Ruler className="w-4 h-4 text-gray-500" />
+          <h3 className="text-sm font-semibold text-gray-900">Overall Size</h3>
+        </div>
+        <div className="grid grid-cols-3 gap-2">
+          {(["w", "h", "d"] as const).map((axis) => (
+            <div key={axis}>
+              <Label className="text-[11px] text-gray-500 uppercase">
+                {axis === "w" ? "Width" : axis === "h" ? "Height" : "Depth"}
+              </Label>
+              <div className="relative">
+                <Input
+                  type="number"
+                  value={overallDims[axis]}
+                  onChange={(e) =>
+                    onUpdateDims({ ...overallDims, [axis]: parseInt(e.target.value) || 0 })
+                  }
+                  className="h-8 text-xs pr-8"
+                />
+                <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-gray-400">
+                  mm
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Style */}
+      <div className="p-4 border-b border-gray-100">
+        <div className="flex items-center gap-2 mb-3">
+          <Layers className="w-4 h-4 text-gray-500" />
+          <h3 className="text-sm font-semibold text-gray-900">Style</h3>
+        </div>
+        <div className="flex flex-wrap gap-1.5">
+          {STYLES.map((s) => (
+            <button
+              key={s}
+              onClick={() => onStyleChange(s)}
+              className={`px-2.5 py-1 rounded-full text-xs transition-colors ${
+                s === style
+                  ? "bg-[#C87D5A] text-white"
+                  : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+              }`}
+            >
+              {s}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Selected Panel Properties */}
+      {panel ? (
+        <>
+          <div className="p-4 border-b border-gray-100">
+            <h3 className="text-sm font-semibold text-gray-900 mb-3">
+              {panel.label}
+            </h3>
+
+            {/* Panel dimensions (in mm, displayed) */}
+            <div className="grid grid-cols-3 gap-2 mb-3">
+              {(["w", "h", "d"] as const).map((axis, i) => (
+                <div key={axis}>
+                  <Label className="text-[11px] text-gray-500 uppercase">
+                    {axis === "w" ? "W" : axis === "h" ? "H" : "D"}
+                  </Label>
+                  <div className="relative">
+                    <Input
+                      type="number"
+                      value={Math.round(panel.size[i] * 1000)}
+                      onChange={(e) => {
+                        const newSize = [...panel.size] as [number, number, number];
+                        newSize[i] = (parseInt(e.target.value) || 0) / 1000;
+                        onUpdatePanel(panel.id, { size: newSize });
+                      }}
+                      className="h-8 text-xs pr-8"
+                    />
+                    <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-gray-400">
+                      mm
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Position (in mm) */}
+            <p className="text-[11px] text-gray-400 mb-1.5">Position</p>
+            <div className="grid grid-cols-3 gap-2 mb-3">
+              {(["X", "Y", "Z"] as const).map((axis, i) => (
+                <div key={axis}>
+                  <Label className="text-[11px] text-gray-500">{axis}</Label>
+                  <div className="relative">
+                    <Input
+                      type="number"
+                      step="10"
+                      value={Math.round(panel.position[i] * 1000)}
+                      onChange={(e) => {
+                        const newPos = [...panel.position] as [number, number, number];
+                        newPos[i] = (parseInt(e.target.value) || 0) / 1000;
+                        onUpdatePanel(panel.id, { position: newPos });
+                      }}
+                      className="h-8 text-xs pr-8"
+                    />
+                    <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-gray-400">
+                      mm
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Rotation (in degrees) */}
+            <div className="flex items-center gap-1.5 mb-1.5">
+              <RotateCw className="w-3 h-3 text-gray-400" />
+              <p className="text-[11px] text-gray-400">Rotation</p>
+            </div>
+            <div className="grid grid-cols-3 gap-2 mb-2.5">
+              {(["X", "Y", "Z"] as const).map((axis, i) => {
+                const rot = panel.rotation ?? [0, 0, 0];
+                return (
+                  <div key={`rot-${axis}`}>
+                    <Label className="text-[11px] text-gray-500">{axis}</Label>
+                    <div className="relative">
+                      <Input
+                        type="number"
+                        step="15"
+                        value={Math.round((rot[i] * 180) / Math.PI)}
+                        onChange={(e) => {
+                          const newRot = [...rot] as [number, number, number];
+                          newRot[i] = ((parseInt(e.target.value) || 0) * Math.PI) / 180;
+                          onUpdatePanel(panel.id, { rotation: newRot });
+                        }}
+                        className="h-8 text-xs pr-6"
+                      />
+                      <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-gray-400">
+                        °
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Quick rotate buttons */}
+            <p className="text-[10px] text-gray-400 mb-1.5">Quick Rotate</p>
+            <div className="flex flex-wrap gap-1.5">
+              {(["X", "Y", "Z"] as const).map((axis, i) => (
+                <button
+                  key={`qr-${axis}`}
+                  onClick={() => {
+                    const rot = [...(panel.rotation ?? [0, 0, 0])] as [number, number, number];
+                    rot[i] += Math.PI / 2; // +90°
+                    onUpdatePanel(panel.id, { rotation: rot });
+                  }}
+                  className="h-7 px-2.5 rounded-md bg-gray-100 hover:bg-gray-200 text-[11px] font-medium text-gray-600 transition-colors flex items-center gap-1"
+                >
+                  <RotateCw className="w-3 h-3" />
+                  {axis} +90°
+                </button>
+              ))}
+              <button
+                onClick={() => {
+                  onUpdatePanel(panel.id, { rotation: [0, 0, 0] });
+                }}
+                className="h-7 px-2.5 rounded-md bg-gray-100 hover:bg-red-50 hover:text-red-500 text-[11px] font-medium text-gray-500 transition-colors"
+              >
+                Reset
+              </button>
+            </div>
+          </div>
+
+          {/* Material Picker */}
+          <div className="p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <Palette className="w-4 h-4 text-gray-500" />
+              <h3 className="text-sm font-semibold text-gray-900">Material</h3>
+            </div>
+            {matCategories.map((cat) => (
+              <div key={cat} className="mb-3">
+                <p className="text-[11px] text-gray-400 uppercase tracking-wider mb-1.5">
+                  {cat}
+                </p>
+                <div className="flex flex-wrap gap-1.5">
+                  {MATERIALS.filter((m) => m.category === cat).map((m) => (
+                    <button
+                      key={m.id}
+                      onClick={() => onUpdatePanel(panel.id, { materialId: m.id })}
+                      className={`w-8 h-8 rounded-lg border-2 transition-all ${
+                        m.id === panel.materialId
+                          ? "border-[#C87D5A] ring-2 ring-[#C87D5A]/20"
+                          : "border-gray-200 hover:border-gray-300"
+                      }`}
+                      style={{ backgroundColor: m.color }}
+                      title={m.label}
+                    />
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </>
+      ) : (
+        <div className="flex-1 flex items-center justify-center p-4">
+          <p className="text-xs text-gray-400 text-center">
+            Select a panel in the viewport or sidebar to edit its properties.
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}

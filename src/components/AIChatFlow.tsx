@@ -7,6 +7,8 @@ import { useToast } from '@/hooks/use-toast';
 import { useImageUpload } from '@/hooks/useImageUpload';
 import type { ChatSessionState } from '@/hooks/useChatSession';
 import { streamChat, generateImage, buildImagePrompt } from '@/lib/ai';
+import { supabase } from '@/lib/supabase';
+import { MATERIALS, HOME_ROOMS, COMMERCIAL_SPACES, FURNITURE_BY_SPACE } from '@/lib/furnitureData';
 import { motion, AnimatePresence } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
 import {
@@ -295,6 +297,17 @@ export default function AIChatFlow() {
   const isNearBottomRef = useRef(true);
   const [showScrollBtn, setShowScrollBtn] = useState(false);
 
+  // ─── Design context (from editor flow via ?design_id=xxx) ──
+  const [designContext, setDesignContext] = useState<{
+    designId: string;
+    furnitureLabel: string;
+    roomLabel: string;
+    spaceType: string;
+    style: string;
+    dims: { w: number; h: number; d: number };
+    mainMaterial: string;
+  } | null>(null);
+
   // ─── Session Persistence (localStorage only — no hook) ──
   const [searchParams, setSearchParams] = useSearchParams();
   const sessionSaveEnabled = useRef(false);
@@ -368,6 +381,80 @@ export default function AIChatFlow() {
     // Remove ?restore from URL
     setSearchParams({}, { replace: true });
     sessionSaveEnabled.current = true;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // ─── Load furniture design context (from editor flow) ────
+  useEffect(() => {
+    const designId = searchParams.get('design_id');
+    if (!designId) return;
+
+    (async () => {
+      const { data: design } = await supabase
+        .from('furniture_designs')
+        .select('*')
+        .eq('id', designId)
+        .single();
+
+      if (!design) return;
+
+      // Resolve labels
+      const allRooms = [...HOME_ROOMS, ...COMMERCIAL_SPACES];
+      const roomLabel = allRooms.find(r => r.id === design.room_id)?.label ?? design.room_id;
+      const allFurniture = Object.values(FURNITURE_BY_SPACE).flat();
+      const furnitureLabel = allFurniture.find(f => f.id === design.furniture_id)?.label ?? design.furniture_id;
+      const dims = design.dimensions as { w: number; h: number; d: number };
+      const panels = design.panels as Array<{ materialId?: string }>;
+      const mainMatId = panels?.[0]?.materialId ?? 'oak';
+      const mainMaterial = MATERIALS.find(m => m.id === mainMatId)?.label ?? mainMatId;
+
+      const ctx = {
+        designId,
+        furnitureLabel,
+        roomLabel,
+        spaceType: design.space_type,
+        style: design.style,
+        dims,
+        mainMaterial,
+      };
+      setDesignContext(ctx);
+
+      // Pre-populate progress so the sidebar shows the data
+      setProgressOverrides(prev => ({
+        ...prev,
+        category: 'Custom Furniture Design',
+        style: design.style,
+        roomType: roomLabel,
+        materials: mainMaterial,
+        spaceSize: `${dims.w} × ${dims.h} × ${dims.d} mm`,
+      }));
+
+      // Inject context into the AI conversation so it knows the design
+      const contextMsg = `[SYSTEM CONTEXT — The user already designed furniture in the visual editor. Here's what they built:
+- Furniture type: ${furnitureLabel}
+- Room: ${roomLabel} (${design.space_type})
+- Dimensions: ${dims.w}mm W × ${dims.h}mm H × ${dims.d}mm D
+- Style: ${design.style}
+- Primary material: ${mainMaterial}
+- Total panels: ${panels?.length ?? 0}
+
+Do NOT ask about category, furniture type, room, dimensions, or materials — you already know all of this. Instead, greet them warmly referencing their design, and ask what else they'd like to add to the project brief (budget, timeline, special requirements, color palette, etc.)]`;
+
+      const aiGreeting = `I see you've designed a beautiful **${furnitureLabel}** for your **${roomLabel}** — ${dims.w}×${dims.h}×${dims.d}mm in **${mainMaterial}** with a **${design.style}** style. Nice choices! 🎨
+
+Now let's complete your project brief so designers can give you accurate quotes. A few quick questions:
+
+**What's your budget range** for this piece?`;
+
+      llmMessagesRef.current = [
+        { role: 'user', content: contextMsg },
+        { role: 'assistant', content: aiGreeting },
+      ];
+      setMessages([{ role: 'ai', text: aiGreeting }]);
+
+      // Clean up URL
+      setSearchParams({}, { replace: true });
+    })();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -848,6 +935,7 @@ export default function AIChatFlow() {
       ai_brief: `${briefData.description}. Style: ${briefData.style}. Materials: ${briefData.materials}. Dimensions: ${briefData.dimensions}. Timeline: ${briefData.timeline}.`,
       ai_concept: conceptImageUrl,
       status: matchingMethod === 'auto' ? 'sent' : 'draft',
+      ...(designContext?.designId && { furniture_design_id: designContext.designId }),
     });
 
     setSubmitting(false);
@@ -1103,18 +1191,31 @@ export default function AIChatFlow() {
                 <Sparkles className="w-3.5 h-3.5 md:w-4 md:h-4 text-[#C05621]" />
                 <span className="text-xs md:text-sm text-[#4A5568]">AI Design Consultant</span>
               </div>
-              <h2 className="text-xl md:text-3xl lg:text-4xl font-serif font-bold text-[#1B2432] mb-2 md:mb-3">
-                What space would you like to transform?
-              </h2>
-              <p className="text-sm md:text-base text-[#4A5568] max-w-md">
-                Describe your space — living room, bedroom, office, or any room you'd like to transform.
-              </p>
-              <div className="mt-4 md:mt-8 flex justify-center">
-                <CategoryChipSelector
-                  allCategories={categories}
-                  onSelect={(cat) => { setInput(cat); setTimeout(() => inputRef.current?.focus(), 50); }}
-                />
-              </div>
+              {designContext ? (
+                <>
+                  <h2 className="text-xl md:text-3xl lg:text-4xl font-serif font-bold text-[#1B2432] mb-2 md:mb-3">
+                    Let's complete your project brief
+                  </h2>
+                  <p className="text-sm md:text-base text-[#4A5568] max-w-md">
+                    Your <strong>{designContext.furnitureLabel}</strong> design is ready. Now let's add budget, timeline, and preferences so designers can quote accurately.
+                  </p>
+                </>
+              ) : (
+                <>
+                  <h2 className="text-xl md:text-3xl lg:text-4xl font-serif font-bold text-[#1B2432] mb-2 md:mb-3">
+                    What space would you like to transform?
+                  </h2>
+                  <p className="text-sm md:text-base text-[#4A5568] max-w-md">
+                    Describe your space — living room, bedroom, office, or any room you'd like to transform.
+                  </p>
+                  <div className="mt-4 md:mt-8 flex justify-center">
+                    <CategoryChipSelector
+                      allCategories={categories}
+                      onSelect={(cat) => { setInput(cat); setTimeout(() => inputRef.current?.focus(), 50); }}
+                    />
+                  </div>
+                </>
+              )}
             </div>
           ) : (
             <div className="flex-1" /> /* spacer pushes messages to bottom */

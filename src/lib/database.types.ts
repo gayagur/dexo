@@ -48,6 +48,7 @@ export interface Project {
   ai_brief: string | null;
   ai_concept: string | null;
   status: ProjectStatus;
+  furniture_design_id: string | null;
   updated_at: string | null;
   created_at: string;
 }
@@ -140,6 +141,22 @@ export interface BusinessPageView {
   viewed_at: string;
 }
 
+export type DesignMode = "furniture" | "decorative";
+export type SpaceType = "home" | "commercial";
+
+export interface FurnitureDesign {
+  id: string;
+  customer_id: string;
+  mode: DesignMode;
+  space_type: SpaceType;
+  room_id: string;
+  furniture_id: string;
+  panels: Record<string, unknown>[];
+  dimensions: Record<string, unknown>;
+  style: string;
+  created_at: string;
+}
+
 export interface Database {
   public: {
     Tables: {
@@ -154,6 +171,7 @@ export interface Database {
       reviews: { Row: Review; Insert: Omit<Review, "id" | "created_at">; Update: Partial<Omit<Review, "id">> };
       milestones: { Row: Milestone; Insert: Omit<Milestone, "id" | "created_at">; Update: Partial<Omit<Milestone, "id">> };
       business_page_views: { Row: BusinessPageView; Insert: Omit<BusinessPageView, "id" | "viewed_at">; Update: never };
+      furniture_designs: { Row: FurnitureDesign; Insert: Omit<FurnitureDesign, "id" | "created_at">; Update: Partial<Omit<FurnitureDesign, "id">> };
     };
   };
 }

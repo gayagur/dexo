@@ -397,7 +397,7 @@ function CustomerHome({ firstName }: { firstName: string }) {
               </motion.p>
             </div>
             <motion.div custom={0.15} variants={fadeUp} className="flex gap-3">
-              <Link to="/create-project">
+              <Link to="/new-project">
                 <Button variant="hero" size="lg" className="group shadow-sm hover:shadow-md transition-shadow">
                   <Plus className="w-4 h-4 mr-2" />
                   New Project
@@ -582,7 +582,7 @@ function CustomerHome({ firstName }: { firstName: string }) {
                 </motion.div>
               ))}
               <motion.div variants={staggerItem}>
-                <Link to="/create-project">
+                <Link to="/new-project">
                   <motion.div whileHover={{ y: -3 }} transition={{ duration: 0.2 }}>
                     <Card className="overflow-hidden h-full border-dashed rounded-2xl hover:border-primary/30 hover:shadow-md transition-all duration-300 group cursor-pointer">
                       <CardContent className="p-4 flex flex-col items-center justify-center text-center min-h-[220px]">
@@ -608,7 +608,7 @@ function CustomerHome({ firstName }: { firstName: string }) {
                   <p className="text-sm text-muted-foreground mb-5 max-w-sm mx-auto">
                     Describe your dream space, let AI visualize it, and connect with talented designers.
                   </p>
-                  <Link to="/create-project">
+                  <Link to="/new-project">
                     <Button variant="hero" size="lg" className="group shadow-sm">
                       Start Your First Project
                       <ArrowRight className="w-4 h-4 ml-1.5 transition-transform group-hover:translate-x-1" />
