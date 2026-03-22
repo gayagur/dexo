@@ -434,7 +434,7 @@ function RotationRing({ panel }: { panel: PanelData }) {
 // ─── Camera Controller (animates camera for view modes) ──
 
 function CameraController({ viewMode }: { viewMode: ViewMode }) {
-  const { camera } = useThree();
+  const { camera, controls } = useThree();
   const targetPos = useRef(new THREE.Vector3(2.5, 2, 3));
   const targetUp = useRef(new THREE.Vector3(0, 1, 0));
   const isAnimating = useRef(false);
@@ -449,8 +449,17 @@ function CameraController({ viewMode }: { viewMode: ViewMode }) {
   useFrame(() => {
     if (!isAnimating.current) return;
 
+    const orbitControls = controls as any;
+
     camera.position.lerp(targetPos.current, 0.12);
     camera.up.lerp(targetUp.current, 0.12);
+
+    // Sync OrbitControls target so they don't fight
+    if (orbitControls?.target) {
+      orbitControls.target.set(0, 0.3, 0);
+      orbitControls.update();
+    }
+
     camera.lookAt(0, 0.3, 0);
     camera.updateProjectionMatrix();
 
@@ -459,6 +468,10 @@ function CameraController({ viewMode }: { viewMode: ViewMode }) {
       camera.up.copy(targetUp.current);
       camera.lookAt(0, 0.3, 0);
       camera.updateProjectionMatrix();
+      if (orbitControls?.target) {
+        orbitControls.target.set(0, 0.3, 0);
+        orbitControls.update();
+      }
       isAnimating.current = false;
     }
   });

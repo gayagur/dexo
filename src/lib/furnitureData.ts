@@ -247,7 +247,7 @@ export interface FurnitureTemplate {
   panels: PanelData[];
 }
 
-let panelCounter = 0;
+let panelCounter = 1000;
 
 /** Box panel helper */
 function panel(
@@ -297,7 +297,8 @@ export function getDefaultTemplate(furnitureId: string, dims: { w: number; h: nu
   const t = 0.018; // 18mm panel thickness
   const tb = 0.006; // 6mm back panel
 
-  panelCounter = 0;
+  // Never reset — each template call gets unique IDs so React/R3F
+  // properly unmounts old meshes and mounts new ones
 
   switch (furnitureId) {
     // ── TABLES ─────────────────────────────────────────
