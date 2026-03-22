@@ -214,6 +214,13 @@ export function FurnitureEditor({
     return () => window.removeEventListener("keydown", handleKey);
   }, [selectedPanelId, panels, handleUpdatePanel, handleDuplicatePanel, handleDeletePanel, undo, redo]);
 
+  const handleDimsChange = useCallback((newDims: { w: number; h: number; d: number }) => {
+    setDims(newDims);
+    const template = getDefaultTemplate(furnitureType.id, newDims);
+    updatePanels(() => template.panels);
+    setSelectedPanelId(null);
+  }, [furnitureType.id, updatePanels]);
+
   const handleReset = useCallback(() => {
     const template = getDefaultTemplate(furnitureType.id, dims);
     updatePanels(() => template.panels);
@@ -466,7 +473,7 @@ export function FurnitureEditor({
           panel={selectedPanel}
           overallDims={dims}
           onUpdatePanel={handleUpdatePanel}
-          onUpdateDims={setDims}
+          onUpdateDims={handleDimsChange}
           style={style}
           onStyleChange={setStyle}
         />
@@ -477,7 +484,7 @@ export function FurnitureEditor({
             dims={dims}
             style={style}
             panels={panels}
-            onUpdateDims={setDims}
+            onUpdateDims={handleDimsChange}
             onUpdateStyle={setStyle}
             onUpdatePanelMaterial={handleUpdatePanelMaterial}
             onUpdateAllMaterials={handleUpdateAllMaterials}

@@ -45,10 +45,14 @@ export function EditorParameters({
               <div className="relative">
                 <Input
                   type="number"
+                  min={10}
                   value={overallDims[axis]}
-                  onChange={(e) =>
-                    onUpdateDims({ ...overallDims, [axis]: parseInt(e.target.value) || 0 })
-                  }
+                  onChange={(e) => {
+                    const val = parseInt(e.target.value);
+                    if (!isNaN(val) && val >= 10) {
+                      onUpdateDims({ ...overallDims, [axis]: val });
+                    }
+                  }}
                   className="h-8 text-xs pr-8"
                 />
                 <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-gray-400">
