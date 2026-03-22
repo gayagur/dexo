@@ -1,26 +1,24 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { OrbitControls, Grid, GizmoHelper, GizmoViewport, Environment, TransformControls } from "@react-three/drei";
+import { OrbitControls, Grid, GizmoHelper, GizmoViewport, Environment } from "@react-three/drei";
 import type { PanelData } from "@/lib/furnitureData";
 import { MATERIALS } from "@/lib/furnitureData";
+import { ShapeRenderer, isCompositeShape } from "./ShapeRenderer";
 import * as THREE from "three";
-
-// ─── Types ─────────────────────────────────────────────
-
-export type TransformMode = "translate" | "rotate" | "scale";
 
 // ─── Helpers ───────────────────────────────────────────
 
 function isDoor(label: string) { return /door/i.test(label); }
+function isLeftDoor(label: string) { return /left\s*door/i.test(label); }
+function isRightDoor(label: string) { return /right\s*door/i.test(label); }
 function isDrawer(label: string) { return /drawer/i.test(label); }
 function isInteractive(label: string) { return isDoor(label) || isDrawer(label); }
 
-// Snap value to grid (10mm = 0.01m)
 function snapToGrid(value: number, gridSize: number): number {
   return Math.round(value / gridSize) * gridSize;
 }
 
-// ─── Context Menu Info ─────────────────────────────────
+// ─── Types ─────────────────────────────────────────────
 
 interface ContextMenuInfo {
   panelId: string;
@@ -30,13 +28,117 @@ interface ContextMenuInfo {
   type: "door" | "drawer";
 }
 
+interface DragState {
+  isDragging: boolean;
+  panelId: string | null;
+  startPoint: THREE.Vector3 | null;
+  startPos: [number, number, number] | null;
+  // Rotation drag fields
+  startClientX: number;
+  startRotY: number;
+}
+
+interface SnapGuide {
+  axis: "x" | "z";
+  position: number;
+  from: number;
+  to: number;
+}
+
+interface DragInfo {
+  position: [number, number, number];
+  rotationDeg?: number;
+}
+
+// ─── Object-to-Object Snapping ─────────────────────────
+
+const OBJECT_SNAP_THRESHOLD = 0.03; // 30mm
+
+function computeObjectSnap(
+  pos: [number, number, number],
+  size: [number, number, number],
+  allPanels: PanelData[],
+  draggedId: string,
+): { snappedPos: [number, number, number]; guides: SnapGuide[] } {
+  const snapped = [...pos] as [number, number, number];
+  const guides: SnapGuide[] = [];
+
+  const dMinX = pos[0] - size[0] / 2;
+  const dMaxX = pos[0] + size[0] / 2;
+  const dMinZ = pos[2] - size[2] / 2;
+  const dMaxZ = pos[2] + size[2] / 2;
+  const dCenterX = pos[0];
+  const dCenterZ = pos[2];
+
+  let bestSnapX: { delta: number; newX: number; snapAt: number } | null = null;
+  let bestSnapZ: { delta: number; newZ: number; snapAt: number } | null = null;
+  let snapOtherX: PanelData | null = null;
+  let snapOtherZ: PanelData | null = null;
+
+  for (const other of allPanels) {
+    if (other.id === draggedId) continue;
+
+    const oMinX = other.position[0] - other.size[0] / 2;
+    const oMaxX = other.position[0] + other.size[0] / 2;
+    const oMinZ = other.position[2] - other.size[2] / 2;
+    const oMaxZ = other.position[2] + other.size[2] / 2;
+    const oCenterX = other.position[0];
+    const oCenterZ = other.position[2];
+
+    // X-axis snap checks
+    const xChecks = [
+      { delta: Math.abs(dMaxX - oMinX), newX: oMinX - size[0] / 2, snapAt: oMinX },
+      { delta: Math.abs(dMinX - oMaxX), newX: oMaxX + size[0] / 2, snapAt: oMaxX },
+      { delta: Math.abs(dCenterX - oCenterX), newX: oCenterX, snapAt: oCenterX },
+      { delta: Math.abs(dMinX - oMinX), newX: oMinX + size[0] / 2, snapAt: oMinX },
+      { delta: Math.abs(dMaxX - oMaxX), newX: oMaxX - size[0] / 2, snapAt: oMaxX },
+    ];
+    for (const check of xChecks) {
+      if (check.delta < OBJECT_SNAP_THRESHOLD && (!bestSnapX || check.delta < bestSnapX.delta)) {
+        bestSnapX = check;
+        snapOtherX = other;
+      }
+    }
+
+    // Z-axis snap checks
+    const zChecks = [
+      { delta: Math.abs(dMaxZ - oMinZ), newZ: oMinZ - size[2] / 2, snapAt: oMinZ },
+      { delta: Math.abs(dMinZ - oMaxZ), newZ: oMaxZ + size[2] / 2, snapAt: oMaxZ },
+      { delta: Math.abs(dCenterZ - oCenterZ), newZ: oCenterZ, snapAt: oCenterZ },
+      { delta: Math.abs(dMinZ - oMinZ), newZ: oMinZ + size[2] / 2, snapAt: oMinZ },
+      { delta: Math.abs(dMaxZ - oMaxZ), newZ: oMaxZ - size[2] / 2, snapAt: oMaxZ },
+    ];
+    for (const check of zChecks) {
+      if (check.delta < OBJECT_SNAP_THRESHOLD && (!bestSnapZ || check.delta < bestSnapZ.delta)) {
+        bestSnapZ = check;
+        snapOtherZ = other;
+      }
+    }
+  }
+
+  if (bestSnapX && snapOtherX) {
+    snapped[0] = bestSnapX.newX;
+    const guideFrom = Math.min(pos[2] - size[2] / 2, snapOtherX.position[2] - snapOtherX.size[2] / 2) - 0.15;
+    const guideTo = Math.max(pos[2] + size[2] / 2, snapOtherX.position[2] + snapOtherX.size[2] / 2) + 0.15;
+    guides.push({ axis: "x", position: bestSnapX.snapAt, from: guideFrom, to: guideTo });
+  }
+  if (bestSnapZ && snapOtherZ) {
+    snapped[2] = bestSnapZ.newZ;
+    const guideFrom = Math.min(pos[0] - size[0] / 2, snapOtherZ.position[0] - snapOtherZ.size[0] / 2) - 0.15;
+    const guideTo = Math.max(pos[0] + size[0] / 2, snapOtherZ.position[0] + snapOtherZ.size[0] / 2) + 0.15;
+    guides.push({ axis: "z", position: bestSnapZ.snapAt, from: guideFrom, to: guideTo });
+  }
+
+  return { snappedPos: snapped, guides };
+}
+
 // ─── Main Component ────────────────────────────────────
 
 interface EditorViewportProps {
   panels: PanelData[];
   selectedPanelId: string | null;
-  transformMode: TransformMode;
   snapEnabled: boolean;
+  rotationMode: boolean;
   onSelectPanel: (id: string | null) => void;
   onUpdatePanel: (id: string, updates: Partial<PanelData>) => void;
 }
@@ -44,13 +146,15 @@ interface EditorViewportProps {
 export function EditorViewport({
   panels,
   selectedPanelId,
-  transformMode,
   snapEnabled,
+  rotationMode,
   onSelectPanel,
   onUpdatePanel,
 }: EditorViewportProps) {
   const [openPanels, setOpenPanels] = useState<Record<string, boolean>>({});
   const [contextMenu, setContextMenu] = useState<ContextMenuInfo | null>(null);
+  const [snapGuides, setSnapGuides] = useState<SnapGuide[]>([]);
+  const [dragInfo, setDragInfo] = useState<DragInfo | null>(null);
 
   const togglePanel = useCallback((id: string) => {
     setOpenPanels((prev) => ({ ...prev, [id]: !prev[id] }));
@@ -59,6 +163,40 @@ export function EditorViewport({
   const closeContextMenu = useCallback(() => setContextMenu(null), []);
 
   const selectedPanel = panels.find((p) => p.id === selectedPanelId) ?? null;
+
+  const dragStateRef = useRef<DragState>({
+    isDragging: false,
+    panelId: null,
+    startPoint: null,
+    startPos: null,
+    startClientX: 0,
+    startRotY: 0,
+  });
+
+  const startDrag = useCallback((panelId: string, intersectionPoint: THREE.Vector3, clientX: number) => {
+    const panel = panels.find(p => p.id === panelId);
+    if (!panel) return;
+
+    if (rotationMode) {
+      dragStateRef.current = {
+        isDragging: true,
+        panelId,
+        startPoint: null,
+        startPos: [...panel.position] as [number, number, number],
+        startClientX: clientX,
+        startRotY: (panel.rotation ?? [0, 0, 0])[1],
+      };
+    } else {
+      dragStateRef.current = {
+        isDragging: true,
+        panelId,
+        startPoint: intersectionPoint.clone(),
+        startPos: [...panel.position] as [number, number, number],
+        startClientX: 0,
+        startRotY: 0,
+      };
+    }
+  }, [panels, rotationMode]);
 
   return (
     <div
@@ -97,6 +235,7 @@ export function EditorViewport({
             panel={panel}
             selected={panel.id === selectedPanelId}
             isOpen={!!openPanels[panel.id]}
+            rotationMode={rotationMode}
             onClick={() => { onSelectPanel(panel.id); closeContextMenu(); }}
             onDoubleClick={() => { if (isInteractive(panel.label)) togglePanel(panel.id); }}
             onContextMenu={(x, y) => {
@@ -106,26 +245,38 @@ export function EditorViewport({
                 setContextMenu({ panelId: panel.id, label: panel.label, x, y, type: "drawer" });
               }
             }}
+            onDragStart={(intersectionPoint, clientX) => startDrag(panel.id, intersectionPoint, clientX)}
           />
         ))}
 
-        {/* TransformControls + Resize handles for selected non-door/drawer panel */}
-        {selectedPanel && !isDoor(selectedPanel.label) && !isDrawer(selectedPanel.label) && (
-          <>
-            <TransformGizmo
-              panel={selectedPanel}
-              mode={transformMode}
-              snapEnabled={snapEnabled}
-              onUpdate={onUpdatePanel}
-            />
-            {transformMode === "scale" && (
-              <ResizeHandles
-                panel={selectedPanel}
-                onUpdate={onUpdatePanel}
-                snapEnabled={snapEnabled}
-              />
-            )}
-          </>
+        {/* Drag controller — handles move, object snap, and rotation */}
+        <DragController
+          dragStateRef={dragStateRef}
+          snapEnabled={snapEnabled}
+          rotationMode={rotationMode}
+          panels={panels}
+          onUpdatePanel={onUpdatePanel}
+          onSnapGuidesChange={setSnapGuides}
+          onDragInfoChange={setDragInfo}
+        />
+
+        {/* Snap guide lines (blue alignment guides) */}
+        {snapGuides.map((guide, i) => (
+          <SnapGuideLine key={i} guide={guide} />
+        ))}
+
+        {/* Selection handles for resize (hidden during rotation mode) */}
+        {selectedPanel && !isDoor(selectedPanel.label) && !isDrawer(selectedPanel.label) && !rotationMode && (
+          <SelectionHandles
+            panel={selectedPanel}
+            onUpdate={onUpdatePanel}
+            snapEnabled={snapEnabled}
+          />
+        )}
+
+        {/* Rotation ring when in rotation mode */}
+        {rotationMode && selectedPanel && (
+          <RotationRing panel={selectedPanel} />
         )}
 
         <OrbitControls
@@ -141,6 +292,30 @@ export function EditorViewport({
         </GizmoHelper>
       </Canvas>
 
+      {/* Drag info overlay — shows position or rotation angle */}
+      {dragInfo && (
+        <div className="absolute top-3 left-1/2 -translate-x-1/2 bg-black/80 text-white text-xs px-3 py-1.5 rounded-lg font-mono backdrop-blur-sm z-40 flex items-center gap-3 pointer-events-none">
+          {dragInfo.rotationDeg != null ? (
+            <span>Rotate: {dragInfo.rotationDeg.toFixed(1)}&deg;</span>
+          ) : (
+            <>
+              <span>X: {(dragInfo.position[0] * 100).toFixed(1)}cm</span>
+              <span className="text-gray-400">|</span>
+              <span>Y: {(dragInfo.position[1] * 100).toFixed(1)}cm</span>
+              <span className="text-gray-400">|</span>
+              <span>Z: {(dragInfo.position[2] * 100).toFixed(1)}cm</span>
+            </>
+          )}
+        </div>
+      )}
+
+      {/* Rotation mode indicator */}
+      {rotationMode && (
+        <div className="absolute bottom-3 left-1/2 -translate-x-1/2 bg-blue-600 text-white text-xs px-3 py-1.5 rounded-lg font-medium z-40 pointer-events-none">
+          Rotation Mode &mdash; drag object to rotate &middot; Press R or Esc to exit
+        </div>
+      )}
+
       {/* Context menu overlay */}
       {contextMenu && (
         <div className="absolute z-50" style={{ left: contextMenu.x, top: contextMenu.y }}>
@@ -151,8 +326,8 @@ export function EditorViewport({
             >
               <span className="text-base">
                 {openPanels[contextMenu.panelId]
-                  ? contextMenu.type === "door" ? "🚪" : "📥"
-                  : contextMenu.type === "door" ? "🔓" : "📤"}
+                  ? contextMenu.type === "door" ? "\uD83D\uDEAA" : "\uD83D\uDCE5"
+                  : contextMenu.type === "door" ? "\uD83D\uDD13" : "\uD83D\uDCE4"}
               </span>
               <span className="text-gray-700">
                 {openPanels[contextMenu.panelId]
@@ -171,100 +346,201 @@ export function EditorViewport({
   );
 }
 
-// ─── Transform Gizmo ───────────────────────────────────
+// ─── Snap Guide Line (blue alignment indicator) ─────────
 
-function TransformGizmo({
-  panel,
-  mode,
-  snapEnabled,
-  onUpdate,
-}: {
-  panel: PanelData;
-  mode: TransformMode;
-  snapEnabled: boolean;
-  onUpdate: (id: string, updates: Partial<PanelData>) => void;
-}) {
-  const objRef = useRef<THREE.Group>(null!);
-  const controlsRef = useRef<any>(null);
-
-  // Sync from panel data
-  useEffect(() => {
-    if (!objRef.current) return;
-    objRef.current.position.set(...panel.position);
-    const rot = panel.rotation ?? [0, 0, 0];
-    objRef.current.rotation.set(...rot);
-    objRef.current.scale.set(1, 1, 1);
-  }, [panel.position, panel.rotation]);
-
-  // On transform end → write back
-  useEffect(() => {
-    const controls = controlsRef.current;
-    if (!controls) return;
-
-    const onEnd = () => {
-      if (!objRef.current) return;
-      const pos = objRef.current.position;
-      const rot = objRef.current.rotation;
-      const gridSize = 0.01;
-
-      const updates: Partial<PanelData> = {};
-
-      if (mode === "translate") {
-        let newPos: [number, number, number] = [pos.x, pos.y, pos.z];
-        if (snapEnabled) {
-          newPos = [snapToGrid(pos.x, gridSize), snapToGrid(pos.y, gridSize), snapToGrid(pos.z, gridSize)];
-          objRef.current.position.set(...newPos);
-        }
-        updates.position = newPos;
-      } else if (mode === "rotate") {
-        updates.rotation = [rot.x, rot.y, rot.z];
-      } else if (mode === "scale") {
-        const scl = objRef.current.scale;
-        updates.size = [panel.size[0] * scl.x, panel.size[1] * scl.y, panel.size[2] * scl.z];
-        objRef.current.scale.set(1, 1, 1);
-      }
-
-      onUpdate(panel.id, updates);
-    };
-
-    controls.addEventListener("mouseUp", onEnd);
-    return () => controls.removeEventListener("mouseUp", onEnd);
-  }, [panel.id, panel.size, mode, snapEnabled, onUpdate]);
-
-  // Snap settings
-  useEffect(() => {
-    const controls = controlsRef.current;
-    if (!controls) return;
-    if (snapEnabled) {
-      controls.setTranslationSnap(0.01);
-      controls.setRotationSnap(THREE.MathUtils.degToRad(15));
-      controls.setScaleSnap(0.05);
-    } else {
-      controls.setTranslationSnap(null);
-      controls.setRotationSnap(null);
-      controls.setScaleSnap(null);
-    }
-  }, [snapEnabled]);
-
+function SnapGuideLine({ guide }: { guide: SnapGuide }) {
+  if (guide.axis === "x") {
+    // Line along Z at a fixed X position
+    const length = guide.to - guide.from;
+    const centerZ = (guide.from + guide.to) / 2;
+    return (
+      <mesh position={[guide.position, 0.002, centerZ]}>
+        <boxGeometry args={[0.002, 0.002, length]} />
+        <meshBasicMaterial color="#3B82F6" transparent opacity={0.85} depthTest={false} />
+      </mesh>
+    );
+  }
+  // Line along X at a fixed Z position
+  const length = guide.to - guide.from;
+  const centerX = (guide.from + guide.to) / 2;
   return (
-    <>
-      {/* Invisible target group for TransformControls */}
-      <group ref={objRef} />
-      {objRef.current && (
-        <TransformControls
-          ref={controlsRef}
-          object={objRef.current}
-          mode={mode}
-          size={0.6}
-        />
-      )}
-    </>
+    <mesh position={[centerX, 0.002, guide.position]}>
+      <boxGeometry args={[length, 0.002, 0.002]} />
+      <meshBasicMaterial color="#3B82F6" transparent opacity={0.85} depthTest={false} />
+    </mesh>
   );
 }
 
-// ─── Resize Handles (corner drag for boxes) ────────────
+// ─── Rotation Ring (visual affordance) ──────────────────
 
-function ResizeHandles({
+function RotationRing({ panel }: { panel: PanelData }) {
+  const radius = Math.max(panel.size[0], panel.size[2]) * 0.8 + 0.05;
+  const meshRef = useRef<THREE.Mesh>(null!);
+
+  useFrame((_, delta) => {
+    if (meshRef.current) {
+      meshRef.current.rotation.z += delta * 0.3;
+    }
+  });
+
+  return (
+    <group position={panel.position}>
+      <mesh ref={meshRef} rotation={[Math.PI / 2, 0, 0]}>
+        <ringGeometry args={[radius, radius + 0.008, 64]} />
+        <meshBasicMaterial color="#3B82F6" transparent opacity={0.5} side={THREE.DoubleSide} depthTest={false} />
+      </mesh>
+    </group>
+  );
+}
+
+// ─── Drag Controller (move + rotation + object snap) ────
+
+function DragController({
+  dragStateRef,
+  snapEnabled,
+  rotationMode,
+  panels,
+  onUpdatePanel,
+  onSnapGuidesChange,
+  onDragInfoChange,
+}: {
+  dragStateRef: React.RefObject<DragState>;
+  snapEnabled: boolean;
+  rotationMode: boolean;
+  panels: PanelData[];
+  onUpdatePanel: (id: string, updates: Partial<PanelData>) => void;
+  onSnapGuidesChange: (guides: SnapGuide[]) => void;
+  onDragInfoChange: (info: DragInfo | null) => void;
+}) {
+  const { camera, gl, raycaster } = useThree();
+  const shiftHeld = useRef(false);
+
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => { if (e.key === "Shift") shiftHeld.current = true; };
+    const onKeyUp = (e: KeyboardEvent) => { if (e.key === "Shift") shiftHeld.current = false; };
+    window.addEventListener("keydown", onKeyDown);
+    window.addEventListener("keyup", onKeyUp);
+    return () => { window.removeEventListener("keydown", onKeyDown); window.removeEventListener("keyup", onKeyUp); };
+  }, []);
+
+  useEffect(() => {
+    const canvas = gl.domElement;
+
+    const getIntersectionPoint = (e: PointerEvent): THREE.Vector3 | null => {
+      const rect = canvas.getBoundingClientRect();
+      const mouse = new THREE.Vector2(
+        ((e.clientX - rect.left) / rect.width) * 2 - 1,
+        -((e.clientY - rect.top) / rect.height) * 2 + 1
+      );
+      raycaster.setFromCamera(mouse, camera);
+
+      if (shiftHeld.current) {
+        const camDir = new THREE.Vector3();
+        camera.getWorldDirection(camDir);
+        camDir.y = 0;
+        camDir.normalize();
+        if (camDir.lengthSq() < 0.001) camDir.set(0, 0, 1);
+        const plane = new THREE.Plane(camDir, 0);
+        const point = new THREE.Vector3();
+        return raycaster.ray.intersectPlane(plane, point) ? point : null;
+      } else {
+        const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+        const point = new THREE.Vector3();
+        return raycaster.ray.intersectPlane(plane, point) ? point : null;
+      }
+    };
+
+    const onPointerMove = (e: PointerEvent) => {
+      const ds = dragStateRef.current;
+      if (!ds || !ds.isDragging || !ds.panelId) return;
+
+      // ── Rotation drag mode ──
+      if (rotationMode && ds.startClientX !== 0) {
+        const deltaX = e.clientX - ds.startClientX;
+        // 200px = 90 degrees
+        let newRotY = ds.startRotY + (deltaX / 200) * (Math.PI / 2);
+
+        // Snap rotation to 15° increments when snap is enabled
+        if (snapEnabled) {
+          const snap15 = Math.PI / 12;
+          newRotY = Math.round(newRotY / snap15) * snap15;
+        }
+
+        const panel = panels.find(p => p.id === ds.panelId);
+        if (panel) {
+          const rot = [...(panel.rotation ?? [0, 0, 0])] as [number, number, number];
+          rot[1] = newRotY;
+          onUpdatePanel(ds.panelId, { rotation: rot });
+
+          let degDisplay = ((newRotY * 180 / Math.PI) % 360 + 360) % 360;
+          if (degDisplay > 180) degDisplay -= 360;
+          onDragInfoChange({ position: panel.position, rotationDeg: degDisplay });
+        }
+        return;
+      }
+
+      // ── Position drag mode ──
+      if (!ds.startPoint || !ds.startPos) return;
+      const point = getIntersectionPoint(e);
+      if (!point) return;
+
+      const delta = point.clone().sub(ds.startPoint);
+      const startPos = ds.startPos;
+
+      let newPos: [number, number, number];
+      if (shiftHeld.current) {
+        newPos = [startPos[0], startPos[1] + delta.y, startPos[2]];
+      } else {
+        newPos = [startPos[0] + delta.x, startPos[1], startPos[2] + delta.z];
+      }
+
+      // Grid snap
+      if (snapEnabled) {
+        const grid = 0.01;
+        newPos = [snapToGrid(newPos[0], grid), snapToGrid(newPos[1], grid), snapToGrid(newPos[2], grid)];
+      }
+
+      // Object-to-object snap
+      const panel = panels.find(p => p.id === ds.panelId);
+      if (panel) {
+        const { snappedPos, guides } = computeObjectSnap(newPos, panel.size, panels, ds.panelId);
+        newPos = snappedPos;
+        onSnapGuidesChange(guides);
+      }
+
+      onUpdatePanel(ds.panelId, { position: newPos });
+      onDragInfoChange({ position: newPos });
+    };
+
+    const onPointerUp = () => {
+      const ds = dragStateRef.current;
+      if (ds) {
+        ds.isDragging = false;
+        ds.panelId = null;
+        ds.startPoint = null;
+        ds.startPos = null;
+        ds.startClientX = 0;
+        ds.startRotY = 0;
+      }
+      canvas.style.cursor = "";
+      onSnapGuidesChange([]);
+      onDragInfoChange(null);
+    };
+
+    canvas.addEventListener("pointermove", onPointerMove);
+    canvas.addEventListener("pointerup", onPointerUp);
+    return () => {
+      canvas.removeEventListener("pointermove", onPointerMove);
+      canvas.removeEventListener("pointerup", onPointerUp);
+    };
+  }, [camera, gl, raycaster, snapEnabled, rotationMode, panels, onUpdatePanel, onSnapGuidesChange, onDragInfoChange, dragStateRef]);
+
+  return null;
+}
+
+// ─── Selection Handles (Figma-style resize) ─────────────
+
+function SelectionHandles({
   panel,
   onUpdate,
   snapEnabled,
@@ -274,33 +550,63 @@ function ResizeHandles({
   snapEnabled: boolean;
 }) {
   const shape = panel.shape ?? "box";
-  // Only show resize handles for box shapes
   if (shape !== "box") return null;
 
   const [w, h, d] = panel.size;
-  const pos = panel.position;
 
-  // 6 face-center handles (one per face direction)
-  const handles: { axis: 0 | 1 | 2; dir: 1 | -1; offset: [number, number, number] }[] = [
-    { axis: 0, dir: 1, offset: [w / 2, 0, 0] },   // +X (right)
-    { axis: 0, dir: -1, offset: [-w / 2, 0, 0] },  // -X (left)
-    { axis: 1, dir: 1, offset: [0, h / 2, 0] },    // +Y (top)
-    { axis: 1, dir: -1, offset: [0, -h / 2, 0] },  // -Y (bottom)
-    { axis: 2, dir: 1, offset: [0, 0, d / 2] },    // +Z (back)
-    { axis: 2, dir: -1, offset: [0, 0, -d / 2] },  // -Z (front)
+  const handles: { id: string; offset: [number, number, number]; axis: 0 | 1 | 2; dir: 1 | -1 }[] = [
+    { id: "right",  offset: [w / 2, 0, 0],      axis: 0, dir: 1 },
+    { id: "left",   offset: [-w / 2, 0, 0],     axis: 0, dir: -1 },
+    { id: "top",    offset: [0, h / 2, 0],      axis: 1, dir: 1 },
+    { id: "bottom", offset: [0, -h / 2, 0],     axis: 1, dir: -1 },
+    { id: "front",  offset: [0, 0, -d / 2],     axis: 2, dir: -1 },
+    { id: "back",   offset: [0, 0, d / 2],      axis: 2, dir: 1 },
+  ];
+
+  const cornerAxes: [0 | 1 | 2, 1 | -1, 0 | 1 | 2, 1 | -1][] = [
+    [0, 1, 2, 1],   [0, -1, 2, 1],  [0, 1, 2, -1],  [0, -1, 2, -1],
+    [0, 1, 2, 1],   [0, -1, 2, 1],  [0, 1, 2, -1],  [0, -1, 2, -1],
+  ];
+
+  const cornerOffsets: [number, number, number][] = [
+    [w / 2, h / 2, d / 2],     [-w / 2, h / 2, d / 2],
+    [w / 2, h / 2, -d / 2],    [-w / 2, h / 2, -d / 2],
+    [w / 2, -h / 2, d / 2],    [-w / 2, -h / 2, d / 2],
+    [w / 2, -h / 2, -d / 2],   [-w / 2, -h / 2, -d / 2],
   ];
 
   return (
-    <group>
-      {handles.map((handle, i) => (
+    <group position={panel.position} rotation={panel.rotation as any ?? [0, 0, 0]}>
+      {/* Wireframe outline */}
+      <mesh>
+        <boxGeometry args={[w + 0.002, h + 0.002, d + 0.002]} />
+        <meshBasicMaterial color="#C87D5A" wireframe transparent opacity={0.5} />
+      </mesh>
+
+      {handles.map((handle) => (
         <ResizeHandle
-          key={i}
+          key={handle.id}
           panelId={panel.id}
-          panelPos={pos}
+          panelPos={panel.position}
           panelSize={panel.size}
-          axis={handle.axis}
-          dir={handle.dir}
           offset={handle.offset}
+          axes={[{ axis: handle.axis, dir: handle.dir }]}
+          onUpdate={onUpdate}
+          snapEnabled={snapEnabled}
+        />
+      ))}
+
+      {cornerOffsets.map((offset, i) => (
+        <ResizeHandle
+          key={`corner-${i}`}
+          panelId={panel.id}
+          panelPos={panel.position}
+          panelSize={panel.size}
+          offset={offset}
+          axes={[
+            { axis: cornerAxes[i][0], dir: cornerAxes[i][1] },
+            { axis: cornerAxes[i][2], dir: cornerAxes[i][3] },
+          ]}
           onUpdate={onUpdate}
           snapEnabled={snapEnabled}
         />
@@ -309,22 +615,22 @@ function ResizeHandles({
   );
 }
 
+// ─── Resize Handle ──────────────────────────────────────
+
 function ResizeHandle({
   panelId,
   panelPos,
   panelSize,
-  axis,
-  dir,
   offset,
+  axes,
   onUpdate,
   snapEnabled,
 }: {
   panelId: string;
   panelPos: [number, number, number];
   panelSize: [number, number, number];
-  axis: 0 | 1 | 2;
-  dir: 1 | -1;
   offset: [number, number, number];
+  axes: { axis: 0 | 1 | 2; dir: 1 | -1 }[];
   onUpdate: (id: string, updates: Partial<PanelData>) => void;
   snapEnabled: boolean;
 }) {
@@ -334,29 +640,28 @@ function ResizeHandle({
   const dragStart = useRef<{ point: THREE.Vector3; size: [number, number, number]; pos: [number, number, number] } | null>(null);
   const { camera, raycaster, gl } = useThree();
 
-  const handlePos: [number, number, number] = [
-    panelPos[0] + offset[0],
-    panelPos[1] + offset[1],
-    panelPos[2] + offset[2],
-  ];
-
-  // Drag logic
   useEffect(() => {
     if (!dragging) return;
 
-    const plane = new THREE.Plane();
+    const primaryAxis = axes[0].axis;
     const axisVec = new THREE.Vector3(
-      axis === 0 ? 1 : 0,
-      axis === 1 ? 1 : 0,
-      axis === 2 ? 1 : 0
+      primaryAxis === 0 ? 1 : 0,
+      primaryAxis === 1 ? 1 : 0,
+      primaryAxis === 2 ? 1 : 0
     );
 
-    // Create a plane perpendicular to the camera, containing the drag axis
     const camDir = new THREE.Vector3();
     camera.getWorldDirection(camDir);
     const planeNormal = new THREE.Vector3().crossVectors(axisVec, camDir).cross(axisVec).normalize();
     if (planeNormal.lengthSq() < 0.001) planeNormal.copy(camDir);
-    plane.setFromNormalAndCoplanarPoint(planeNormal, new THREE.Vector3(...handlePos));
+
+    const worldHandlePos = new THREE.Vector3(
+      panelPos[0] + offset[0],
+      panelPos[1] + offset[1],
+      panelPos[2] + offset[2],
+    );
+    const plane = new THREE.Plane();
+    plane.setFromNormalAndCoplanarPoint(planeNormal, worldHandlePos);
 
     const onPointerMove = (e: PointerEvent) => {
       if (!dragStart.current) return;
@@ -369,23 +674,24 @@ function ResizeHandle({
 
       raycaster.setFromCamera(mouse, camera);
       const intersection = new THREE.Vector3();
-      raycaster.ray.intersectPlane(plane, intersection);
-      if (!intersection) return;
+      if (!raycaster.ray.intersectPlane(plane, intersection)) return;
 
       const delta = intersection.clone().sub(dragStart.current.point);
-      const axisDelta = [delta.x, delta.y, delta.z][axis] * dir;
 
       let newSize = [...dragStart.current.size] as [number, number, number];
       let newPos = [...dragStart.current.pos] as [number, number, number];
 
-      // Resize: grow from the dragged face, keep opposite face fixed
-      newSize[axis] = Math.max(0.005, dragStart.current.size[axis] + axisDelta);
-      // Move center to keep opposite face fixed
-      newPos[axis] = dragStart.current.pos[axis] + (axisDelta / 2) * dir;
+      for (const { axis, dir } of axes) {
+        const axisDelta = [delta.x, delta.y, delta.z][axis] * dir;
+        newSize[axis] = Math.max(0.005, dragStart.current.size[axis] + axisDelta);
+        newPos[axis] = dragStart.current.pos[axis] + (axisDelta / 2) * dir;
+      }
 
       if (snapEnabled) {
-        newSize[axis] = snapToGrid(newSize[axis], 0.01);
-        newPos[axis] = snapToGrid(newPos[axis], 0.005);
+        for (const { axis } of axes) {
+          newSize[axis] = snapToGrid(newSize[axis], 0.01);
+          newPos[axis] = snapToGrid(newPos[axis], 0.005);
+        }
       }
 
       onUpdate(panelId, { size: newSize, position: newPos });
@@ -403,12 +709,12 @@ function ResizeHandle({
       gl.domElement.removeEventListener("pointermove", onPointerMove);
       gl.domElement.removeEventListener("pointerup", onPointerUp);
     };
-  }, [dragging, axis, dir, panelId, panelPos, panelSize, handlePos, camera, raycaster, gl, onUpdate, snapEnabled]);
+  }, [dragging, axes, panelId, panelPos, panelSize, offset, camera, raycaster, gl, onUpdate, snapEnabled]);
 
   return (
     <mesh
       ref={meshRef}
-      position={handlePos}
+      position={offset}
       onPointerDown={(e) => {
         e.stopPropagation();
         setDragging(true);
@@ -422,7 +728,7 @@ function ResizeHandle({
       onPointerEnter={() => { setHovered(true); gl.domElement.style.cursor = "ew-resize"; }}
       onPointerLeave={() => { if (!dragging) { setHovered(false); gl.domElement.style.cursor = ""; } }}
     >
-      <sphereGeometry args={[0.012, 12, 12]} />
+      <boxGeometry args={[0.015, 0.015, 0.015]} />
       <meshStandardMaterial
         color={dragging ? "#e8470a" : hovered ? "#C87D5A" : "#ffffff"}
         emissive={dragging ? "#e8470a" : hovered ? "#C87D5A" : "#888"}
@@ -434,30 +740,32 @@ function ResizeHandle({
   );
 }
 
-// ─── Individual Panel (with door/drawer animation) ─────
+// ─── Individual Panel (with door/drawer animation + drag) ─
 
 function FurniturePanel({
   panel,
   selected,
   isOpen,
+  rotationMode,
   onClick,
   onDoubleClick,
   onContextMenu,
+  onDragStart,
 }: {
   panel: PanelData;
   selected: boolean;
   isOpen: boolean;
+  rotationMode: boolean;
   onClick: () => void;
   onDoubleClick: () => void;
   onContextMenu: (screenX: number, screenY: number) => void;
+  onDragStart: (intersectionPoint: THREE.Vector3, clientX: number) => void;
 }) {
   const mat = MATERIALS.find((m) => m.id === panel.materialId);
   const color = mat?.color ?? "#C4A265";
   const isGlass = mat?.id === "glass";
   const isMetal = mat?.category === "Metal";
   const shape = panel.shape ?? "box";
-  const radius = panel.size[0] / 2;
-  const cylHeight = panel.size[1];
   const panelRotation = panel.rotation ?? [0, 0, 0];
 
   const panelIsDoor = isDoor(panel.label);
@@ -465,6 +773,10 @@ function FurniturePanel({
 
   const groupRef = useRef<THREE.Group>(null!);
   const animProgress = useRef(isOpen ? 1 : 0);
+
+  // Door direction: detect if right door should swing the other way
+  const isRight = isRightDoor(panel.label);
+  const swingDirection = isRight ? 1 : -1; // +1 = clockwise (right hinge), -1 = counterclockwise (left hinge)
 
   useFrame((_, delta) => {
     const target = isOpen ? 1 : 0;
@@ -474,65 +786,73 @@ function FurniturePanel({
     );
     if (!groupRef.current) return;
     if (panelIsDoor) {
-      groupRef.current.rotation.y = animProgress.current * (-Math.PI / 2);
+      groupRef.current.rotation.y = animProgress.current * (swingDirection * Math.PI / 2);
     } else if (panelIsDrawer) {
       const slideDistance = panel.size[2] + 0.25;
       groupRef.current.position.z = -animProgress.current * slideDistance;
     }
   });
 
-  function renderGeometry(outline = false) {
-    const pad = outline ? 0.003 : 0;
-    switch (shape) {
-      case "cylinder":
-        return <cylinderGeometry args={[radius + pad, radius + pad, cylHeight + (outline ? 0.004 : 0), 24]} />;
-      case "sphere":
-        return <sphereGeometry args={[radius + pad, 24, 24]} />;
-      case "cone":
-        return <coneGeometry args={[radius + pad, cylHeight + (outline ? 0.004 : 0), 24]} />;
-      default:
-        return outline
-          ? <boxGeometry args={[panel.size[0] + 0.004, panel.size[1] + 0.004, panel.size[2] + 0.004]} />
-          : <boxGeometry args={panel.size} />;
-    }
-  }
+  // Shared material props
+  const shapeMatProps = {
+    color: selected ? "#e8c4a8" : color,
+    roughness: isMetal ? 0.3 : 0.7,
+    metalness: isMetal ? 0.8 : 0.05,
+    transparent: isGlass,
+    opacity: isGlass ? 0.3 : 1,
+  };
 
   const handleClick = (e: any) => { e.stopPropagation(); onClick(); };
   const handlePointerDown = (e: any) => {
     if (e.nativeEvent.button === 2 && (panelIsDoor || panelIsDrawer)) {
       e.stopPropagation();
       onContextMenu(e.nativeEvent.clientX, e.nativeEvent.clientY);
+      return;
+    }
+    // Left click: start drag/rotation for non-interactive panels
+    if (e.nativeEvent.button === 0 && !panelIsDoor && !panelIsDrawer) {
+      e.stopPropagation();
+      onDragStart(e.point.clone(), e.nativeEvent.clientX);
     }
   };
 
-  // Door: pivot from left edge
+  const cursorStyle = rotationMode ? "grab" : "move";
+
+  // Door: pivot from left edge (or right edge for Right Door)
   if (panelIsDoor) {
     const halfW = panel.size[0] / 2;
+    // Right door: pivot from right edge; Left/generic door: pivot from left edge
+    const pivotX = isRight
+      ? panel.position[0] + halfW
+      : panel.position[0] - halfW;
+    const meshOffsetX = isRight ? -halfW : halfW;
+    const hingeX = isRight ? -0.005 : 0.005;
+
     return (
-      <group position={[panel.position[0] - halfW, panel.position[1], panel.position[2]]} rotation={panelRotation as any}>
+      <group position={[pivotX, panel.position[1], panel.position[2]]} rotation={panelRotation as any}>
         <group ref={groupRef}>
-          <mesh position={[halfW, 0, 0]} onClick={handleClick}
-            onDoubleClick={(e) => { e.stopPropagation(); onDoubleClick(); }}
-            onPointerDown={handlePointerDown} castShadow receiveShadow>
-            {renderGeometry()}
-            <meshStandardMaterial color={selected ? "#e8c4a8" : color}
-              roughness={isMetal ? 0.3 : 0.7} metalness={isMetal ? 0.8 : 0.05}
-              transparent={isGlass} opacity={isGlass ? 0.3 : 1} />
-          </mesh>
+          <group position={[meshOffsetX, 0, 0]}
+            onClick={handleClick}
+            onDoubleClick={(e: any) => { e.stopPropagation(); onDoubleClick(); }}
+            onPointerDown={handlePointerDown}
+          >
+            <ShapeRenderer shape={shape} size={panel.size} shapeParams={panel.shapeParams}
+              {...shapeMatProps} />
+          </group>
           {/* Hinge indicators */}
-          <mesh position={[0.005, panel.size[1] * 0.3, 0]}>
+          <mesh position={[hingeX, panel.size[1] * 0.3, 0]}>
             <cylinderGeometry args={[0.006, 0.006, 0.02, 8]} />
             <meshStandardMaterial color="#888" metalness={0.8} roughness={0.3} />
           </mesh>
-          <mesh position={[0.005, -panel.size[1] * 0.3, 0]}>
+          <mesh position={[hingeX, -panel.size[1] * 0.3, 0]}>
             <cylinderGeometry args={[0.006, 0.006, 0.02, 8]} />
             <meshStandardMaterial color="#888" metalness={0.8} roughness={0.3} />
           </mesh>
           {selected && (
-            <mesh position={[halfW, 0, 0]}>
-              {renderGeometry(true)}
-              <meshBasicMaterial color="#C87D5A" wireframe />
-            </mesh>
+            <group position={[meshOffsetX, 0, 0]}>
+              <ShapeRenderer shape={shape} size={panel.size} shapeParams={panel.shapeParams}
+                {...shapeMatProps} isOutline />
+            </group>
           )}
         </group>
       </group>
@@ -544,38 +864,40 @@ function FurniturePanel({
     return (
       <group position={panel.position} rotation={panelRotation as any}>
         <group ref={groupRef}>
-          <mesh onClick={handleClick}
-            onDoubleClick={(e) => { e.stopPropagation(); onDoubleClick(); }}
-            onPointerDown={handlePointerDown} castShadow receiveShadow>
-            {renderGeometry()}
-            <meshStandardMaterial color={selected ? "#e8c4a8" : color}
-              roughness={isMetal ? 0.3 : 0.7} metalness={isMetal ? 0.8 : 0.05}
-              transparent={isGlass} opacity={isGlass ? 0.3 : 1} />
-          </mesh>
+          <group onClick={handleClick}
+            onDoubleClick={(e: any) => { e.stopPropagation(); onDoubleClick(); }}
+            onPointerDown={handlePointerDown}
+          >
+            <ShapeRenderer shape={shape} size={panel.size} shapeParams={panel.shapeParams}
+              {...shapeMatProps} />
+          </group>
           <mesh position={[0, 0, -panel.size[2] / 2 - 0.01]}>
             <boxGeometry args={[0.06, 0.012, 0.012]} />
             <meshStandardMaterial color="#888" metalness={0.8} roughness={0.3} />
           </mesh>
-          {selected && <mesh>{renderGeometry(true)}<meshBasicMaterial color="#C87D5A" wireframe /></mesh>}
+          {selected && (
+            <ShapeRenderer shape={shape} size={panel.size} shapeParams={panel.shapeParams}
+              {...shapeMatProps} isOutline />
+          )}
         </group>
       </group>
     );
   }
 
-  // Regular panel
+  // Regular panel (draggable + rotatable) — supports all shapes including composites
   return (
-    <group>
-      <mesh position={panel.position} rotation={panelRotation as any}
-        onClick={handleClick} onPointerDown={handlePointerDown} castShadow receiveShadow>
-        {renderGeometry()}
-        <meshStandardMaterial color={selected ? "#e8c4a8" : color}
-          roughness={isMetal ? 0.3 : 0.7} metalness={isMetal ? 0.8 : 0.05}
-          transparent={isGlass} opacity={isGlass ? 0.3 : 1} />
-      </mesh>
+    <group position={panel.position} rotation={panelRotation as any}>
+      <group
+        onClick={handleClick} onPointerDown={handlePointerDown}
+        onPointerEnter={(e: any) => { document.body.style.cursor = cursorStyle; }}
+        onPointerLeave={(e: any) => { document.body.style.cursor = ""; }}
+      >
+        <ShapeRenderer shape={shape} size={panel.size} shapeParams={panel.shapeParams}
+          {...shapeMatProps} />
+      </group>
       {selected && (
-        <mesh position={panel.position} rotation={panelRotation as any}>
-          {renderGeometry(true)}<meshBasicMaterial color="#C87D5A" wireframe />
-        </mesh>
+        <ShapeRenderer shape={shape} size={panel.size} shapeParams={panel.shapeParams}
+          {...shapeMatProps} isOutline />
       )}
     </group>
   );

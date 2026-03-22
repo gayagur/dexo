@@ -87,9 +87,14 @@ export function EditorParameters({
       {panel ? (
         <>
           <div className="p-4 border-b border-gray-100">
-            <h3 className="text-sm font-semibold text-gray-900 mb-3">
+            <h3 className="text-sm font-semibold text-gray-900 mb-1">
               {panel.label}
             </h3>
+            {panel.shape && panel.shape !== "box" && (
+              <p className="text-[10px] text-gray-400 mb-2 capitalize">
+                {panel.shape.replace(/_/g, " ")}
+              </p>
+            )}
 
             {/* Panel dimensions (in mm, displayed) */}
             <div className="grid grid-cols-3 gap-2 mb-3">
@@ -202,6 +207,43 @@ export function EditorParameters({
               </button>
             </div>
           </div>
+
+          {/* Shape Parameters (if applicable) */}
+          {panel.shapeParams && Object.keys(panel.shapeParams).length > 0 && (
+            <div className="p-4 border-t border-gray-100">
+              <p className="text-[11px] text-gray-400 uppercase tracking-wider mb-2">Shape Parameters</p>
+              <div className="space-y-2">
+                {Object.entries(panel.shapeParams).map(([key, value]) => {
+                  const label = key.replace(/([A-Z])/g, " $1").replace(/^./, s => s.toUpperCase());
+                  const isAngle = key.toLowerCase().includes("angle");
+                  const isRatio = key.toLowerCase().includes("ratio");
+                  return (
+                    <div key={key}>
+                      <Label className="text-[11px] text-gray-500">{label}</Label>
+                      <div className="relative">
+                        <Input
+                          type="number"
+                          step={isAngle ? "5" : isRatio ? "0.05" : "1"}
+                          value={isAngle ? value : isRatio ? value : Math.round(value * 1000)}
+                          onChange={(e) => {
+                            const raw = parseFloat(e.target.value) || 0;
+                            const newVal = isAngle ? raw : isRatio ? raw : raw / 1000;
+                            onUpdatePanel(panel.id, {
+                              shapeParams: { ...panel.shapeParams, [key]: newVal },
+                            });
+                          }}
+                          className="h-8 text-xs pr-8"
+                        />
+                        <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-gray-400">
+                          {isAngle ? "°" : isRatio ? "" : "mm"}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           {/* Material Picker */}
           <div className="p-4">

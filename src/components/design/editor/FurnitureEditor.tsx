@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from "react";
-import { EditorViewport, type TransformMode } from "./EditorViewport";
+import { EditorViewport } from "./EditorViewport";
 import { EditorSidebar } from "./EditorSidebar";
 import { EditorParameters } from "./EditorParameters";
 import { DesignChatPanel } from "./DesignChatPanel";
@@ -13,7 +13,7 @@ import {
   type FurnitureOption,
 } from "@/lib/furnitureData";
 import type { LibraryTemplate } from "@/lib/libraryData";
-import { ArrowLeft, Save, RotateCcw, MessageSquare, Move, RotateCw, Maximize2, Magnet, HelpCircle, X, BookOpen, Undo2, Redo2 } from "lucide-react";
+import { ArrowLeft, Save, RotateCcw, RotateCw, MessageSquare, Magnet, HelpCircle, X, BookOpen, Undo2, Redo2 } from "lucide-react";
 
 interface FurnitureEditorProps {
   furnitureType: FurnitureOption;
@@ -40,9 +40,9 @@ export function FurnitureEditor({
   const [chatOpen, setChatOpen] = useState(true);
   const [showAddPicker, setShowAddPicker] = useState(false);
   const [showLibrary, setShowLibrary] = useState(false);
-  const [transformMode, setTransformMode] = useState<TransformMode>("translate");
   const [snapEnabled, setSnapEnabled] = useState(true);
   const [showHelp, setShowHelp] = useState(false);
+  const [rotationMode, setRotationMode] = useState(false);
 
   const defaultTemplate = getDefaultTemplate(furnitureType.id, furnitureType.defaultDims);
   const [panels, setPanels] = useState<PanelData[]>(defaultTemplate.panels);
@@ -105,12 +105,14 @@ export function FurnitureEditor({
     label: string;
     size: [number, number, number];
     materialId: string;
+    shapeParams?: Record<string, number>;
   }) => {
     const id = `p${++nextPanelId}`;
     const newPanel: PanelData = {
       id,
       type: preset.type,
       shape: preset.shape === "box" ? undefined : preset.shape,
+      shapeParams: preset.shapeParams,
       label: preset.label,
       position: [0, 0.5, 0],
       size: preset.size,
@@ -192,9 +194,13 @@ export function FurnitureEditor({
       }
 
       switch (e.key) {
-        case "g": case "w": case "G": case "W": setTransformMode("translate"); break;
-        case "r": case "e": case "R": case "E": setTransformMode("rotate"); break;
-        case "s": case "S": setTransformMode("scale"); break;
+        case "r":
+        case "R":
+          if (!e.ctrlKey && !e.metaKey) setRotationMode((v) => !v);
+          break;
+        case "Escape":
+          setRotationMode(false);
+          break;
         case "?": setShowHelp((v) => !v); break;
       }
     };
@@ -219,12 +225,21 @@ export function FurnitureEditor({
 
   const handleLoadTemplate = useCallback((template: LibraryTemplate) => {
     const newDims = template.dims;
-    setDims(newDims);
     const newPanels = template.buildPanels(newDims);
-    updatePanels(() => newPanels);
+    // Offset new panels so they don't overlap existing ones
+    // Place them 0.5m to the right of the rightmost existing panel
+    const maxX = panels.length > 0
+      ? Math.max(...panels.map(p => p.position[0] + (p.size[0] / 2))) + 0.5
+      : 0;
+    const offsetPanels = newPanels.map(p => ({
+      ...p,
+      id: `p${++nextPanelId}`,
+      position: [p.position[0] + maxX, p.position[1], p.position[2]] as [number, number, number],
+    }));
+    updatePanels((prev) => [...prev, ...offsetPanels]);
     setSelectedPanelId(null);
     setShowLibrary(false);
-  }, [updatePanels]);
+  }, [panels, updatePanels]);
 
   // ─── Chat panel callbacks ──────────────────────────────
 
@@ -288,28 +303,6 @@ export function FurnitureEditor({
           </div>
         </div>
         <div className="flex items-center gap-2">
-          {/* Transform mode toggle */}
-          <div className="flex items-center bg-gray-100 rounded-lg p-0.5 mr-1">
-            {([
-              { mode: "translate" as TransformMode, icon: Move, label: "Move (W)", key: "W" },
-              { mode: "rotate" as TransformMode, icon: RotateCw, label: "Rotate (E)", key: "E" },
-              { mode: "scale" as TransformMode, icon: Maximize2, label: "Scale (S)", key: "S" },
-            ]).map(({ mode, icon: Icon, label, key }) => (
-              <button
-                key={mode}
-                title={label}
-                onClick={() => setTransformMode(mode)}
-                className={`h-7 w-7 flex items-center justify-center rounded-md transition-colors ${
-                  transformMode === mode
-                    ? "bg-white shadow-sm text-[#C87D5A]"
-                    : "text-gray-500 hover:text-gray-700"
-                }`}
-              >
-                <Icon className="w-3.5 h-3.5" />
-              </button>
-            ))}
-          </div>
-
           {/* Snap toggle */}
           <button
             title={snapEnabled ? "Snap ON (10mm grid)" : "Snap OFF"}
@@ -321,6 +314,19 @@ export function FurnitureEditor({
             }`}
           >
             <Magnet className="w-3.5 h-3.5" />
+          </button>
+
+          {/* Rotation mode toggle */}
+          <button
+            title={rotationMode ? "Rotation Mode ON (R)" : "Rotation Mode OFF (R)"}
+            onClick={() => setRotationMode((v) => !v)}
+            className={`h-8 w-8 flex items-center justify-center rounded-lg border transition-colors ${
+              rotationMode
+                ? "border-blue-500/30 bg-blue-500/10 text-blue-600"
+                : "border-gray-200 bg-white text-gray-400"
+            }`}
+          >
+            <RotateCw className="w-3.5 h-3.5" />
           </button>
 
           {/* Help button */}
@@ -418,8 +424,8 @@ export function FurnitureEditor({
           <EditorViewport
             panels={panels}
             selectedPanelId={selectedPanelId}
-            transformMode={transformMode}
             snapEnabled={snapEnabled}
+            rotationMode={rotationMode}
             onSelectPanel={setSelectedPanelId}
             onUpdatePanel={handleUpdatePanel}
           />
@@ -476,12 +482,15 @@ export function FurnitureEditor({
             <div className="p-6 space-y-5 text-sm">
               {/* Transform */}
               <div>
-                <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Transform Tools</h4>
+                <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Move & Resize</h4>
                 <div className="space-y-1.5">
                   {[
-                    ["W / G", "Move selected element"],
-                    ["E / R", "Rotate selected element"],
-                    ["S", "Scale selected element"],
+                    ["Drag panel", "Move on ground plane (X/Z)"],
+                    ["Shift + Drag", "Move on Y axis (up/down)"],
+                    ["Drag handle", "Resize from edge or corner"],
+                    ["R", "Toggle rotation mode"],
+                    ["R + Drag", "Rotate selected panel (drag horizontally)"],
+                    ["Esc", "Exit rotation mode"],
                   ].map(([key, desc]) => (
                     <div key={key} className="flex items-center gap-3">
                       <kbd className="min-w-[56px] px-2 py-1 bg-gray-100 rounded-md text-xs font-mono text-gray-600 text-center">{key}</kbd>
@@ -504,8 +513,6 @@ export function FurnitureEditor({
                     ["Click empty", "Deselect all"],
                     ["Arrow keys", "Nudge selected element (10mm)"],
                     ["Shift + Arrow", "Fine nudge (1mm)"],
-                    ["Drag gizmo", "Move / rotate / scale element"],
-                    ["Drag handle", "Resize from edge (Scale mode)"],
                   ].map(([key, desc]) => (
                     <div key={key} className="flex items-center gap-3">
                       <kbd className="min-w-[56px] px-2 py-1 bg-gray-100 rounded-md text-xs font-mono text-gray-600 text-center">{key}</kbd>
@@ -557,6 +564,8 @@ export function FurnitureEditor({
                   <li>• The <strong>magnet icon</strong> toggles snap-to-grid (10mm increments)</li>
                   <li>• <strong>+ Add</strong> opens a picker — choose panels, 3D shapes, or furniture parts</li>
                   <li>• Hover over any panel in the sidebar to see <strong>duplicate</strong> and <strong>delete</strong> buttons</li>
+                  <li>• <strong>Objects snap</strong> to each other when edges are close — blue guide lines appear when aligned</li>
+                  <li>• Press <strong>R</strong> to enter rotation mode, then drag an object to rotate it. Angle display shown while dragging</li>
                   <li>• Use the <strong>AI Assistant</strong> to change materials or dimensions by chatting</li>
                 </ul>
               </div>

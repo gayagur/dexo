@@ -208,12 +208,34 @@ export const STYLES = [
 
 // ── Default Templates ───────────────────────────────────
 
-export type PanelShape = "box" | "cylinder" | "sphere" | "cone";
+export type PanelShape =
+  // Basic
+  | "box" | "cylinder" | "sphere" | "cone"
+  // Panel shapes
+  | "rounded_rect" | "circle_panel" | "oval" | "triangle" | "trapezoid"
+  | "l_shape" | "u_shape" | "arc" | "hexagon"
+  // 3D solids
+  | "half_sphere" | "torus" | "pyramid" | "wedge" | "tube"
+  // Legs & feet
+  | "tapered_leg" | "cabriole_leg" | "hairpin_leg" | "x_base" | "pedestal" | "square_leg"
+  | "bun_foot" | "bracket_foot" | "plinth"
+  // Handles
+  | "bar_handle" | "knob" | "cup_pull" | "ring_pull"
+  // Doors & drawers
+  | "shaker_door" | "glass_insert_door" | "louvered_door"
+  | "drawer_box" | "open_tray"
+  // Molding & trim
+  | "crown_molding" | "base_molding" | "edge_trim"
+  // Structural
+  | "cross_brace" | "l_bracket" | "rail" | "rod" | "caster"
+  // Decorative
+  | "cushion" | "mattress" | "books" | "vase" | "basket" | "picture_frame" | "lamp_shade";
 
 export interface PanelData {
   id: string;
   type: "vertical" | "horizontal" | "back";
   shape?: PanelShape; // default "box"
+  shapeParams?: Record<string, number>; // e.g. cornerRadius, sides, arcAngle
   position: [number, number, number]; // x, y, z in meters
   rotation?: [number, number, number]; // x, y, z in radians (default [0,0,0])
   size: [number, number, number]; // box: [w,h,d] | cylinder/cone: [diameter,height,diameter] | sphere: [diameter,diameter,diameter]

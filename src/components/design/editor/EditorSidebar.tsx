@@ -19,27 +19,22 @@ export function EditorSidebar({
   onDuplicatePanel,
   onDeletePanel,
 }: EditorSidebarProps) {
-  const cylinders = panels.filter((p) => p.shape === "cylinder");
-  const boxes = panels.filter((p) => p.shape !== "cylinder");
   const grouped = {
-    horizontal: boxes.filter((p) => p.type === "horizontal"),
-    vertical: boxes.filter((p) => p.type === "vertical"),
-    back: boxes.filter((p) => p.type === "back"),
-    cylinder: cylinders,
+    horizontal: panels.filter((p) => p.type === "horizontal"),
+    vertical: panels.filter((p) => p.type === "vertical"),
+    back: panels.filter((p) => p.type === "back"),
   };
 
   const typeLabel: Record<string, string> = {
-    horizontal: "Horizontal Panels",
-    vertical: "Vertical Panels",
-    back: "Back Panels",
-    cylinder: "Cylindrical Parts",
+    horizontal: "Horizontal Parts",
+    vertical: "Vertical Parts",
+    back: "Back / Wall Parts",
   };
 
   const typeIcon: Record<string, string> = {
     horizontal: "━",
     vertical: "┃",
     back: "▣",
-    cylinder: "⊚",
   };
 
   return (
@@ -76,7 +71,14 @@ export function EditorSidebar({
                     }`}
                   >
                     <GripVertical className="w-3.5 h-3.5 text-gray-300 shrink-0" />
-                    <span className="flex-1 truncate text-xs">{panel.label}</span>
+                    <span className="flex-1 truncate text-xs">
+                      {panel.label}
+                      {panel.shape && panel.shape !== "box" && (
+                        <span className="text-[9px] text-gray-400 ml-1 capitalize">
+                          ({panel.shape.replace(/_/g, " ")})
+                        </span>
+                      )}
+                    </span>
                     {/* Duplicate button */}
                     <button
                       onClick={(e) => {
