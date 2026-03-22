@@ -48,7 +48,12 @@ interface SnapGuide {
 interface DragInfo {
   position: [number, number, number];
   rotationDeg?: number;
+  resizeLabel?: string; // e.g. "Width: 600mm → 750mm"
 }
+
+// Axis colors: red=X, green=Y, blue=Z
+const AXIS_COLORS: Record<number, string> = { 0: "#ef4444", 1: "#22c55e", 2: "#3b82f6" };
+const AXIS_LABELS: Record<number, string> = { 0: "Width (X)", 1: "Height (Y)", 2: "Depth (Z)" };
 
 // ─── Object-to-Object Snapping ─────────────────────────
 
@@ -155,6 +160,7 @@ export function EditorViewport({
   const [contextMenu, setContextMenu] = useState<ContextMenuInfo | null>(null);
   const [snapGuides, setSnapGuides] = useState<SnapGuide[]>([]);
   const [dragInfo, setDragInfo] = useState<DragInfo | null>(null);
+  const [interactionActive, setInteractionActive] = useState(false);
 
   const togglePanel = useCallback((id: string) => {
     setOpenPanels((prev) => ({ ...prev, [id]: !prev[id] }));
@@ -176,6 +182,8 @@ export function EditorViewport({
   const startDrag = useCallback((panelId: string, intersectionPoint: THREE.Vector3, clientX: number) => {
     const panel = panels.find(p => p.id === panelId);
     if (!panel) return;
+
+    setInteractionActive(true);
 
     if (rotationMode) {
       dragStateRef.current = {
@@ -258,6 +266,7 @@ export function EditorViewport({
           onUpdatePanel={onUpdatePanel}
           onSnapGuidesChange={setSnapGuides}
           onDragInfoChange={setDragInfo}
+          onInteractionEnd={() => setInteractionActive(false)}
         />
 
         {/* Snap guide lines (blue alignment guides) */}
@@ -271,6 +280,8 @@ export function EditorViewport({
             panel={selectedPanel}
             onUpdate={onUpdatePanel}
             snapEnabled={snapEnabled}
+            onInteractionChange={setInteractionActive}
+            onDragInfoChange={setDragInfo}
           />
         )}
 
@@ -281,6 +292,7 @@ export function EditorViewport({
 
         <OrbitControls
           makeDefault
+          enabled={!interactionActive}
           minPolarAngle={0.1}
           maxPolarAngle={Math.PI / 2 - 0.05}
           minDistance={1}
@@ -295,7 +307,9 @@ export function EditorViewport({
       {/* Drag info overlay — shows position or rotation angle */}
       {dragInfo && (
         <div className="absolute top-3 left-1/2 -translate-x-1/2 bg-black/80 text-white text-xs px-3 py-1.5 rounded-lg font-mono backdrop-blur-sm z-40 flex items-center gap-3 pointer-events-none">
-          {dragInfo.rotationDeg != null ? (
+          {dragInfo.resizeLabel ? (
+            <span>{dragInfo.resizeLabel}</span>
+          ) : dragInfo.rotationDeg != null ? (
             <span>Rotate: {dragInfo.rotationDeg.toFixed(1)}&deg;</span>
           ) : (
             <>
@@ -403,6 +417,7 @@ function DragController({
   onUpdatePanel,
   onSnapGuidesChange,
   onDragInfoChange,
+  onInteractionEnd,
 }: {
   dragStateRef: React.RefObject<DragState>;
   snapEnabled: boolean;
@@ -411,6 +426,7 @@ function DragController({
   onUpdatePanel: (id: string, updates: Partial<PanelData>) => void;
   onSnapGuidesChange: (guides: SnapGuide[]) => void;
   onDragInfoChange: (info: DragInfo | null) => void;
+  onInteractionEnd: () => void;
 }) {
   const { camera, gl, raycaster } = useThree();
   const shiftHeld = useRef(false);
@@ -523,6 +539,7 @@ function DragController({
         ds.startRotY = 0;
       }
       canvas.style.cursor = "";
+      onInteractionEnd();
       onSnapGuidesChange([]);
       onDragInfoChange(null);
     };
@@ -533,7 +550,7 @@ function DragController({
       canvas.removeEventListener("pointermove", onPointerMove);
       canvas.removeEventListener("pointerup", onPointerUp);
     };
-  }, [camera, gl, raycaster, snapEnabled, rotationMode, panels, onUpdatePanel, onSnapGuidesChange, onDragInfoChange, dragStateRef]);
+  }, [camera, gl, raycaster, snapEnabled, rotationMode, panels, onUpdatePanel, onSnapGuidesChange, onDragInfoChange, onInteractionEnd, dragStateRef]);
 
   return null;
 }
@@ -544,23 +561,27 @@ function SelectionHandles({
   panel,
   onUpdate,
   snapEnabled,
+  onInteractionChange,
+  onDragInfoChange,
 }: {
   panel: PanelData;
   onUpdate: (id: string, updates: Partial<PanelData>) => void;
   snapEnabled: boolean;
+  onInteractionChange: (active: boolean) => void;
+  onDragInfoChange: (info: DragInfo | null) => void;
 }) {
   const shape = panel.shape ?? "box";
   if (shape !== "box") return null;
 
   const [w, h, d] = panel.size;
 
-  const handles: { id: string; offset: [number, number, number]; axis: 0 | 1 | 2; dir: 1 | -1 }[] = [
-    { id: "right",  offset: [w / 2, 0, 0],      axis: 0, dir: 1 },
-    { id: "left",   offset: [-w / 2, 0, 0],     axis: 0, dir: -1 },
-    { id: "top",    offset: [0, h / 2, 0],      axis: 1, dir: 1 },
-    { id: "bottom", offset: [0, -h / 2, 0],     axis: 1, dir: -1 },
-    { id: "front",  offset: [0, 0, -d / 2],     axis: 2, dir: -1 },
-    { id: "back",   offset: [0, 0, d / 2],      axis: 2, dir: 1 },
+  const handles: { id: string; label: string; offset: [number, number, number]; axis: 0 | 1 | 2; dir: 1 | -1 }[] = [
+    { id: "right",  label: "Width",  offset: [w / 2, 0, 0],      axis: 0, dir: 1 },
+    { id: "left",   label: "Width",  offset: [-w / 2, 0, 0],     axis: 0, dir: -1 },
+    { id: "top",    label: "Height", offset: [0, h / 2, 0],      axis: 1, dir: 1 },
+    { id: "bottom", label: "Height", offset: [0, -h / 2, 0],     axis: 1, dir: -1 },
+    { id: "front",  label: "Depth",  offset: [0, 0, -d / 2],     axis: 2, dir: -1 },
+    { id: "back",   label: "Depth",  offset: [0, 0, d / 2],      axis: 2, dir: 1 },
   ];
 
   const cornerAxes: [0 | 1 | 2, 1 | -1, 0 | 1 | 2, 1 | -1][] = [
@@ -583,9 +604,11 @@ function SelectionHandles({
         <meshBasicMaterial color="#C87D5A" wireframe transparent opacity={0.5} />
       </mesh>
 
+      {/* Face-center handles (single-axis, color-coded) */}
       {handles.map((handle) => (
         <ResizeHandle
           key={handle.id}
+          handleLabel={handle.label}
           panelId={panel.id}
           panelPos={panel.position}
           panelSize={panel.size}
@@ -593,12 +616,16 @@ function SelectionHandles({
           axes={[{ axis: handle.axis, dir: handle.dir }]}
           onUpdate={onUpdate}
           snapEnabled={snapEnabled}
+          onInteractionChange={onInteractionChange}
+          onDragInfoChange={onDragInfoChange}
         />
       ))}
 
+      {/* Corner handles (dual-axis) */}
       {cornerOffsets.map((offset, i) => (
         <ResizeHandle
           key={`corner-${i}`}
+          handleLabel="W+D"
           panelId={panel.id}
           panelPos={panel.position}
           panelSize={panel.size}
@@ -609,6 +636,8 @@ function SelectionHandles({
           ]}
           onUpdate={onUpdate}
           snapEnabled={snapEnabled}
+          onInteractionChange={onInteractionChange}
+          onDragInfoChange={onDragInfoChange}
         />
       ))}
     </group>
@@ -618,6 +647,7 @@ function SelectionHandles({
 // ─── Resize Handle ──────────────────────────────────────
 
 function ResizeHandle({
+  handleLabel,
   panelId,
   panelPos,
   panelSize,
@@ -625,7 +655,10 @@ function ResizeHandle({
   axes,
   onUpdate,
   snapEnabled,
+  onInteractionChange,
+  onDragInfoChange,
 }: {
+  handleLabel: string;
   panelId: string;
   panelPos: [number, number, number];
   panelSize: [number, number, number];
@@ -633,17 +666,34 @@ function ResizeHandle({
   axes: { axis: 0 | 1 | 2; dir: 1 | -1 }[];
   onUpdate: (id: string, updates: Partial<PanelData>) => void;
   snapEnabled: boolean;
+  onInteractionChange: (active: boolean) => void;
+  onDragInfoChange: (info: DragInfo | null) => void;
 }) {
   const meshRef = useRef<THREE.Mesh>(null!);
   const [dragging, setDragging] = useState(false);
   const [hovered, setHovered] = useState(false);
   const dragStart = useRef<{ point: THREE.Vector3; size: [number, number, number]; pos: [number, number, number] } | null>(null);
+  const shiftHeld = useRef(false);
   const { camera, raycaster, gl } = useThree();
+
+  // Determine color from primary axis
+  const primaryAxis = axes[0].axis;
+  const isCorner = axes.length > 1;
+  const axisColor = isCorner ? "#f59e0b" : (AXIS_COLORS[primaryAxis] ?? "#888");
+  const cursorStyle = primaryAxis === 1 ? "ns-resize" : "ew-resize";
+
+  // Track shift for fine-grain snap
+  useEffect(() => {
+    const down = (e: KeyboardEvent) => { if (e.key === "Shift") shiftHeld.current = true; };
+    const up = (e: KeyboardEvent) => { if (e.key === "Shift") shiftHeld.current = false; };
+    window.addEventListener("keydown", down);
+    window.addEventListener("keyup", up);
+    return () => { window.removeEventListener("keydown", down); window.removeEventListener("keyup", up); };
+  }, []);
 
   useEffect(() => {
     if (!dragging) return;
 
-    const primaryAxis = axes[0].axis;
     const axisVec = new THREE.Vector3(
       primaryAxis === 0 ? 1 : 0,
       primaryAxis === 1 ? 1 : 0,
@@ -687,20 +737,33 @@ function ResizeHandle({
         newPos[axis] = dragStart.current.pos[axis] + (axisDelta / 2) * dir;
       }
 
+      // Snap: 10mm default, 1mm with Shift
+      const gridSize = shiftHeld.current ? 0.001 : 0.01;
       if (snapEnabled) {
         for (const { axis } of axes) {
-          newSize[axis] = snapToGrid(newSize[axis], 0.01);
-          newPos[axis] = snapToGrid(newPos[axis], 0.005);
+          newSize[axis] = snapToGrid(newSize[axis], gridSize);
+          newPos[axis] = snapToGrid(newPos[axis], gridSize / 2);
         }
       }
 
       onUpdate(panelId, { size: newSize, position: newPos });
+
+      // Build resize label: "Width: 600mm → 750mm"
+      const dimNames = ["Width", "Height", "Depth"];
+      const labels = axes.map(({ axis }) => {
+        const oldMm = Math.round(dragStart.current!.size[axis] * 1000);
+        const newMm = Math.round(newSize[axis] * 1000);
+        return `${dimNames[axis]}: ${oldMm}mm → ${newMm}mm`;
+      });
+      onDragInfoChange({ position: newPos, resizeLabel: labels.join("  |  ") });
     };
 
     const onPointerUp = () => {
       setDragging(false);
       dragStart.current = null;
       gl.domElement.style.cursor = "";
+      onInteractionChange(false);
+      onDragInfoChange(null);
     };
 
     gl.domElement.addEventListener("pointermove", onPointerMove);
@@ -709,7 +772,7 @@ function ResizeHandle({
       gl.domElement.removeEventListener("pointermove", onPointerMove);
       gl.domElement.removeEventListener("pointerup", onPointerUp);
     };
-  }, [dragging, axes, panelId, panelPos, panelSize, offset, camera, raycaster, gl, onUpdate, snapEnabled]);
+  }, [dragging, axes, panelId, panelPos, panelSize, offset, camera, raycaster, gl, onUpdate, snapEnabled, onInteractionChange, onDragInfoChange, primaryAxis]);
 
   return (
     <mesh
@@ -718,23 +781,26 @@ function ResizeHandle({
       onPointerDown={(e) => {
         e.stopPropagation();
         setDragging(true);
+        onInteractionChange(true);
         dragStart.current = {
           point: e.point.clone(),
           size: [...panelSize] as [number, number, number],
           pos: [...panelPos] as [number, number, number],
         };
-        gl.domElement.style.cursor = "ew-resize";
+        gl.domElement.style.cursor = cursorStyle;
       }}
-      onPointerEnter={() => { setHovered(true); gl.domElement.style.cursor = "ew-resize"; }}
+      onPointerEnter={() => { setHovered(true); gl.domElement.style.cursor = cursorStyle; }}
       onPointerLeave={() => { if (!dragging) { setHovered(false); gl.domElement.style.cursor = ""; } }}
     >
       <boxGeometry args={[0.015, 0.015, 0.015]} />
       <meshStandardMaterial
-        color={dragging ? "#e8470a" : hovered ? "#C87D5A" : "#ffffff"}
-        emissive={dragging ? "#e8470a" : hovered ? "#C87D5A" : "#888"}
-        emissiveIntensity={0.3}
-        roughness={0.4}
-        metalness={0.2}
+        color={dragging ? "#ffffff" : hovered ? axisColor : axisColor}
+        emissive={dragging ? axisColor : hovered ? axisColor : axisColor}
+        emissiveIntensity={dragging ? 0.8 : hovered ? 0.5 : 0.2}
+        roughness={0.3}
+        metalness={0.3}
+        transparent={!hovered && !dragging}
+        opacity={hovered || dragging ? 1 : 0.7}
       />
     </mesh>
   );
