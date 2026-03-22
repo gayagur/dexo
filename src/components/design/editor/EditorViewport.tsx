@@ -960,25 +960,26 @@ function FurniturePanel({
   // Door: pivot from left edge (or right edge for Right Door)
   if (panelIsDoor) {
     const halfW = panel.size[0] / 2;
-    // Right door: pivot from right edge; Left/generic door: pivot from left edge
-    const pivotX = isRight
-      ? panel.position[0] + halfW
-      : panel.position[0] - halfW;
+    const pivotX = isRight ? panel.position[0] + halfW : panel.position[0] - halfW;
     const meshOffsetX = isRight ? -halfW : halfW;
     const hingeX = isRight ? -0.005 : 0.005;
 
     return (
       <group position={[pivotX, panel.position[1], panel.position[2]]} rotation={panelRotation as any}>
         <group ref={groupRef}>
-          <group position={[meshOffsetX, 0, 0]}
+          <mesh position={[meshOffsetX, 0, 0]}
             onClick={handleClick}
             onDoubleClick={(e: any) => { e.stopPropagation(); onDoubleClick(); }}
             onPointerDown={handlePointerDown}
+            castShadow receiveShadow
           >
-            <ShapeRenderer shape={shape} size={panel.size} shapeParams={panel.shapeParams}
-              {...shapeMatProps} />
-          </group>
-          {/* Hinge indicators */}
+            <boxGeometry args={panel.size} />
+            <meshStandardMaterial
+              color={shapeMatProps.color} roughness={shapeMatProps.roughness}
+              metalness={shapeMatProps.metalness} transparent={shapeMatProps.transparent}
+              opacity={shapeMatProps.opacity}
+            />
+          </mesh>
           <mesh position={[hingeX, panel.size[1] * 0.3, 0]}>
             <cylinderGeometry args={[0.006, 0.006, 0.02, 8]} />
             <meshStandardMaterial color="#888" metalness={0.8} roughness={0.3} />
@@ -988,10 +989,10 @@ function FurniturePanel({
             <meshStandardMaterial color="#888" metalness={0.8} roughness={0.3} />
           </mesh>
           {selected && (
-            <group position={[meshOffsetX, 0, 0]}>
-              <ShapeRenderer shape={shape} size={panel.size} shapeParams={panel.shapeParams}
-                {...shapeMatProps} isOutline />
-            </group>
+            <mesh position={[meshOffsetX, 0, 0]}>
+              <boxGeometry args={[panel.size[0] + 0.004, panel.size[1] + 0.004, panel.size[2] + 0.004]} />
+              <meshBasicMaterial color="#C87D5A" wireframe />
+            </mesh>
           )}
         </group>
       </group>
@@ -1003,33 +1004,83 @@ function FurniturePanel({
     return (
       <group position={panel.position} rotation={panelRotation as any}>
         <group ref={groupRef}>
-          <group onClick={handleClick}
+          <mesh onClick={handleClick}
             onDoubleClick={(e: any) => { e.stopPropagation(); onDoubleClick(); }}
             onPointerDown={handlePointerDown}
+            castShadow receiveShadow
           >
-            <ShapeRenderer shape={shape} size={panel.size} shapeParams={panel.shapeParams}
-              {...shapeMatProps} />
-          </group>
+            <boxGeometry args={panel.size} />
+            <meshStandardMaterial
+              color={shapeMatProps.color} roughness={shapeMatProps.roughness}
+              metalness={shapeMatProps.metalness} transparent={shapeMatProps.transparent}
+              opacity={shapeMatProps.opacity}
+            />
+          </mesh>
           <mesh position={[0, 0, -panel.size[2] / 2 - 0.01]}>
             <boxGeometry args={[0.06, 0.012, 0.012]} />
             <meshStandardMaterial color="#888" metalness={0.8} roughness={0.3} />
           </mesh>
           {selected && (
-            <ShapeRenderer shape={shape} size={panel.size} shapeParams={panel.shapeParams}
-              {...shapeMatProps} isOutline />
+            <mesh>
+              <boxGeometry args={[panel.size[0] + 0.004, panel.size[1] + 0.004, panel.size[2] + 0.004]} />
+              <meshBasicMaterial color="#C87D5A" wireframe />
+            </mesh>
           )}
         </group>
       </group>
     );
   }
 
-  // Regular panel (draggable + rotatable) — supports all shapes including composites
+  // Regular panel (draggable + rotatable)
+  // Use inline geometry for basic shapes (reliable), ShapeRenderer for advanced shapes
+  const isBasicShape = shape === "box" || shape === "cylinder" || shape === "sphere" || shape === "cone";
+
+  const renderBasicGeometry = (outline = false) => {
+    const pad = outline ? 0.003 : 0;
+    const r = panel.size[0] / 2;
+    switch (shape) {
+      case "cylinder": return <cylinderGeometry args={[r + pad, r + pad, panel.size[1] + pad * 2, 24]} />;
+      case "sphere": return <sphereGeometry args={[r + pad, 24, 24]} />;
+      case "cone": return <coneGeometry args={[r + pad, panel.size[1] + pad * 2, 24]} />;
+      default: return <boxGeometry args={[panel.size[0] + pad * 2, panel.size[1] + pad * 2, panel.size[2] + pad * 2]} />;
+    }
+  };
+
+  if (isBasicShape) {
+    return (
+      <group position={panel.position} rotation={panelRotation as any}>
+        <mesh
+          onClick={handleClick} onPointerDown={handlePointerDown}
+          onPointerEnter={() => { document.body.style.cursor = cursorStyle; }}
+          onPointerLeave={() => { document.body.style.cursor = ""; }}
+          castShadow receiveShadow
+        >
+          {renderBasicGeometry()}
+          <meshStandardMaterial
+            color={shapeMatProps.color}
+            roughness={shapeMatProps.roughness}
+            metalness={shapeMatProps.metalness}
+            transparent={shapeMatProps.transparent}
+            opacity={shapeMatProps.opacity}
+          />
+        </mesh>
+        {selected && (
+          <mesh>
+            {renderBasicGeometry(true)}
+            <meshBasicMaterial color="#C87D5A" wireframe />
+          </mesh>
+        )}
+      </group>
+    );
+  }
+
+  // Advanced shapes — use ShapeRenderer
   return (
     <group position={panel.position} rotation={panelRotation as any}>
       <group
         onClick={handleClick} onPointerDown={handlePointerDown}
-        onPointerEnter={(e: any) => { document.body.style.cursor = cursorStyle; }}
-        onPointerLeave={(e: any) => { document.body.style.cursor = ""; }}
+        onPointerEnter={() => { document.body.style.cursor = cursorStyle; }}
+        onPointerLeave={() => { document.body.style.cursor = ""; }}
       >
         <ShapeRenderer shape={shape} size={panel.size} shapeParams={panel.shapeParams}
           {...shapeMatProps} />
