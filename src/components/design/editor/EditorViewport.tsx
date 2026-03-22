@@ -303,15 +303,13 @@ export function EditorViewport({
           <RotationRing panel={selectedPanel} />
         )}
 
-        {/* Animate camera when viewMode changes */}
-        <CameraController viewMode={viewMode} />
+        {/* Set camera when viewMode changes */}
+        <ViewSetter viewMode={viewMode} />
 
         <OrbitControls
           makeDefault
           enabled={!interactionActive}
           enableRotate={viewMode === "3d"}
-          minPolarAngle={viewMode === "3d" ? 0.1 : undefined}
-          maxPolarAngle={viewMode === "3d" ? Math.PI / 2 - 0.05 : undefined}
           minDistance={0.5}
           maxDistance={15}
         />
@@ -431,51 +429,22 @@ function RotationRing({ panel }: { panel: PanelData }) {
   );
 }
 
-// ─── Camera Controller (animates camera for view modes) ──
+// ─── View Setter (sets camera position for view modes) ──
 
-function CameraController({ viewMode }: { viewMode: ViewMode }) {
-  const { camera, controls } = useThree();
-  const prevMode = useRef<ViewMode>(viewMode);
-  const isAnimating = useRef(false);
-  const targetPos = useRef(new THREE.Vector3());
-  const targetUp = useRef(new THREE.Vector3());
+function ViewSetter({ viewMode }: { viewMode: ViewMode }) {
+  const { camera } = useThree();
+  const prevMode = useRef<ViewMode>("3d");
 
-  // Only animate when viewMode CHANGES (not on initial mount)
   useEffect(() => {
     if (prevMode.current === viewMode) return;
     prevMode.current = viewMode;
 
     const config = VIEW_CAMERAS[viewMode];
-    targetPos.current.set(...config.position);
-    targetUp.current.set(...config.up);
-    isAnimating.current = true;
-  }, [viewMode]);
-
-  useFrame(() => {
-    if (!isAnimating.current) return;
-
-    camera.position.lerp(targetPos.current, 0.12);
-    camera.up.lerp(targetUp.current, 0.12);
+    camera.position.set(...config.position);
+    camera.up.set(...config.up);
     camera.lookAt(0, 0.3, 0);
-
-    // Sync OrbitControls so they don't fight
-    const oc = controls as any;
-    if (oc?.target) {
-      oc.target.set(0, 0.3, 0);
-      oc.update();
-    }
-
-    if (camera.position.distanceTo(targetPos.current) < 0.02) {
-      camera.position.copy(targetPos.current);
-      camera.up.copy(targetUp.current);
-      camera.lookAt(0, 0.3, 0);
-      if (oc?.target) {
-        oc.target.set(0, 0.3, 0);
-        oc.update();
-      }
-      isAnimating.current = false;
-    }
-  });
+    camera.updateProjectionMatrix();
+  }, [viewMode, camera]);
 
   return null;
 }
