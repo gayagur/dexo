@@ -137,6 +137,17 @@ function computeObjectSnap(
   return { snappedPos: snapped, guides };
 }
 
+// ─── View Mode ─────────────────────────────────────────
+
+export type ViewMode = "3d" | "front" | "top" | "side";
+
+const VIEW_CAMERAS: Record<ViewMode, { position: [number, number, number]; up: [number, number, number] }> = {
+  "3d":    { position: [2.5, 2, 3],   up: [0, 1, 0] },
+  "front": { position: [0, 0.5, 5],   up: [0, 1, 0] },   // XY — looking from +Z
+  "top":   { position: [0, 5, 0.001], up: [0, 0, -1] },   // XZ — looking from +Y
+  "side":  { position: [5, 0.5, 0],   up: [0, 1, 0] },    // YZ — looking from +X
+};
+
 // ─── Main Component ────────────────────────────────────
 
 interface EditorViewportProps {
@@ -144,6 +155,7 @@ interface EditorViewportProps {
   selectedPanelId: string | null;
   snapEnabled: boolean;
   rotationMode: boolean;
+  viewMode: ViewMode;
   onSelectPanel: (id: string | null) => void;
   onUpdatePanel: (id: string, updates: Partial<PanelData>) => void;
 }
@@ -153,6 +165,7 @@ export function EditorViewport({
   selectedPanelId,
   snapEnabled,
   rotationMode,
+  viewMode,
   onSelectPanel,
   onUpdatePanel,
 }: EditorViewportProps) {
@@ -290,13 +303,17 @@ export function EditorViewport({
           <RotationRing panel={selectedPanel} />
         )}
 
+        {/* Animate camera when viewMode changes */}
+        <CameraController viewMode={viewMode} />
+
         <OrbitControls
           makeDefault
           enabled={!interactionActive}
-          minPolarAngle={0.1}
-          maxPolarAngle={Math.PI / 2 - 0.05}
-          minDistance={1}
-          maxDistance={10}
+          enableRotate={viewMode === "3d"}
+          minPolarAngle={viewMode === "3d" ? 0.1 : undefined}
+          maxPolarAngle={viewMode === "3d" ? Math.PI / 2 - 0.05 : undefined}
+          minDistance={0.5}
+          maxDistance={15}
         />
 
         <GizmoHelper alignment="bottom-right" margin={[60, 60]}>
@@ -320,6 +337,13 @@ export function EditorViewport({
               <span>Z: {(dragInfo.position[2] * 100).toFixed(1)}cm</span>
             </>
           )}
+        </div>
+      )}
+
+      {/* View mode label */}
+      {viewMode !== "3d" && (
+        <div className="absolute top-3 left-3 bg-black/60 text-white text-[10px] px-2 py-1 rounded font-medium z-40 pointer-events-none uppercase tracking-wider">
+          {viewMode === "front" ? "Front View (XY)" : viewMode === "top" ? "Top View (XZ)" : "Side View (YZ)"}
         </div>
       )}
 
@@ -405,6 +429,41 @@ function RotationRing({ panel }: { panel: PanelData }) {
       </mesh>
     </group>
   );
+}
+
+// ─── Camera Controller (animates camera for view modes) ──
+
+function CameraController({ viewMode }: { viewMode: ViewMode }) {
+  const { camera } = useThree();
+  const targetPos = useRef(new THREE.Vector3(2.5, 2, 3));
+  const targetUp = useRef(new THREE.Vector3(0, 1, 0));
+  const isAnimating = useRef(false);
+
+  useEffect(() => {
+    const config = VIEW_CAMERAS[viewMode];
+    targetPos.current.set(...config.position);
+    targetUp.current.set(...config.up);
+    isAnimating.current = true;
+  }, [viewMode]);
+
+  useFrame(() => {
+    if (!isAnimating.current) return;
+
+    camera.position.lerp(targetPos.current, 0.12);
+    camera.up.lerp(targetUp.current, 0.12);
+    camera.lookAt(0, 0.3, 0);
+    camera.updateProjectionMatrix();
+
+    if (camera.position.distanceTo(targetPos.current) < 0.01) {
+      camera.position.copy(targetPos.current);
+      camera.up.copy(targetUp.current);
+      camera.lookAt(0, 0.3, 0);
+      camera.updateProjectionMatrix();
+      isAnimating.current = false;
+    }
+  });
+
+  return null;
 }
 
 // ─── Drag Controller (move + rotation + object snap) ────

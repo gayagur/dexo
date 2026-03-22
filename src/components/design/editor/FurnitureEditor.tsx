@@ -13,7 +13,8 @@ import {
   type FurnitureOption,
 } from "@/lib/furnitureData";
 import type { LibraryTemplate } from "@/lib/libraryData";
-import { ArrowLeft, Save, RotateCcw, RotateCw, MessageSquare, Magnet, HelpCircle, X, BookOpen, Undo2, Redo2 } from "lucide-react";
+import { ArrowLeft, Save, RotateCcw, RotateCw, MessageSquare, Magnet, HelpCircle, X, BookOpen, Undo2, Redo2, Box, Square, PanelTop, PanelLeft } from "lucide-react";
+import type { ViewMode } from "./EditorViewport";
 
 interface FurnitureEditorProps {
   furnitureType: FurnitureOption;
@@ -43,6 +44,7 @@ export function FurnitureEditor({
   const [snapEnabled, setSnapEnabled] = useState(true);
   const [showHelp, setShowHelp] = useState(false);
   const [rotationMode, setRotationMode] = useState(false);
+  const [viewMode, setViewMode] = useState<ViewMode>("3d");
 
   const defaultTemplate = getDefaultTemplate(furnitureType.id, furnitureType.defaultDims);
   const [panels, setPanels] = useState<PanelData[]>(defaultTemplate.panels);
@@ -201,6 +203,10 @@ export function FurnitureEditor({
         case "Escape":
           setRotationMode(false);
           break;
+        case "1": if (!e.ctrlKey && !e.metaKey) setViewMode("3d"); break;
+        case "2": if (!e.ctrlKey && !e.metaKey) setViewMode("front"); break;
+        case "3": if (!e.ctrlKey && !e.metaKey) setViewMode("top"); break;
+        case "4": if (!e.ctrlKey && !e.metaKey) setViewMode("side"); break;
         case "?": setShowHelp((v) => !v); break;
       }
     };
@@ -329,6 +335,30 @@ export function FurnitureEditor({
             <RotateCw className="w-3.5 h-3.5" />
           </button>
 
+          {/* View mode selector */}
+          <div className="flex items-center h-8 rounded-lg border border-gray-200 overflow-hidden">
+            {([
+              { mode: "3d" as ViewMode, label: "3D", icon: Box },
+              { mode: "front" as ViewMode, label: "Front", icon: Square },
+              { mode: "top" as ViewMode, label: "Top", icon: PanelTop },
+              { mode: "side" as ViewMode, label: "Side", icon: PanelLeft },
+            ]).map(({ mode, label, icon: Icon }) => (
+              <button
+                key={mode}
+                title={`${label} View`}
+                onClick={() => setViewMode(mode)}
+                className={`h-full px-2 flex items-center gap-1 text-[11px] font-medium transition-colors ${
+                  viewMode === mode
+                    ? "bg-[#1B2432] text-white"
+                    : "bg-white text-gray-500 hover:bg-gray-50 hover:text-gray-700"
+                }`}
+              >
+                <Icon className="w-3 h-3" />
+                {label}
+              </button>
+            ))}
+          </div>
+
           {/* Help button */}
           <button
             title="Shortcuts & Help (?)"
@@ -426,6 +456,7 @@ export function FurnitureEditor({
             selectedPanelId={selectedPanelId}
             snapEnabled={snapEnabled}
             rotationMode={rotationMode}
+            viewMode={viewMode}
             onSelectPanel={setSelectedPanelId}
             onUpdatePanel={handleUpdatePanel}
           />
@@ -513,6 +544,24 @@ export function FurnitureEditor({
                     ["Click empty", "Deselect all"],
                     ["Arrow keys", "Nudge selected element (10mm)"],
                     ["Shift + Arrow", "Fine nudge (1mm)"],
+                  ].map(([key, desc]) => (
+                    <div key={key} className="flex items-center gap-3">
+                      <kbd className="min-w-[56px] px-2 py-1 bg-gray-100 rounded-md text-xs font-mono text-gray-600 text-center">{key}</kbd>
+                      <span className="text-gray-600">{desc}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Views */}
+              <div>
+                <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">View Modes</h4>
+                <div className="space-y-1.5">
+                  {[
+                    ["1", "3D view (default perspective)"],
+                    ["2", "Front view (XY)"],
+                    ["3", "Top view (XZ)"],
+                    ["4", "Side view (YZ)"],
                   ].map(([key, desc]) => (
                     <div key={key} className="flex items-center gap-3">
                       <kbd className="min-w-[56px] px-2 py-1 bg-gray-100 rounded-md text-xs font-mono text-gray-600 text-center">{key}</kbd>
