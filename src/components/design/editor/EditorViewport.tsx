@@ -435,11 +435,16 @@ function RotationRing({ panel }: { panel: PanelData }) {
 
 function CameraController({ viewMode }: { viewMode: ViewMode }) {
   const { camera, controls } = useThree();
-  const targetPos = useRef(new THREE.Vector3(2.5, 2, 3));
-  const targetUp = useRef(new THREE.Vector3(0, 1, 0));
+  const prevMode = useRef<ViewMode>(viewMode);
   const isAnimating = useRef(false);
+  const targetPos = useRef(new THREE.Vector3());
+  const targetUp = useRef(new THREE.Vector3());
 
+  // Only animate when viewMode CHANGES (not on initial mount)
   useEffect(() => {
+    if (prevMode.current === viewMode) return;
+    prevMode.current = viewMode;
+
     const config = VIEW_CAMERAS[viewMode];
     targetPos.current.set(...config.position);
     targetUp.current.set(...config.up);
@@ -449,28 +454,24 @@ function CameraController({ viewMode }: { viewMode: ViewMode }) {
   useFrame(() => {
     if (!isAnimating.current) return;
 
-    const orbitControls = controls as any;
-
     camera.position.lerp(targetPos.current, 0.12);
     camera.up.lerp(targetUp.current, 0.12);
+    camera.lookAt(0, 0.3, 0);
 
-    // Sync OrbitControls target so they don't fight
-    if (orbitControls?.target) {
-      orbitControls.target.set(0, 0.3, 0);
-      orbitControls.update();
+    // Sync OrbitControls so they don't fight
+    const oc = controls as any;
+    if (oc?.target) {
+      oc.target.set(0, 0.3, 0);
+      oc.update();
     }
 
-    camera.lookAt(0, 0.3, 0);
-    camera.updateProjectionMatrix();
-
-    if (camera.position.distanceTo(targetPos.current) < 0.01) {
+    if (camera.position.distanceTo(targetPos.current) < 0.02) {
       camera.position.copy(targetPos.current);
       camera.up.copy(targetUp.current);
       camera.lookAt(0, 0.3, 0);
-      camera.updateProjectionMatrix();
-      if (orbitControls?.target) {
-        orbitControls.target.set(0, 0.3, 0);
-        orbitControls.update();
+      if (oc?.target) {
+        oc.target.set(0, 0.3, 0);
+        oc.update();
       }
       isAnimating.current = false;
     }

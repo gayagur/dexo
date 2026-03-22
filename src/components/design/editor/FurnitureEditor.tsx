@@ -215,11 +215,32 @@ export function FurnitureEditor({
   }, [selectedPanelId, panels, handleUpdatePanel, handleDuplicatePanel, handleDeletePanel, undo, redo]);
 
   const handleDimsChange = useCallback((newDims: { w: number; h: number; d: number }) => {
+    const oldDims = dims;
     setDims(newDims);
-    const template = getDefaultTemplate(furnitureType.id, newDims);
-    updatePanels(() => template.panels);
-    setSelectedPanelId(null);
-  }, [furnitureType.id, updatePanels]);
+
+    // Scale existing panels proportionally instead of rebuilding from template
+    const scaleX = newDims.w / (oldDims.w || 1);
+    const scaleY = newDims.h / (oldDims.h || 1);
+    const scaleZ = newDims.d / (oldDims.d || 1);
+
+    if (scaleX !== 1 || scaleY !== 1 || scaleZ !== 1) {
+      updatePanels((prev) =>
+        prev.map((p) => ({
+          ...p,
+          position: [
+            p.position[0] * scaleX,
+            p.position[1] * scaleY,
+            p.position[2] * scaleZ,
+          ] as [number, number, number],
+          size: [
+            p.size[0] * scaleX,
+            p.size[1] * scaleY,
+            p.size[2] * scaleZ,
+          ] as [number, number, number],
+        }))
+      );
+    }
+  }, [dims, updatePanels]);
 
   const handleReset = useCallback(() => {
     const template = getDefaultTemplate(furnitureType.id, dims);
