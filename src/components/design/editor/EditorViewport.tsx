@@ -1,7 +1,7 @@
 import React, { useState, useRef, useMemo, useCallback, useEffect } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { OrbitControls, Grid, GizmoHelper, GizmoViewport, Environment, Lightformer, ContactShadows, RoundedBox } from "@react-three/drei";
-import { EffectComposer, SSAO, SMAA } from "@react-three/postprocessing";
+// postprocessing removed — @react-three/postprocessing@3 requires fiber@9, crashes on fiber@8
 import type { PanelData, GroupData } from "@/lib/furnitureData";
 import { MATERIALS } from "@/lib/furnitureData";
 import { ShapeRenderer, isCompositeShape } from "./ShapeRenderer";
@@ -532,16 +532,7 @@ export function EditorViewport({
           <GizmoViewport />
         </GizmoHelper>
 
-        {/* Post-processing for photorealistic look */}
-        <EffectComposer multisampling={0}>
-          <SMAA />
-          <SSAO
-            samples={16}
-            radius={0.1}
-            intensity={1.5}
-            luminanceInfluence={0.9}
-          />
-        </EffectComposer>
+        {/* Post-processing removed — incompatible with fiber@8, crashes WebGL */}
       </Canvas>
 
       {/* Drag info overlay — shows position or rotation angle */}
