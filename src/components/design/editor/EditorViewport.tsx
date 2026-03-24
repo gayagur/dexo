@@ -557,7 +557,7 @@ export function EditorViewport({
         {/* Lighting — night is intentionally dim (no fake dark floor plane) */}
         {lightMode === "night" ? (
           <>
-            <Environment resolution={512} environmentIntensity={0.18}>
+            <Environment resolution={512} environmentIntensity={0.26}>
               <Lightformer form="rect" intensity={0.35} color="#2a2d48" scale={[10, 4]} position={[0, 6, -2]} rotation={[Math.PI / 2, 0, 0]} />
               <Lightformer form="circle" intensity={0.55} color="#ffd4a8" scale={2} position={[3, 2.5, -2]} />
               <Lightformer form="circle" intensity={0.35} color="#ffc9a0" scale={1.5} position={[-3, 2, 1]} />
@@ -633,6 +633,7 @@ export function EditorViewport({
                   <FurniturePanel
                     key={panel.id}
                     panel={panel}
+                    lightMode={lightMode}
                     selected={panel.id === selectedPanelId}
                     opacity={panel.id === selectedPanelId ? 1 : 0.7}
                     isOpen={!!openPanels[panel.id]}
@@ -659,6 +660,7 @@ export function EditorViewport({
                 <FurniturePanel
                   key={panel.id}
                   panel={panel}
+                  lightMode={lightMode}
                   selected={false}
                   dimmed={isDimmed}
                   opacity={isDimmed ? 0.3 : 1}
@@ -690,6 +692,7 @@ export function EditorViewport({
             <FurniturePanel
               key={panel.id}
               panel={panel}
+              lightMode={lightMode}
               selected={panel.id === selectedPanelId}
               dimmed={isDimmed}
               opacity={isDimmed ? 0.3 : 1}
@@ -1796,6 +1799,7 @@ function GroupBoundingBox({ panels, color = "#3b82f6", dashed = false }: {
 
 function FurniturePanel({
   panel,
+  lightMode,
   selected,
   isOpen,
   rotationMode,
@@ -1807,6 +1811,7 @@ function FurniturePanel({
   onDragStart,
 }: {
   panel: PanelData;
+  lightMode: EditorLightMode;
   selected: boolean;
   isOpen?: boolean;
   rotationMode?: boolean;
@@ -1824,6 +1829,10 @@ function FurniturePanel({
   const isGlass = mat?.id === "glass";
   const isMetal = mat?.category === "Metal";
   const isFabric = mat?.category === "Fabric";
+  /** Metals reflect the env map; when night dims the env, boost so legs/chrome still read. */
+  const envMetal = lightMode === "night" ? 4.75 : 2.5;
+  const envDefault = lightMode === "night" ? 0.62 : 0.88;
+  const envHardware = lightMode === "night" ? 3.1 : 1.85;
   const shape = panel.shape ?? "box";
   const panelRotation = panel.rotation ?? [0, 0, 0];
 
@@ -1941,15 +1950,16 @@ function FurniturePanel({
               color={shapeMatProps.color} roughness={shapeMatProps.roughness}
               metalness={shapeMatProps.metalness} transparent={shapeMatProps.transparent}
               opacity={shapeMatProps.opacity}
+              envMapIntensity={isMetal ? envMetal : envDefault}
             />
           </mesh>
           <mesh position={[hingeX, panel.size[1] * 0.3, 0]}>
             <cylinderGeometry args={[0.006, 0.006, 0.02, 8]} />
-            <meshStandardMaterial color="#888" metalness={0.8} roughness={0.3} />
+            <meshStandardMaterial color="#a8a8a8" metalness={0.85} roughness={0.28} envMapIntensity={envHardware} />
           </mesh>
           <mesh position={[hingeX, -panel.size[1] * 0.3, 0]}>
             <cylinderGeometry args={[0.006, 0.006, 0.02, 8]} />
-            <meshStandardMaterial color="#888" metalness={0.8} roughness={0.3} />
+            <meshStandardMaterial color="#a8a8a8" metalness={0.85} roughness={0.28} envMapIntensity={envHardware} />
           </mesh>
           {selected && (
             <mesh position={[meshOffsetX, 0, 0]}>
@@ -1978,11 +1988,12 @@ function FurniturePanel({
               color={shapeMatProps.color} roughness={shapeMatProps.roughness}
               metalness={shapeMatProps.metalness} transparent={shapeMatProps.transparent}
               opacity={shapeMatProps.opacity}
+              envMapIntensity={isMetal ? envMetal : envDefault}
             />
           </mesh>
           <mesh position={[0, 0, -panel.size[2] / 2 - 0.01]}>
             <boxGeometry args={[0.06, 0.012, 0.012]} />
-            <meshStandardMaterial color="#888" metalness={0.8} roughness={0.3} />
+            <meshStandardMaterial color="#a8a8a8" metalness={0.85} roughness={0.28} envMapIntensity={envHardware} />
           </mesh>
           {selected && (
             <mesh>
@@ -2063,7 +2074,7 @@ function FurniturePanel({
                 metalness={shapeMatProps.metalness}
                 transparent={shapeMatProps.transparent}
                 opacity={shapeMatProps.opacity}
-                envMapIntensity={isMetal ? 1.5 : 0.8}
+                envMapIntensity={isMetal ? envMetal : envDefault}
               />
             ) : (
               <meshStandardMaterial
@@ -2072,7 +2083,7 @@ function FurniturePanel({
                 metalness={shapeMatProps.metalness}
                 transparent={shapeMatProps.transparent}
                 opacity={shapeMatProps.opacity}
-                envMapIntensity={isMetal ? 1.5 : 0.8}
+                envMapIntensity={isMetal ? envMetal : envDefault}
               />
             )}
           </RoundedBox>
@@ -2106,6 +2117,18 @@ function FurniturePanel({
               transparent
               opacity={shapeMatProps.opacity}
             />
+          ) : textures && !isFabric ? (
+            <meshStandardMaterial
+              map={textures.map}
+              normalMap={textures.normalMap}
+              normalScale={normalScale}
+              roughnessMap={textures.roughnessMap}
+              roughness={shapeMatProps.roughness}
+              metalness={shapeMatProps.metalness}
+              transparent={shapeMatProps.transparent}
+              opacity={shapeMatProps.opacity}
+              envMapIntensity={isMetal ? envMetal : envDefault}
+            />
           ) : (
             <meshStandardMaterial
               color={shapeMatProps.color}
@@ -2113,7 +2136,7 @@ function FurniturePanel({
               metalness={shapeMatProps.metalness}
               transparent={shapeMatProps.transparent}
               opacity={shapeMatProps.opacity}
-              envMapIntensity={isMetal ? 1.5 : 0.8}
+              envMapIntensity={isMetal ? envMetal : envDefault}
             />
           )}
         </mesh>
@@ -2135,12 +2158,22 @@ function FurniturePanel({
         onPointerEnter={() => { if (!dimmed) document.body.style.cursor = cursorStyle; }}
         onPointerLeave={() => { document.body.style.cursor = ""; }}
       >
-        <ShapeRenderer shape={shape} size={panel.size} shapeParams={panel.shapeParams}
-          {...shapeMatProps} />
+        <ShapeRenderer
+          shape={shape}
+          size={panel.size}
+          shapeParams={panel.shapeParams}
+          {...shapeMatProps}
+          envMapIntensity={isMetal ? envMetal : envDefault}
+        />
       </group>
       {selected && (
-        <ShapeRenderer shape={shape} size={panel.size} shapeParams={panel.shapeParams}
-          {...shapeMatProps} isOutline />
+        <ShapeRenderer
+          shape={shape}
+          size={panel.size}
+          shapeParams={panel.shapeParams}
+          {...shapeMatProps}
+          isOutline
+        />
       )}
     </group>
   );

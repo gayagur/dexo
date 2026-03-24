@@ -14,6 +14,8 @@ interface PartPreset {
   size: [number, number, number];
   materialId: string;
   shapeParams?: Record<string, number>;
+  /** When true, spawns centered on the selected panel’s top (or highest horizontal surface). */
+  placeOnSelected?: boolean;
 }
 
 interface PartCategory {
@@ -23,6 +25,93 @@ interface PartCategory {
 }
 
 const PART_CATEGORIES: PartCategory[] = [
+  // ─────────────────────────────────────────────────
+  // 0. QUICK — ON SELECTED SURFACE
+  // ─────────────────────────────────────────────────
+  {
+    label: "On selected surface",
+    icon: "⌖",
+    items: [
+      {
+        id: "on_throw_pillow",
+        label: "Throw pillow",
+        icon: "▢",
+        description: "Select a seat or top, then add",
+        shape: "cushion",
+        type: "horizontal",
+        size: [0.4, 0.1, 0.4],
+        materialId: "fabric_gray",
+        placeOnSelected: true,
+      },
+      {
+        id: "on_seat_cushion",
+        label: "Seat cushion",
+        icon: "▭",
+        description: "Low cushion on selection",
+        shape: "cushion",
+        type: "horizontal",
+        size: [0.48, 0.06, 0.45],
+        materialId: "fabric_blue",
+        placeOnSelected: true,
+      },
+      {
+        id: "on_mattress_pad",
+        label: "Mattress pad",
+        icon: "▬",
+        description: "Thin mattress layer",
+        shape: "mattress",
+        type: "horizontal",
+        size: [1.0, 0.12, 1.9],
+        materialId: "fabric_green",
+        placeOnSelected: true,
+      },
+      {
+        id: "on_vase",
+        label: "Vase",
+        icon: "◍",
+        description: "Small vase on table / shelf",
+        shape: "vase",
+        type: "vertical",
+        size: [0.07, 0.22, 0.07],
+        materialId: "ceramic_white",
+        placeOnSelected: true,
+      },
+      {
+        id: "on_books",
+        label: "Books",
+        icon: "≡",
+        description: "Book stack on surface",
+        shape: "books",
+        type: "horizontal",
+        size: [0.18, 0.22, 0.13],
+        materialId: "oak",
+        placeOnSelected: true,
+      },
+      {
+        id: "on_basket",
+        label: "Basket",
+        icon: "◯",
+        description: "Basket on surface",
+        shape: "basket",
+        type: "horizontal",
+        size: [0.28, 0.16, 0.22],
+        materialId: "oak",
+        placeOnSelected: true,
+      },
+      {
+        id: "on_bowl",
+        label: "Decor bowl",
+        icon: "◠",
+        description: "Shallow bowl / decor",
+        shape: "half_sphere",
+        type: "horizontal",
+        size: [0.16, 0.07, 0.16],
+        materialId: "brass",
+        placeOnSelected: true,
+      },
+    ],
+  },
+
   // ─────────────────────────────────────────────────
   // 1. PANELS
   // ─────────────────────────────────────────────────
@@ -483,6 +572,7 @@ interface AddPartPickerProps {
     size: [number, number, number];
     materialId: string;
     shapeParams?: Record<string, number>;
+    placeOnSelected?: boolean;
   }) => void;
   onClose: () => void;
 }
@@ -515,6 +605,10 @@ export function AddPartPicker({ onAdd, onClose }: AddPartPickerProps) {
               </h3>
               <p className="text-xs text-gray-400 mt-0.5">
                 {PART_CATEGORIES.reduce((n, c) => n + c.items.length, 0)} shapes across {PART_CATEGORIES.length} categories
+              </p>
+              <p className="text-[11px] text-gray-600 mt-2 leading-snug">
+                <span className="font-medium text-[#C87D5A]">On selected surface:</span>{" "}
+                click a seat, tabletop, or shelf in the 3D view, open + Add, then pick a pillow, vase, etc. — it spawns centered on that piece. If nothing is selected, it uses the highest horizontal surface.
               </p>
             </div>
             <button
@@ -578,6 +672,7 @@ export function AddPartPicker({ onAdd, onClose }: AddPartPickerProps) {
                           size: item.size,
                           materialId: item.materialId,
                           shapeParams: item.shapeParams,
+                          placeOnSelected: item.placeOnSelected,
                         });
                         onClose();
                       }}

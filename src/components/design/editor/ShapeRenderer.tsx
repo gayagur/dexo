@@ -14,6 +14,8 @@ interface ShapeRendererProps {
   transparent: boolean;
   opacity: number;
   isOutline?: boolean;
+  /** Stronger values help metals read when the scene env is dim (e.g. night mode). */
+  envMapIntensity?: number;
 }
 
 // ─── Composite shape check ──────────────────────────────
@@ -32,11 +34,13 @@ export function isCompositeShape(shape: PanelShape): boolean {
 
 export function ShapeRenderer({
   shape, size, shapeParams, color, roughness, metalness, transparent, opacity, isOutline,
+  envMapIntensity,
 }: ShapeRendererProps) {
   const matProps = {
     color: isOutline ? "#C87D5A" : color,
     roughness, metalness, transparent, opacity,
     wireframe: isOutline,
+    ...(envMapIntensity != null && !isOutline ? { envMapIntensity } : {}),
   };
 
   if (isCompositeShape(shape)) {

@@ -27,6 +27,8 @@ import {
   computeBoundingBoxCenter,
   computeGroupXOffset,
   flattenScene,
+  getWorldPointOnPanelTop,
+  findGroupContainingPanel,
 } from "@/lib/groupUtils";
 import type { LibraryTemplate } from "@/lib/libraryData";
 import { ArrowLeft, Save, RotateCcw, RotateCw, MessageSquare, Magnet, HelpCircle, X, BookOpen, Undo2, Redo2, Box, Square, PanelTop, PanelLeft, ImagePlus, Loader2, Home, Sun, Moon } from "lucide-react";
@@ -207,18 +209,78 @@ export function FurnitureEditor({
     size: [number, number, number];
     materialId: string;
     shapeParams?: Record<string, number>;
+    placeOnSelected?: boolean;
   }) => {
     const id = `p${++nextPanelId}`;
     const currentPanels = editingGroupId ? (editModePanels ?? []) : flattenScene(groupsRef.current, ungroupedRef.current);
 
-    // Smart Y placement
+    let posX = 0;
+    let posZ = 0;
     let startY = preset.size[1] / 2;
-    const horizontalSurfaces = currentPanels.filter(p => p.type === "horizontal");
-    if (horizontalSurfaces.length > 0) {
-      const highestSurfaceTop = Math.max(
-        ...horizontalSurfaces.map(p => p.position[1] + p.size[1] / 2)
-      );
-      startY = highestSurfaceTop + preset.size[1] / 2;
+
+    const tryPlaceOnSelection = (): boolean => {
+      const sid = selectedPanelId;
+      if (!sid) return false;
+
+      if (editingGroupId) {
+        const panel = (editModePanels ?? []).find((p) => p.id === sid);
+        if (!panel) return false;
+        const [wx, wy, wz] = getWorldPointOnPanelTop(panel, null);
+        posX = wx;
+        posZ = wz;
+        startY = wy + preset.size[1] / 2;
+        return true;
+      }
+
+      const ung = ungroupedRef.current.find((p) => p.id === sid);
+      if (ung) {
+        const [wx, wy, wz] = getWorldPointOnPanelTop(ung, null);
+        posX = wx;
+        posZ = wz;
+        startY = wy + preset.size[1] / 2;
+        return true;
+      }
+
+      const grp = findGroupContainingPanel(sid, groupsRef.current);
+      const panel = grp?.panels.find((p) => p.id === sid);
+      if (grp && panel) {
+        const [wx, wy, wz] = getWorldPointOnPanelTop(panel, grp);
+        posX = wx;
+        posZ = wz;
+        startY = wy + preset.size[1] / 2;
+        return true;
+      }
+      return false;
+    };
+
+    if (preset.placeOnSelected) {
+      if (!tryPlaceOnSelection()) {
+        const horizontalSurfaces = currentPanels.filter((p) => p.type === "horizontal");
+        if (horizontalSurfaces.length > 0) {
+          let bestWy = -Infinity;
+          let bestX = 0;
+          let bestZ = 0;
+          for (const p of horizontalSurfaces) {
+            const [wx, wy, wz] = getWorldPointOnPanelTop(p, null);
+            if (wy > bestWy) {
+              bestWy = wy;
+              bestX = wx;
+              bestZ = wz;
+            }
+          }
+          posX = bestX;
+          posZ = bestZ;
+          startY = bestWy + preset.size[1] / 2;
+        }
+      }
+    } else {
+      const horizontalSurfaces = currentPanels.filter((p) => p.type === "horizontal");
+      if (horizontalSurfaces.length > 0) {
+        const highestSurfaceTop = Math.max(
+          ...horizontalSurfaces.map((p) => p.position[1] + p.size[1] / 2)
+        );
+        startY = highestSurfaceTop + preset.size[1] / 2;
+      }
     }
 
     const newPanel: PanelData = {
@@ -227,7 +289,7 @@ export function FurnitureEditor({
       shape: preset.shape === "box" ? undefined : preset.shape,
       shapeParams: preset.shapeParams,
       label: preset.label,
-      position: [0, startY, 0],
+      position: [posX, startY, posZ],
       size: preset.size,
       materialId: preset.materialId,
     };
@@ -238,7 +300,7 @@ export function FurnitureEditor({
       updateScene((g) => g, (prev) => [...prev, newPanel]);
     }
     setSelectedPanelId(id);
-  }, [editingGroupId, editModePanels, updateScene]);
+  }, [editingGroupId, editModePanels, updateScene, selectedPanelId]);
 
   const handleDuplicatePanel = useCallback((id: string) => {
     const currentPanels = editingGroupId ? (editModePanels ?? []) : [...ungroupedRef.current, ...groupsRef.current.flatMap((g) => g.panels)];
@@ -1217,7 +1279,7 @@ export function FurnitureEditor({
                   <li>• Use the <strong>Parameters panel</strong> (right side) to type exact dimensions, position, and rotation values</li>
                   <li>• <strong>Quick Rotate</strong> buttons let you rotate 90° on any axis with one click</li>
                   <li>• The <strong>magnet icon</strong> toggles snap-to-grid (10mm increments)</li>
-                  <li>• <strong>+ Add</strong> opens a picker — choose panels, 3D shapes, or furniture parts</li>
+                  <li>• <strong>+ Add</strong> — use <strong>On selected surface</strong> to drop pillows, cushions, vases, etc. on whatever you clicked; other parts stack on the highest surface by default</li>
                   <li>• Hover over any panel in the sidebar to see <strong>duplicate</strong> and <strong>delete</strong> buttons</li>
                   <li>• <strong>Objects snap</strong> to each other when edges are close — blue guide lines appear when aligned</li>
                   <li>• Press <strong>R</strong> to enter rotation mode, then drag an object to rotate it. Angle display shown while dragging</li>

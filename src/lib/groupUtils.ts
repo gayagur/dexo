@@ -99,6 +99,36 @@ export function computeGroupXOffset(existingGroups: GroupData[]): number {
   return maxX + 0.5;
 }
 
+/**
+ * World-space center of the top face of a panel (for placing cushions, vases, etc.).
+ * `group` is null when `panel` is already in world space (ungrouped or edit mode).
+ */
+export function getWorldPointOnPanelTop(
+  panel: PanelData,
+  group: GroupData | null
+): [number, number, number] {
+  const rot = panel.rotation ?? [0, 0, 0];
+  const offset = new THREE.Vector3(0, panel.size[1] / 2, 0);
+  if (rot[0] || rot[1] || rot[2]) {
+    offset.applyQuaternion(new THREE.Quaternion().setFromEuler(new THREE.Euler(...rot)));
+  }
+  const localCenterTop = new THREE.Vector3(...panel.position).add(offset);
+  if (!group) {
+    return [localCenterTop.x, localCenterTop.y, localCenterTop.z];
+  }
+  localCenterTop.applyQuaternion(new THREE.Quaternion().setFromEuler(new THREE.Euler(...group.rotation)));
+  localCenterTop.add(new THREE.Vector3(...group.position));
+  return [localCenterTop.x, localCenterTop.y, localCenterTop.z];
+}
+
+/** Find the group that owns this panel id, if any */
+export function findGroupContainingPanel(panelId: string, groups: GroupData[]): GroupData | null {
+  for (const g of groups) {
+    if (g.panels.some((p) => p.id === panelId)) return g;
+  }
+  return null;
+}
+
 /** Flatten all groups + ungrouped into a single PanelData[] (for legacy consumers) */
 export function flattenScene(groups: GroupData[], ungroupedPanels: PanelData[]): PanelData[] {
   const result: PanelData[] = [];
