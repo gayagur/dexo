@@ -7,6 +7,13 @@ import { AddPartPicker } from "./AddPartPicker";
 import { LibraryBrowser } from "./LibraryBrowser";
 import { Button } from "@/components/ui/button";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   getDefaultTemplate,
   type PanelData,
   type PanelShape,
@@ -24,7 +31,8 @@ import {
 import type { LibraryTemplate } from "@/lib/libraryData";
 import { ArrowLeft, Save, RotateCcw, RotateCw, MessageSquare, Magnet, HelpCircle, X, BookOpen, Undo2, Redo2, Box, Square, PanelTop, PanelLeft, ImagePlus, Loader2, Home, Sun, Moon } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import type { ViewMode, EditorLightMode } from "./EditorViewport";
+import type { ViewMode, EditorLightMode, EditorFloorPreset } from "./EditorViewport";
+import { EDITOR_FLOOR_OPTIONS } from "./EditorViewport";
 import { uploadFurnitureImage, analyzeFurnitureImage, type FurnitureAnalysis } from "@/lib/ai";
 
 interface FurnitureEditorProps {
@@ -57,6 +65,7 @@ export function FurnitureEditor({
   const [rotationMode, setRotationMode] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>("3d");
   const [lightMode, setLightMode] = useState<EditorLightMode>("day");
+  const [floorPreset, setFloorPreset] = useState<EditorFloorPreset>("studio");
   const editorNavigate = useNavigate();
 
   const defaultTemplate = getDefaultTemplate(furnitureType.id, furnitureType.defaultDims);
@@ -827,6 +836,25 @@ export function FurnitureEditor({
             ))}
           </div>
 
+          <Select
+            value={floorPreset}
+            onValueChange={(v) => setFloorPreset(v as EditorFloorPreset)}
+          >
+            <SelectTrigger
+              className="h-8 w-[132px] shrink-0 text-xs border-gray-200 bg-white"
+              title="Floor & backdrop style"
+            >
+              <SelectValue placeholder="Floor" />
+            </SelectTrigger>
+            <SelectContent>
+              {EDITOR_FLOOR_OPTIONS.map((o) => (
+                <SelectItem key={o.value} value={o.value} className="text-xs">
+                  {o.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
           {/* Help button */}
           <button
             title="Shortcuts & Help (?)"
@@ -992,6 +1020,7 @@ export function FurnitureEditor({
             onDeleteGroup={handleDeleteGroup}
             onScaleGroup={handleScaleGroup}
             lightMode={lightMode}
+            floorPreset={floorPreset}
           />
         </div>
 
@@ -1136,7 +1165,8 @@ export function FurnitureEditor({
                 <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Canvas lighting</h4>
                 <div className="space-y-1.5">
                   {[
-                    ["Day / Night (toolbar)", "Bright studio vs dim warm scene on the 3D board"],
+                    ["Floor (dropdown)", "Bright studio, parquet, tile, or grass — backdrop stays light"],
+                    ["Day / Night (toolbar)", "Daylight or warmer lighting — canvas stays bright"],
                     ["L", "Toggle day ↔ night lighting"],
                   ].map(([key, desc]) => (
                     <div key={key} className="flex items-center gap-3">

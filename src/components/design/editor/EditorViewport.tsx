@@ -147,6 +147,187 @@ export type ViewMode = "3d" | "front" | "top" | "side";
 /** 3D canvas lighting preset (manual furniture editor) */
 export type EditorLightMode = "day" | "night";
 
+/** Floor / backdrop style — all presets stay bright (no dark void) */
+export type EditorFloorPreset = "studio" | "parquet" | "tile" | "grass";
+
+export const EDITOR_FLOOR_OPTIONS: { value: EditorFloorPreset; label: string }[] = [
+  { value: "studio", label: "Bright studio" },
+  { value: "parquet", label: "Parquet" },
+  { value: "tile", label: "Light tile" },
+  { value: "grass", label: "Grass" },
+];
+
+const FLOOR_STYLE: Record<
+  EditorFloorPreset,
+  {
+    sky: string;
+    floorHex: string;
+    roughness: number;
+    metalness: number;
+    gridCell: string;
+    gridSection: string;
+    hasTexture: boolean;
+    repeat: number;
+  }
+> = {
+  studio: {
+    sky: "#e8ebf2",
+    floorHex: "#dde1ea",
+    roughness: 0.92,
+    metalness: 0,
+    gridCell: "#aeb4c4",
+    gridSection: "#8c93a6",
+    hasTexture: false,
+    repeat: 1,
+  },
+  parquet: {
+    sky: "#f5efe8",
+    floorHex: "#e8d4bc",
+    roughness: 0.88,
+    metalness: 0,
+    gridCell: "#9a7860",
+    gridSection: "#6d5340",
+    hasTexture: true,
+    repeat: 8,
+  },
+  tile: {
+    sky: "#eef3f9",
+    floorHex: "#fafcff",
+    roughness: 0.42,
+    metalness: 0.06,
+    gridCell: "#b0b8c4",
+    gridSection: "#8892a4",
+    hasTexture: true,
+    repeat: 10,
+  },
+  grass: {
+    sky: "#e8f4ea",
+    floorHex: "#b8de8f",
+    roughness: 0.98,
+    metalness: 0,
+    gridCell: "#5a8c3a",
+    gridSection: "#3d6b28",
+    hasTexture: true,
+    repeat: 7,
+  },
+};
+
+function createEditorFloorTexture(preset: EditorFloorPreset): THREE.CanvasTexture | null {
+  const style = FLOOR_STYLE[preset];
+  if (!style.hasTexture) return null;
+
+  const size = 512;
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return null;
+
+  if (preset === "parquet") {
+    ctx.fillStyle = "#f4e8d8";
+    ctx.fillRect(0, 0, size, size);
+    const rows = 10;
+    const h = size / rows;
+    for (let r = 0; r < rows; r++) {
+      const v = (r % 3) * 10;
+      ctx.fillStyle = `rgb(${248 - v}, ${224 - v}, ${198 - v})`;
+      ctx.fillRect(0, r * h, size, h);
+      ctx.strokeStyle = "rgba(90, 60, 30, 0.07)";
+      ctx.strokeRect(0, r * h, size, h);
+    }
+    ctx.strokeStyle = "rgba(65, 42, 22, 0.14)";
+    for (let c = 0; c <= 20; c++) {
+      const x = (c * size) / 20;
+      ctx.beginPath();
+      ctx.moveTo(x, 0);
+      ctx.lineTo(x, size);
+      ctx.stroke();
+    }
+  } else if (preset === "tile") {
+    ctx.fillStyle = "#fafcff";
+    ctx.fillRect(0, 0, size, size);
+    const n = 12;
+    const t = size / n;
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = "rgba(130, 142, 158, 0.32)";
+    for (let i = 0; i <= n; i++) {
+      ctx.beginPath();
+      ctx.moveTo(i * t, 0);
+      ctx.lineTo(i * t, size);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(0, i * t);
+      ctx.lineTo(size, i * t);
+      ctx.stroke();
+    }
+    ctx.fillStyle = "rgba(255,255,255,0.45)";
+    for (let i = 0; i < n; i++) {
+      for (let j = 0; j < n; j++) {
+        if ((i + j) % 2 === 0) {
+          ctx.fillRect(i * t + 1.5, j * t + 1.5, t - 3, t - 3);
+        }
+      }
+    }
+  } else {
+    /* grass */
+    ctx.fillStyle = "#d4ecc4";
+    ctx.fillRect(0, 0, size, size);
+    for (let i = 0; i < 7000; i++) {
+      const x = Math.random() * size;
+      const y = Math.random() * size;
+      const lum = 95 + Math.random() * 75;
+      ctx.fillStyle = `rgba(${28 + Math.random() * 45}, ${lum}, ${32 + Math.random() * 30}, 0.22)`;
+      ctx.fillRect(x, y, 2, 5);
+    }
+    ctx.fillStyle = "rgba(255,255,255,0.14)";
+    for (let i = 0; i < 24; i++) {
+      ctx.fillRect(Math.random() * (size - 48), Math.random() * (size - 48), 36, 36);
+    }
+  }
+
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.wrapS = THREE.RepeatWrapping;
+  tex.wrapT = THREE.RepeatWrapping;
+  tex.repeat.set(style.repeat, style.repeat);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.needsUpdate = true;
+  return tex;
+}
+
+/** Sky color + floor under the grid — keeps the canvas bright */
+function EditorFloorBackdrop({ floorPreset }: { floorPreset: EditorFloorPreset }) {
+  const style = FLOOR_STYLE[floorPreset];
+  const texture = useMemo(() => createEditorFloorTexture(floorPreset), [floorPreset]);
+
+  useEffect(() => {
+    return () => {
+      texture?.dispose();
+    };
+  }, [texture]);
+
+  return (
+    <>
+      <color attach="background" args={[style.sky]} />
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.0025, 0]} receiveShadow>
+        <planeGeometry args={[48, 48]} />
+        {texture ? (
+          <meshStandardMaterial
+            map={texture}
+            roughness={style.roughness}
+            metalness={style.metalness}
+          />
+        ) : (
+          <meshStandardMaterial
+            color={style.floorHex}
+            roughness={style.roughness}
+            metalness={style.metalness}
+          />
+        )}
+      </mesh>
+    </>
+  );
+}
+
 const VIEW_CAMERAS: Record<ViewMode, { position: [number, number, number]; up: [number, number, number] }> = {
   "3d":    { position: [2.5, 2, 3],   up: [0, 1, 0] },
   "front": { position: [0, 0.5, 5],   up: [0, 1, 0] },   // XY — looking from +Z
@@ -177,6 +358,7 @@ export interface EditorViewportProps {
   onDeleteGroup: (groupId: string) => void;
   onScaleGroup: (groupId: string, scaleX: number, scaleY: number, scaleZ: number) => void;
   lightMode: EditorLightMode;
+  floorPreset: EditorFloorPreset;
   /* Legacy prop — kept for backward compatibility during migration */
   panels?: PanelData[];
 }
@@ -202,6 +384,7 @@ export function EditorViewport({
   onDeleteGroup,
   onScaleGroup,
   lightMode,
+  floorPreset,
 }: EditorViewportProps) {
   const [openPanels, setOpenPanels] = useState<Record<string, boolean>>({});
   const [contextMenu, setContextMenu] = useState<ContextMenuInfo | null>(null);
@@ -222,6 +405,8 @@ export function EditorViewport({
   }, [editingPanels, ungroupedPanels, groups]);
 
   const selectedPanel = allVisiblePanels.find((p) => p.id === selectedPanelId) ?? null;
+
+  const floorVisual = FLOOR_STYLE[floorPreset];
 
   // Panels used for snap calculations
   const snapPanels = useMemo(() => {
@@ -295,9 +480,7 @@ export function EditorViewport({
 
   return (
     <div
-      className={`w-full h-full rounded-xl overflow-hidden border relative ${
-        lightMode === "night" ? "bg-[#0d0d1a] border-gray-700" : "bg-gray-50 border-gray-200"
-      }`}
+      className="w-full h-full rounded-xl overflow-hidden border relative bg-[#eceff4] border-gray-200"
       onContextMenu={(e) => e.preventDefault()}
     >
       <Canvas
@@ -311,7 +494,7 @@ export function EditorViewport({
           stencil: false,
           antialias: false,
           toneMapping: THREE.ACESFilmicToneMapping,
-          toneMappingExposure: 1.0,
+          toneMappingExposure: 1.15,
         }}
         onPointerMissed={() => {
           if (editingGroupId) {
@@ -323,17 +506,20 @@ export function EditorViewport({
           closeContextMenu();
         }}
       >
-        {/* Lighting — Day or Night mode */}
+        <EditorFloorBackdrop floorPreset={floorPreset} />
+
+        {/* Lighting — both modes stay bright; night is slightly warmer */}
         {lightMode === "night" ? (
           <>
-            <Environment resolution={512} environmentIntensity={0.15}>
-              <Lightformer form="rect" intensity={0.3} color="#1a1a2e" scale={[10, 4]} position={[0, 6, -2]} rotation={[Math.PI / 2, 0, 0]} />
-              <Lightformer form="circle" intensity={0.8} color="#ffd699" scale={2} position={[3, 2.5, -2]} />
-              <Lightformer form="circle" intensity={0.5} color="#ffcc80" scale={1.5} position={[-3, 2, 1]} />
+            <Environment resolution={512} environmentIntensity={0.72}>
+              <Lightformer form="rect" intensity={1.4} color="#ffffff" scale={[10, 4]} position={[0, 6, -2]} rotation={[Math.PI / 2, 0, 0]} />
+              <Lightformer form="circle" intensity={1} color="#ffe8cc" scale={2.5} position={[3, 2.5, -2]} />
+              <Lightformer form="circle" intensity={0.65} color="#fff0dd" scale={1.8} position={[-3, 2, 1]} />
             </Environment>
+            <hemisphereLight skyColor="#f8f6ff" groundColor="#f2ebe0" intensity={0.45} />
             <directionalLight
               position={[-4, 8, 4]}
-              intensity={0.15}
+              intensity={1}
               castShadow
               shadow-mapSize-width={2048}
               shadow-mapSize-height={2048}
@@ -342,23 +528,23 @@ export function EditorViewport({
               shadow-camera-right={5}
               shadow-camera-top={5}
               shadow-camera-bottom={-5}
-              color="#8899bb"
+              color="#fffaf5"
             />
-            <ambientLight intensity={0.05} color="#1a1a2e" />
-            {/* Warm accent spot lights (like room lamps) */}
-            <pointLight position={[1, 2, -1]} intensity={3} color="#ffd699" distance={6} decay={2} />
-            <pointLight position={[-1.5, 1.5, 1]} intensity={2} color="#ffcc80" distance={5} decay={2} />
+            <ambientLight intensity={0.48} color="#f5f3fa" />
+            <pointLight position={[1, 2.5, -1]} intensity={1.2} color="#ffe8cc" distance={8} decay={2} />
+            <pointLight position={[-1.5, 2, 1]} intensity={0.9} color="#fff0dd" distance={7} decay={2} />
           </>
         ) : (
           <>
-            <Environment resolution={512} environmentIntensity={0.8}>
-              <Lightformer form="rect" intensity={2} color="white" scale={[10, 4]} position={[0, 6, -2]} rotation={[Math.PI / 2, 0, 0]} />
-              <Lightformer form="rect" intensity={0.5} color="#e8f0ff" scale={[5, 5]} position={[-6, 2, 2]} rotation={[0, Math.PI / 2, 0]} />
-              <Lightformer form="circle" intensity={2} color="#fffaf0" scale={3} position={[4, 3, -4]} />
+            <Environment resolution={512} environmentIntensity={0.95}>
+              <Lightformer form="rect" intensity={2.2} color="white" scale={[10, 4]} position={[0, 6, -2]} rotation={[Math.PI / 2, 0, 0]} />
+              <Lightformer form="rect" intensity={0.65} color="#eef4ff" scale={[5, 5]} position={[-6, 2, 2]} rotation={[0, Math.PI / 2, 0]} />
+              <Lightformer form="circle" intensity={2.2} color="#fffaf0" scale={3} position={[4, 3, -4]} />
             </Environment>
+            <hemisphereLight skyColor="#ffffff" groundColor="#e8eaef" intensity={0.38} />
             <directionalLight
               position={[-4, 8, 4]}
-              intensity={1.2}
+              intensity={1.35}
               castShadow
               shadow-mapSize-width={2048}
               shadow-mapSize-height={2048}
@@ -367,8 +553,9 @@ export function EditorViewport({
               shadow-camera-right={5}
               shadow-camera-top={5}
               shadow-camera-bottom={-5}
+              color="#ffffff"
             />
-            <ambientLight intensity={0.2} color="#f0f0ff" />
+            <ambientLight intensity={0.42} color="#ffffff" />
           </>
         )}
 
@@ -376,10 +563,10 @@ export function EditorViewport({
           args={[10, 10]}
           cellSize={0.1}
           cellThickness={0.5}
-          cellColor={lightMode === "night" ? "#2a2a3a" : "#d4d4d8"}
+          cellColor={floorVisual.gridCell}
           sectionSize={1}
           sectionThickness={1}
-          sectionColor={lightMode === "night" ? "#3a3a4a" : "#a1a1aa"}
+          sectionColor={floorVisual.gridSection}
           fadeDistance={8}
           fadeStrength={1}
           followCamera={false}
@@ -389,11 +576,12 @@ export function EditorViewport({
         {/* Contact shadows under furniture */}
         <ContactShadows
           position={[0, 0.001, 0]}
-          opacity={0.4}
+          opacity={0.32}
           scale={10}
           blur={2.5}
           far={4}
           resolution={512}
+          color="#1a1a24"
         />
 
         {/* ── Render groups ── */}
