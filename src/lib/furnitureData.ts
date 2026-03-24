@@ -247,6 +247,20 @@ export interface FurnitureTemplate {
   panels: PanelData[];
 }
 
+export interface GroupData {
+  id: string;
+  name: string;
+  position: [number, number, number];
+  rotation: [number, number, number];
+  panels: PanelData[];
+}
+
+/** Snapshot shape for undo/redo and persistence */
+export interface EditorSceneData {
+  groups: GroupData[];
+  ungroupedPanels: PanelData[];
+}
+
 let panelCounter = 1000;
 
 /** Box panel helper */
