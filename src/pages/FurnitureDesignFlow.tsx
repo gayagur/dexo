@@ -5,7 +5,8 @@ import { SpaceSelector } from "@/components/design/steps/SpaceSelector";
 import { RoomSelector } from "@/components/design/steps/RoomSelector";
 import { FurnitureTypeSelector } from "@/components/design/steps/FurnitureTypeSelector";
 import { FurnitureEditor } from "@/components/design/editor/FurnitureEditor";
-import { HOME_ROOMS, COMMERCIAL_SPACES, type FurnitureOption, type PanelData } from "@/lib/furnitureData";
+import { HOME_ROOMS, COMMERCIAL_SPACES, type FurnitureOption } from "@/lib/furnitureData";
+import type { EditorSceneData } from "@/lib/furnitureData";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/lib/supabase";
@@ -62,7 +63,7 @@ export default function FurnitureDesignFlow() {
   }, []);
 
   const handleSave = useCallback(
-    async (data: { panels: PanelData[]; dims: { w: number; h: number; d: number }; style: string; furnitureId: string }) => {
+    async (data: { panels: EditorSceneData; dims: { w: number; h: number; d: number }; style: string; furnitureId: string }) => {
       if (!user || saving) return;
       setSaving(true);
 
