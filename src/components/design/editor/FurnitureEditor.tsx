@@ -110,19 +110,32 @@ export function FurnitureEditor({
     shapeParams?: Record<string, number>;
   }) => {
     const id = `p${++nextPanelId}`;
+
+    // Smart Y placement: find the highest horizontal surface and place on top of it
+    let startY = preset.size[1] / 2; // default: sit on ground
+    const horizontalSurfaces = panels.filter(p => p.type === "horizontal");
+    if (horizontalSurfaces.length > 0) {
+      // Find the highest surface top edge
+      const highestSurfaceTop = Math.max(
+        ...horizontalSurfaces.map(p => p.position[1] + p.size[1] / 2)
+      );
+      // Place new object on top of it (surface top + half of new object height)
+      startY = highestSurfaceTop + preset.size[1] / 2;
+    }
+
     const newPanel: PanelData = {
       id,
       type: preset.type,
       shape: preset.shape === "box" ? undefined : preset.shape,
       shapeParams: preset.shapeParams,
       label: preset.label,
-      position: [0, 0.5, 0],
+      position: [0, startY, 0],
       size: preset.size,
       materialId: preset.materialId,
     };
     updatePanels((prev) => [...prev, newPanel]);
     setSelectedPanelId(id);
-  }, [updatePanels]);
+  }, [panels, updatePanels]);
 
   const handleDuplicatePanel = useCallback((id: string) => {
     const source = panels.find((p) => p.id === id);
