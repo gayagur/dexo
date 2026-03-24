@@ -2,7 +2,12 @@ import { corsHeaders } from "../_shared/cors.ts";
 import { verifyAuth } from "../_shared/auth.ts";
 import { logUsage, getDailyUsageCount } from "../_shared/usage.ts";
 
-const MODEL = "meta-llama/Llama-4-Maverick-17B-128E-Instruct-FP8";
+// Try multiple vision models in order of preference
+const VISION_MODELS = [
+  "meta-llama/Llama-3.2-90B-Vision-Instruct-Turbo",
+  "meta-llama/Llama-4-Maverick-17B-128E-Instruct-FP8",
+  "Qwen/Qwen3-VL-8B-Instruct",
+];
 const DAILY_LIMIT = 20;
 
 const ANALYSIS_PROMPT = `You are a furniture analysis AI. Analyze this image of a furniture piece and break it down into simple 3D components that can be recreated in a furniture editor.
@@ -69,42 +74,64 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Call Together AI Vision model
-    const response = await fetch("https://api.together.xyz/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${togetherApiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: MODEL,
-        messages: [
-          {
-            role: "user",
-            content: [
-              { type: "text", text: ANALYSIS_PROMPT },
-              { type: "image_url", image_url: { url: imageUrl } },
-            ],
-          },
-        ],
-        max_tokens: 4096,
-        temperature: 0.3,
-      }),
-    });
+    // Try vision models in order until one works
+    let content = "";
+    let usedModel = VISION_MODELS[0];
+    let lastError = "";
 
-    if (!response.ok) {
-      const errText = await response.text();
-      console.error("Together AI Vision error:", response.status, errText);
+    for (const model of VISION_MODELS) {
+      console.log(`Trying vision model: ${model}`);
+      usedModel = model;
+
+      try {
+        const response = await fetch("https://api.together.xyz/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${togetherApiKey}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model,
+            messages: [
+              {
+                role: "user",
+                content: [
+                  { type: "text", text: ANALYSIS_PROMPT },
+                  { type: "image_url", image_url: { url: imageUrl } },
+                ],
+              },
+            ],
+            max_tokens: 4096,
+            temperature: 0.3,
+          }),
+        });
+
+        if (!response.ok) {
+          const errText = await response.text();
+          lastError = `${model}: ${response.status} - ${errText.slice(0, 200)}`;
+          console.error("Vision model failed:", lastError);
+          continue; // Try next model
+        }
+
+        const result = await response.json();
+        content = result.choices?.[0]?.message?.content || "";
+        console.log(`Model ${model} succeeded. Content length: ${content.length}`);
+        console.log("Preview:", content.slice(0, 300));
+
+        if (content) break; // Success - stop trying
+      } catch (err) {
+        lastError = `${model}: ${(err as Error).message}`;
+        console.error("Vision model exception:", lastError);
+        continue;
+      }
+    }
+
+    if (!content) {
       return new Response(
-        JSON.stringify({ error: `AI vision error (${response.status}): ${errText.slice(0, 200)}` }),
+        JSON.stringify({ error: `All vision models failed. Last error: ${lastError}` }),
         { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
-
-    const result = await response.json();
-    console.log("Together AI Vision response keys:", Object.keys(result));
-    const content = result.choices?.[0]?.message?.content || "";
-    console.log("AI content length:", content.length, "preview:", content.slice(0, 200));
 
     // Extract JSON from the response (it might be wrapped in markdown code blocks)
     let analysisJson: string = content;
@@ -141,15 +168,13 @@ Deno.serve(async (req) => {
     }
 
     // Log usage
-    const tokensIn = result.usage?.prompt_tokens || 0;
-    const tokensOut = result.usage?.completion_tokens || 0;
     logUsage({
       userId,
       functionName: "analyze-furniture",
-      model: MODEL,
-      tokensIn,
-      tokensOut,
-      costUsd: ((tokensIn + tokensOut) / 1_000_000) * 2.0,
+      model: usedModel,
+      tokensIn: 0,
+      tokensOut: Math.ceil(content.length / 4),
+      costUsd: 0.01,
     }).catch((err) => console.error("Usage log failed:", err));
 
     return new Response(

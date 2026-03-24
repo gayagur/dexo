@@ -328,18 +328,35 @@ export interface FurnitureAnalysis {
 }
 
 /**
- * Convert a File to a base64 data URL that vision models can read directly.
+ * Resize image and convert to base64 data URL for vision model input.
+ * Max 1024px on longest side to stay within API payload limits.
  */
 export async function uploadFurnitureImage(file: File): Promise<{ url?: string; error?: string }> {
   try {
+    const MAX_SIZE = 1024;
+
     return new Promise((resolve) => {
-      const reader = new FileReader();
-      reader.onload = () => {
-        const dataUrl = reader.result as string;
+      const img = new Image();
+      img.onload = () => {
+        // Calculate resize dimensions
+        let { width, height } = img;
+        if (width > MAX_SIZE || height > MAX_SIZE) {
+          const scale = MAX_SIZE / Math.max(width, height);
+          width = Math.round(width * scale);
+          height = Math.round(height * scale);
+        }
+
+        // Draw to canvas and export as JPEG base64
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d")!;
+        ctx.drawImage(img, 0, 0, width, height);
+        const dataUrl = canvas.toDataURL("image/jpeg", 0.85);
         resolve({ url: dataUrl });
       };
-      reader.onerror = () => resolve({ error: "Failed to read image file" });
-      reader.readAsDataURL(file);
+      img.onerror = () => resolve({ error: "Failed to load image" });
+      img.src = URL.createObjectURL(file);
     });
   } catch (err) {
     return { error: (err as Error).message };
