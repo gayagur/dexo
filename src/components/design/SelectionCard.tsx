@@ -11,7 +11,7 @@ export function SelectionCard({
   icon,
   label,
   description,
-  gradient = "from-amber-50 to-orange-50",
+  gradient = "from-gray-100 to-gray-50",
   imageUrl,
   onClick,
 }: SelectionCardProps) {
