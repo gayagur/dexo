@@ -302,10 +302,11 @@ export function DesignChatPanel({
     setIsAnalyzing(false);
 
     if (analysisErr || !analysis) {
-      setError(analysisErr || "Analysis failed");
+      const errMsg = analysisErr || "Analysis failed";
+      setError(errMsg);
       setMessages((prev) => [...prev, {
         role: "assistant",
-        content: "Sorry, I couldn't analyze that image. Try a clearer photo of the furniture.",
+        content: `Analysis failed: ${errMsg}`,
       }]);
       return;
     }

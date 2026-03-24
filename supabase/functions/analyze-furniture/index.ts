@@ -94,15 +94,17 @@ Deno.serve(async (req) => {
 
     if (!response.ok) {
       const errText = await response.text();
-      console.error("Together AI Vision error:", errText);
+      console.error("Together AI Vision error:", response.status, errText);
       return new Response(
-        JSON.stringify({ error: "AI vision analysis failed" }),
+        JSON.stringify({ error: `AI vision error (${response.status}): ${errText.slice(0, 200)}` }),
         { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
     const result = await response.json();
+    console.log("Together AI Vision response keys:", Object.keys(result));
     const content = result.choices?.[0]?.message?.content || "";
+    console.log("AI content length:", content.length, "preview:", content.slice(0, 200));
 
     // Extract JSON from the response (it might be wrapped in markdown code blocks)
     let analysisJson: string = content;
@@ -120,10 +122,12 @@ Deno.serve(async (req) => {
     let analysis;
     try {
       analysis = JSON.parse(analysisJson);
-    } catch {
-      console.error("Failed to parse AI response as JSON:", content);
+    } catch (parseErr) {
+      console.error("Failed to parse AI response as JSON. Raw content:", content);
+      console.error("Extracted JSON attempt:", analysisJson.slice(0, 500));
+      console.error("Parse error:", parseErr);
       return new Response(
-        JSON.stringify({ error: "AI returned invalid analysis. Please try a clearer image." }),
+        JSON.stringify({ error: "AI returned invalid format. Please try a different image." }),
         { status: 422, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }

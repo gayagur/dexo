@@ -328,27 +328,19 @@ export interface FurnitureAnalysis {
 }
 
 /**
- * Upload an image to Supabase Storage and get a public URL.
+ * Convert a File to a base64 data URL that vision models can read directly.
  */
 export async function uploadFurnitureImage(file: File): Promise<{ url?: string; error?: string }> {
   try {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) return { error: "Not authenticated" };
-
-    const ext = file.name.split(".").pop() || "jpg";
-    const path = `furniture-analysis/${session.user.id}/${Date.now()}.${ext}`;
-
-    const { error: uploadError } = await supabase.storage
-      .from("project-images")
-      .upload(path, file, { contentType: file.type, upsert: true });
-
-    if (uploadError) return { error: uploadError.message };
-
-    const { data: { publicUrl } } = supabase.storage
-      .from("project-images")
-      .getPublicUrl(path);
-
-    return { url: publicUrl };
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const dataUrl = reader.result as string;
+        resolve({ url: dataUrl });
+      };
+      reader.onerror = () => resolve({ error: "Failed to read image file" });
+      reader.readAsDataURL(file);
+    });
   } catch (err) {
     return { error: (err as Error).message };
   }
