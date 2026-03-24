@@ -999,13 +999,29 @@ export function FurnitureEditor({
                     ["Ctrl + Z", "Undo last action"],
                     ["Ctrl + Shift + Z", "Redo last action"],
                     ["Ctrl + D", "Duplicate selected element"],
-                    ["Ctrl + G", "Group selected panels"],
-                    ["Ctrl + Shift + G", "Ungroup selected group"],
                     ["Delete", "Delete selected element"],
                     ["Click", "Select an element"],
                     ["Click empty", "Deselect all"],
                     ["Arrow keys", "Nudge selected element (10mm)"],
                     ["Shift + Arrow", "Fine nudge (1mm)"],
+                  ].map(([key, desc]) => (
+                    <div key={key} className="flex items-center gap-3">
+                      <kbd className="min-w-[56px] px-2 py-1 bg-gray-100 rounded-md text-xs font-mono text-gray-600 text-center">{key}</kbd>
+                      <span className="text-gray-600">{desc}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Groups & Edit Mode */}
+              <div>
+                <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Groups & Edit Mode</h4>
+                <div className="space-y-1.5">
+                  {[
+                    ["Double-click", "Enter edit mode (edit parts inside a group)"],
+                    ["Escape", "Exit edit mode (back to scene)"],
+                    ["Ctrl + G", "Group selected panels"],
+                    ["Ctrl + Shift + G", "Ungroup selected group"],
                   ].map(([key, desc]) => (
                     <div key={key} className="flex items-center gap-3">
                       <kbd className="min-w-[56px] px-2 py-1 bg-gray-100 rounded-md text-xs font-mono text-gray-600 text-center">{key}</kbd>
@@ -1038,7 +1054,7 @@ export function FurnitureEditor({
                 <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Doors & Drawers</h4>
                 <div className="space-y-1.5">
                   {[
-                    ["Double-click", "Toggle open/close door or drawer"],
+                    ["Double-click", "Toggle door/drawer (in edit mode)"],
                     ["Right-click", "Context menu with Open/Close option"],
                   ].map(([key, desc]) => (
                     <div key={key} className="flex items-center gap-3">
