@@ -13,8 +13,9 @@ import {
   type FurnitureOption,
 } from "@/lib/furnitureData";
 import type { LibraryTemplate } from "@/lib/libraryData";
-import { ArrowLeft, Save, RotateCcw, RotateCw, MessageSquare, Magnet, HelpCircle, X, BookOpen, Undo2, Redo2, Box, Square, PanelTop, PanelLeft } from "lucide-react";
+import { ArrowLeft, Save, RotateCcw, RotateCw, MessageSquare, Magnet, HelpCircle, X, BookOpen, Undo2, Redo2, Box, Square, PanelTop, PanelLeft, ImagePlus, Loader2 } from "lucide-react";
 import type { ViewMode } from "./EditorViewport";
+import { uploadFurnitureImage, analyzeFurnitureImage, type FurnitureAnalysis } from "@/lib/ai";
 
 interface FurnitureEditorProps {
   furnitureType: FurnitureOption;
@@ -261,6 +262,60 @@ export function FurnitureEditor({
     setSelectedPanelId(null);
   }, [furnitureType.id, dims, updatePanels]);
 
+  // ─── Build from image analysis ────────────────────────
+  const handleBuildFromImage = useCallback((analysis: FurnitureAnalysis, mode: "replace" | "add") => {
+    const newPanels: PanelData[] = analysis.panels.map((p, i) => ({
+      id: `p${++nextPanelId}`,
+      type: p.type,
+      shape: p.shape === "box" ? undefined : (p.shape as PanelShape),
+      label: p.label,
+      position: p.position,
+      size: p.size,
+      materialId: p.materialId,
+    }));
+
+    if (mode === "replace") {
+      setDims(analysis.estimatedDims);
+      updatePanels(() => newPanels);
+    } else {
+      // Offset to the right of existing panels
+      const maxX = panels.length > 0
+        ? Math.max(...panels.map(p => p.position[0] + p.size[0] / 2)) + 0.5
+        : 0;
+      const offsetPanels = newPanels.map(p => ({
+        ...p,
+        position: [p.position[0] + maxX, p.position[1], p.position[2]] as [number, number, number],
+      }));
+      updatePanels((prev) => [...prev, ...offsetPanels]);
+    }
+    setSelectedPanelId(null);
+  }, [panels, updatePanels]);
+
+  // ─── Toolbar image import ────────────────────────────
+  const toolbarFileRef = useRef<HTMLInputElement>(null);
+  const [isToolbarAnalyzing, setIsToolbarAnalyzing] = useState(false);
+
+  const handleToolbarImageImport = useCallback(async (file: File) => {
+    setIsToolbarAnalyzing(true);
+    const { url, error: uploadErr } = await uploadFurnitureImage(file);
+    if (uploadErr || !url) {
+      setIsToolbarAnalyzing(false);
+      alert(uploadErr || "Upload failed");
+      return;
+    }
+    const { data: analysis, error: analysisErr } = await analyzeFurnitureImage(url);
+    setIsToolbarAnalyzing(false);
+    if (analysisErr || !analysis) {
+      alert(analysisErr || "Analysis failed");
+      return;
+    }
+    // Ask user
+    const action = window.confirm(
+      `Detected: ${analysis.name} (${analysis.panels.length} components)\n\nOK = Replace current design\nCancel = Add alongside`
+    );
+    handleBuildFromImage(analysis, action ? "replace" : "add");
+  }, [handleBuildFromImage]);
+
   const handleSave = useCallback(() => {
     onSave?.({
       panels,
@@ -423,6 +478,33 @@ export function FurnitureEditor({
             Library
           </Button>
 
+          {/* Import from Image */}
+          <input
+            ref={toolbarFileRef}
+            type="file"
+            accept="image/*"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) handleToolbarImageImport(file);
+              e.target.value = "";
+            }}
+            className="hidden"
+          />
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => toolbarFileRef.current?.click()}
+            disabled={isToolbarAnalyzing}
+            className="h-8"
+          >
+            {isToolbarAnalyzing ? (
+              <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
+            ) : (
+              <ImagePlus className="w-3.5 h-3.5 mr-1.5" />
+            )}
+            {isToolbarAnalyzing ? "Analyzing..." : "From Image"}
+          </Button>
+
           <div className="w-px h-6 bg-gray-200 mx-1" />
 
           <Button
@@ -524,6 +606,7 @@ export function FurnitureEditor({
             onUpdateAllMaterials={handleUpdateAllMaterials}
             onRemovePanel={handleChatRemovePanel}
             onAddPanel={handleChatAddPanel}
+            onBuildFromImage={handleBuildFromImage}
             onClose={() => setChatOpen(false)}
           />
         )}

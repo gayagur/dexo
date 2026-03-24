@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { streamChat, type ChatMessage } from "@/lib/ai";
+import { streamChat, type ChatMessage, uploadFurnitureImage, analyzeFurnitureImage, type FurnitureAnalysis } from "@/lib/ai";
 import { MATERIALS, STYLES, type PanelData, type FurnitureOption } from "@/lib/furnitureData";
-import { Sparkles, Send, Loader2, X } from "lucide-react";
+import { Sparkles, Send, Loader2, X, ImagePlus } from "lucide-react";
 
 // ─── Types ──────────────────────────────────────────────
 
@@ -26,6 +26,7 @@ interface DesignChatPanelProps {
   onUpdateAllMaterials: (materialId: string) => void;
   onRemovePanel: (panelLabel: string) => void;
   onAddPanel: (panel: { label: string; type: PanelData["type"]; position: [number, number, number]; size: [number, number, number]; materialId: string }) => void;
+  onBuildFromImage: (analysis: FurnitureAnalysis, mode: "replace" | "add") => void;
   onClose: () => void;
 }
 
@@ -103,6 +104,7 @@ export function DesignChatPanel({
   onUpdateAllMaterials,
   onRemovePanel,
   onAddPanel,
+  onBuildFromImage,
   onClose,
 }: DesignChatPanelProps) {
   const [messages, setMessages] = useState<DisplayMessage[]>([]);
@@ -111,10 +113,13 @@ export function DesignChatPanel({
   const [isStreaming, setIsStreaming] = useState(false);
   const [streamingText, setStreamingText] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [pendingAnalysis, setPendingAnalysis] = useState<FurnitureAnalysis | null>(null);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const abortRef = useRef<AbortController | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Auto-scroll to bottom
   useEffect(() => {
@@ -269,6 +274,72 @@ export function DesignChatPanel({
     setStreamingText("");
   };
 
+  // ─── Image upload & analysis ───────────────────────────
+  const handleImageUpload = useCallback(async (file: File) => {
+    if (isAnalyzing || isStreaming) return;
+
+    setIsAnalyzing(true);
+    setError(null);
+    setMessages((prev) => [...prev, {
+      role: "user",
+      content: `📷 Uploaded image: ${file.name}`,
+    }]);
+    setMessages((prev) => [...prev, {
+      role: "assistant",
+      content: "Analyzing the furniture in your image... This may take a moment.",
+    }]);
+
+    // Step 1: Upload to Supabase
+    const { url, error: uploadErr } = await uploadFurnitureImage(file);
+    if (uploadErr || !url) {
+      setIsAnalyzing(false);
+      setError(uploadErr || "Upload failed");
+      return;
+    }
+
+    // Step 2: Analyze with AI Vision
+    const { data: analysis, error: analysisErr } = await analyzeFurnitureImage(url);
+    setIsAnalyzing(false);
+
+    if (analysisErr || !analysis) {
+      setError(analysisErr || "Analysis failed");
+      setMessages((prev) => [...prev, {
+        role: "assistant",
+        content: "Sorry, I couldn't analyze that image. Try a clearer photo of the furniture.",
+      }]);
+      return;
+    }
+
+    // Show results and ask user what to do
+    const panelList = analysis.panels.map(p => `• ${p.label} (${p.shape})`).join("\n");
+    setMessages((prev) => [...prev, {
+      role: "assistant",
+      content: `I identified **${analysis.name}** with ${analysis.panels.length} components:\n${panelList}\n\nEstimated size: ${analysis.estimatedDims.w}×${analysis.estimatedDims.h}×${analysis.estimatedDims.d}mm\n\nWould you like to **replace** the current design or **add** these alongside it?`,
+    }]);
+    setPendingAnalysis(analysis);
+  }, [isAnalyzing, isStreaming]);
+
+  const handleAnalysisAction = useCallback((mode: "replace" | "add") => {
+    if (!pendingAnalysis) return;
+    onBuildFromImage(pendingAnalysis, mode);
+    setMessages((prev) => [...prev, {
+      role: "assistant",
+      content: mode === "replace"
+        ? `Done! Replaced with ${pendingAnalysis.panels.length} components from the image.`
+        : `Done! Added ${pendingAnalysis.panels.length} components to the scene.`,
+    }]);
+    setPendingAnalysis(null);
+  }, [pendingAnalysis, onBuildFromImage]);
+
+  const handleFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file && file.type.startsWith("image/")) {
+      handleImageUpload(file);
+    }
+    // Reset so same file can be selected again
+    e.target.value = "";
+  }, [handleImageUpload]);
+
   // Parse streaming text for display (strip command blocks in real-time)
   const displayStreamingText = streamingText.replace(CMD_REGEX, "").replace(/\[DESIGN_CMD\][^[]*$/s, "").trim();
 
@@ -377,6 +448,36 @@ export function DesignChatPanel({
           </div>
         )}
 
+        {/* Analyzing indicator */}
+        {isAnalyzing && (
+          <div className="flex justify-start">
+            <div className="max-w-[85%] px-3 py-2 rounded-2xl rounded-bl-md bg-[#2A3544] text-gray-400 text-[13px]">
+              <span className="flex items-center gap-1.5">
+                <Loader2 className="w-3 h-3 animate-spin" />
+                Analyzing furniture in image...
+              </span>
+            </div>
+          </div>
+        )}
+
+        {/* Pending analysis: Replace/Add buttons */}
+        {pendingAnalysis && (
+          <div className="flex gap-2 px-1">
+            <button
+              onClick={() => handleAnalysisAction("replace")}
+              className="flex-1 py-2 rounded-lg bg-[#C87D5A] hover:bg-[#B06B4A] text-white text-xs font-medium transition-colors"
+            >
+              Replace current
+            </button>
+            <button
+              onClick={() => handleAnalysisAction("add")}
+              className="flex-1 py-2 rounded-lg bg-[#2A3544] hover:bg-[#344050] text-gray-300 text-xs font-medium border border-[#3A4555] transition-colors"
+            >
+              Add to scene
+            </button>
+          </div>
+        )}
+
         {/* Error */}
         {error && (
           <div className="px-3 py-2 rounded-lg bg-red-900/30 border border-red-800/40 text-red-300 text-xs">
@@ -395,7 +496,26 @@ export function DesignChatPanel({
             Stop generating
           </button>
         )}
+
+        {/* Hidden file input */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          onChange={handleFileChange}
+          className="hidden"
+        />
+
         <div className="flex items-end gap-2 bg-[#2A3544] rounded-xl px-3 py-2">
+          {/* Image upload button */}
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            disabled={isStreaming || isAnalyzing}
+            title="Upload furniture image for AI analysis"
+            className="w-8 h-8 rounded-lg hover:bg-[#3A4555] disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center transition-colors shrink-0 text-gray-500 hover:text-gray-300"
+          >
+            <ImagePlus className="w-4 h-4" />
+          </button>
           <textarea
             ref={inputRef}
             value={input}
@@ -403,13 +523,13 @@ export function DesignChatPanel({
             onKeyDown={handleKeyDown}
             placeholder="Ask about your design..."
             rows={1}
-            disabled={isStreaming}
+            disabled={isStreaming || isAnalyzing}
             className="flex-1 bg-transparent text-sm text-gray-200 placeholder-gray-600 resize-none outline-none max-h-24 leading-relaxed disabled:opacity-50"
             style={{ minHeight: "20px" }}
           />
           <button
             onClick={handleSend}
-            disabled={!input.trim() || isStreaming}
+            disabled={!input.trim() || isStreaming || isAnalyzing}
             className="w-8 h-8 rounded-lg bg-[#C87D5A] hover:bg-[#B06B4A] disabled:bg-[#3A4555] disabled:cursor-not-allowed flex items-center justify-center transition-colors shrink-0"
           >
             <Send className="w-3.5 h-3.5 text-white" />

@@ -311,3 +311,65 @@ export async function generateAltText(
     return fallback;
   }
 }
+
+// ─── Furniture Image Analysis ─────────────────────────────
+
+export interface FurnitureAnalysis {
+  name: string;
+  estimatedDims: { w: number; h: number; d: number };
+  panels: {
+    label: string;
+    type: "horizontal" | "vertical" | "back";
+    shape: string;
+    position: [number, number, number];
+    size: [number, number, number];
+    materialId: string;
+  }[];
+}
+
+/**
+ * Upload an image to Supabase Storage and get a public URL.
+ */
+export async function uploadFurnitureImage(file: File): Promise<{ url?: string; error?: string }> {
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return { error: "Not authenticated" };
+
+    const ext = file.name.split(".").pop() || "jpg";
+    const path = `furniture-analysis/${session.user.id}/${Date.now()}.${ext}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from("project-images")
+      .upload(path, file, { contentType: file.type, upsert: true });
+
+    if (uploadError) return { error: uploadError.message };
+
+    const { data: { publicUrl } } = supabase.storage
+      .from("project-images")
+      .getPublicUrl(path);
+
+    return { url: publicUrl };
+  } catch (err) {
+    return { error: (err as Error).message };
+  }
+}
+
+/**
+ * Analyze a furniture image and return structured component data.
+ */
+export async function analyzeFurnitureImage(imageUrl: string): Promise<{ data?: FurnitureAnalysis; error?: string }> {
+  try {
+    const headers = await getAuthHeaders();
+    const response = await fetch(`${FUNCTIONS_URL}/analyze-furniture`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ imageUrl }),
+    });
+
+    const result = await response.json();
+    if (!response.ok) return { error: result.error || "Analysis failed" };
+    return { data: result as FurnitureAnalysis };
+  } catch (err) {
+    return { error: (err as Error).message };
+  }
+}
