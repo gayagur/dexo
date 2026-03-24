@@ -960,6 +960,7 @@ export function FurnitureEditor({
             onRenameGroup={handleRenameGroup}
             onUngroupGroup={handleUngroupGroup}
             onDeleteGroup={handleDeleteGroup}
+            onScaleGroup={handleScaleGroup}
           />
         </div>
 

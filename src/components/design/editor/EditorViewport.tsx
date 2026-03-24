@@ -170,6 +170,7 @@ export interface EditorViewportProps {
   onRenameGroup: (groupId: string, name: string) => void;
   onUngroupGroup: (groupId: string) => void;
   onDeleteGroup: (groupId: string) => void;
+  onScaleGroup: (groupId: string, scaleX: number, scaleY: number, scaleZ: number) => void;
   /* Legacy prop — kept for backward compatibility during migration */
   panels?: PanelData[];
 }
@@ -193,6 +194,7 @@ export function EditorViewport({
   onRenameGroup,
   onUngroupGroup,
   onDeleteGroup,
+  onScaleGroup,
 }: EditorViewportProps) {
   const [openPanels, setOpenPanels] = useState<Record<string, boolean>>({});
   const [contextMenu, setContextMenu] = useState<ContextMenuInfo | null>(null);
@@ -449,6 +451,25 @@ export function EditorViewport({
         {rotationMode && selectedPanel && !selectedGroupId && (
           <RotationRing panel={selectedPanel} />
         )}
+
+        {/* Group resize handles (Scene Mode, group selected, not rotation mode) */}
+        {selectedGroupId && !editingGroupId && !rotationMode && (() => {
+          const group = groups.find(g => g.id === selectedGroupId);
+          return group ? (
+            <GroupSelectionHandles
+              group={group}
+              onScaleGroup={onScaleGroup}
+              onInteractionChange={setInteractionActive}
+              onDragInfoChange={setDragInfo}
+            />
+          ) : null;
+        })()}
+
+        {/* Group rotation ring (Scene Mode, group selected, rotation mode) */}
+        {selectedGroupId && !editingGroupId && rotationMode && (() => {
+          const group = groups.find(g => g.id === selectedGroupId);
+          return group ? <GroupRotationRing group={group} /> : null;
+        })()}
 
         {/* Set camera when viewMode changes */}
         <ViewSetter viewMode={viewMode} />
@@ -1053,6 +1074,381 @@ function ResizeHandle({
       <meshStandardMaterial
         color={dragging ? "#ffffff" : hovered ? axisColor : axisColor}
         emissive={dragging ? axisColor : hovered ? axisColor : axisColor}
+        emissiveIntensity={dragging ? 0.8 : hovered ? 0.5 : 0.2}
+        roughness={0.3}
+        metalness={0.3}
+        transparent={!hovered && !dragging}
+        opacity={hovered || dragging ? 1 : 0.7}
+      />
+    </mesh>
+  );
+}
+
+// ─── Group Rotation Ring ─────────────────────────────────
+
+function GroupRotationRing({ group }: { group: GroupData }) {
+  const panels = group.panels;
+  let maxX = -Infinity, maxZ = -Infinity;
+  for (const p of panels) {
+    maxX = Math.max(maxX, Math.abs(p.position[0]) + p.size[0] / 2);
+    maxZ = Math.max(maxZ, Math.abs(p.position[2]) + p.size[2] / 2);
+  }
+  const radius = Math.max(maxX, maxZ) * 0.8 + 0.05;
+
+  const meshRef = useRef<THREE.Mesh>(null!);
+  useFrame((_, delta) => {
+    if (meshRef.current) meshRef.current.rotation.z += delta * 0.3;
+  });
+
+  return (
+    <group position={group.position}>
+      <mesh ref={meshRef} rotation={[Math.PI / 2, 0, 0]}>
+        <ringGeometry args={[radius, radius + 0.01, 64]} />
+        <meshBasicMaterial color="#3B82F6" transparent opacity={0.5} side={THREE.DoubleSide} depthTest={false} />
+      </mesh>
+    </group>
+  );
+}
+
+// ─── Group Selection Handles ─────────────────────────────
+
+function computeGroupBbox(panels: PanelData[]) {
+  let minX = Infinity, minY = Infinity, minZ = Infinity;
+  let maxX = -Infinity, maxY = -Infinity, maxZ = -Infinity;
+  for (const p of panels) {
+    const [px, py, pz] = p.position;
+    const [sx, sy, sz] = p.size;
+    minX = Math.min(minX, px - sx / 2);
+    maxX = Math.max(maxX, px + sx / 2);
+    minY = Math.min(minY, py - sy / 2);
+    maxY = Math.max(maxY, py + sy / 2);
+    minZ = Math.min(minZ, pz - sz / 2);
+    maxZ = Math.max(maxZ, pz + sz / 2);
+  }
+  const cx = (minX + maxX) / 2, cy = (minY + maxY) / 2, cz = (minZ + maxZ) / 2;
+  const sx = maxX - minX, sy = maxY - minY, sz = maxZ - minZ;
+  return { center: [cx, cy, cz] as [number, number, number], size: [sx, sy, sz] as [number, number, number] };
+}
+
+function GroupSelectionHandles({
+  group,
+  onScaleGroup,
+  onInteractionChange,
+  onDragInfoChange,
+}: {
+  group: GroupData;
+  onScaleGroup: (groupId: string, scaleX: number, scaleY: number, scaleZ: number) => void;
+  onInteractionChange: (active: boolean) => void;
+  onDragInfoChange: (info: DragInfo | null) => void;
+}) {
+  const bbox = useMemo(() => computeGroupBbox(group.panels), [group.panels]);
+  const [w, h, d] = bbox.size;
+  const [cx, cy, cz] = bbox.center;
+
+  const faceHandles: { id: string; offset: [number, number, number]; axis: 0 | 1 | 2; dir: 1 | -1; label: string }[] = [
+    { id: "right",  offset: [cx + w / 2, cy, cz],       axis: 0, dir: 1,  label: "Width" },
+    { id: "left",   offset: [cx - w / 2, cy, cz],       axis: 0, dir: -1, label: "Width" },
+    { id: "top",    offset: [cx, cy + h / 2, cz],       axis: 1, dir: 1,  label: "Height" },
+    { id: "bottom", offset: [cx, cy - h / 2, cz],       axis: 1, dir: -1, label: "Height" },
+    { id: "front",  offset: [cx, cy, cz - d / 2],       axis: 2, dir: -1, label: "Depth" },
+    { id: "back",   offset: [cx, cy, cz + d / 2],       axis: 2, dir: 1,  label: "Depth" },
+  ];
+
+  // Corner handles: scale W (axis 0) and D (axis 2) simultaneously
+  const cornerHandles: { id: string; offset: [number, number, number]; axes: { axis: 0 | 1 | 2; dir: 1 | -1 }[] }[] = [
+    { id: "c0", offset: [cx + w/2, cy + h/2, cz + d/2],   axes: [{ axis: 0, dir: 1 }, { axis: 2, dir: 1 }] },
+    { id: "c1", offset: [cx - w/2, cy + h/2, cz + d/2],   axes: [{ axis: 0, dir: -1 }, { axis: 2, dir: 1 }] },
+    { id: "c2", offset: [cx + w/2, cy + h/2, cz - d/2],   axes: [{ axis: 0, dir: 1 }, { axis: 2, dir: -1 }] },
+    { id: "c3", offset: [cx - w/2, cy + h/2, cz - d/2],   axes: [{ axis: 0, dir: -1 }, { axis: 2, dir: -1 }] },
+    { id: "c4", offset: [cx + w/2, cy - h/2, cz + d/2],   axes: [{ axis: 0, dir: 1 }, { axis: 2, dir: 1 }] },
+    { id: "c5", offset: [cx - w/2, cy - h/2, cz + d/2],   axes: [{ axis: 0, dir: -1 }, { axis: 2, dir: 1 }] },
+    { id: "c6", offset: [cx + w/2, cy - h/2, cz - d/2],   axes: [{ axis: 0, dir: 1 }, { axis: 2, dir: -1 }] },
+    { id: "c7", offset: [cx - w/2, cy - h/2, cz - d/2],   axes: [{ axis: 0, dir: -1 }, { axis: 2, dir: -1 }] },
+  ];
+
+  return (
+    <group position={group.position} rotation={group.rotation}>
+      {/* Wireframe outline */}
+      <mesh position={bbox.center}>
+        <boxGeometry args={[w + 0.002, h + 0.002, d + 0.002]} />
+        <meshBasicMaterial color="#3b82f6" wireframe transparent opacity={0.5} />
+      </mesh>
+
+      {/* Face-center handles (single-axis) */}
+      {faceHandles.map((handle) => (
+        <GroupResizeHandle
+          key={handle.id}
+          groupId={group.id}
+          groupPanels={group.panels}
+          offset={handle.offset}
+          axis={handle.axis}
+          dir={handle.dir}
+          label={handle.label}
+          onScaleGroup={onScaleGroup}
+          onInteractionChange={onInteractionChange}
+          onDragInfoChange={onDragInfoChange}
+        />
+      ))}
+
+      {/* Corner handles (dual-axis: W + D) */}
+      {cornerHandles.map((handle) => (
+        <GroupCornerResizeHandle
+          key={handle.id}
+          groupId={group.id}
+          groupPanels={group.panels}
+          offset={handle.offset}
+          axes={handle.axes}
+          onScaleGroup={onScaleGroup}
+          onInteractionChange={onInteractionChange}
+          onDragInfoChange={onDragInfoChange}
+        />
+      ))}
+    </group>
+  );
+}
+
+// ─── Group Resize Handle (single axis) ───────────────────
+
+function GroupResizeHandle({
+  groupId,
+  groupPanels,
+  offset,
+  axis,
+  dir,
+  label,
+  onScaleGroup,
+  onInteractionChange,
+  onDragInfoChange,
+}: {
+  groupId: string;
+  groupPanels: PanelData[];
+  offset: [number, number, number];
+  axis: 0 | 1 | 2;
+  dir: 1 | -1;
+  label: string;
+  onScaleGroup: (groupId: string, scaleX: number, scaleY: number, scaleZ: number) => void;
+  onInteractionChange: (active: boolean) => void;
+  onDragInfoChange: (info: DragInfo | null) => void;
+}) {
+  const meshRef = useRef<THREE.Mesh>(null!);
+  const [dragging, setDragging] = useState(false);
+  const [hovered, setHovered] = useState(false);
+  const dragStart = useRef<{ point: THREE.Vector3; bboxSize: [number, number, number] } | null>(null);
+  const prevScale = useRef(1);
+  const { camera, raycaster, gl } = useThree();
+
+  const axisColor = AXIS_COLORS[axis] ?? "#888";
+  const cursorStyle = axis === 1 ? "ns-resize" : "ew-resize";
+
+  useEffect(() => {
+    if (!dragging) return;
+
+    const axisVec = new THREE.Vector3(
+      axis === 0 ? 1 : 0,
+      axis === 1 ? 1 : 0,
+      axis === 2 ? 1 : 0
+    );
+    const camDir = new THREE.Vector3();
+    camera.getWorldDirection(camDir);
+    const planeNormal = new THREE.Vector3().crossVectors(axisVec, camDir).cross(axisVec).normalize();
+    if (planeNormal.lengthSq() < 0.001) planeNormal.copy(camDir);
+
+    const plane = new THREE.Plane();
+    plane.setFromNormalAndCoplanarPoint(planeNormal, dragStart.current!.point);
+
+    const onPointerMove = (e: PointerEvent) => {
+      if (!dragStart.current) return;
+
+      const rect = gl.domElement.getBoundingClientRect();
+      const mouse = new THREE.Vector2(
+        ((e.clientX - rect.left) / rect.width) * 2 - 1,
+        -((e.clientY - rect.top) / rect.height) * 2 + 1
+      );
+      raycaster.setFromCamera(mouse, camera);
+      const intersection = new THREE.Vector3();
+      if (!raycaster.ray.intersectPlane(plane, intersection)) return;
+
+      const delta = intersection.clone().sub(dragStart.current.point);
+      const axisDelta = [delta.x, delta.y, delta.z][axis] * dir;
+
+      const originalSize = dragStart.current.bboxSize[axis];
+      const newSize = Math.max(0.02, originalSize + axisDelta);
+      const newTotal = newSize / originalSize;
+      const increment = newTotal / prevScale.current;
+      prevScale.current = newTotal;
+
+      const scales: [number, number, number] = [1, 1, 1];
+      scales[axis] = increment;
+      onScaleGroup(groupId, scales[0], scales[1], scales[2]);
+
+      const axisLabels = ["Width", "Height", "Depth"];
+      onDragInfoChange({
+        position: [0, 0, 0],
+        resizeLabel: `${axisLabels[axis]}: ${Math.round(originalSize * 1000)}mm → ${Math.round(newSize * 1000)}mm`,
+      });
+    };
+
+    const onPointerUp = () => {
+      setDragging(false);
+      dragStart.current = null;
+      prevScale.current = 1;
+      gl.domElement.style.cursor = "";
+      onInteractionChange(false);
+      onDragInfoChange(null);
+    };
+
+    gl.domElement.addEventListener("pointermove", onPointerMove);
+    gl.domElement.addEventListener("pointerup", onPointerUp);
+    return () => {
+      gl.domElement.removeEventListener("pointermove", onPointerMove);
+      gl.domElement.removeEventListener("pointerup", onPointerUp);
+    };
+  }, [dragging, axis, dir, groupId, camera, raycaster, gl, onScaleGroup, onInteractionChange, onDragInfoChange, groupPanels]);
+
+  return (
+    <mesh
+      ref={meshRef}
+      position={offset}
+      onPointerDown={(e) => {
+        e.stopPropagation();
+        const bbox = computeGroupBbox(groupPanels);
+        setDragging(true);
+        prevScale.current = 1;
+        onInteractionChange(true);
+        dragStart.current = {
+          point: e.point.clone(),
+          bboxSize: [...bbox.size] as [number, number, number],
+        };
+        gl.domElement.style.cursor = cursorStyle;
+      }}
+      onPointerEnter={() => { setHovered(true); gl.domElement.style.cursor = cursorStyle; }}
+      onPointerLeave={() => { if (!dragging) { setHovered(false); gl.domElement.style.cursor = ""; } }}
+    >
+      <boxGeometry args={[0.025, 0.025, 0.025]} />
+      <meshStandardMaterial
+        color={dragging ? "#ffffff" : axisColor}
+        emissive={axisColor}
+        emissiveIntensity={dragging ? 0.8 : hovered ? 0.5 : 0.2}
+        roughness={0.3}
+        metalness={0.3}
+        transparent={!hovered && !dragging}
+        opacity={hovered || dragging ? 1 : 0.7}
+      />
+    </mesh>
+  );
+}
+
+// ─── Group Corner Resize Handle (dual axis) ──────────────
+
+function GroupCornerResizeHandle({
+  groupId,
+  groupPanels,
+  offset,
+  axes,
+  onScaleGroup,
+  onInteractionChange,
+  onDragInfoChange,
+}: {
+  groupId: string;
+  groupPanels: PanelData[];
+  offset: [number, number, number];
+  axes: { axis: 0 | 1 | 2; dir: 1 | -1 }[];
+  onScaleGroup: (groupId: string, scaleX: number, scaleY: number, scaleZ: number) => void;
+  onInteractionChange: (active: boolean) => void;
+  onDragInfoChange: (info: DragInfo | null) => void;
+}) {
+  const meshRef = useRef<THREE.Mesh>(null!);
+  const [dragging, setDragging] = useState(false);
+  const [hovered, setHovered] = useState(false);
+  const dragStart = useRef<{ point: THREE.Vector3; bboxSize: [number, number, number] } | null>(null);
+  const prevScales = useRef<[number, number, number]>([1, 1, 1]);
+  const { camera, raycaster, gl } = useThree();
+
+  const primaryAxis = axes[0].axis;
+
+  useEffect(() => {
+    if (!dragging) return;
+
+    // Use XZ plane for corner handles (W+D)
+    const planeNormal = new THREE.Vector3(0, 1, 0);
+    const plane = new THREE.Plane();
+    plane.setFromNormalAndCoplanarPoint(planeNormal, dragStart.current!.point);
+
+    const onPointerMove = (e: PointerEvent) => {
+      if (!dragStart.current) return;
+
+      const rect = gl.domElement.getBoundingClientRect();
+      const mouse = new THREE.Vector2(
+        ((e.clientX - rect.left) / rect.width) * 2 - 1,
+        -((e.clientY - rect.top) / rect.height) * 2 + 1
+      );
+      raycaster.setFromCamera(mouse, camera);
+      const intersection = new THREE.Vector3();
+      if (!raycaster.ray.intersectPlane(plane, intersection)) return;
+
+      const delta = intersection.clone().sub(dragStart.current.point);
+      const scales: [number, number, number] = [1, 1, 1];
+      const dimNames = ["Width", "Height", "Depth"];
+      const labels: string[] = [];
+
+      for (const { axis, dir } of axes) {
+        const axisDelta = [delta.x, delta.y, delta.z][axis] * dir;
+        const originalSize = dragStart.current.bboxSize[axis];
+        const newSize = Math.max(0.02, originalSize + axisDelta);
+        const newTotal = newSize / originalSize;
+        const increment = newTotal / prevScales.current[axis];
+        prevScales.current[axis] = newTotal;
+        scales[axis] = increment;
+        labels.push(`${dimNames[axis]}: ${Math.round(originalSize * 1000)}mm → ${Math.round(newSize * 1000)}mm`);
+      }
+
+      onScaleGroup(groupId, scales[0], scales[1], scales[2]);
+      onDragInfoChange({
+        position: [0, 0, 0],
+        resizeLabel: labels.join("  |  "),
+      });
+    };
+
+    const onPointerUp = () => {
+      setDragging(false);
+      dragStart.current = null;
+      prevScales.current = [1, 1, 1];
+      gl.domElement.style.cursor = "";
+      onInteractionChange(false);
+      onDragInfoChange(null);
+    };
+
+    gl.domElement.addEventListener("pointermove", onPointerMove);
+    gl.domElement.addEventListener("pointerup", onPointerUp);
+    return () => {
+      gl.domElement.removeEventListener("pointermove", onPointerMove);
+      gl.domElement.removeEventListener("pointerup", onPointerUp);
+    };
+  }, [dragging, axes, groupId, camera, raycaster, gl, onScaleGroup, onInteractionChange, onDragInfoChange, groupPanels]);
+
+  return (
+    <mesh
+      ref={meshRef}
+      position={offset}
+      onPointerDown={(e) => {
+        e.stopPropagation();
+        const bbox = computeGroupBbox(groupPanels);
+        setDragging(true);
+        prevScales.current = [1, 1, 1];
+        onInteractionChange(true);
+        dragStart.current = {
+          point: e.point.clone(),
+          bboxSize: [...bbox.size] as [number, number, number],
+        };
+        gl.domElement.style.cursor = "nwse-resize";
+      }}
+      onPointerEnter={() => { setHovered(true); gl.domElement.style.cursor = "nwse-resize"; }}
+      onPointerLeave={() => { if (!dragging) { setHovered(false); gl.domElement.style.cursor = ""; } }}
+    >
+      <boxGeometry args={[0.025, 0.025, 0.025]} />
+      <meshStandardMaterial
+        color={dragging ? "#ffffff" : "#f59e0b"}
+        emissive="#f59e0b"
         emissiveIntensity={dragging ? 0.8 : hovered ? 0.5 : 0.2}
         roughness={0.3}
         metalness={0.3}
