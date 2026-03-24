@@ -1,16 +1,21 @@
 import { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { MATERIALS, type PanelData, type MaterialOption } from "@/lib/furnitureData";
+import { MATERIALS, type PanelData, type MaterialOption, type GroupData } from "@/lib/furnitureData";
 import { Ruler, Layers, Palette, RotateCw, ChevronDown, ChevronRight } from "lucide-react";
 
 interface EditorParametersProps {
   panel: PanelData | null;
+  selectedGroup: GroupData | null;
   overallDims: { w: number; h: number; d: number };
+  showOverallDims: boolean;
+  editingGroupId: string | null;
   onUpdatePanel: (id: string, updates: Partial<PanelData>) => void;
+  onUpdateGroup: (groupId: string, updates: Partial<GroupData>) => void;
   onUpdateDims: (dims: { w: number; h: number; d: number }) => void;
   style: string;
   onStyleChange: (style: string) => void;
+  multiSelectCount: number;
 }
 
 const STYLES = [
@@ -20,75 +25,113 @@ const STYLES = [
 
 export function EditorParameters({
   panel,
+  selectedGroup,
   overallDims,
+  showOverallDims,
+  editingGroupId,
   onUpdatePanel,
+  onUpdateGroup,
   onUpdateDims,
   style,
   onStyleChange,
+  multiSelectCount,
 }: EditorParametersProps) {
   const matCategories = [...new Set(MATERIALS.map((m) => m.category))];
 
-  return (
-    <div className="w-72 bg-white border-l border-gray-200 flex flex-col h-full overflow-y-auto">
-      {/* Overall Dimensions */}
-      <div className="p-4 border-b border-gray-100">
-        <div className="flex items-center gap-2 mb-3">
-          <Ruler className="w-4 h-4 text-gray-500" />
-          <h3 className="text-sm font-semibold text-gray-900">Overall Size</h3>
-        </div>
-        <div className="grid grid-cols-3 gap-2">
-          {(["w", "h", "d"] as const).map((axis) => (
-            <div key={axis}>
-              <Label className="text-[11px] text-gray-500 uppercase">
-                {axis === "w" ? "Width" : axis === "h" ? "Height" : "Depth"}
-              </Label>
-              <div className="relative">
-                <Input
-                  type="number"
-                  min={10}
-                  value={overallDims[axis]}
-                  onChange={(e) => {
-                    const val = parseInt(e.target.value);
-                    if (!isNaN(val) && val >= 10) {
-                      onUpdateDims({ ...overallDims, [axis]: val });
-                    }
-                  }}
-                  className="h-8 text-xs pr-8"
-                />
-                <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-gray-400">
-                  mm
-                </span>
+  const renderGroupProperties = () => {
+    if (!selectedGroup) return null;
+    return (
+      <>
+        <div className="p-4 border-b border-gray-100">
+          <h3 className="text-sm font-semibold text-gray-900 mb-1">
+            {selectedGroup.name}
+          </h3>
+          <p className="text-[10px] text-gray-400 mb-3">
+            {selectedGroup.panels.length} panels
+          </p>
+
+          {/* Position (in mm) */}
+          <p className="text-[11px] text-gray-400 mb-1.5">Position</p>
+          <div className="grid grid-cols-3 gap-2 mb-3">
+            {(["X", "Y", "Z"] as const).map((axis, i) => (
+              <div key={axis}>
+                <Label className="text-[11px] text-gray-500">{axis}</Label>
+                <div className="relative">
+                  <Input
+                    type="number"
+                    step="10"
+                    value={Math.round(selectedGroup.position[i] * 1000)}
+                    onChange={(e) => {
+                      const newPos = [...selectedGroup.position] as [number, number, number];
+                      newPos[i] = (parseInt(e.target.value) || 0) / 1000;
+                      onUpdateGroup(selectedGroup.id, { position: newPos });
+                    }}
+                    className="h-8 text-xs pr-8"
+                  />
+                  <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-gray-400">
+                    mm
+                  </span>
+                </div>
               </div>
-            </div>
-          ))}
-        </div>
-      </div>
+            ))}
+          </div>
 
-      {/* Style */}
-      <div className="p-4 border-b border-gray-100">
-        <div className="flex items-center gap-2 mb-3">
-          <Layers className="w-4 h-4 text-gray-500" />
-          <h3 className="text-sm font-semibold text-gray-900">Style</h3>
+          {/* Rotation (in degrees) */}
+          <div className="flex items-center gap-1.5 mb-1.5">
+            <RotateCw className="w-3 h-3 text-gray-400" />
+            <p className="text-[11px] text-gray-400">Rotation</p>
+          </div>
+          <div className="grid grid-cols-3 gap-2">
+            {(["X", "Y", "Z"] as const).map((axis, i) => {
+              const rot = selectedGroup.rotation ?? [0, 0, 0];
+              return (
+                <div key={`rot-${axis}`}>
+                  <Label className="text-[11px] text-gray-500">{axis}</Label>
+                  <div className="relative">
+                    <Input
+                      type="number"
+                      step="15"
+                      value={Math.round((rot[i] * 180) / Math.PI)}
+                      onChange={(e) => {
+                        const newRot = [...rot] as [number, number, number];
+                        newRot[i] = ((parseInt(e.target.value) || 0) * Math.PI) / 180;
+                        onUpdateGroup(selectedGroup.id, { rotation: newRot });
+                      }}
+                      className="h-8 text-xs pr-6"
+                    />
+                    <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-gray-400">
+                      °
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
-        <div className="flex flex-wrap gap-1.5">
-          {STYLES.map((s) => (
-            <button
-              key={s}
-              onClick={() => onStyleChange(s)}
-              className={`px-2.5 py-1 rounded-full text-xs transition-colors ${
-                s === style
-                  ? "bg-[#C87D5A] text-white"
-                  : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-              }`}
-            >
-              {s}
-            </button>
-          ))}
-        </div>
-      </div>
+      </>
+    );
+  };
 
-      {/* Selected Panel Properties */}
-      {panel ? (
+  const renderContent = () => {
+    // Priority 1: Multi-select indicator
+    if (multiSelectCount > 0) {
+      return (
+        <div className="flex-1 flex items-center justify-center p-4">
+          <p className="text-xs text-gray-400 text-center">
+            {multiSelectCount} panels selected. Right-click to group.
+          </p>
+        </div>
+      );
+    }
+
+    // Priority 2: Group properties (scene mode with group selected)
+    if (selectedGroup && !editingGroupId) {
+      return renderGroupProperties();
+    }
+
+    // Priority 3: Panel properties
+    if (panel) {
+      return (
         <>
           <div className="p-4 border-b border-gray-100">
             <h3 className="text-sm font-semibold text-gray-900 mb-1">
@@ -279,13 +322,82 @@ export function EditorParameters({
             ))}
           </div>
         </>
-      ) : (
-        <div className="flex-1 flex items-center justify-center p-4">
-          <p className="text-xs text-gray-400 text-center">
-            Select a panel in the viewport or sidebar to edit its properties.
-          </p>
+      );
+    }
+
+    // Priority 4: Empty state
+    return (
+      <div className="flex-1 flex items-center justify-center p-4">
+        <p className="text-xs text-gray-400 text-center">
+          Select a panel in the viewport or sidebar to edit its properties.
+        </p>
+      </div>
+    );
+  };
+
+  return (
+    <div className="w-72 bg-white border-l border-gray-200 flex flex-col h-full overflow-y-auto">
+      {/* Overall Dimensions */}
+      {showOverallDims && (
+        <div className="p-4 border-b border-gray-100">
+          <div className="flex items-center gap-2 mb-3">
+            <Ruler className="w-4 h-4 text-gray-500" />
+            <h3 className="text-sm font-semibold text-gray-900">Overall Size</h3>
+          </div>
+          <div className="grid grid-cols-3 gap-2">
+            {(["w", "h", "d"] as const).map((axis) => (
+              <div key={axis}>
+                <Label className="text-[11px] text-gray-500 uppercase">
+                  {axis === "w" ? "Width" : axis === "h" ? "Height" : "Depth"}
+                </Label>
+                <div className="relative">
+                  <Input
+                    type="number"
+                    min={10}
+                    value={overallDims[axis]}
+                    onChange={(e) => {
+                      const val = parseInt(e.target.value);
+                      if (!isNaN(val) && val >= 10) {
+                        onUpdateDims({ ...overallDims, [axis]: val });
+                      }
+                    }}
+                    className="h-8 text-xs pr-8"
+                  />
+                  <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-gray-400">
+                    mm
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       )}
+
+      {/* Style */}
+      <div className="p-4 border-b border-gray-100">
+        <div className="flex items-center gap-2 mb-3">
+          <Layers className="w-4 h-4 text-gray-500" />
+          <h3 className="text-sm font-semibold text-gray-900">Style</h3>
+        </div>
+        <div className="flex flex-wrap gap-1.5">
+          {STYLES.map((s) => (
+            <button
+              key={s}
+              onClick={() => onStyleChange(s)}
+              className={`px-2.5 py-1 rounded-full text-xs transition-colors ${
+                s === style
+                  ? "bg-[#C87D5A] text-white"
+                  : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+              }`}
+            >
+              {s}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Content area (priority-based rendering) */}
+      {renderContent()}
     </div>
   );
 }
