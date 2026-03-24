@@ -1,6 +1,7 @@
 import React, { useState, useRef, useMemo, useCallback, useEffect } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { OrbitControls, Grid, GizmoHelper, GizmoViewport, Environment } from "@react-three/drei";
+import { OrbitControls, Grid, GizmoHelper, GizmoViewport, Environment, Lightformer, ContactShadows, RoundedBox } from "@react-three/drei";
+import { EffectComposer, SSAO, SMAA } from "@react-three/postprocessing";
 import type { PanelData, GroupData } from "@/lib/furnitureData";
 import { MATERIALS } from "@/lib/furnitureData";
 import { ShapeRenderer, isCompositeShape } from "./ShapeRenderer";
@@ -292,8 +293,18 @@ export function EditorViewport({
       onContextMenu={(e) => e.preventDefault()}
     >
       <Canvas
+        frameloop="always"
+        dpr={[1, 2]}
         camera={{ position: [2.5, 2, 3], fov: 45 }}
         shadows
+        gl={{
+          powerPreference: "high-performance",
+          alpha: false,
+          stencil: false,
+          antialias: false,
+          toneMapping: THREE.ACESFilmicToneMapping,
+          toneMappingExposure: 1.0,
+        }}
         onPointerMissed={() => {
           if (editingGroupId) {
             onSelectPanel(null); // Deselect but stay in edit mode
@@ -304,9 +315,27 @@ export function EditorViewport({
           closeContextMenu();
         }}
       >
-        <ambientLight intensity={0.5} />
-        <directionalLight position={[5, 8, 5]} intensity={1} castShadow />
-        <Environment preset="apartment" />
+        {/* HDRI Studio Environment */}
+        <Environment resolution={512} environmentIntensity={0.8}>
+          <Lightformer form="rect" intensity={2} color="white" scale={[10, 4]} position={[0, 6, -2]} rotation={[Math.PI / 2, 0, 0]} />
+          <Lightformer form="rect" intensity={0.5} color="#e8f0ff" scale={[5, 5]} position={[-6, 2, 2]} rotation={[0, Math.PI / 2, 0]} />
+          <Lightformer form="circle" intensity={2} color="#fffaf0" scale={3} position={[4, 3, -4]} />
+        </Environment>
+
+        {/* Main directional light for shadows */}
+        <directionalLight
+          position={[-4, 8, 4]}
+          intensity={1.2}
+          castShadow
+          shadow-mapSize-width={2048}
+          shadow-mapSize-height={2048}
+          shadow-bias={-0.0001}
+          shadow-camera-left={-5}
+          shadow-camera-right={5}
+          shadow-camera-top={5}
+          shadow-camera-bottom={-5}
+        />
+        <ambientLight intensity={0.2} color="#f0f0ff" />
 
         <Grid
           args={[10, 10]}
@@ -320,6 +349,16 @@ export function EditorViewport({
           fadeStrength={1}
           followCamera={false}
           infiniteGrid
+        />
+
+        {/* Contact shadows under furniture */}
+        <ContactShadows
+          position={[0, 0.001, 0]}
+          opacity={0.4}
+          scale={10}
+          blur={2.5}
+          far={4}
+          resolution={512}
         />
 
         {/* ── Render groups ── */}
@@ -491,6 +530,17 @@ export function EditorViewport({
         <GizmoHelper alignment="bottom-right" margin={[60, 60]}>
           <GizmoViewport />
         </GizmoHelper>
+
+        {/* Post-processing for photorealistic look */}
+        <EffectComposer multisampling={0}>
+          <SMAA />
+          <SSAO
+            samples={16}
+            radius={0.1}
+            intensity={1.5}
+            luminanceInfluence={0.9}
+          />
+        </EffectComposer>
       </Canvas>
 
       {/* Drag info overlay — shows position or rotation angle */}
@@ -1520,9 +1570,10 @@ function FurniturePanel({
 }) {
   const mat = MATERIALS.find((m) => m.id === panel.materialId);
   const color = panel.customColor ?? mat?.color ?? "#C4A265";
-  const isGlass = mat?.id === "glass";
   const roughness = mat?.roughness ?? 0.7;
   const metalness = mat?.metalness ?? 0.05;
+  const isGlass = mat?.id === "glass";
+  const isMetal = mat?.category === "Metal";
   const shape = panel.shape ?? "box";
   const panelRotation = panel.rotation ?? [0, 0, 0];
 
@@ -1674,6 +1725,55 @@ function FurniturePanel({
   };
 
   if (isBasicShape) {
+    const [w, h, d] = panel.size;
+
+    // Box shape uses RoundedBox for soft edges
+    if (shape === "box") {
+      return (
+        <group position={panel.position} rotation={panelRotation as any}>
+          <RoundedBox
+            args={[w, h, d]}
+            radius={0.002}
+            smoothness={4}
+            onClick={handleClick}
+            onPointerDown={handlePointerDown}
+            onPointerEnter={() => { document.body.style.cursor = cursorStyle; }}
+            onPointerLeave={() => { document.body.style.cursor = ""; }}
+            castShadow
+            receiveShadow
+            {...raycastProp}
+          >
+            {isGlass ? (
+              <meshPhysicalMaterial
+                transmission={0.9}
+                thickness={0.5}
+                roughness={0.05}
+                ior={1.5}
+                transparent
+                opacity={shapeMatProps.opacity}
+              />
+            ) : (
+              <meshStandardMaterial
+                color={shapeMatProps.color}
+                roughness={shapeMatProps.roughness}
+                metalness={shapeMatProps.metalness}
+                transparent={shapeMatProps.transparent}
+                opacity={shapeMatProps.opacity}
+                envMapIntensity={isMetal ? 1.5 : 0.8}
+              />
+            )}
+          </RoundedBox>
+          {selected && (
+            <mesh>
+              <boxGeometry args={[w + 0.006, h + 0.006, d + 0.006]} />
+              <meshBasicMaterial color="#C87D5A" wireframe />
+            </mesh>
+          )}
+        </group>
+      );
+    }
+
+    // Non-box basic shapes (cylinder, sphere, cone)
     return (
       <group position={panel.position} rotation={panelRotation as any}>
         <mesh
@@ -1684,13 +1784,25 @@ function FurniturePanel({
           {...raycastProp}
         >
           {renderBasicGeometry()}
-          <meshStandardMaterial
-            color={shapeMatProps.color}
-            roughness={shapeMatProps.roughness}
-            metalness={shapeMatProps.metalness}
-            transparent={shapeMatProps.transparent}
-            opacity={shapeMatProps.opacity}
-          />
+          {isGlass ? (
+            <meshPhysicalMaterial
+              transmission={0.9}
+              thickness={0.5}
+              roughness={0.05}
+              ior={1.5}
+              transparent
+              opacity={shapeMatProps.opacity}
+            />
+          ) : (
+            <meshStandardMaterial
+              color={shapeMatProps.color}
+              roughness={shapeMatProps.roughness}
+              metalness={shapeMatProps.metalness}
+              transparent={shapeMatProps.transparent}
+              opacity={shapeMatProps.opacity}
+              envMapIntensity={isMetal ? 1.5 : 0.8}
+            />
+          )}
         </mesh>
         {selected && (
           <mesh>
