@@ -1,7 +1,7 @@
-import { useState, useRef, useCallback, useEffect } from "react";
+import React, { useState, useRef, useMemo, useCallback, useEffect } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { OrbitControls, Grid, GizmoHelper, GizmoViewport, Environment } from "@react-three/drei";
-import type { PanelData } from "@/lib/furnitureData";
+import type { PanelData, GroupData } from "@/lib/furnitureData";
 import { MATERIALS } from "@/lib/furnitureData";
 import { ShapeRenderer, isCompositeShape } from "./ShapeRenderer";
 import * as THREE from "three";
@@ -150,24 +150,42 @@ const VIEW_CAMERAS: Record<ViewMode, { position: [number, number, number]; up: [
 
 // ─── Main Component ────────────────────────────────────
 
-interface EditorViewportProps {
-  panels: PanelData[];
+export interface EditorViewportProps {
+  groups: GroupData[];
+  ungroupedPanels: PanelData[];
+  editingGroupId: string | null;
+  editingPanels: PanelData[] | null;
   selectedPanelId: string | null;
+  selectedGroupId: string | null;
   snapEnabled: boolean;
   rotationMode: boolean;
   viewMode: ViewMode;
   onSelectPanel: (id: string | null) => void;
+  onSelectGroup: (id: string | null) => void;
   onUpdatePanel: (id: string, updates: Partial<PanelData>) => void;
+  onUpdateGroup: (groupId: string, updates: Partial<GroupData>) => void;
+  onEnterEditMode: (groupId: string) => void;
+  onExitEditMode: () => void;
+  /* Legacy prop — kept for backward compatibility during migration */
+  panels?: PanelData[];
 }
 
 export function EditorViewport({
-  panels,
+  groups,
+  ungroupedPanels,
+  editingGroupId,
+  editingPanels,
   selectedPanelId,
+  selectedGroupId,
   snapEnabled,
   rotationMode,
   viewMode,
   onSelectPanel,
+  onSelectGroup,
   onUpdatePanel,
+  onUpdateGroup,
+  onEnterEditMode,
+  onExitEditMode,
 }: EditorViewportProps) {
   const [openPanels, setOpenPanels] = useState<Record<string, boolean>>({});
   const [contextMenu, setContextMenu] = useState<ContextMenuInfo | null>(null);
@@ -181,7 +199,19 @@ export function EditorViewport({
 
   const closeContextMenu = useCallback(() => setContextMenu(null), []);
 
-  const selectedPanel = panels.find((p) => p.id === selectedPanelId) ?? null;
+  // Collect all panels for lookups: editing panels (world-space) + ungrouped panels
+  const allVisiblePanels = useMemo(() => {
+    if (editingPanels) return [...editingPanels, ...ungroupedPanels];
+    return [...ungroupedPanels, ...groups.flatMap(g => g.panels)];
+  }, [editingPanels, ungroupedPanels, groups]);
+
+  const selectedPanel = allVisiblePanels.find((p) => p.id === selectedPanelId) ?? null;
+
+  // Panels used for snap calculations
+  const snapPanels = useMemo(() => {
+    if (editingGroupId && editingPanels) return editingPanels;
+    return ungroupedPanels;
+  }, [editingGroupId, editingPanels, ungroupedPanels]);
 
   const dragStateRef = useRef<DragState>({
     isDragging: false,
@@ -193,7 +223,7 @@ export function EditorViewport({
   });
 
   const startDrag = useCallback((panelId: string, intersectionPoint: THREE.Vector3, clientX: number) => {
-    const panel = panels.find(p => p.id === panelId);
+    const panel = allVisiblePanels.find(p => p.id === panelId);
     if (!panel) return;
 
     setInteractionActive(true);
@@ -217,7 +247,35 @@ export function EditorViewport({
         startRotY: 0,
       };
     }
-  }, [panels, rotationMode]);
+  }, [allVisiblePanels, rotationMode]);
+
+  // Start drag for a group (drag the whole group by its position)
+  const startGroupDrag = useCallback((groupId: string, intersectionPoint: THREE.Vector3, clientX: number) => {
+    const group = groups.find(g => g.id === groupId);
+    if (!group) return;
+
+    setInteractionActive(true);
+
+    if (rotationMode) {
+      dragStateRef.current = {
+        isDragging: true,
+        panelId: `__group__${groupId}`,
+        startPoint: null,
+        startPos: [...group.position] as [number, number, number],
+        startClientX: clientX,
+        startRotY: group.rotation[1],
+      };
+    } else {
+      dragStateRef.current = {
+        isDragging: true,
+        panelId: `__group__${groupId}`,
+        startPoint: intersectionPoint.clone(),
+        startPos: [...group.position] as [number, number, number],
+        startClientX: 0,
+        startRotY: 0,
+      };
+    }
+  }, [groups, rotationMode]);
 
   return (
     <div
@@ -228,7 +286,12 @@ export function EditorViewport({
         camera={{ position: [2.5, 2, 3], fov: 45 }}
         shadows
         onPointerMissed={() => {
-          onSelectPanel(null);
+          if (editingGroupId) {
+            onSelectPanel(null); // Deselect but stay in edit mode
+          } else {
+            onSelectPanel(null);
+            onSelectGroup(null);
+          }
           closeContextMenu();
         }}
       >
@@ -250,33 +313,108 @@ export function EditorViewport({
           infiniteGrid
         />
 
-        {panels.map((panel) => (
-          <FurniturePanel
-            key={panel.id}
-            panel={panel}
-            selected={panel.id === selectedPanelId}
-            isOpen={!!openPanels[panel.id]}
-            rotationMode={rotationMode}
-            onClick={() => { onSelectPanel(panel.id); closeContextMenu(); }}
-            onDoubleClick={() => { if (isInteractive(panel.label)) togglePanel(panel.id); }}
-            onContextMenu={(x, y) => {
-              if (isDoor(panel.label)) {
-                setContextMenu({ panelId: panel.id, label: panel.label, x, y, type: "door" });
-              } else if (isDrawer(panel.label)) {
-                setContextMenu({ panelId: panel.id, label: panel.label, x, y, type: "drawer" });
-              }
-            }}
-            onDragStart={(intersectionPoint, clientX) => startDrag(panel.id, intersectionPoint, clientX)}
-          />
-        ))}
+        {/* ── Render groups ── */}
+        {groups.map((g) => {
+          const isEditing = editingGroupId === g.id;
+          const isSelected = selectedGroupId === g.id;
+          const isDimmed = editingGroupId !== null && !isEditing;
+
+          if (isEditing && editingPanels) {
+            // Edit mode: render panels at world-space (outside group transform)
+            return (
+              <React.Fragment key={g.id}>
+                {editingPanels.map((panel) => (
+                  <FurniturePanel
+                    key={panel.id}
+                    panel={panel}
+                    selected={panel.id === selectedPanelId}
+                    opacity={panel.id === selectedPanelId ? 1 : 0.7}
+                    isOpen={!!openPanels[panel.id]}
+                    rotationMode={rotationMode}
+                    onClick={() => { onSelectPanel(panel.id); closeContextMenu(); }}
+                    onDoubleClick={() => { if (isInteractive(panel.label)) togglePanel(panel.id); }}
+                    onContextMenu={(x, y) => {
+                      if (isDoor(panel.label)) {
+                        setContextMenu({ panelId: panel.id, label: panel.label, x, y, type: "door" });
+                      } else if (isDrawer(panel.label)) {
+                        setContextMenu({ panelId: panel.id, label: panel.label, x, y, type: "drawer" });
+                      }
+                    }}
+                    onDragStart={(intersectionPoint, clientX) => startDrag(panel.id, intersectionPoint, clientX)}
+                  />
+                ))}
+              </React.Fragment>
+            );
+          }
+
+          return (
+            <group key={g.id} position={g.position} rotation={g.rotation}>
+              {g.panels.map((panel) => (
+                <FurniturePanel
+                  key={panel.id}
+                  panel={panel}
+                  selected={false}
+                  dimmed={isDimmed}
+                  opacity={isDimmed ? 0.3 : 1}
+                  isOpen={!!openPanels[panel.id]}
+                  rotationMode={rotationMode}
+                  onClick={(e) => { if (e) e.stopPropagation(); if (!isDimmed) { onSelectGroup(g.id); onSelectPanel(null); closeContextMenu(); } }}
+                  onDoubleClick={(e) => { if (e) e.stopPropagation(); if (!isDimmed) onEnterEditMode(g.id); }}
+                  onContextMenu={(x, y) => {
+                    if (isDoor(panel.label)) {
+                      setContextMenu({ panelId: panel.id, label: panel.label, x, y, type: "door" });
+                    } else if (isDrawer(panel.label)) {
+                      setContextMenu({ panelId: panel.id, label: panel.label, x, y, type: "drawer" });
+                    }
+                  }}
+                  onDragStart={(intersectionPoint, clientX) => { if (!isDimmed) startGroupDrag(g.id, intersectionPoint, clientX); }}
+                />
+              ))}
+              {isSelected && <GroupBoundingBox panels={g.panels} color="#3b82f6" />}
+            </group>
+          );
+        })}
+
+        {/* ── Render ungrouped panels ── */}
+        {ungroupedPanels.map((panel) => {
+          const isDimmed = editingGroupId !== null;
+          return (
+            <FurniturePanel
+              key={panel.id}
+              panel={panel}
+              selected={panel.id === selectedPanelId}
+              dimmed={isDimmed}
+              opacity={isDimmed ? 0.3 : 1}
+              isOpen={!!openPanels[panel.id]}
+              rotationMode={rotationMode}
+              onClick={() => { if (!isDimmed) { onSelectPanel(panel.id); onSelectGroup(null); closeContextMenu(); } }}
+              onDoubleClick={() => { if (!isDimmed && isInteractive(panel.label)) togglePanel(panel.id); }}
+              onContextMenu={(x, y) => {
+                if (isDoor(panel.label)) {
+                  setContextMenu({ panelId: panel.id, label: panel.label, x, y, type: "door" });
+                } else if (isDrawer(panel.label)) {
+                  setContextMenu({ panelId: panel.id, label: panel.label, x, y, type: "drawer" });
+                }
+              }}
+              onDragStart={(intersectionPoint, clientX) => { if (!isDimmed) startDrag(panel.id, intersectionPoint, clientX); }}
+            />
+          );
+        })}
+
+        {/* ── Edit mode dashed border ── */}
+        {editingGroupId && editingPanels && (
+          <GroupBoundingBox panels={editingPanels} color="#f97316" dashed />
+        )}
 
         {/* Drag controller — handles move, object snap, and rotation */}
         <DragController
           dragStateRef={dragStateRef}
           snapEnabled={snapEnabled}
           rotationMode={rotationMode}
-          panels={panels}
+          panels={snapPanels}
+          groups={groups}
           onUpdatePanel={onUpdatePanel}
+          onUpdateGroup={onUpdateGroup}
           onSnapGuidesChange={setSnapGuides}
           onDragInfoChange={setDragInfo}
           onInteractionEnd={() => setInteractionActive(false)}
@@ -287,8 +425,8 @@ export function EditorViewport({
           <SnapGuideLine key={i} guide={guide} />
         ))}
 
-        {/* Selection handles for resize (hidden during rotation mode) */}
-        {selectedPanel && !isDoor(selectedPanel.label) && !isDrawer(selectedPanel.label) && !rotationMode && (
+        {/* Selection handles for resize (only for ungrouped panels or panels in edit mode, not groups) */}
+        {selectedPanel && !selectedGroupId && !isDoor(selectedPanel.label) && !isDrawer(selectedPanel.label) && !rotationMode && (
           <SelectionHandles
             panel={selectedPanel}
             onUpdate={onUpdatePanel}
@@ -298,8 +436,8 @@ export function EditorViewport({
           />
         )}
 
-        {/* Rotation ring when in rotation mode */}
-        {rotationMode && selectedPanel && (
+        {/* Rotation ring when in rotation mode (not for group selection) */}
+        {rotationMode && selectedPanel && !selectedGroupId && (
           <RotationRing panel={selectedPanel} />
         )}
 
@@ -456,7 +594,9 @@ function DragController({
   snapEnabled,
   rotationMode,
   panels,
+  groups,
   onUpdatePanel,
+  onUpdateGroup,
   onSnapGuidesChange,
   onDragInfoChange,
   onInteractionEnd,
@@ -465,7 +605,9 @@ function DragController({
   snapEnabled: boolean;
   rotationMode: boolean;
   panels: PanelData[];
+  groups: GroupData[];
   onUpdatePanel: (id: string, updates: Partial<PanelData>) => void;
+  onUpdateGroup: (groupId: string, updates: Partial<GroupData>) => void;
   onSnapGuidesChange: (guides: SnapGuide[]) => void;
   onDragInfoChange: (info: DragInfo | null) => void;
   onInteractionEnd: () => void;
@@ -512,6 +654,9 @@ function DragController({
       const ds = dragStateRef.current;
       if (!ds || !ds.isDragging || !ds.panelId) return;
 
+      const isGroupDrag = ds.panelId.startsWith("__group__");
+      const groupId = isGroupDrag ? ds.panelId.replace("__group__", "") : null;
+
       // ── Rotation drag mode ──
       if (rotationMode && ds.startClientX !== 0) {
         const deltaX = e.clientX - ds.startClientX;
@@ -524,15 +669,28 @@ function DragController({
           newRotY = Math.round(newRotY / snap15) * snap15;
         }
 
-        const panel = panels.find(p => p.id === ds.panelId);
-        if (panel) {
-          const rot = [...(panel.rotation ?? [0, 0, 0])] as [number, number, number];
-          rot[1] = newRotY;
-          onUpdatePanel(ds.panelId, { rotation: rot });
+        if (isGroupDrag && groupId) {
+          const group = groups.find(g => g.id === groupId);
+          if (group) {
+            const rot = [...group.rotation] as [number, number, number];
+            rot[1] = newRotY;
+            onUpdateGroup(groupId, { rotation: rot });
 
-          let degDisplay = ((newRotY * 180 / Math.PI) % 360 + 360) % 360;
-          if (degDisplay > 180) degDisplay -= 360;
-          onDragInfoChange({ position: panel.position, rotationDeg: degDisplay });
+            let degDisplay = ((newRotY * 180 / Math.PI) % 360 + 360) % 360;
+            if (degDisplay > 180) degDisplay -= 360;
+            onDragInfoChange({ position: group.position, rotationDeg: degDisplay });
+          }
+        } else {
+          const panel = panels.find(p => p.id === ds.panelId);
+          if (panel) {
+            const rot = [...(panel.rotation ?? [0, 0, 0])] as [number, number, number];
+            rot[1] = newRotY;
+            onUpdatePanel(ds.panelId, { rotation: rot });
+
+            let degDisplay = ((newRotY * 180 / Math.PI) % 360 + 360) % 360;
+            if (degDisplay > 180) degDisplay -= 360;
+            onDragInfoChange({ position: panel.position, rotationDeg: degDisplay });
+          }
         }
         return;
       }
@@ -558,16 +716,22 @@ function DragController({
         newPos = [snapToGrid(newPos[0], grid), snapToGrid(newPos[1], grid), snapToGrid(newPos[2], grid)];
       }
 
-      // Object-to-object snap
-      const panel = panels.find(p => p.id === ds.panelId);
-      if (panel) {
-        const { snappedPos, guides } = computeObjectSnap(newPos, panel.size, panels, ds.panelId);
-        newPos = snappedPos;
-        onSnapGuidesChange(guides);
-      }
+      if (isGroupDrag && groupId) {
+        // Group position drag — no object-to-object snap for groups for now
+        onUpdateGroup(groupId, { position: newPos });
+        onDragInfoChange({ position: newPos });
+      } else {
+        // Object-to-object snap
+        const panel = panels.find(p => p.id === ds.panelId);
+        if (panel) {
+          const { snappedPos, guides } = computeObjectSnap(newPos, panel.size, panels, ds.panelId);
+          newPos = snappedPos;
+          onSnapGuidesChange(guides);
+        }
 
-      onUpdatePanel(ds.panelId, { position: newPos });
-      onDragInfoChange({ position: newPos });
+        onUpdatePanel(ds.panelId, { position: newPos });
+        onDragInfoChange({ position: newPos });
+      }
     };
 
     const onPointerUp = () => {
@@ -592,7 +756,7 @@ function DragController({
       canvas.removeEventListener("pointermove", onPointerMove);
       canvas.removeEventListener("pointerup", onPointerUp);
     };
-  }, [camera, gl, raycaster, snapEnabled, rotationMode, panels, onUpdatePanel, onSnapGuidesChange, onDragInfoChange, onInteractionEnd, dragStateRef]);
+  }, [camera, gl, raycaster, snapEnabled, rotationMode, panels, groups, onUpdatePanel, onUpdateGroup, onSnapGuidesChange, onDragInfoChange, onInteractionEnd, dragStateRef]);
 
   return null;
 }
@@ -848,6 +1012,40 @@ function ResizeHandle({
   );
 }
 
+// ─── Group Bounding Box ──────────────────────────────────
+
+function GroupBoundingBox({ panels, color = "#3b82f6", dashed = false }: {
+  panels: PanelData[];
+  color?: string;
+  dashed?: boolean;
+}) {
+  const geometry = useMemo(() => {
+    if (panels.length === 0) return null;
+    let minX = Infinity, minY = Infinity, minZ = Infinity;
+    let maxX = -Infinity, maxY = -Infinity, maxZ = -Infinity;
+    for (const p of panels) {
+      const [px, py, pz] = p.position;
+      const [sx, sy, sz] = p.size;
+      minX = Math.min(minX, px - sx / 2);
+      maxX = Math.max(maxX, px + sx / 2);
+      minY = Math.min(minY, py - sy / 2);
+      maxY = Math.max(maxY, py + sy / 2);
+      minZ = Math.min(minZ, pz - sz / 2);
+      maxZ = Math.max(maxZ, pz + sz / 2);
+    }
+    const cx = (minX + maxX) / 2, cy = (minY + maxY) / 2, cz = (minZ + maxZ) / 2;
+    const sx = maxX - minX + 0.02, sy = maxY - minY + 0.02, sz = maxZ - minZ + 0.02;
+    return { center: [cx, cy, cz] as [number, number, number], size: [sx, sy, sz] as [number, number, number] };
+  }, [panels]);
+  if (!geometry) return null;
+  return (
+    <lineSegments position={geometry.center}>
+      <edgesGeometry args={[new THREE.BoxGeometry(...geometry.size)]} />
+      <lineDashedMaterial color={color} dashSize={dashed ? 0.02 : 1000} gapSize={dashed ? 0.01 : 0} linewidth={1} />
+    </lineSegments>
+  );
+}
+
 // ─── Individual Panel (with door/drawer animation + drag) ─
 
 function FurniturePanel({
@@ -855,6 +1053,8 @@ function FurniturePanel({
   selected,
   isOpen,
   rotationMode,
+  opacity = 1,
+  dimmed = false,
   onClick,
   onDoubleClick,
   onContextMenu,
@@ -862,10 +1062,12 @@ function FurniturePanel({
 }: {
   panel: PanelData;
   selected: boolean;
-  isOpen: boolean;
-  rotationMode: boolean;
-  onClick: () => void;
-  onDoubleClick: () => void;
+  isOpen?: boolean;
+  rotationMode?: boolean;
+  opacity?: number;
+  dimmed?: boolean;
+  onClick: (e?: any) => void;
+  onDoubleClick: (e?: any) => void;
   onContextMenu: (screenX: number, screenY: number) => void;
   onDragStart: (intersectionPoint: THREE.Vector3, clientX: number) => void;
 }) {
@@ -902,13 +1104,19 @@ function FurniturePanel({
   });
 
   // Shared material props
+  const effectiveOpacity = dimmed ? (opacity < 1 ? opacity : 0.3) : (isGlass ? 0.3 : opacity);
+  const isTransparent = isGlass || dimmed || opacity < 1;
   const shapeMatProps = {
     color: selected ? "#e8c4a8" : color,
     roughness: isMetal ? 0.3 : 0.7,
     metalness: isMetal ? 0.8 : 0.05,
-    transparent: isGlass,
-    opacity: isGlass ? 0.3 : 1,
+    transparent: isTransparent,
+    opacity: effectiveOpacity,
   };
+
+  // When dimmed, disable raycasting
+  const noopRaycast = useCallback(() => {}, []);
+  const raycastProp = dimmed ? { raycast: noopRaycast } : {};
 
   const handleClick = (e: any) => { e.stopPropagation(); onClick(); };
   const handlePointerDown = (e: any) => {
@@ -941,6 +1149,7 @@ function FurniturePanel({
             onDoubleClick={(e: any) => { e.stopPropagation(); onDoubleClick(); }}
             onPointerDown={handlePointerDown}
             castShadow receiveShadow
+            {...raycastProp}
           >
             <boxGeometry args={panel.size} />
             <meshStandardMaterial
@@ -977,6 +1186,7 @@ function FurniturePanel({
             onDoubleClick={(e: any) => { e.stopPropagation(); onDoubleClick(); }}
             onPointerDown={handlePointerDown}
             castShadow receiveShadow
+            {...raycastProp}
           >
             <boxGeometry args={panel.size} />
             <meshStandardMaterial
@@ -1023,6 +1233,7 @@ function FurniturePanel({
           onPointerEnter={() => { document.body.style.cursor = cursorStyle; }}
           onPointerLeave={() => { document.body.style.cursor = ""; }}
           castShadow receiveShadow
+          {...raycastProp}
         >
           {renderBasicGeometry()}
           <meshStandardMaterial
@@ -1048,7 +1259,7 @@ function FurniturePanel({
     <group position={panel.position} rotation={panelRotation as any}>
       <group
         onClick={handleClick} onPointerDown={handlePointerDown}
-        onPointerEnter={() => { document.body.style.cursor = cursorStyle; }}
+        onPointerEnter={() => { if (!dimmed) document.body.style.cursor = cursorStyle; }}
         onPointerLeave={() => { document.body.style.cursor = ""; }}
       >
         <ShapeRenderer shape={shape} size={panel.size} shapeParams={panel.shapeParams}
