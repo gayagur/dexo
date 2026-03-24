@@ -22,9 +22,9 @@ import {
   flattenScene,
 } from "@/lib/groupUtils";
 import type { LibraryTemplate } from "@/lib/libraryData";
-import { ArrowLeft, Save, RotateCcw, RotateCw, MessageSquare, Magnet, HelpCircle, X, BookOpen, Undo2, Redo2, Box, Square, PanelTop, PanelLeft, ImagePlus, Loader2, Home } from "lucide-react";
+import { ArrowLeft, Save, RotateCcw, RotateCw, MessageSquare, Magnet, HelpCircle, X, BookOpen, Undo2, Redo2, Box, Square, PanelTop, PanelLeft, ImagePlus, Loader2, Home, Sun, Moon } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import type { ViewMode } from "./EditorViewport";
+import type { ViewMode, EditorLightMode } from "./EditorViewport";
 import { uploadFurnitureImage, analyzeFurnitureImage, type FurnitureAnalysis } from "@/lib/ai";
 
 interface FurnitureEditorProps {
@@ -56,6 +56,7 @@ export function FurnitureEditor({
   const [showHelp, setShowHelp] = useState(false);
   const [rotationMode, setRotationMode] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>("3d");
+  const [lightMode, setLightMode] = useState<EditorLightMode>("day");
   const editorNavigate = useNavigate();
 
   const defaultTemplate = getDefaultTemplate(furnitureType.id, furnitureType.defaultDims);
@@ -714,6 +715,12 @@ export function FurnitureEditor({
         case "2": if (!e.ctrlKey && !e.metaKey) setViewMode("front"); break;
         case "3": if (!e.ctrlKey && !e.metaKey) setViewMode("top"); break;
         case "4": if (!e.ctrlKey && !e.metaKey) setViewMode("side"); break;
+        case "l":
+        case "L":
+          if (!e.ctrlKey && !e.metaKey) {
+            setLightMode((m) => (m === "day" ? "night" : "day"));
+          }
+          break;
         case "?": setShowHelp((v) => !v); break;
       }
     };
@@ -787,6 +794,29 @@ export function FurnitureEditor({
                 onClick={() => setViewMode(mode)}
                 className={`h-full px-2 flex items-center gap-1 text-[11px] font-medium transition-colors ${
                   viewMode === mode
+                    ? "bg-[#1B2432] text-white"
+                    : "bg-white text-gray-500 hover:bg-gray-50 hover:text-gray-700"
+                }`}
+              >
+                <Icon className="w-3 h-3" />
+                {label}
+              </button>
+            ))}
+          </div>
+
+          {/* Scene lighting — day (studio) vs night (warm accents) */}
+          <div className="flex items-center h-8 rounded-lg border border-gray-200 overflow-hidden">
+            {([
+              { mode: "day" as const, label: "Day", icon: Sun },
+              { mode: "night" as const, label: "Night", icon: Moon },
+            ]).map(({ mode, label, icon: Icon }) => (
+              <button
+                key={mode}
+                type="button"
+                title={`${label} lighting (L)`}
+                onClick={() => setLightMode(mode)}
+                className={`h-full px-2 flex items-center gap-1 text-[11px] font-medium transition-colors ${
+                  lightMode === mode
                     ? "bg-[#1B2432] text-white"
                     : "bg-white text-gray-500 hover:bg-gray-50 hover:text-gray-700"
                 }`}
@@ -961,6 +991,7 @@ export function FurnitureEditor({
             onUngroupGroup={handleUngroupGroup}
             onDeleteGroup={handleDeleteGroup}
             onScaleGroup={handleScaleGroup}
+            lightMode={lightMode}
           />
         </div>
 
@@ -1091,6 +1122,22 @@ export function FurnitureEditor({
                     ["2", "Front view (XY)"],
                     ["3", "Top view (XZ)"],
                     ["4", "Side view (YZ)"],
+                  ].map(([key, desc]) => (
+                    <div key={key} className="flex items-center gap-3">
+                      <kbd className="min-w-[56px] px-2 py-1 bg-gray-100 rounded-md text-xs font-mono text-gray-600 text-center">{key}</kbd>
+                      <span className="text-gray-600">{desc}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Lighting */}
+              <div>
+                <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Canvas lighting</h4>
+                <div className="space-y-1.5">
+                  {[
+                    ["Day / Night (toolbar)", "Bright studio vs dim warm scene on the 3D board"],
+                    ["L", "Toggle day ↔ night lighting"],
                   ].map(([key, desc]) => (
                     <div key={key} className="flex items-center gap-3">
                       <kbd className="min-w-[56px] px-2 py-1 bg-gray-100 rounded-md text-xs font-mono text-gray-600 text-center">{key}</kbd>

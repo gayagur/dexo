@@ -144,6 +144,9 @@ function computeObjectSnap(
 
 export type ViewMode = "3d" | "front" | "top" | "side";
 
+/** 3D canvas lighting preset (manual furniture editor) */
+export type EditorLightMode = "day" | "night";
+
 const VIEW_CAMERAS: Record<ViewMode, { position: [number, number, number]; up: [number, number, number] }> = {
   "3d":    { position: [2.5, 2, 3],   up: [0, 1, 0] },
   "front": { position: [0, 0.5, 5],   up: [0, 1, 0] },   // XY — looking from +Z
@@ -173,6 +176,7 @@ export interface EditorViewportProps {
   onUngroupGroup: (groupId: string) => void;
   onDeleteGroup: (groupId: string) => void;
   onScaleGroup: (groupId: string, scaleX: number, scaleY: number, scaleZ: number) => void;
+  lightMode: EditorLightMode;
   /* Legacy prop — kept for backward compatibility during migration */
   panels?: PanelData[];
 }
@@ -197,6 +201,7 @@ export function EditorViewport({
   onUngroupGroup,
   onDeleteGroup,
   onScaleGroup,
+  lightMode,
 }: EditorViewportProps) {
   const [openPanels, setOpenPanels] = useState<Record<string, boolean>>({});
   const [contextMenu, setContextMenu] = useState<ContextMenuInfo | null>(null);
@@ -290,7 +295,9 @@ export function EditorViewport({
 
   return (
     <div
-      className="w-full h-full bg-gray-50 rounded-xl overflow-hidden border border-gray-200 relative"
+      className={`w-full h-full rounded-xl overflow-hidden border relative ${
+        lightMode === "night" ? "bg-[#0d0d1a] border-gray-700" : "bg-gray-50 border-gray-200"
+      }`}
       onContextMenu={(e) => e.preventDefault()}
     >
       <Canvas
@@ -316,36 +323,63 @@ export function EditorViewport({
           closeContextMenu();
         }}
       >
-        {/* HDRI Studio Environment */}
-        <Environment resolution={512} environmentIntensity={0.8}>
-          <Lightformer form="rect" intensity={2} color="white" scale={[10, 4]} position={[0, 6, -2]} rotation={[Math.PI / 2, 0, 0]} />
-          <Lightformer form="rect" intensity={0.5} color="#e8f0ff" scale={[5, 5]} position={[-6, 2, 2]} rotation={[0, Math.PI / 2, 0]} />
-          <Lightformer form="circle" intensity={2} color="#fffaf0" scale={3} position={[4, 3, -4]} />
-        </Environment>
-
-        {/* Main directional light for shadows */}
-        <directionalLight
-          position={[-4, 8, 4]}
-          intensity={1.2}
-          castShadow
-          shadow-mapSize-width={2048}
-          shadow-mapSize-height={2048}
-          shadow-bias={-0.0001}
-          shadow-camera-left={-5}
-          shadow-camera-right={5}
-          shadow-camera-top={5}
-          shadow-camera-bottom={-5}
-        />
-        <ambientLight intensity={0.2} color="#f0f0ff" />
+        {/* Lighting — Day or Night mode */}
+        {lightMode === "night" ? (
+          <>
+            <Environment resolution={512} environmentIntensity={0.15}>
+              <Lightformer form="rect" intensity={0.3} color="#1a1a2e" scale={[10, 4]} position={[0, 6, -2]} rotation={[Math.PI / 2, 0, 0]} />
+              <Lightformer form="circle" intensity={0.8} color="#ffd699" scale={2} position={[3, 2.5, -2]} />
+              <Lightformer form="circle" intensity={0.5} color="#ffcc80" scale={1.5} position={[-3, 2, 1]} />
+            </Environment>
+            <directionalLight
+              position={[-4, 8, 4]}
+              intensity={0.15}
+              castShadow
+              shadow-mapSize-width={2048}
+              shadow-mapSize-height={2048}
+              shadow-bias={-0.0001}
+              shadow-camera-left={-5}
+              shadow-camera-right={5}
+              shadow-camera-top={5}
+              shadow-camera-bottom={-5}
+              color="#8899bb"
+            />
+            <ambientLight intensity={0.05} color="#1a1a2e" />
+            {/* Warm accent spot lights (like room lamps) */}
+            <pointLight position={[1, 2, -1]} intensity={3} color="#ffd699" distance={6} decay={2} />
+            <pointLight position={[-1.5, 1.5, 1]} intensity={2} color="#ffcc80" distance={5} decay={2} />
+          </>
+        ) : (
+          <>
+            <Environment resolution={512} environmentIntensity={0.8}>
+              <Lightformer form="rect" intensity={2} color="white" scale={[10, 4]} position={[0, 6, -2]} rotation={[Math.PI / 2, 0, 0]} />
+              <Lightformer form="rect" intensity={0.5} color="#e8f0ff" scale={[5, 5]} position={[-6, 2, 2]} rotation={[0, Math.PI / 2, 0]} />
+              <Lightformer form="circle" intensity={2} color="#fffaf0" scale={3} position={[4, 3, -4]} />
+            </Environment>
+            <directionalLight
+              position={[-4, 8, 4]}
+              intensity={1.2}
+              castShadow
+              shadow-mapSize-width={2048}
+              shadow-mapSize-height={2048}
+              shadow-bias={-0.0001}
+              shadow-camera-left={-5}
+              shadow-camera-right={5}
+              shadow-camera-top={5}
+              shadow-camera-bottom={-5}
+            />
+            <ambientLight intensity={0.2} color="#f0f0ff" />
+          </>
+        )}
 
         <Grid
           args={[10, 10]}
           cellSize={0.1}
           cellThickness={0.5}
-          cellColor="#d4d4d8"
+          cellColor={lightMode === "night" ? "#2a2a3a" : "#d4d4d8"}
           sectionSize={1}
           sectionThickness={1}
-          sectionColor="#a1a1aa"
+          sectionColor={lightMode === "night" ? "#3a3a4a" : "#a1a1aa"}
           fadeDistance={8}
           fadeStrength={1}
           followCamera={false}
