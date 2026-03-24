@@ -247,9 +247,9 @@ export function buildImagePrompt(
   styleTags: string[],
   materials?: string
 ): string {
-  const styleStr = styleTags.length > 0 ? ` Style: ${styleTags.join(", ")}.` : "";
-  const matStr = materials ? ` Materials: ${materials}.` : "";
-  return `Professional interior design photo of a ${category.toLowerCase()} project. ${description}.${styleStr}${matStr} Natural lighting, realistic room setting, high quality, professional interior photography.`;
+  const styleStr = styleTags.length > 0 ? `, ${styleTags.join(", ")} style` : "";
+  const matStr = materials ? `, ${materials}` : "";
+  return `Product photo of a ${description}${styleStr}${matStr} on a clean white background. Studio lighting, white seamless backdrop, isolated product shot, no room, no walls, no floor, no other objects. Photorealistic, high detail, professional product photography.`;
 }
 
 /**

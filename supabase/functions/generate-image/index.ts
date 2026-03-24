@@ -3,9 +3,9 @@ import { verifyAuth } from "../_shared/auth.ts";
 import { logUsage, getDailyUsageCount } from "../_shared/usage.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
 
-const MODEL = "black-forest-labs/FLUX.1-schnell";
+const MODEL = "black-forest-labs/FLUX.1-dev";
 const MAX_IMAGES_PER_PROJECT = 4;
-const COST_PER_MP = 0.0027; // per megapixel
+const COST_PER_MP = 0.025; // per megapixel (FLUX.1-dev)
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -23,9 +23,9 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Cap resolution at 768x768
-    const w = Math.min(width, 768);
-    const h = Math.min(height, 768);
+    // Cap resolution at 1024x1024 (FLUX.1-dev supports higher res)
+    const w = Math.min(width, 1024);
+    const h = Math.min(height, 1024);
 
     // Check per-project image limit (if projectId provided)
     if (projectId) {
@@ -55,7 +55,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Call FLUX Schnell via Together AI (with Pollinations fallback)
+    // Call FLUX.1-dev via Together AI (with Pollinations fallback)
     let tempUrl: string | null = null;
     let usedFallback = false;
 
@@ -71,7 +71,7 @@ Deno.serve(async (req) => {
           prompt,
           width: w,
           height: h,
-          steps: 4,
+          steps: 28,
           n: 1,
           response_format: "url",
         }),
