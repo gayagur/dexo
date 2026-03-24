@@ -13,7 +13,8 @@ import {
   type FurnitureOption,
 } from "@/lib/furnitureData";
 import type { LibraryTemplate } from "@/lib/libraryData";
-import { ArrowLeft, Save, RotateCcw, RotateCw, MessageSquare, Magnet, HelpCircle, X, BookOpen, Undo2, Redo2, Box, Square, PanelTop, PanelLeft, ImagePlus, Loader2 } from "lucide-react";
+import { ArrowLeft, Save, RotateCcw, RotateCw, MessageSquare, Magnet, HelpCircle, X, BookOpen, Undo2, Redo2, Box, Square, PanelTop, PanelLeft, ImagePlus, Loader2, Home } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import type { ViewMode } from "./EditorViewport";
 import { uploadFurnitureImage, analyzeFurnitureImage, type FurnitureAnalysis } from "@/lib/ai";
 
@@ -46,6 +47,7 @@ export function FurnitureEditor({
   const [showHelp, setShowHelp] = useState(false);
   const [rotationMode, setRotationMode] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>("3d");
+  const editorNavigate = useNavigate();
 
   const defaultTemplate = getDefaultTemplate(furnitureType.id, furnitureType.defaultDims);
   const [panels, setPanels] = useState<PanelData[]>(defaultTemplate.panels);
@@ -394,7 +396,17 @@ export function FurnitureEditor({
       {/* Top bar */}
       <div className="h-14 bg-white border-b border-gray-200 flex items-center justify-between px-4 shrink-0">
         <div className="flex items-center gap-3">
-          <Button variant="ghost" size="icon" onClick={onBack} className="h-8 w-8">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => editorNavigate("/dashboard")}
+            className="h-8 w-8"
+            title="Home"
+          >
+            <Home className="w-4 h-4" />
+          </Button>
+          <div className="w-px h-6 bg-gray-200" />
+          <Button variant="ghost" size="icon" onClick={onBack} className="h-8 w-8" title="Back to selection">
             <ArrowLeft className="w-4 h-4" />
           </Button>
           <div>
