@@ -12,6 +12,8 @@ interface EditorParametersProps {
   editingGroupId: string | null;
   onUpdatePanel: (id: string, updates: Partial<PanelData>) => void;
   onUpdateGroup: (groupId: string, updates: Partial<GroupData>) => void;
+  onScaleGroup: (groupId: string, scaleX: number, scaleY: number, scaleZ: number) => void;
+  onUpdateGroupMaterial: (groupId: string, materialId: string) => void;
   onUpdateDims: (dims: { w: number; h: number; d: number }) => void;
   style: string;
   onStyleChange: (style: string) => void;
@@ -31,6 +33,8 @@ export function EditorParameters({
   editingGroupId,
   onUpdatePanel,
   onUpdateGroup,
+  onScaleGroup,
+  onUpdateGroupMaterial,
   onUpdateDims,
   style,
   onStyleChange,
@@ -40,6 +44,29 @@ export function EditorParameters({
 
   const renderGroupProperties = () => {
     if (!selectedGroup) return null;
+
+    // Compute group bounding box size from panels
+    const panels = selectedGroup.panels;
+    let minX = Infinity, minY = Infinity, minZ = Infinity;
+    let maxX = -Infinity, maxY = -Infinity, maxZ = -Infinity;
+    for (const p of panels) {
+      const [px, py, pz] = p.position;
+      const [sx, sy, sz] = p.size;
+      minX = Math.min(minX, px - sx / 2); maxX = Math.max(maxX, px + sx / 2);
+      minY = Math.min(minY, py - sy / 2); maxY = Math.max(maxY, py + sy / 2);
+      minZ = Math.min(minZ, pz - sz / 2); maxZ = Math.max(maxZ, pz + sz / 2);
+    }
+    const groupSize = panels.length > 0
+      ? [maxX - minX, maxY - minY, maxZ - minZ]
+      : [0, 0, 0];
+
+    // Find most common material in the group
+    const matCounts: Record<string, number> = {};
+    for (const p of panels) {
+      matCounts[p.materialId] = (matCounts[p.materialId] || 0) + 1;
+    }
+    const dominantMaterial = Object.entries(matCounts).sort((a, b) => b[1] - a[1])[0]?.[0] ?? "oak";
+
     return (
       <>
         <div className="p-4 border-b border-gray-100">
@@ -49,6 +76,39 @@ export function EditorParameters({
           <p className="text-[10px] text-gray-400 mb-3">
             {selectedGroup.panels.length} panels
           </p>
+
+          {/* Group Size (proportional scale) */}
+          <div className="flex items-center gap-2 mb-1.5">
+            <Ruler className="w-3 h-3 text-gray-400" />
+            <p className="text-[11px] text-gray-400">Size (proportional)</p>
+          </div>
+          <div className="grid grid-cols-3 gap-2 mb-3">
+            {(["W", "H", "D"] as const).map((axis, i) => (
+              <div key={axis}>
+                <Label className="text-[11px] text-gray-500">{axis}</Label>
+                <div className="relative">
+                  <Input
+                    type="number"
+                    min={10}
+                    value={Math.round(groupSize[i] * 1000)}
+                    onChange={(e) => {
+                      const newVal = parseInt(e.target.value) || 0;
+                      if (newVal < 10 || groupSize[i] === 0) return;
+                      const oldVal = groupSize[i] * 1000;
+                      const scale = newVal / oldVal;
+                      const scales: [number, number, number] = [1, 1, 1];
+                      scales[i] = scale;
+                      onScaleGroup(selectedGroup.id, scales[0], scales[1], scales[2]);
+                    }}
+                    className="h-8 text-xs pr-8"
+                  />
+                  <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-gray-400">
+                    mm
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
 
           {/* Position (in mm) */}
           <p className="text-[11px] text-gray-400 mb-1.5">Position</p>
@@ -107,6 +167,36 @@ export function EditorParameters({
               );
             })}
           </div>
+        </div>
+
+        {/* Group Material — apply to all panels */}
+        <div className="p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <Palette className="w-4 h-4 text-gray-500" />
+            <h3 className="text-sm font-semibold text-gray-900">Material (All)</h3>
+          </div>
+          {matCategories.map((cat) => (
+            <div key={cat} className="mb-3">
+              <p className="text-[11px] text-gray-400 uppercase tracking-wider mb-1.5">
+                {cat}
+              </p>
+              <div className="flex flex-wrap gap-1.5">
+                {MATERIALS.filter((m) => m.category === cat).map((m) => (
+                  <button
+                    key={m.id}
+                    onClick={() => onUpdateGroupMaterial(selectedGroup.id, m.id)}
+                    className={`w-8 h-8 rounded-lg border-2 transition-all ${
+                      m.id === dominantMaterial
+                        ? "border-[#C87D5A] ring-2 ring-[#C87D5A]/20"
+                        : "border-gray-200 hover:border-gray-300"
+                    }`}
+                    style={{ backgroundColor: m.color }}
+                    title={m.label}
+                  />
+                ))}
+              </div>
+            </div>
+          ))}
         </div>
       </>
     );

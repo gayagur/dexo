@@ -503,6 +503,40 @@ export function FurnitureEditor({
     [editingGroupId, updateScene]
   );
 
+  // Scale all panels in a group proportionally
+  const handleScaleGroup = useCallback((groupId: string, scaleX: number, scaleY: number, scaleZ: number) => {
+    updateScene((prev) => prev.map((g) => {
+      if (g.id !== groupId) return g;
+      return {
+        ...g,
+        panels: g.panels.map((p) => ({
+          ...p,
+          position: [
+            p.position[0] * scaleX,
+            p.position[1] * scaleY,
+            p.position[2] * scaleZ,
+          ] as [number, number, number],
+          size: [
+            p.size[0] * scaleX,
+            p.size[1] * scaleY,
+            p.size[2] * scaleZ,
+          ] as [number, number, number],
+        })),
+      };
+    }));
+  }, [updateScene]);
+
+  // Change material of all panels in a group
+  const handleUpdateGroupMaterial = useCallback((groupId: string, materialId: string) => {
+    updateScene((prev) => prev.map((g) => {
+      if (g.id !== groupId) return g;
+      return {
+        ...g,
+        panels: g.panels.map((p) => ({ ...p, materialId })),
+      };
+    }));
+  }, [updateScene]);
+
   const handleUpdateAllMaterials = useCallback((materialId: string) => {
     if (editingGroupId) {
       setEditModePanels((prev) =>
@@ -927,6 +961,8 @@ export function FurnitureEditor({
           showOverallDims={!editingGroupId}
           editingGroupId={editingGroupId}
           onUpdateGroup={handleUpdateGroup}
+          onScaleGroup={handleScaleGroup}
+          onUpdateGroupMaterial={handleUpdateGroupMaterial}
           multiSelectCount={selectedPanelIds.length}
         />
 

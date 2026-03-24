@@ -998,7 +998,7 @@ function ResizeHandle({
       onPointerEnter={() => { setHovered(true); gl.domElement.style.cursor = cursorStyle; }}
       onPointerLeave={() => { if (!dragging) { setHovered(false); gl.domElement.style.cursor = ""; } }}
     >
-      <boxGeometry args={[0.015, 0.015, 0.015]} />
+      <boxGeometry args={[0.025, 0.025, 0.025]} />
       <meshStandardMaterial
         color={dragging ? "#ffffff" : hovered ? axisColor : axisColor}
         emissive={dragging ? axisColor : hovered ? axisColor : axisColor}
