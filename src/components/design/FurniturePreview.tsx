@@ -58,6 +58,7 @@ function PreviewPanel({ panel }: { panel: PanelData }) {
   const color = panel.customColor ?? mat?.color ?? "#C4A265";
   const isGlass = mat?.id === "glass";
   const isMetal = mat?.category === "Metal";
+  const isFabric = mat?.category === "Fabric";
   const roughness = mat?.roughness ?? (isMetal ? 0.3 : 0.7);
   const metalness = mat?.metalness ?? (isMetal ? 0.8 : 0.05);
   const shape = panel.shape ?? "box";
@@ -71,18 +72,33 @@ function PreviewPanel({ panel }: { panel: PanelData }) {
     return getMaterialTextures(mat.id, mat.color, mat.category);
   }, [panel.customColor, mat?.id, mat?.color, mat?.category]);
 
-  // Configure texture tiling based on panel size
   useMemo(() => {
     if (!textures) return;
-    const [w, , d] = panel.size;
-    const repeatX = Math.max(0.5, w * 2);
-    const repeatY = Math.max(0.5, d * 2);
+    const [w, h, d] = panel.size;
+    const edge = Math.max(w, h, d);
+    let repX: number;
+    let repY: number;
+    if (isFabric) {
+      const rep = Math.max(10, edge * 16);
+      repX = repY = rep;
+    } else {
+      repX = Math.max(0.5, w * 2);
+      repY = Math.max(0.5, d * 2);
+    }
     [textures.map, textures.normalMap, textures.roughnessMap].forEach(t => {
-      t.repeat.set(repeatX, repeatY);
+      t.repeat.set(repX, repY);
     });
-  }, [textures, panel.size]);
+  }, [textures, panel.size, isFabric]);
 
-  const normalScale = useMemo(() => new THREE.Vector2(0.3, 0.3), []);
+  const normalScale = useMemo(() => {
+    if (!mat) return new THREE.Vector2(0.3, 0.3);
+    if (mat.category === "Fabric") {
+      if (mat.id.includes("velvet")) return new THREE.Vector2(0.85, 1.25);
+      if (mat.id.includes("leather")) return new THREE.Vector2(0.7, 0.7);
+      return new THREE.Vector2(1.1, 1.1);
+    }
+    return new THREE.Vector2(0.3, 0.3);
+  }, [mat]);
 
   function renderGeometry() {
     switch (shape) {
@@ -112,6 +128,19 @@ function PreviewPanel({ panel }: { panel: PanelData }) {
           metalness={0}
           transparent
           opacity={0.3}
+        />
+      ) : textures && shape === "box" && isFabric ? (
+        <meshPhysicalMaterial
+          map={textures.map}
+          normalMap={textures.normalMap}
+          normalScale={normalScale}
+          roughnessMap={textures.roughnessMap}
+          roughness={roughness}
+          metalness={0}
+          sheen={mat!.id.includes("velvet") ? 0.5 : mat!.id.includes("leather") ? 0.1 : 0.28}
+          sheenRoughness={mat!.id.includes("velvet") ? 0.72 : 0.9}
+          sheenColor={mat!.color}
+          envMapIntensity={mat!.id.includes("velvet") ? 0.5 : 0.36}
         />
       ) : textures && shape === "box" ? (
         <meshStandardMaterial

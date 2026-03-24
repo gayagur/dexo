@@ -1,6 +1,6 @@
-import React, { useState, useRef, useMemo, useCallback, useEffect } from "react";
+import React, { useState, useRef, useMemo, useCallback, useEffect, useLayoutEffect } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { OrbitControls, Grid, GizmoHelper, GizmoViewport, Environment, Lightformer, ContactShadows, RoundedBox } from "@react-three/drei";
+import { OrbitControls, Grid, GizmoHelper, GizmoViewport, Environment, Lightformer, RoundedBox } from "@react-three/drei";
 // postprocessing removed — @react-three/postprocessing@3 requires fiber@9, crashes on fiber@8
 import type { PanelData, GroupData } from "@/lib/furnitureData";
 import { MATERIALS } from "@/lib/furnitureData";
@@ -294,10 +294,40 @@ function createEditorFloorTexture(preset: EditorFloorPreset): THREE.CanvasTextur
   return tex;
 }
 
-/** Sky color + floor under the grid — keeps the canvas bright */
-function EditorFloorBackdrop({ floorPreset }: { floorPreset: EditorFloorPreset }) {
+/** Tone-mapping exposure follows day / night */
+function EditorToneExposure({ lightMode }: { lightMode: EditorLightMode }) {
+  const gl = useThree((s) => s.gl);
+  useLayoutEffect(() => {
+    gl.toneMappingExposure = lightMode === "night" ? 0.68 : 1.12;
+  }, [gl, lightMode]);
+  return null;
+}
+
+/** Sky color + floor under the grid */
+function EditorFloorBackdrop({
+  floorPreset,
+  lightMode,
+}: {
+  floorPreset: EditorFloorPreset;
+  lightMode: EditorLightMode;
+}) {
   const style = FLOOR_STYLE[floorPreset];
   const texture = useMemo(() => createEditorFloorTexture(floorPreset), [floorPreset]);
+  const night = lightMode === "night";
+
+  const skyColor = useMemo(() => {
+    const c = new THREE.Color(style.sky);
+    if (night) c.multiplyScalar(0.32);
+    return `#${c.getHexString()}`;
+  }, [style.sky, night]);
+
+  const solidFloorColor = useMemo(() => {
+    const c = new THREE.Color(style.floorHex);
+    if (night) c.multiplyScalar(0.36);
+    return `#${c.getHexString()}`;
+  }, [style.floorHex, night]);
+
+  const mapTint = night ? "#7a808a" : "#ffffff";
 
   useEffect(() => {
     return () => {
@@ -307,19 +337,20 @@ function EditorFloorBackdrop({ floorPreset }: { floorPreset: EditorFloorPreset }
 
   return (
     <>
-      <color attach="background" args={[style.sky]} />
+      <color attach="background" args={[skyColor]} />
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.0025, 0]} receiveShadow>
         <planeGeometry args={[48, 48]} />
         {texture ? (
           <meshStandardMaterial
             map={texture}
-            roughness={style.roughness}
+            color={mapTint}
+            roughness={style.roughness + (night ? 0.06 : 0)}
             metalness={style.metalness}
           />
         ) : (
           <meshStandardMaterial
-            color={style.floorHex}
-            roughness={style.roughness}
+            color={solidFloorColor}
+            roughness={style.roughness + (night ? 0.06 : 0)}
             metalness={style.metalness}
           />
         )}
@@ -407,6 +438,18 @@ export function EditorViewport({
   const selectedPanel = allVisiblePanels.find((p) => p.id === selectedPanelId) ?? null;
 
   const floorVisual = FLOOR_STYLE[floorPreset];
+  const gridCell = useMemo(() => {
+    if (lightMode !== "night") return floorVisual.gridCell;
+    const c = new THREE.Color(floorVisual.gridCell);
+    c.multiplyScalar(0.48);
+    return `#${c.getHexString()}`;
+  }, [floorVisual.gridCell, lightMode]);
+  const gridSection = useMemo(() => {
+    if (lightMode !== "night") return floorVisual.gridSection;
+    const c = new THREE.Color(floorVisual.gridSection);
+    c.multiplyScalar(0.48);
+    return `#${c.getHexString()}`;
+  }, [floorVisual.gridSection, lightMode]);
 
   // Panels used for snap calculations
   const snapPanels = useMemo(() => {
@@ -480,7 +523,9 @@ export function EditorViewport({
 
   return (
     <div
-      className="w-full h-full rounded-xl overflow-hidden border relative bg-[#eceff4] border-gray-200"
+      className={`w-full h-full rounded-xl overflow-hidden border relative ${
+        lightMode === "night" ? "bg-[#0f0f16] border-gray-700" : "bg-[#eceff4] border-gray-200"
+      }`}
       onContextMenu={(e) => e.preventDefault()}
     >
       <Canvas
@@ -494,7 +539,7 @@ export function EditorViewport({
           stencil: false,
           antialias: false,
           toneMapping: THREE.ACESFilmicToneMapping,
-          toneMappingExposure: 1.15,
+          toneMappingExposure: 1.12,
         }}
         onPointerMissed={() => {
           if (editingGroupId) {
@@ -506,20 +551,21 @@ export function EditorViewport({
           closeContextMenu();
         }}
       >
-        <EditorFloorBackdrop floorPreset={floorPreset} />
+        <EditorToneExposure lightMode={lightMode} />
+        <EditorFloorBackdrop floorPreset={floorPreset} lightMode={lightMode} />
 
-        {/* Lighting — both modes stay bright; night is slightly warmer */}
+        {/* Lighting — night is intentionally dim (no fake dark floor plane) */}
         {lightMode === "night" ? (
           <>
-            <Environment resolution={512} environmentIntensity={0.72}>
-              <Lightformer form="rect" intensity={1.4} color="#ffffff" scale={[10, 4]} position={[0, 6, -2]} rotation={[Math.PI / 2, 0, 0]} />
-              <Lightformer form="circle" intensity={1} color="#ffe8cc" scale={2.5} position={[3, 2.5, -2]} />
-              <Lightformer form="circle" intensity={0.65} color="#fff0dd" scale={1.8} position={[-3, 2, 1]} />
+            <Environment resolution={512} environmentIntensity={0.18}>
+              <Lightformer form="rect" intensity={0.35} color="#2a2d48" scale={[10, 4]} position={[0, 6, -2]} rotation={[Math.PI / 2, 0, 0]} />
+              <Lightformer form="circle" intensity={0.55} color="#ffd4a8" scale={2} position={[3, 2.5, -2]} />
+              <Lightformer form="circle" intensity={0.35} color="#ffc9a0" scale={1.5} position={[-3, 2, 1]} />
             </Environment>
-            <hemisphereLight skyColor="#f8f6ff" groundColor="#f2ebe0" intensity={0.45} />
+            <hemisphereLight skyColor="#1e1e2e" groundColor="#121018" intensity={0.22} />
             <directionalLight
               position={[-4, 8, 4]}
-              intensity={1}
+              intensity={0.28}
               castShadow
               shadow-mapSize-width={2048}
               shadow-mapSize-height={2048}
@@ -528,11 +574,11 @@ export function EditorViewport({
               shadow-camera-right={5}
               shadow-camera-top={5}
               shadow-camera-bottom={-5}
-              color="#fffaf5"
+              color="#a8b8d8"
             />
-            <ambientLight intensity={0.48} color="#f5f3fa" />
-            <pointLight position={[1, 2.5, -1]} intensity={1.2} color="#ffe8cc" distance={8} decay={2} />
-            <pointLight position={[-1.5, 2, 1]} intensity={0.9} color="#fff0dd" distance={7} decay={2} />
+            <ambientLight intensity={0.06} color="#3a3f55" />
+            <pointLight position={[1, 2.5, -1]} intensity={0.55} color="#ffd699" distance={7} decay={2} />
+            <pointLight position={[-1.5, 2, 1]} intensity={0.4} color="#ffccaa" distance={6} decay={2} />
           </>
         ) : (
           <>
@@ -563,25 +609,14 @@ export function EditorViewport({
           args={[10, 10]}
           cellSize={0.1}
           cellThickness={0.5}
-          cellColor={floorVisual.gridCell}
+          cellColor={gridCell}
           sectionSize={1}
           sectionThickness={1}
-          sectionColor={floorVisual.gridSection}
-          fadeDistance={8}
+          sectionColor={gridSection}
+          fadeDistance={lightMode === "night" ? 14 : 8}
           fadeStrength={1}
           followCamera={false}
           infiniteGrid
-        />
-
-        {/* Contact shadows under furniture */}
-        <ContactShadows
-          position={[0, 0.001, 0]}
-          opacity={0.32}
-          scale={10}
-          blur={2.5}
-          far={4}
-          resolution={512}
-          color="#1a1a24"
         />
 
         {/* ── Render groups ── */}
@@ -1788,6 +1823,7 @@ function FurniturePanel({
   const metalness = mat?.metalness ?? 0.05;
   const isGlass = mat?.id === "glass";
   const isMetal = mat?.category === "Metal";
+  const isFabric = mat?.category === "Fabric";
   const shape = panel.shape ?? "box";
   const panelRotation = panel.rotation ?? [0, 0, 0];
 
@@ -1797,18 +1833,35 @@ function FurniturePanel({
     return getMaterialTextures(mat.id, mat.color, mat.category);
   }, [panel.customColor, mat?.id, mat?.color, mat?.category]);
 
-  // Configure texture tiling based on panel size
+  // Configure texture tiling — fabric needs dense repeats so weave reads on large cushions
   useMemo(() => {
     if (!textures) return;
-    const [w, , d] = panel.size;
-    const repeatX = Math.max(0.5, w * 2); // 2 repeats per meter
-    const repeatY = Math.max(0.5, d * 2);
+    const [w, h, d] = panel.size;
+    const edge = Math.max(w, h, d);
+    let repX: number;
+    let repY: number;
+    if (isFabric) {
+      const rep = Math.max(10, edge * 16);
+      repX = rep;
+      repY = rep;
+    } else {
+      repX = Math.max(0.5, w * 2);
+      repY = Math.max(0.5, d * 2);
+    }
     [textures.map, textures.normalMap, textures.roughnessMap].forEach(t => {
-      t.repeat.set(repeatX, repeatY);
+      t.repeat.set(repX, repY);
     });
-  }, [textures, panel.size]);
+  }, [textures, panel.size, isFabric]);
 
-  const normalScale = useMemo(() => new THREE.Vector2(0.3, 0.3), []);
+  const normalScale = useMemo(() => {
+    if (!mat) return new THREE.Vector2(0.3, 0.3);
+    if (mat.category === "Fabric") {
+      if (mat.id.includes("velvet")) return new THREE.Vector2(0.85, 1.25);
+      if (mat.id.includes("leather")) return new THREE.Vector2(0.7, 0.7);
+      return new THREE.Vector2(1.1, 1.1);
+    }
+    return new THREE.Vector2(0.3, 0.3);
+  }, [mat]);
 
   const panelIsDoor = isDoor(panel.label);
   const panelIsDrawer = isDrawer(panel.label);
@@ -1984,6 +2037,21 @@ function FurniturePanel({
                 ior={1.5}
                 transparent
                 opacity={shapeMatProps.opacity}
+              />
+            ) : textures && isFabric ? (
+              <meshPhysicalMaterial
+                map={textures.map}
+                normalMap={textures.normalMap}
+                normalScale={normalScale}
+                roughnessMap={textures.roughnessMap}
+                roughness={shapeMatProps.roughness}
+                metalness={0}
+                sheen={mat!.id.includes("velvet") ? 0.5 : mat!.id.includes("leather") ? 0.1 : 0.28}
+                sheenRoughness={mat!.id.includes("velvet") ? 0.72 : 0.9}
+                sheenColor={mat!.color}
+                transparent={shapeMatProps.transparent}
+                opacity={shapeMatProps.opacity}
+                envMapIntensity={mat!.id.includes("velvet") ? 0.5 : 0.36}
               />
             ) : textures ? (
               <meshStandardMaterial

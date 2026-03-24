@@ -14,7 +14,7 @@ export function getMaterialTextures(materialId: string, baseColor: string, categ
   // Skip textures for glass — it uses transmission
   if (category === "Glass") return null;
 
-  const cacheKey = `${materialId}_${baseColor}`;
+  const cacheKey = `v3_${materialId}_${baseColor}`;
   if (textureCache.has(cacheKey)) return textureCache.get(cacheKey)!;
 
   let result;
@@ -44,6 +44,7 @@ export function getMaterialTextures(materialId: string, baseColor: string, categ
       tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
       tex.needsUpdate = true;
     });
+    result.map.colorSpace = THREE.SRGBColorSpace;
     textureCache.set(cacheKey, result);
   }
 
@@ -350,62 +351,161 @@ function generateStoneTextures(baseColor: string, materialId: string) {
   };
 }
 
+// ─── FABRIC: normals + roughness from albedo luminance ─────────────────
+function luminanceFromPixel(data: Uint8ClampedArray, i: number): number {
+  return 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
+}
+
+/** Tangent-space normals from albedo height (woven / leather relief reads as fabric) */
+function fabricNormalsFromAlbedo(colorCtx: CanvasRenderingContext2D, strength: number): HTMLCanvasElement {
+  const colorData = colorCtx.getImageData(0, 0, TEX_SIZE, TEX_SIZE);
+  const d = colorData.data;
+  const lum = (x: number, y: number) => {
+    const xi = Math.max(0, Math.min(TEX_SIZE - 1, x));
+    const yi = Math.max(0, Math.min(TEX_SIZE - 1, y));
+    return luminanceFromPixel(d, (yi * TEX_SIZE + xi) * 4);
+  };
+  const [normalCanvas, normalCtx] = createCanvas();
+  const nd = normalCtx.createImageData(TEX_SIZE, TEX_SIZE);
+  for (let y = 0; y < TEX_SIZE; y++) {
+    for (let x = 0; x < TEX_SIZE; x++) {
+      const Lx = lum(x + 1, y) - lum(x - 1, y);
+      const Ly = lum(x, y + 1) - lum(x, y - 1);
+      const o = (y * TEX_SIZE + x) * 4;
+      nd.data[o] = Math.round(Math.max(0, Math.min(255, 128 - Lx * strength)));
+      nd.data[o + 1] = Math.round(Math.max(0, Math.min(255, 128 - Ly * strength)));
+      nd.data[o + 2] = 255;
+      nd.data[o + 3] = 255;
+    }
+  }
+  normalCtx.putImageData(nd, 0, 0);
+  return normalCanvas;
+}
+
+function fabricRoughnessFromAlbedo(colorCtx: CanvasRenderingContext2D, baseGray: number, contrast: number): HTMLCanvasElement {
+  const colorData = colorCtx.getImageData(0, 0, TEX_SIZE, TEX_SIZE);
+  const d = colorData.data;
+  const [roughCanvas, roughCtx] = createCanvas();
+  const rd = roughCtx.createImageData(TEX_SIZE, TEX_SIZE);
+  for (let y = 0; y < TEX_SIZE; y++) {
+    for (let x = 0; x < TEX_SIZE; x++) {
+      const i = (y * TEX_SIZE + x) * 4;
+      const L = luminanceFromPixel(d, i) / 255;
+      const v = Math.max(0, Math.min(255, (baseGray + (1 - L) * contrast) * 255));
+      rd.data[i] = rd.data[i + 1] = rd.data[i + 2] = v;
+      rd.data[i + 3] = 255;
+    }
+  }
+  roughCtx.putImageData(rd, 0, 0);
+  return roughCanvas;
+}
+
 // ─── FABRIC TEXTURES ──────────────────────────────────
 function generateFabricTextures(baseColor: string, materialId: string) {
   const [r, g, b] = hexToRgb(baseColor);
   const seed = materialId.split("").reduce((acc, c) => acc + c.charCodeAt(0), 0);
   const rand = seededRandom(seed);
   const isLeather = materialId.includes("leather");
+  const isVelvet = materialId.includes("velvet");
 
   const [colorCanvas, colorCtx] = createCanvas();
-  colorCtx.fillStyle = baseColor;
-  colorCtx.fillRect(0, 0, TEX_SIZE, TEX_SIZE);
 
   if (isLeather) {
-    // Leather: subtle pebble/grain pattern
-    for (let i = 0; i < 2000; i++) {
+    colorCtx.fillStyle = baseColor;
+    colorCtx.fillRect(0, 0, TEX_SIZE, TEX_SIZE);
+    for (let i = 0; i < 4500; i++) {
       const x = rand() * TEX_SIZE;
       const y = rand() * TEX_SIZE;
-      const size = 2 + rand() * 6;
-      const brightness = 0.92 + rand() * 0.16;
+      const size = 1.5 + rand() * 5;
+      const brightness = 0.88 + rand() * 0.22;
       colorCtx.fillStyle = rgbToHex(
         Math.min(255, r * brightness),
         Math.min(255, g * brightness),
         Math.min(255, b * brightness)
       );
-      colorCtx.globalAlpha = 0.15 + rand() * 0.2;
+      colorCtx.globalAlpha = 0.22 + rand() * 0.28;
       colorCtx.beginPath();
-      colorCtx.ellipse(x, y, size, size * 0.7, rand() * Math.PI, 0, Math.PI * 2);
+      colorCtx.ellipse(x, y, size, size * 0.75, rand() * Math.PI, 0, Math.PI * 2);
       colorCtx.fill();
     }
     colorCtx.globalAlpha = 1;
-  } else if (materialId.includes("velvet")) {
-    // Velvet: soft directional sheen
-    const imageData = colorCtx.getImageData(0, 0, TEX_SIZE, TEX_SIZE);
-    for (let i = 0; i < imageData.data.length; i += 4) {
-      const noise = (rand() - 0.5) * 8;
-      imageData.data[i] = Math.max(0, Math.min(255, imageData.data[i] + noise));
-      imageData.data[i + 1] = Math.max(0, Math.min(255, imageData.data[i + 1] + noise));
-      imageData.data[i + 2] = Math.max(0, Math.min(255, imageData.data[i + 2] + noise));
+    // Crease lines
+    colorCtx.strokeStyle = rgbToHex(Math.max(0, r - 25), Math.max(0, g - 25), Math.max(0, b - 25));
+    colorCtx.globalAlpha = 0.12;
+    colorCtx.lineWidth = 1;
+    for (let k = 0; k < 12; k++) {
+      colorCtx.beginPath();
+      let cx = rand() * TEX_SIZE;
+      let cy = rand() * TEX_SIZE;
+      for (let s = 0; s < 30; s++) {
+        cx += (rand() - 0.3) * 18;
+        cy += (rand() - 0.5) * 18;
+        if (s === 0) colorCtx.moveTo(cx, cy);
+        else colorCtx.lineTo(cx, cy);
+      }
+      colorCtx.stroke();
     }
-    colorCtx.putImageData(imageData, 0, 0);
+    colorCtx.globalAlpha = 1;
+  } else if (isVelvet) {
+    const img = colorCtx.createImageData(TEX_SIZE, TEX_SIZE);
+    // Short pile: vertical streaks + noise (sheen handled in material)
+    for (let y = 0; y < TEX_SIZE; y++) {
+      for (let x = 0; x < TEX_SIZE; x++) {
+        const stripe = Math.sin(x * 0.45 + y * 0.08) * 0.045 + Math.sin(y * 0.12) * 0.025;
+        const n = Math.sin(x * 0.31 + y * 0.47) * 0.018 + Math.sin(x * 0.09 - y * 0.13) * 0.012;
+        const bump = 1 + stripe + n;
+        const i = (y * TEX_SIZE + x) * 4;
+        img.data[i] = Math.max(0, Math.min(255, r * bump));
+        img.data[i + 1] = Math.max(0, Math.min(255, g * bump));
+        img.data[i + 2] = Math.max(0, Math.min(255, b * bump));
+        img.data[i + 3] = 255;
+      }
+    }
+    colorCtx.putImageData(img, 0, 0);
   } else {
-    // Woven fabric: crosshatch pattern
-    colorCtx.globalAlpha = 0.08;
-    for (let y = 0; y < TEX_SIZE; y += 4) {
-      colorCtx.strokeStyle = y % 8 === 0
-        ? rgbToHex(Math.max(0, r - 15), Math.max(0, g - 15), Math.max(0, b - 15))
-        : rgbToHex(Math.min(255, r + 10), Math.min(255, g + 10), Math.min(255, b + 10));
-      colorCtx.lineWidth = 1;
+    const img = colorCtx.createImageData(TEX_SIZE, TEX_SIZE);
+    // Woven cloth: basket / plain weave with visible thread spacing
+    const thread = 5;
+    for (let y = 0; y < TEX_SIZE; y++) {
+      for (let x = 0; x < TEX_SIZE; x++) {
+        const cx = Math.floor(x / thread);
+        const cy = Math.floor(y / thread);
+        const under = (cx + cy) % 2 === 0;
+        const u = (x % thread) / thread;
+        const v = (y % thread) / thread;
+        let shade = 1;
+        if (under) {
+          const dist = Math.abs(v - 0.5);
+          shade = dist < 0.38 ? 1.06 - dist * 0.18 : 0.9 + dist * 0.08;
+        } else {
+          const dist = Math.abs(u - 0.5);
+          shade = dist < 0.38 ? 1.04 - dist * 0.15 : 0.91 + dist * 0.07;
+        }
+        const fiber = 1 + Math.sin((cx * 7 + cy * 11 + x * 0.2 + y * 0.17) * 0.9) * 0.03;
+        const i = (y * TEX_SIZE + x) * 4;
+        img.data[i] = Math.max(0, Math.min(255, r * shade * fiber));
+        img.data[i + 1] = Math.max(0, Math.min(255, g * shade * fiber));
+        img.data[i + 2] = Math.max(0, Math.min(255, b * shade * fiber));
+        img.data[i + 3] = 255;
+      }
+    }
+    colorCtx.putImageData(img, 0, 0);
+    // Secondary fine weft/warp lines
+    colorCtx.globalAlpha = 0.18;
+    colorCtx.lineWidth = 1;
+    for (let y = 0; y < TEX_SIZE; y += 2) {
+      colorCtx.strokeStyle = rgbToHex(
+        Math.max(0, r - 22), Math.max(0, g - 22), Math.max(0, b - 22)
+      );
       colorCtx.beginPath();
       colorCtx.moveTo(0, y);
       colorCtx.lineTo(TEX_SIZE, y);
       colorCtx.stroke();
     }
-    for (let x = 0; x < TEX_SIZE; x += 4) {
-      colorCtx.strokeStyle = x % 8 === 0
-        ? rgbToHex(Math.max(0, r - 10), Math.max(0, g - 10), Math.max(0, b - 10))
-        : rgbToHex(Math.min(255, r + 8), Math.min(255, g + 8), Math.min(255, b + 8));
+    for (let x = 0; x < TEX_SIZE; x += 2) {
+      colorCtx.strokeStyle = rgbToHex(
+        Math.min(255, r + 12), Math.min(255, g + 12), Math.min(255, b + 12)
+      );
       colorCtx.beginPath();
       colorCtx.moveTo(x, 0);
       colorCtx.lineTo(x, TEX_SIZE);
@@ -414,22 +514,12 @@ function generateFabricTextures(baseColor: string, materialId: string) {
     colorCtx.globalAlpha = 1;
   }
 
-  // Normal map
-  const [normalCanvas, normalCtx] = createCanvas();
-  normalCtx.fillStyle = "rgb(128,128,255)";
-  normalCtx.fillRect(0, 0, TEX_SIZE, TEX_SIZE);
-  const normalData = normalCtx.getImageData(0, 0, TEX_SIZE, TEX_SIZE);
-  const bumpStrength = isLeather ? 12 : 5;
-  for (let i = 0; i < normalData.data.length; i += 4) {
-    normalData.data[i] = 128 + Math.round((rand() - 0.5) * bumpStrength);
-    normalData.data[i + 1] = 128 + Math.round((rand() - 0.5) * bumpStrength);
-  }
-  normalCtx.putImageData(normalData, 0, 0);
+  const normalStrength = isLeather ? 4.2 : isVelvet ? 5.5 : 6.2;
+  const normalCanvas = fabricNormalsFromAlbedo(colorCtx, normalStrength);
 
-  // Roughness
-  const [roughCanvas, roughCtx] = createCanvas();
-  roughCtx.fillStyle = isLeather ? "#cccccc" : "#e5e5e5"; // leather smoother than fabric
-  roughCtx.fillRect(0, 0, TEX_SIZE, TEX_SIZE);
+  const roughBase = isLeather ? 0.62 : isVelvet ? 0.58 : 0.68;
+  const roughContrast = isLeather ? 0.28 : 0.35;
+  const roughCanvas = fabricRoughnessFromAlbedo(colorCtx, roughBase, roughContrast);
 
   return {
     map: new THREE.CanvasTexture(colorCanvas),

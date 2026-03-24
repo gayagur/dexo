@@ -813,7 +813,7 @@ export function FurnitureEditor({
             ))}
           </div>
 
-          {/* Scene lighting — day (studio) vs night (warm accents) */}
+          {/* Scene lighting — day vs dim night */}
           <div className="flex items-center h-8 rounded-lg border border-gray-200 overflow-hidden">
             {([
               { mode: "day" as const, label: "Day", icon: Sun },
@@ -1165,8 +1165,8 @@ export function FurnitureEditor({
                 <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Canvas lighting</h4>
                 <div className="space-y-1.5">
                   {[
-                    ["Floor (dropdown)", "Bright studio, parquet, tile, or grass — backdrop stays light"],
-                    ["Day / Night (toolbar)", "Daylight or warmer lighting — canvas stays bright"],
+                    ["Floor (dropdown)", "Bright studio, parquet, tile, or grass — backdrop matches preset"],
+                    ["Day / Night (toolbar)", "Day is bright; Night dims the scene and backdrop"],
                     ["L", "Toggle day ↔ night lighting"],
                   ].map(([key, desc]) => (
                     <div key={key} className="flex items-center gap-3">
