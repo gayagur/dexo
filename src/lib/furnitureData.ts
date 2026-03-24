@@ -311,8 +311,8 @@ export function getDefaultTemplate(furnitureId: string, dims: { w: number; h: nu
   const w = dims.w / 1000;
   const h = dims.h / 1000;
   const d = dims.d / 1000;
-  const t = 0.018; // 18mm panel thickness
-  const tb = 0.006; // 6mm back panel
+  const t = 0.016; // 16mm standard panel thickness
+  const tb = 0.005; // 5mm back panel (HDF)
 
   // Never reset — each template call gets unique IDs so React/R3F
   // properly unmounts old meshes and mounts new ones
@@ -358,10 +358,10 @@ export function getDefaultTemplate(furnitureId: string, dims: { w: number; h: nu
     case "cafe_chair":
     case "waiting_chair":
     case "outdoor_chair": {
-      // 4 legs + seat + back
-      const seatH = h * 0.5; // seat at ~50% height
-      const seatT = 0.025;
-      const legDia = 0.035;
+      // 4 legs + seat + back — seat at 450mm (standard dining chair)
+      const seatH = Math.min(0.45, h * 0.5); // 450mm standard seat height
+      const seatT = 0.022; // 22mm solid seat
+      const legDia = 0.032;
       const backH = h - seatH;
       return {
         panels: [
@@ -383,8 +383,8 @@ export function getDefaultTemplate(furnitureId: string, dims: { w: number; h: nu
 
     case "office_chair":
     case "salon_chair": {
-      // Simplified: seat + back + pedestal base
-      const seatH = h * 0.45;
+      // Seat + back + pedestal base — seat at 420-500mm (adjustable)
+      const seatH = Math.min(0.48, h * 0.45); // ~480mm
       const seatT = 0.04;
       return {
         panels: [
@@ -416,21 +416,22 @@ export function getDefaultTemplate(furnitureId: string, dims: { w: number; h: nu
     case "sofa":
     case "lobby_sofa":
     case "booth_seating": {
-      // Base + back + 2 arms
-      const baseH = h * 0.42;
+      // Base + back + 2 arms — seat height ~420mm, fabric material
+      const seatH = 0.42; // 420mm seat height
       const armW = 0.12;
       const armH = h * 0.3;
-      const backH = h - baseH;
+      const backH = h - seatH;
+      const fab = "fabric_gray";
       return {
         panels: [
           // Seat base (thick cushion)
-          panel("horizontal", "Seat Base", [0, baseH / 2, 0], [w, baseH, d]),
+          panel("horizontal", "Seat Base", [0, seatH / 2, 0], [w, seatH, d], fab),
           // Back cushion
-          panel("vertical", "Backrest", [0, baseH + backH / 2, d / 2 - 0.08], [w - armW * 2, backH, 0.15]),
+          panel("vertical", "Backrest", [0, seatH + backH / 2, d / 2 - 0.08], [w - armW * 2, backH, 0.15], fab),
           // Left arm
-          panel("vertical", "Left Arm", [-w / 2 + armW / 2, baseH + armH / 2, 0], [armW, armH, d]),
+          panel("vertical", "Left Arm", [-w / 2 + armW / 2, seatH + armH / 2, 0], [armW, armH, d], fab),
           // Right arm
-          panel("vertical", "Right Arm", [w / 2 - armW / 2, baseH + armH / 2, 0], [armW, armH, d]),
+          panel("vertical", "Right Arm", [w / 2 - armW / 2, seatH + armH / 2, 0], [armW, armH, d], fab),
           // Short legs
           cyl("Leg FL", [-w / 2 + 0.08, 0.03, -d / 2 + 0.08], 0.04, 0.06, "black_metal"),
           cyl("Leg FR", [w / 2 - 0.08, 0.03, -d / 2 + 0.08], 0.04, 0.06, "black_metal"),
@@ -442,16 +443,17 @@ export function getDefaultTemplate(furnitureId: string, dims: { w: number; h: nu
 
     case "armchair":
     case "lounge_chair": {
-      const baseH = h * 0.42;
+      const seatH = 0.42; // 420mm seat height
       const armW = 0.1;
       const armH = h * 0.28;
-      const backH = h - baseH;
+      const backH = h - seatH;
+      const fab = "fabric_gray";
       return {
         panels: [
-          panel("horizontal", "Seat", [0, baseH / 2, 0], [w, baseH, d]),
-          panel("vertical", "Backrest", [0, baseH + backH / 2, d / 2 - 0.06], [w - armW * 2, backH, 0.12]),
-          panel("vertical", "Left Arm", [-w / 2 + armW / 2, baseH + armH / 2, 0], [armW, armH, d]),
-          panel("vertical", "Right Arm", [w / 2 - armW / 2, baseH + armH / 2, 0], [armW, armH, d]),
+          panel("horizontal", "Seat", [0, seatH / 2, 0], [w, seatH, d], fab),
+          panel("vertical", "Backrest", [0, seatH + backH / 2, d / 2 - 0.06], [w - armW * 2, backH, 0.12], fab),
+          panel("vertical", "Left Arm", [-w / 2 + armW / 2, seatH + armH / 2, 0], [armW, armH, d], fab),
+          panel("vertical", "Right Arm", [w / 2 - armW / 2, seatH + armH / 2, 0], [armW, armH, d], fab),
           cyl("Leg FL", [-w / 2 + 0.06, 0.025, -d / 2 + 0.06], 0.035, 0.05, "black_metal"),
           cyl("Leg FR", [w / 2 - 0.06, 0.025, -d / 2 + 0.06], 0.035, 0.05, "black_metal"),
           cyl("Leg BL", [-w / 2 + 0.06, 0.025, d / 2 - 0.06], 0.035, 0.05, "black_metal"),
