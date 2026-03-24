@@ -22,3 +22,6 @@ verify_jwt = false
 
 [functions.edit-image]
 verify_jwt = false
+
+[functions.analyze-furniture]
+verify_jwt = false
