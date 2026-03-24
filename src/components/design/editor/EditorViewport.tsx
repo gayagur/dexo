@@ -25,7 +25,8 @@ interface ContextMenuInfo {
   label: string;
   x: number;
   y: number;
-  type: "door" | "drawer";
+  type: "door" | "drawer" | "group";
+  groupId?: string;
 }
 
 interface DragState {
@@ -166,6 +167,9 @@ export interface EditorViewportProps {
   onUpdateGroup: (groupId: string, updates: Partial<GroupData>) => void;
   onEnterEditMode: (groupId: string) => void;
   onExitEditMode: () => void;
+  onRenameGroup: (groupId: string, name: string) => void;
+  onUngroupGroup: (groupId: string) => void;
+  onDeleteGroup: (groupId: string) => void;
   /* Legacy prop — kept for backward compatibility during migration */
   panels?: PanelData[];
 }
@@ -186,6 +190,9 @@ export function EditorViewport({
   onUpdateGroup,
   onEnterEditMode,
   onExitEditMode,
+  onRenameGroup,
+  onUngroupGroup,
+  onDeleteGroup,
 }: EditorViewportProps) {
   const [openPanels, setOpenPanels] = useState<Record<string, boolean>>({});
   const [contextMenu, setContextMenu] = useState<ContextMenuInfo | null>(null);
@@ -361,7 +368,9 @@ export function EditorViewport({
                   onClick={(e) => { if (e) e.stopPropagation(); if (!isDimmed) { onSelectGroup(g.id); onSelectPanel(null); closeContextMenu(); } }}
                   onDoubleClick={(e) => { if (e) e.stopPropagation(); if (!isDimmed) onEnterEditMode(g.id); }}
                   onContextMenu={(x, y) => {
-                    if (isDoor(panel.label)) {
+                    if (!isDimmed) {
+                      setContextMenu({ panelId: panel.id, label: g.name, x, y, type: "group", groupId: g.id });
+                    } else if (isDoor(panel.label)) {
                       setContextMenu({ panelId: panel.id, label: panel.label, x, y, type: "door" });
                     } else if (isDrawer(panel.label)) {
                       setContextMenu({ panelId: panel.id, label: panel.label, x, y, type: "drawer" });
@@ -448,6 +457,12 @@ export function EditorViewport({
           makeDefault
           enabled={!interactionActive}
           enableRotate={viewMode === "3d"}
+          enablePan={true}
+          mouseButtons={{
+            LEFT: THREE.MOUSE.ROTATE,
+            MIDDLE: THREE.MOUSE.PAN,
+            RIGHT: THREE.MOUSE.PAN,
+          }}
           minDistance={0.5}
           maxDistance={15}
         />
@@ -493,26 +508,62 @@ export function EditorViewport({
       {/* Context menu overlay */}
       {contextMenu && (
         <div className="absolute z-50" style={{ left: contextMenu.x, top: contextMenu.y }}>
-          <div className="bg-white rounded-lg shadow-xl border border-gray-200 py-1 min-w-[160px] animate-in fade-in zoom-in-95 duration-150">
-            <button
-              onClick={() => { togglePanel(contextMenu.panelId); closeContextMenu(); }}
-              className="w-full px-3 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2.5 transition-colors"
-            >
-              <span className="text-base">
-                {openPanels[contextMenu.panelId]
-                  ? contextMenu.type === "door" ? "\uD83D\uDEAA" : "\uD83D\uDCE5"
-                  : contextMenu.type === "door" ? "\uD83D\uDD13" : "\uD83D\uDCE4"}
-              </span>
-              <span className="text-gray-700">
-                {openPanels[contextMenu.panelId]
-                  ? contextMenu.type === "door" ? "Close Door" : "Close Drawer"
-                  : contextMenu.type === "door" ? "Open Door" : "Open Drawer"}
-              </span>
-            </button>
-            <div className="border-t border-gray-100 my-0.5" />
-            <button onClick={closeContextMenu} className="w-full px-3 py-1.5 text-left text-xs text-gray-400 hover:bg-gray-50 transition-colors">
-              Cancel
-            </button>
+          <div className="bg-white rounded-lg shadow-lg border border-gray-200 py-1 min-w-[160px]">
+            {contextMenu.type === "group" && contextMenu.groupId ? (
+              <>
+                <button
+                  onClick={() => { onEnterEditMode(contextMenu.groupId!); closeContextMenu(); }}
+                  className="w-full px-3 py-1.5 text-left text-xs text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                >
+                  Edit Group
+                </button>
+                <button
+                  onClick={() => {
+                    const name = prompt("Rename group:", contextMenu.label);
+                    if (name) onRenameGroup(contextMenu.groupId!, name);
+                    closeContextMenu();
+                  }}
+                  className="w-full px-3 py-1.5 text-left text-xs text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                >
+                  Rename
+                </button>
+                <button
+                  onClick={() => { onUngroupGroup(contextMenu.groupId!); closeContextMenu(); }}
+                  className="w-full px-3 py-1.5 text-left text-xs text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                >
+                  Ungroup
+                </button>
+                <div className="border-t border-gray-100 my-1" />
+                <button
+                  onClick={() => { onDeleteGroup(contextMenu.groupId!); closeContextMenu(); }}
+                  className="w-full px-3 py-1.5 text-left text-xs text-red-500 hover:bg-red-50 flex items-center gap-2"
+                >
+                  Delete Group
+                </button>
+              </>
+            ) : (
+              <>
+                <button
+                  onClick={() => { togglePanel(contextMenu.panelId); closeContextMenu(); }}
+                  className="w-full px-3 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2.5 transition-colors"
+                >
+                  <span className="text-base">
+                    {openPanels[contextMenu.panelId]
+                      ? contextMenu.type === "door" ? "\uD83D\uDEAA" : "\uD83D\uDCE5"
+                      : contextMenu.type === "door" ? "\uD83D\uDD13" : "\uD83D\uDCE4"}
+                  </span>
+                  <span className="text-gray-700">
+                    {openPanels[contextMenu.panelId]
+                      ? contextMenu.type === "door" ? "Close Door" : "Close Drawer"
+                      : contextMenu.type === "door" ? "Open Door" : "Open Drawer"}
+                  </span>
+                </button>
+                <div className="border-t border-gray-100 my-0.5" />
+                <button onClick={closeContextMenu} className="w-full px-3 py-1.5 text-left text-xs text-gray-400 hover:bg-gray-50 transition-colors">
+                  Cancel
+                </button>
+              </>
+            )}
           </div>
         </div>
       )}
@@ -1072,9 +1123,10 @@ function FurniturePanel({
   onDragStart: (intersectionPoint: THREE.Vector3, clientX: number) => void;
 }) {
   const mat = MATERIALS.find((m) => m.id === panel.materialId);
-  const color = mat?.color ?? "#C4A265";
+  const color = panel.customColor ?? mat?.color ?? "#C4A265";
   const isGlass = mat?.id === "glass";
-  const isMetal = mat?.category === "Metal";
+  const roughness = mat?.roughness ?? 0.7;
+  const metalness = mat?.metalness ?? 0.05;
   const shape = panel.shape ?? "box";
   const panelRotation = panel.rotation ?? [0, 0, 0];
 
@@ -1108,8 +1160,8 @@ function FurniturePanel({
   const isTransparent = isGlass || dimmed || opacity < 1;
   const shapeMatProps = {
     color: selected ? "#e8c4a8" : color,
-    roughness: isMetal ? 0.3 : 0.7,
-    metalness: isMetal ? 0.8 : 0.05,
+    roughness,
+    metalness,
     transparent: isTransparent,
     opacity: effectiveOpacity,
   };
@@ -1120,7 +1172,7 @@ function FurniturePanel({
 
   const handleClick = (e: any) => { e.stopPropagation(); onClick(); };
   const handlePointerDown = (e: any) => {
-    if (e.nativeEvent.button === 2 && (panelIsDoor || panelIsDrawer)) {
+    if (e.nativeEvent.button === 2) {
       e.stopPropagation();
       onContextMenu(e.nativeEvent.clientX, e.nativeEvent.clientY);
       return;

@@ -14,6 +14,7 @@ interface EditorParametersProps {
   onUpdateGroup: (groupId: string, updates: Partial<GroupData>) => void;
   onScaleGroup: (groupId: string, scaleX: number, scaleY: number, scaleZ: number) => void;
   onUpdateGroupMaterial: (groupId: string, materialId: string) => void;
+  onCustomGroupColor: (groupId: string, color: string) => void;
   onUpdateDims: (dims: { w: number; h: number; d: number }) => void;
   style: string;
   onStyleChange: (style: string) => void;
@@ -35,6 +36,7 @@ export function EditorParameters({
   onUpdateGroup,
   onScaleGroup,
   onUpdateGroupMaterial,
+  onCustomGroupColor,
   onUpdateDims,
   style,
   onStyleChange,
@@ -197,6 +199,19 @@ export function EditorParameters({
               </div>
             </div>
           ))}
+          <div className="mt-3 pt-3 border-t border-gray-100">
+            <p className="text-[11px] text-gray-400 uppercase tracking-wider mb-1.5">Custom Color</p>
+            <div className="flex items-center gap-2">
+              <input
+                type="color"
+                value={MATERIALS.find(m => m.id === dominantMaterial)?.color ?? "#C4A265"}
+                onChange={(e) => onCustomGroupColor(selectedGroup.id, e.target.value)}
+                className="w-8 h-8 rounded-lg border border-gray-200 cursor-pointer"
+                style={{ padding: 0 }}
+              />
+              <span className="text-[10px] text-gray-400">Pick any color</span>
+            </div>
+          </div>
         </div>
       </>
     );
@@ -410,6 +425,27 @@ export function EditorParameters({
                 </div>
               </div>
             ))}
+            <div className="mt-3 pt-3 border-t border-gray-100">
+              <p className="text-[11px] text-gray-400 uppercase tracking-wider mb-1.5">Custom Color</p>
+              <div className="flex items-center gap-2">
+                <input
+                  type="color"
+                  value={panel.customColor ?? MATERIALS.find(m => m.id === panel.materialId)?.color ?? "#C4A265"}
+                  onChange={(e) => onUpdatePanel(panel.id, { customColor: e.target.value })}
+                  className="w-8 h-8 rounded-lg border border-gray-200 cursor-pointer"
+                  style={{ padding: 0 }}
+                />
+                <span className="text-[10px] text-gray-400">Pick any color</span>
+                {panel.customColor && (
+                  <button
+                    onClick={() => onUpdatePanel(panel.id, { customColor: undefined })}
+                    className="text-[10px] text-red-400 hover:text-red-600"
+                  >
+                    Reset
+                  </button>
+                )}
+              </div>
+            </div>
           </div>
         </>
       );

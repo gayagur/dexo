@@ -144,61 +144,63 @@ export interface MaterialOption {
   label: string;
   color: string;
   category: string;
+  roughness?: number;
+  metalness?: number;
 }
 
 export const MATERIALS: MaterialOption[] = [
   // Wood
-  { id: "oak", label: "Oak", color: "#C4A265", category: "Wood" },
-  { id: "walnut", label: "Walnut", color: "#5C4033", category: "Wood" },
-  { id: "pine", label: "Pine", color: "#DEB887", category: "Wood" },
-  { id: "maple", label: "Maple", color: "#E8D5B7", category: "Wood" },
-  { id: "cherry", label: "Cherry", color: "#9B4722", category: "Wood" },
-  { id: "birch", label: "Birch", color: "#F5E6CC", category: "Wood" },
-  { id: "teak", label: "Teak", color: "#8B6914", category: "Wood" },
-  { id: "mahogany", label: "Mahogany", color: "#6B3A2A", category: "Wood" },
-  { id: "ash", label: "Ash", color: "#D6C6A5", category: "Wood" },
-  { id: "bamboo", label: "Bamboo", color: "#C9B76C", category: "Wood" },
-  { id: "ebony", label: "Ebony", color: "#3C2415", category: "Wood" },
+  { id: "oak", label: "Oak", color: "#C4A265", category: "Wood", roughness: 0.8, metalness: 0.0 },
+  { id: "walnut", label: "Walnut", color: "#5C4033", category: "Wood", roughness: 0.8, metalness: 0.0 },
+  { id: "pine", label: "Pine", color: "#DEB887", category: "Wood", roughness: 0.8, metalness: 0.0 },
+  { id: "maple", label: "Maple", color: "#E8D5B7", category: "Wood", roughness: 0.8, metalness: 0.0 },
+  { id: "cherry", label: "Cherry", color: "#9B4722", category: "Wood", roughness: 0.8, metalness: 0.0 },
+  { id: "birch", label: "Birch", color: "#F5E6CC", category: "Wood", roughness: 0.8, metalness: 0.0 },
+  { id: "teak", label: "Teak", color: "#8B6914", category: "Wood", roughness: 0.8, metalness: 0.0 },
+  { id: "mahogany", label: "Mahogany", color: "#6B3A2A", category: "Wood", roughness: 0.8, metalness: 0.0 },
+  { id: "ash", label: "Ash", color: "#D6C6A5", category: "Wood", roughness: 0.8, metalness: 0.0 },
+  { id: "bamboo", label: "Bamboo", color: "#C9B76C", category: "Wood", roughness: 0.8, metalness: 0.0 },
+  { id: "ebony", label: "Ebony", color: "#3C2415", category: "Wood", roughness: 0.8, metalness: 0.0 },
   // Engineered
-  { id: "mdf", label: "MDF", color: "#C8B89A", category: "Engineered" },
-  { id: "plywood", label: "Plywood", color: "#D4B896", category: "Engineered" },
-  { id: "melamine_white", label: "White Melamine", color: "#F5F5F5", category: "Engineered" },
-  { id: "melamine_black", label: "Black Melamine", color: "#2C2C2C", category: "Engineered" },
-  { id: "melamine_gray", label: "Gray Melamine", color: "#9E9E9E", category: "Engineered" },
-  { id: "melamine_cream", label: "Cream Melamine", color: "#F5F0E1", category: "Engineered" },
-  { id: "laminate_walnut", label: "Walnut Laminate", color: "#6B4C3B", category: "Engineered" },
-  { id: "laminate_oak", label: "Oak Laminate", color: "#C9A96E", category: "Engineered" },
+  { id: "mdf", label: "MDF", color: "#C8B89A", category: "Engineered", roughness: 0.7, metalness: 0.0 },
+  { id: "plywood", label: "Plywood", color: "#D4B896", category: "Engineered", roughness: 0.75, metalness: 0.0 },
+  { id: "melamine_white", label: "White Melamine", color: "#F5F5F5", category: "Engineered", roughness: 0.4, metalness: 0.05 },
+  { id: "melamine_black", label: "Black Melamine", color: "#2C2C2C", category: "Engineered", roughness: 0.4, metalness: 0.05 },
+  { id: "melamine_gray", label: "Gray Melamine", color: "#9E9E9E", category: "Engineered", roughness: 0.4, metalness: 0.05 },
+  { id: "melamine_cream", label: "Cream Melamine", color: "#F5F0E1", category: "Engineered", roughness: 0.4, metalness: 0.05 },
+  { id: "laminate_walnut", label: "Walnut Laminate", color: "#6B4C3B", category: "Engineered", roughness: 0.5, metalness: 0.0 },
+  { id: "laminate_oak", label: "Oak Laminate", color: "#C9A96E", category: "Engineered", roughness: 0.5, metalness: 0.0 },
   // Metal
-  { id: "steel", label: "Steel", color: "#71797E", category: "Metal" },
-  { id: "brass", label: "Brass", color: "#B5A642", category: "Metal" },
-  { id: "black_metal", label: "Black Metal", color: "#1C1C1C", category: "Metal" },
-  { id: "chrome", label: "Chrome", color: "#C0C0C0", category: "Metal" },
-  { id: "gold", label: "Gold", color: "#D4AF37", category: "Metal" },
-  { id: "copper", label: "Copper", color: "#B87333", category: "Metal" },
-  { id: "bronze", label: "Bronze", color: "#8C7853", category: "Metal" },
-  { id: "rose_gold", label: "Rose Gold", color: "#B76E79", category: "Metal" },
+  { id: "steel", label: "Steel", color: "#71797E", category: "Metal", roughness: 0.2, metalness: 0.9 },
+  { id: "brass", label: "Brass", color: "#B5A642", category: "Metal", roughness: 0.25, metalness: 0.9 },
+  { id: "black_metal", label: "Black Metal", color: "#1C1C1C", category: "Metal", roughness: 0.3, metalness: 0.85 },
+  { id: "chrome", label: "Chrome", color: "#C0C0C0", category: "Metal", roughness: 0.1, metalness: 0.95 },
+  { id: "gold", label: "Gold", color: "#D4AF37", category: "Metal", roughness: 0.2, metalness: 0.9 },
+  { id: "copper", label: "Copper", color: "#B87333", category: "Metal", roughness: 0.25, metalness: 0.9 },
+  { id: "bronze", label: "Bronze", color: "#8C7853", category: "Metal", roughness: 0.3, metalness: 0.85 },
+  { id: "rose_gold", label: "Rose Gold", color: "#B76E79", category: "Metal", roughness: 0.2, metalness: 0.9 },
   // Stone & Ceramic
-  { id: "marble_white", label: "White Marble", color: "#F0EDE8", category: "Stone" },
-  { id: "marble_black", label: "Black Marble", color: "#2D2D2D", category: "Stone" },
-  { id: "granite", label: "Granite", color: "#808080", category: "Stone" },
-  { id: "terrazzo", label: "Terrazzo", color: "#E8DDD0", category: "Stone" },
-  { id: "concrete", label: "Concrete", color: "#B0B0B0", category: "Stone" },
-  { id: "ceramic_white", label: "White Ceramic", color: "#FAFAFA", category: "Stone" },
+  { id: "marble_white", label: "White Marble", color: "#F0EDE8", category: "Stone", roughness: 0.6, metalness: 0.1 },
+  { id: "marble_black", label: "Black Marble", color: "#2D2D2D", category: "Stone", roughness: 0.6, metalness: 0.1 },
+  { id: "granite", label: "Granite", color: "#808080", category: "Stone", roughness: 0.65, metalness: 0.1 },
+  { id: "terrazzo", label: "Terrazzo", color: "#E8DDD0", category: "Stone", roughness: 0.6, metalness: 0.1 },
+  { id: "concrete", label: "Concrete", color: "#B0B0B0", category: "Stone", roughness: 0.75, metalness: 0.05 },
+  { id: "ceramic_white", label: "White Ceramic", color: "#FAFAFA", category: "Stone", roughness: 0.5, metalness: 0.1 },
   // Fabric & Leather
-  { id: "leather_brown", label: "Brown Leather", color: "#8B5E3C", category: "Fabric" },
-  { id: "leather_black", label: "Black Leather", color: "#1A1A1A", category: "Fabric" },
-  { id: "leather_tan", label: "Tan Leather", color: "#C19A6B", category: "Fabric" },
-  { id: "fabric_gray", label: "Gray Fabric", color: "#9B9B9B", category: "Fabric" },
-  { id: "fabric_blue", label: "Blue Fabric", color: "#4A6FA5", category: "Fabric" },
-  { id: "fabric_green", label: "Green Fabric", color: "#5B7B5E", category: "Fabric" },
-  { id: "velvet_navy", label: "Navy Velvet", color: "#1B3A5C", category: "Fabric" },
+  { id: "leather_brown", label: "Brown Leather", color: "#8B5E3C", category: "Fabric", roughness: 0.85, metalness: 0.0 },
+  { id: "leather_black", label: "Black Leather", color: "#1A1A1A", category: "Fabric", roughness: 0.85, metalness: 0.0 },
+  { id: "leather_tan", label: "Tan Leather", color: "#C19A6B", category: "Fabric", roughness: 0.85, metalness: 0.0 },
+  { id: "fabric_gray", label: "Gray Fabric", color: "#9B9B9B", category: "Fabric", roughness: 0.95, metalness: 0.0 },
+  { id: "fabric_blue", label: "Blue Fabric", color: "#4A6FA5", category: "Fabric", roughness: 0.95, metalness: 0.0 },
+  { id: "fabric_green", label: "Green Fabric", color: "#5B7B5E", category: "Fabric", roughness: 0.95, metalness: 0.0 },
+  { id: "velvet_navy", label: "Navy Velvet", color: "#1B3A5C", category: "Fabric", roughness: 0.95, metalness: 0.0 },
   // Glass & Acrylic
-  { id: "glass", label: "Clear Glass", color: "#E0F0FF", category: "Glass" },
-  { id: "frosted_glass", label: "Frosted Glass", color: "#E8EEF2", category: "Glass" },
-  { id: "tinted_glass", label: "Tinted Glass", color: "#A8C4D8", category: "Glass" },
-  { id: "mirror", label: "Mirror", color: "#D8E8F0", category: "Glass" },
-  { id: "acrylic_clear", label: "Clear Acrylic", color: "#F0F8FF", category: "Glass" },
-  { id: "acrylic_black", label: "Black Acrylic", color: "#0D0D0D", category: "Glass" },
+  { id: "glass", label: "Clear Glass", color: "#E0F0FF", category: "Glass", roughness: 0.1, metalness: 0.1 },
+  { id: "frosted_glass", label: "Frosted Glass", color: "#E8EEF2", category: "Glass", roughness: 0.4, metalness: 0.1 },
+  { id: "tinted_glass", label: "Tinted Glass", color: "#A8C4D8", category: "Glass", roughness: 0.1, metalness: 0.1 },
+  { id: "mirror", label: "Mirror", color: "#D8E8F0", category: "Glass", roughness: 0.05, metalness: 0.9 },
+  { id: "acrylic_clear", label: "Clear Acrylic", color: "#F0F8FF", category: "Glass", roughness: 0.15, metalness: 0.05 },
+  { id: "acrylic_black", label: "Black Acrylic", color: "#0D0D0D", category: "Glass", roughness: 0.15, metalness: 0.05 },
 ];
 
 export const STYLES = [
@@ -241,6 +243,7 @@ export interface PanelData {
   size: [number, number, number]; // box: [w,h,d] | cylinder/cone: [diameter,height,diameter] | sphere: [diameter,diameter,diameter]
   materialId: string;
   label: string;
+  customColor?: string; // If set, overrides material color
 }
 
 export interface FurnitureTemplate {
