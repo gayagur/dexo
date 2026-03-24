@@ -167,15 +167,16 @@ The existing drag, resize, snap, and handle code all operate in world coordinate
 
 ---
 
-## Template Integration
+## Template & Library Integration
 
 - `getDefaultTemplate()` and library `buildPanels()` return `PanelData[]` as today.
-- When loaded, the editor wraps the result in a `GroupData` with:
-  - `id`: next group ID from counter
-  - `name`: furniture label (e.g., "Dining Table")
-  - `position`: bounding box center of all panels
+- When loaded (both initial templates AND library browser presets), the editor **always** wraps the result in a new `GroupData` with:
+  - `id`: UUID via `crypto.randomUUID()`
+  - `name`: furniture label (e.g., "Dining Table", "Corner Shelf")
+  - `position`: bounding box center of all panels (with X-offset if other groups exist)
   - `rotation`: [0, 0, 0]
   - `panels`: original panels with positions adjusted to be relative to the computed center
+- Loading a library preset into a scene that already has furniture creates a **new separate group** positioned next to existing groups — never merges with existing groups.
 
 ---
 
@@ -183,12 +184,13 @@ The existing drag, resize, snap, and handle code all operate in world coordinate
 
 | File | Changes |
 |---|---|
-| `src/lib/furnitureData.ts` | Add `GroupData` interface, group ID counter |
-| `src/components/design/editor/FurnitureEditor.tsx` | Replace `panels` state with `groups` + `ungroupedPanels`, add mode/selection state, coordinate conversion utilities, grouping/ungrouping functions |
+| `src/lib/furnitureData.ts` | Add `GroupData` interface, `createGroupFromPanels()` helper |
+| `src/components/design/editor/FurnitureEditor.tsx` | Replace `panels` state with `groups` + `ungroupedPanels`, add mode/selection state, coordinate conversion utilities, grouping/ungrouping functions, update `handleBuildFromImage` to create groups |
 | `src/components/design/editor/EditorViewport.tsx` | Group rendering with R3F `<group>`, double-click to enter Edit Mode, dimming/locking non-active objects, `GroupBoundingBox` component |
 | `src/components/design/editor/EditorSidebar.tsx` | Group list view, edit mode view, rename, context menu |
 | `src/components/design/editor/EditorParameters.tsx` | Show group properties (name, position, rotation) in Scene Mode; show panel properties in Edit Mode |
-| `src/pages/FurnitureDesignFlow.tsx` | Update save/load to use new data shape |
+| `src/components/design/editor/DesignChatPanel.tsx` | Update chat messages to reflect group creation instead of loose panels |
+| `src/pages/FurnitureDesignFlow.tsx` | Update save/load to use new data shape with backward compat |
 | `src/components/design/FurniturePreview.tsx` | Update to render groups |
 
 ---
@@ -207,11 +209,20 @@ The existing drag, resize, snap, and handle code all operate in world coordinate
 
 ---
 
-## AI Chat Integration
+## AI Image Analysis & Chat Integration
 
+### AI Image Analysis (Together AI Vision → 3D components)
+- When AI analyzes a furniture photo and generates components (panels, legs, etc.), the result is **always wrapped in a new `GroupData`** — never added as ungrouped panels.
+- The group name is derived from what the AI detected (e.g., "Dining Table", "Bookshelf", "TV Stand").
+- Panel positions within the group are computed as relative to the group's bounding box center.
+- The new group is positioned in the scene with an X-offset to avoid overlap with existing groups.
+- After loading, the user can double-click the generated group to enter Edit Mode and adjust individual parts.
+- If furniture already exists in the scene, the AI-generated group is a **separate, independent group** — it never merges with existing groups.
+
+### AI Chat operations
 - **Edit Mode**: AI operations (add/remove/update panels) target the editing group.
 - **Scene Mode**: AI panel additions go to ungrouped panels.
-- **"Build from image"**: Creates a new group with the generated panels.
+- **"Build from image"**: Always creates a new group (see above).
 
 ---
 
