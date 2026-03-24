@@ -5,6 +5,7 @@ import { EffectComposer, SSAO, SMAA } from "@react-three/postprocessing";
 import type { PanelData, GroupData } from "@/lib/furnitureData";
 import { MATERIALS } from "@/lib/furnitureData";
 import { ShapeRenderer, isCompositeShape } from "./ShapeRenderer";
+import { getMaterialTextures } from "@/lib/materialTextures";
 import * as THREE from "three";
 
 // ─── Helpers ───────────────────────────────────────────
@@ -1577,6 +1578,25 @@ function FurniturePanel({
   const shape = panel.shape ?? "box";
   const panelRotation = panel.rotation ?? [0, 0, 0];
 
+  // PBR textures (skip for custom colors and glass)
+  const textures = useMemo(() => {
+    if (panel.customColor || !mat) return null;
+    return getMaterialTextures(mat.id, mat.color, mat.category);
+  }, [panel.customColor, mat?.id, mat?.color, mat?.category]);
+
+  // Configure texture tiling based on panel size
+  useMemo(() => {
+    if (!textures) return;
+    const [w, , d] = panel.size;
+    const repeatX = Math.max(0.5, w * 2); // 2 repeats per meter
+    const repeatY = Math.max(0.5, d * 2);
+    [textures.map, textures.normalMap, textures.roughnessMap].forEach(t => {
+      t.repeat.set(repeatX, repeatY);
+    });
+  }, [textures, panel.size]);
+
+  const normalScale = useMemo(() => new THREE.Vector2(0.3, 0.3), []);
+
   const panelIsDoor = isDoor(panel.label);
   const panelIsDrawer = isDrawer(panel.label);
 
@@ -1751,6 +1771,18 @@ function FurniturePanel({
                 ior={1.5}
                 transparent
                 opacity={shapeMatProps.opacity}
+              />
+            ) : textures ? (
+              <meshStandardMaterial
+                map={textures.map}
+                normalMap={textures.normalMap}
+                normalScale={normalScale}
+                roughnessMap={textures.roughnessMap}
+                roughness={shapeMatProps.roughness}
+                metalness={shapeMatProps.metalness}
+                transparent={shapeMatProps.transparent}
+                opacity={shapeMatProps.opacity}
+                envMapIntensity={isMetal ? 1.5 : 0.8}
               />
             ) : (
               <meshStandardMaterial

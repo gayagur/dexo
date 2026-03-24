@@ -4,6 +4,7 @@ import { OrbitControls, Environment } from "@react-three/drei";
 import type { PanelData, GroupData, EditorSceneData } from "@/lib/furnitureData";
 import { panelsToWorldSpace } from "@/lib/groupUtils";
 import { MATERIALS } from "@/lib/furnitureData";
+import { getMaterialTextures } from "@/lib/materialTextures";
 import * as THREE from "three";
 
 // ─── Auto-fit camera to bounding box ────────────────────
@@ -54,13 +55,34 @@ function AutoFitCamera({ panels }: { panels: PanelData[] }) {
 
 function PreviewPanel({ panel }: { panel: PanelData }) {
   const mat = MATERIALS.find((m) => m.id === panel.materialId);
-  const color = mat?.color ?? "#C4A265";
+  const color = panel.customColor ?? mat?.color ?? "#C4A265";
   const isGlass = mat?.id === "glass";
   const isMetal = mat?.category === "Metal";
+  const roughness = mat?.roughness ?? (isMetal ? 0.3 : 0.7);
+  const metalness = mat?.metalness ?? (isMetal ? 0.8 : 0.05);
   const shape = panel.shape ?? "box";
   const radius = panel.size[0] / 2;
   const cylHeight = panel.size[1];
   const rotation = panel.rotation ?? [0, 0, 0];
+
+  // PBR textures (skip for custom colors and glass)
+  const textures = useMemo(() => {
+    if (panel.customColor || !mat) return null;
+    return getMaterialTextures(mat.id, mat.color, mat.category);
+  }, [panel.customColor, mat?.id, mat?.color, mat?.category]);
+
+  // Configure texture tiling based on panel size
+  useMemo(() => {
+    if (!textures) return;
+    const [w, , d] = panel.size;
+    const repeatX = Math.max(0.5, w * 2);
+    const repeatY = Math.max(0.5, d * 2);
+    [textures.map, textures.normalMap, textures.roughnessMap].forEach(t => {
+      t.repeat.set(repeatX, repeatY);
+    });
+  }, [textures, panel.size]);
+
+  const normalScale = useMemo(() => new THREE.Vector2(0.3, 0.3), []);
 
   function renderGeometry() {
     switch (shape) {
@@ -83,13 +105,32 @@ function PreviewPanel({ panel }: { panel: PanelData }) {
       receiveShadow
     >
       {renderGeometry()}
-      <meshStandardMaterial
-        color={color}
-        roughness={isMetal ? 0.3 : 0.7}
-        metalness={isMetal ? 0.8 : 0.05}
-        transparent={isGlass}
-        opacity={isGlass ? 0.3 : 1}
-      />
+      {isGlass ? (
+        <meshStandardMaterial
+          color={color}
+          roughness={0.05}
+          metalness={0}
+          transparent
+          opacity={0.3}
+        />
+      ) : textures && shape === "box" ? (
+        <meshStandardMaterial
+          map={textures.map}
+          normalMap={textures.normalMap}
+          normalScale={normalScale}
+          roughnessMap={textures.roughnessMap}
+          roughness={roughness}
+          metalness={metalness}
+          envMapIntensity={isMetal ? 1.5 : 0.8}
+        />
+      ) : (
+        <meshStandardMaterial
+          color={color}
+          roughness={roughness}
+          metalness={metalness}
+          envMapIntensity={isMetal ? 1.5 : 0.8}
+        />
+      )}
     </mesh>
   );
 }
