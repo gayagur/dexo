@@ -1,7 +1,8 @@
 import { useMemo, useRef, useEffect } from "react";
 import { Canvas, useThree } from "@react-three/fiber";
 import { OrbitControls, Environment } from "@react-three/drei";
-import type { PanelData } from "@/lib/furnitureData";
+import type { PanelData, GroupData, EditorSceneData } from "@/lib/furnitureData";
+import { panelsToWorldSpace } from "@/lib/groupUtils";
 import { MATERIALS } from "@/lib/furnitureData";
 import * as THREE from "three";
 
@@ -96,25 +97,32 @@ function PreviewPanel({ panel }: { panel: PanelData }) {
 // ─── Main Preview Component ─────────────────────────────
 
 export interface FurniturePreviewProps {
-  panels: PanelData[];
+  panels?: PanelData[] | EditorSceneData;
   className?: string;
 }
 
 export function FurniturePreview({ panels, className }: FurniturePreviewProps) {
-  const validPanels = useMemo(
-    () =>
-      (panels ?? []).filter(
-        (p) =>
-          p &&
-          Array.isArray(p.position) &&
-          Array.isArray(p.size) &&
-          p.position.length === 3 &&
-          p.size.length === 3
-      ),
-    [panels]
-  );
+  const allPanels = useMemo(() => {
+    if (!panels) return [];
+    // Detect new format: has 'groups' property
+    if (typeof panels === 'object' && !Array.isArray(panels) && 'groups' in panels) {
+      const scene = panels as EditorSceneData;
+      const result: PanelData[] = [];
+      for (const g of scene.groups) {
+        result.push(...panelsToWorldSpace(g.panels, g.position, g.rotation));
+      }
+      result.push(...(scene.ungroupedPanels ?? []));
+      return result.filter(
+        (p) => p && Array.isArray(p.position) && Array.isArray(p.size) && p.position.length === 3 && p.size.length === 3
+      );
+    }
+    // Old format: flat array
+    return (panels as PanelData[]).filter(
+      (p) => p && Array.isArray(p.position) && Array.isArray(p.size) && p.position.length === 3 && p.size.length === 3
+    );
+  }, [panels]);
 
-  if (validPanels.length === 0) {
+  if (allPanels.length === 0) {
     return (
       <div className={`flex items-center justify-center bg-gray-100 ${className ?? ""}`}>
         <span className="text-xs text-gray-400">No preview</span>
@@ -133,9 +141,9 @@ export function FurniturePreview({ panels, className }: FurniturePreviewProps) {
         <directionalLight position={[5, 8, 5]} intensity={1} castShadow />
         <Environment preset="apartment" />
 
-        <AutoFitCamera panels={validPanels} />
+        <AutoFitCamera panels={allPanels} />
 
-        {validPanels.map((panel) => (
+        {allPanels.map((panel) => (
           <PreviewPanel key={panel.id} panel={panel} />
         ))}
 
