@@ -7,7 +7,12 @@ import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import type { PanelData, GroupData } from "./furnitureData";
 import { MATERIALS } from "./furnitureData";
 
-const loader = new GLTFLoader();
+// Lazy-init to avoid issues with module-level instantiation
+let _loader: GLTFLoader | null = null;
+function getLoader(): GLTFLoader {
+  if (!_loader) _loader = new GLTFLoader();
+  return _loader;
+}
 
 /** Map a GLTF material color to the closest material in our palette */
 function matchMaterial(color: THREE.Color): string {
@@ -59,10 +64,12 @@ export async function loadGLBAsGroup(
   groupName: string,
   offsetPosition?: [number, number, number],
 ): Promise<GroupData> {
+  console.log("[glbLoader] Loading:", url);
   return new Promise((resolve, reject) => {
-    loader.load(
+    getLoader().load(
       url,
       (gltf) => {
+        console.log("[glbLoader] GLTF loaded, parsing scene...");
         const scene = gltf.scene;
         const parts: ParsedPart[] = [];
 
@@ -171,8 +178,13 @@ export async function loadGLBAsGroup(
           panels,
         });
       },
-      undefined,
+      (progress) => {
+        if (progress.total > 0) {
+          console.log("[glbLoader] Progress:", Math.round((progress.loaded / progress.total) * 100) + "%");
+        }
+      },
       (error) => {
+        console.error("[glbLoader] Load error:", error);
         reject(new Error(`Failed to load model: ${error}`));
       },
     );
@@ -185,7 +197,7 @@ export async function loadGLBAsGroup(
  */
 export async function loadGLBScene(url: string): Promise<THREE.Group> {
   return new Promise((resolve, reject) => {
-    loader.load(
+    getLoader().load(
       url,
       (gltf) => resolve(gltf.scene),
       undefined,

@@ -73,15 +73,22 @@ export function LibraryBrowser({ onSelectTemplate, onImportModel, onClose }: Lib
   }, [search, activeCategory]);
 
   const handleImportModel = useCallback(async (model: KenneyModel) => {
-    if (!onImportModel || loadingModel) return;
+    if (loadingModel) return;
+    if (!onImportModel) {
+      console.warn("[QuickAdd] onImportModel prop not provided");
+      return;
+    }
+    console.log("[QuickAdd] Loading model:", model.id, model.path);
     setLoadingModel(model.id);
     try {
-      // Dynamic import to avoid loading GLTFLoader unless needed
       const { loadGLBAsGroup } = await import("@/lib/glbLoader");
+      console.log("[QuickAdd] GLB loader imported, fetching model...");
       const group = await loadGLBAsGroup(model.path, model.name);
+      console.log("[QuickAdd] Model loaded:", group.name, group.panels.length, "parts");
       onImportModel(group);
     } catch (err) {
-      console.error("Failed to import model:", err);
+      console.error("[QuickAdd] Failed to import model:", err);
+      alert(`Failed to load model: ${err instanceof Error ? err.message : err}`);
     } finally {
       setLoadingModel(null);
     }
