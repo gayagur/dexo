@@ -244,10 +244,6 @@ export default function AIChatFlow() {
     return () => { document.body.classList.remove('hide-chat-widget'); };
   }, []);
 
-  // Project mode: furniture (room→furniture) or decorative (category→product)
-  const projectMode = searchParams.get('mode') as 'furniture' | 'decorative' | null;
-  const [selectedRoom, setSelectedRoom] = useState<SpaceOption | null>(null);
-
   // Chat state
   const [messages, setMessages] = useState<DisplayMessage[]>([]);
   const [input, setInput] = useState('');
@@ -315,6 +311,10 @@ export default function AIChatFlow() {
   // ─── Session Persistence (localStorage only — no hook) ──
   const [searchParams, setSearchParams] = useSearchParams();
   const sessionSaveEnabled = useRef(false);
+
+  // Project mode: furniture (room→furniture) or decorative (category→product)
+  const projectMode = searchParams.get('mode') as 'furniture' | 'decorative' | null;
+  const [selectedRoom, setSelectedRoom] = useState<SpaceOption | null>(null);
 
   // Smart scroll: track whether user is near the bottom
   const handleScrollEvent = useCallback(() => {
