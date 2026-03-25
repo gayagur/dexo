@@ -689,24 +689,21 @@ export function FurnitureEditor({
 
   // Change material of all panels in a group
   const handleUpdateGroupMaterial = useCallback((groupId: string, materialId: string) => {
-    console.log("[Material] Changing group", groupId, "to material:", materialId);
     updateScene((prev) => prev.map((g) => {
       if (g.id !== groupId) return g;
+      // Keep glbUrl — GLBModelRenderer applies materials via applyDesignMaterialToGlbRoot
       return {
         ...g,
-        glbUrl: undefined,
         panels: g.panels.map((p) => ({ ...p, materialId, customColor: undefined, textureUrl: undefined })),
       };
     }));
   }, [updateScene]);
 
   const handleCustomGroupColor = useCallback((groupId: string, color: string) => {
-    console.log("[Color] Changing group", groupId, "to color:", color);
     updateScene((prev) => prev.map((g) => {
       if (g.id !== groupId) return g;
       return {
         ...g,
-        glbUrl: undefined,
         panels: g.panels.map((p) => ({ ...p, customColor: color, textureUrl: undefined })),
       };
     }));
