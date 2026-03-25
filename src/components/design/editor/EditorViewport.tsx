@@ -11,7 +11,8 @@ import * as THREE from "three";
 
 // ─── Helpers ───────────────────────────────────────────
 
-function isDoor(label: string) { return /door/i.test(label); }
+/** Whole word only — avoids matching "doormat", "indoor", etc. */
+function isDoor(label: string) { return /\bdoor\b/i.test(label); }
 function isLeftDoor(label: string) { return /left\s*door/i.test(label); }
 function isRightDoor(label: string) { return /right\s*door/i.test(label); }
 function isDrawer(label: string) { return /drawer/i.test(label); }
@@ -2316,86 +2317,6 @@ function FurniturePanel({
 
   const cursorStyle = rotationMode ? "grab" : "move";
 
-  // Door: pivot from left edge (or right edge for Right Door)
-  if (panelIsDoor) {
-    const halfW = panel.size[0] / 2;
-    const pivotX = isRight ? panel.position[0] + halfW : panel.position[0] - halfW;
-    const meshOffsetX = isRight ? -halfW : halfW;
-    const hingeX = isRight ? -0.005 : 0.005;
-
-    return (
-      <group position={[pivotX, panel.position[1], panel.position[2]]} rotation={panelRotation as any}>
-        <group ref={groupRef}>
-          <mesh position={[meshOffsetX, 0, 0]}
-            onClick={handleClick}
-            onDoubleClick={(e: any) => { e.stopPropagation(); onDoubleClick(); }}
-            onPointerDown={handlePointerDown}
-            castShadow receiveShadow
-            {...raycastProp}
-          >
-            <boxGeometry args={panel.size} />
-            <meshStandardMaterial
-              map={sh3dTexture ?? undefined}
-              color={shapeMatProps.color} roughness={shapeMatProps.roughness}
-              metalness={shapeMatProps.metalness} transparent={shapeMatProps.transparent}
-              opacity={shapeMatProps.opacity}
-              envMapIntensity={isMetal ? envMetal : envDefault}
-            />
-          </mesh>
-          <mesh position={[hingeX, panel.size[1] * 0.3, 0]}>
-            <cylinderGeometry args={[0.006, 0.006, 0.02, 8]} />
-            <meshStandardMaterial color="#a8a8a8" metalness={0.85} roughness={0.28} envMapIntensity={envHardware} />
-          </mesh>
-          <mesh position={[hingeX, -panel.size[1] * 0.3, 0]}>
-            <cylinderGeometry args={[0.006, 0.006, 0.02, 8]} />
-            <meshStandardMaterial color="#a8a8a8" metalness={0.85} roughness={0.28} envMapIntensity={envHardware} />
-          </mesh>
-          {selected && (
-            <mesh position={[meshOffsetX, 0, 0]}>
-              <boxGeometry args={[panel.size[0] + 0.004, panel.size[1] + 0.004, panel.size[2] + 0.004]} />
-              <meshBasicMaterial color="#C87D5A" wireframe />
-            </mesh>
-          )}
-        </group>
-      </group>
-    );
-  }
-
-  // Drawer: slide on Z
-  if (panelIsDrawer) {
-    return (
-      <group position={panel.position} rotation={panelRotation as any}>
-        <group ref={groupRef}>
-          <mesh onClick={handleClick}
-            onDoubleClick={(e: any) => { e.stopPropagation(); onDoubleClick(); }}
-            onPointerDown={handlePointerDown}
-            castShadow receiveShadow
-            {...raycastProp}
-          >
-            <boxGeometry args={panel.size} />
-            <meshStandardMaterial
-              map={sh3dTexture ?? undefined}
-              color={shapeMatProps.color} roughness={shapeMatProps.roughness}
-              metalness={shapeMatProps.metalness} transparent={shapeMatProps.transparent}
-              opacity={shapeMatProps.opacity}
-              envMapIntensity={isMetal ? envMetal : envDefault}
-            />
-          </mesh>
-          <mesh position={[0, 0, -panel.size[2] / 2 - 0.01]}>
-            <boxGeometry args={[0.06, 0.012, 0.012]} />
-            <meshStandardMaterial color="#a8a8a8" metalness={0.85} roughness={0.28} envMapIntensity={envHardware} />
-          </mesh>
-          {selected && (
-            <mesh>
-              <boxGeometry args={[panel.size[0] + 0.004, panel.size[1] + 0.004, panel.size[2] + 0.004]} />
-              <meshBasicMaterial color="#C87D5A" wireframe />
-            </mesh>
-          )}
-        </group>
-      </group>
-    );
-  }
-
   // Regular panel (draggable + rotatable)
   // Use inline geometry for basic shapes (reliable), ShapeRenderer for advanced shapes
   const isBasicShape = shape === "box" || shape === "cylinder" || shape === "sphere" || shape === "cone";
@@ -2410,6 +2331,163 @@ function FurniturePanel({
       default: return <boxGeometry args={[panel.size[0] + pad * 2, panel.size[1] + pad * 2, panel.size[2] + pad * 2]} />;
     }
   };
+
+  const doorOrDrawerUsesShapeRenderer = isCompositeShape(shape) || !isBasicShape;
+
+  // Door: pivot from left edge (or right edge for Right Door)
+  if (panelIsDoor) {
+    const halfW = panel.size[0] / 2;
+    const pivotX = isRight ? panel.position[0] + halfW : panel.position[0] - halfW;
+    const meshOffsetX = isRight ? -halfW : halfW;
+    const hingeX = isRight ? -0.005 : 0.005;
+
+    return (
+      <group position={[pivotX, panel.position[1], panel.position[2]]} rotation={panelRotation as any}>
+        <group ref={groupRef}>
+          {doorOrDrawerUsesShapeRenderer ? (
+            <group
+              position={[meshOffsetX, 0, 0]}
+              onClick={handleClick}
+              onDoubleClick={(e: any) => { e.stopPropagation(); onDoubleClick(); }}
+              onPointerDown={handlePointerDown}
+              castShadow
+              receiveShadow
+              {...raycastProp}
+            >
+              <ShapeRenderer
+                shape={shape}
+                size={panel.size}
+                shapeParams={panel.shapeParams}
+                color={shapeMatProps.color}
+                roughness={shapeMatProps.roughness}
+                metalness={shapeMatProps.metalness}
+                transparent={shapeMatProps.transparent}
+                opacity={shapeMatProps.opacity}
+                map={sh3dTexture ?? undefined}
+                envMapIntensity={isMetal ? envMetal : envDefault}
+              />
+            </group>
+          ) : (
+            <mesh position={[meshOffsetX, 0, 0]}
+              onClick={handleClick}
+              onDoubleClick={(e: any) => { e.stopPropagation(); onDoubleClick(); }}
+              onPointerDown={handlePointerDown}
+              castShadow receiveShadow
+              {...raycastProp}
+            >
+              {renderBasicGeometry()}
+              <meshStandardMaterial
+                map={sh3dTexture ?? undefined}
+                color={shapeMatProps.color} roughness={shapeMatProps.roughness}
+                metalness={shapeMatProps.metalness} transparent={shapeMatProps.transparent}
+                opacity={shapeMatProps.opacity}
+                envMapIntensity={isMetal ? envMetal : envDefault}
+              />
+            </mesh>
+          )}
+          <mesh position={[hingeX, panel.size[1] * 0.3, 0]}>
+            <cylinderGeometry args={[0.006, 0.006, 0.02, 8]} />
+            <meshStandardMaterial color="#a8a8a8" metalness={0.85} roughness={0.28} envMapIntensity={envHardware} />
+          </mesh>
+          <mesh position={[hingeX, -panel.size[1] * 0.3, 0]}>
+            <cylinderGeometry args={[0.006, 0.006, 0.02, 8]} />
+            <meshStandardMaterial color="#a8a8a8" metalness={0.85} roughness={0.28} envMapIntensity={envHardware} />
+          </mesh>
+          {selected && (doorOrDrawerUsesShapeRenderer ? (
+            <group position={[meshOffsetX, 0, 0]}>
+              <ShapeRenderer
+                shape={shape}
+                size={panel.size}
+                shapeParams={panel.shapeParams}
+                color={shapeMatProps.color}
+                roughness={shapeMatProps.roughness}
+                metalness={shapeMatProps.metalness}
+                transparent={shapeMatProps.transparent}
+                opacity={shapeMatProps.opacity}
+                isOutline
+              />
+            </group>
+          ) : (
+            <mesh position={[meshOffsetX, 0, 0]}>
+              {renderBasicGeometry(true)}
+              <meshBasicMaterial color="#C87D5A" wireframe />
+            </mesh>
+          ))}
+        </group>
+      </group>
+    );
+  }
+
+  // Drawer: slide on Z
+  if (panelIsDrawer) {
+    return (
+      <group position={panel.position} rotation={panelRotation as any}>
+        <group ref={groupRef}>
+          {doorOrDrawerUsesShapeRenderer ? (
+            <group
+              onClick={handleClick}
+              onDoubleClick={(e: any) => { e.stopPropagation(); onDoubleClick(); }}
+              onPointerDown={handlePointerDown}
+              castShadow
+              receiveShadow
+              {...raycastProp}
+            >
+              <ShapeRenderer
+                shape={shape}
+                size={panel.size}
+                shapeParams={panel.shapeParams}
+                color={shapeMatProps.color}
+                roughness={shapeMatProps.roughness}
+                metalness={shapeMatProps.metalness}
+                transparent={shapeMatProps.transparent}
+                opacity={shapeMatProps.opacity}
+                map={sh3dTexture ?? undefined}
+                envMapIntensity={isMetal ? envMetal : envDefault}
+              />
+            </group>
+          ) : (
+            <mesh onClick={handleClick}
+              onDoubleClick={(e: any) => { e.stopPropagation(); onDoubleClick(); }}
+              onPointerDown={handlePointerDown}
+              castShadow receiveShadow
+              {...raycastProp}
+            >
+              {renderBasicGeometry()}
+              <meshStandardMaterial
+                map={sh3dTexture ?? undefined}
+                color={shapeMatProps.color} roughness={shapeMatProps.roughness}
+                metalness={shapeMatProps.metalness} transparent={shapeMatProps.transparent}
+                opacity={shapeMatProps.opacity}
+                envMapIntensity={isMetal ? envMetal : envDefault}
+              />
+            </mesh>
+          )}
+          <mesh position={[0, 0, -panel.size[2] / 2 - 0.01]}>
+            <boxGeometry args={[0.06, 0.012, 0.012]} />
+            <meshStandardMaterial color="#a8a8a8" metalness={0.85} roughness={0.28} envMapIntensity={envHardware} />
+          </mesh>
+          {selected && (doorOrDrawerUsesShapeRenderer ? (
+            <ShapeRenderer
+              shape={shape}
+              size={panel.size}
+              shapeParams={panel.shapeParams}
+              color={shapeMatProps.color}
+              roughness={shapeMatProps.roughness}
+              metalness={shapeMatProps.metalness}
+              transparent={shapeMatProps.transparent}
+              opacity={shapeMatProps.opacity}
+              isOutline
+            />
+          ) : (
+            <mesh>
+              {renderBasicGeometry(true)}
+              <meshBasicMaterial color="#C87D5A" wireframe />
+            </mesh>
+          ))}
+        </group>
+      </group>
+    );
+  }
 
   if (isBasicShape) {
     const [w, h, d] = panel.size;
