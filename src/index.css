@@ -174,6 +174,30 @@
   }
 }
 
+@layer components {
+  /* Public blog article — premium typography (Tailwind Typography) */
+  .blog-article-body {
+    @apply prose prose-lg lg:prose-xl max-w-none text-foreground/90;
+    @apply prose-headings:font-serif prose-headings:font-semibold prose-headings:tracking-tight prose-headings:text-foreground;
+    @apply prose-h2:text-[1.65rem] md:prose-h2:text-[1.85rem] prose-h2:mt-12 prose-h2:mb-4 prose-h2:leading-snug;
+    @apply prose-h3:text-[1.25rem] md:prose-h3:text-[1.35rem] prose-h3:mt-8 prose-h3:mb-3;
+    @apply prose-p:leading-[1.78] prose-p:mb-5;
+    @apply prose-a:text-primary prose-a:font-medium prose-a:no-underline hover:prose-a:underline underline-offset-2;
+    @apply prose-strong:text-foreground prose-strong:font-semibold;
+    @apply prose-li:marker:text-primary/55;
+    @apply prose-hr:border-border/80 prose-hr:my-12;
+    @apply prose-code:text-sm prose-code:bg-secondary/80 prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded-md;
+  }
+
+  .blog-tiptap-editor .ProseMirror {
+    @apply min-h-[380px] px-5 py-6 sm:px-8 sm:py-8 text-[15px] leading-[1.75] outline-none;
+  }
+
+  .blog-tiptap-editor .ProseMirror-focused {
+    @apply ring-0;
+  }
+}
+
 @layer utilities {
   .text-balance {
     text-wrap: balance;

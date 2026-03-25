@@ -157,21 +157,84 @@ export interface FurnitureDesign {
   created_at: string;
 }
 
+export type BlogPostStatus = "draft" | "published" | "archived";
+
+export interface BlogPost {
+  id: string;
+  title: string;
+  slug: string;
+  excerpt: string | null;
+  content: Record<string, unknown>;
+  content_format: string;
+  cover_image_url: string | null;
+  cover_image_alt: string | null;
+  meta_title: string | null;
+  meta_description: string | null;
+  keywords: string[];
+  category: string | null;
+  tags: string[];
+  status: BlogPostStatus;
+  featured: boolean;
+  author_name: string | null;
+  published_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface BlogFaq {
+  id: string;
+  post_id: string;
+  question: string;
+  answer: string;
+  sort_order: number;
+  created_at: string;
+}
+
+/** Matches Supabase-generated Database shape so PostgREST infers Insert/Update correctly. */
+type PublicTable<
+  Row extends Record<string, unknown>,
+  Insert extends Record<string, unknown>,
+  Update
+> = {
+  Row: Row;
+  Insert: Insert;
+  Update: Update;
+  Relationships: [];
+};
+
 export interface Database {
   public: {
     Tables: {
-      profiles: { Row: Profile; Insert: Omit<Profile, "created_at">; Update: Partial<Omit<Profile, "id">> };
-      businesses: { Row: Business; Insert: Omit<Business, "id" | "created_at" | "rating">; Update: Partial<Omit<Business, "id">> };
-      projects: { Row: Project; Insert: Omit<Project, "id" | "created_at">; Update: Partial<Omit<Project, "id">> };
-      offers: { Row: Offer; Insert: Omit<Offer, "id" | "created_at">; Update: Partial<Omit<Offer, "id">> };
-      messages: { Row: Message; Insert: Omit<Message, "id" | "created_at">; Update: Partial<Omit<Message, "id">> };
-      ai_usage_log: { Row: AiUsageLog; Insert: Omit<AiUsageLog, "id" | "created_at">; Update: Partial<Omit<AiUsageLog, "id">> };
-      image_versions: { Row: ImageVersion; Insert: Omit<ImageVersion, "id" | "created_at">; Update: Partial<Omit<ImageVersion, "id">> };
-      notifications: { Row: Notification; Insert: Omit<Notification, "id" | "created_at" | "read">; Update: Partial<Omit<Notification, "id">> };
-      reviews: { Row: Review; Insert: Omit<Review, "id" | "created_at">; Update: Partial<Omit<Review, "id">> };
-      milestones: { Row: Milestone; Insert: Omit<Milestone, "id" | "created_at">; Update: Partial<Omit<Milestone, "id">> };
-      business_page_views: { Row: BusinessPageView; Insert: Omit<BusinessPageView, "id" | "viewed_at">; Update: never };
-      furniture_designs: { Row: FurnitureDesign; Insert: Omit<FurnitureDesign, "id" | "created_at">; Update: Partial<Omit<FurnitureDesign, "id">> };
+      profiles: PublicTable<Profile, Omit<Profile, "created_at">, Partial<Omit<Profile, "id">>>;
+      businesses: PublicTable<Business, Omit<Business, "id" | "created_at" | "rating">, Partial<Omit<Business, "id">>>;
+      projects: PublicTable<Project, Omit<Project, "id" | "created_at">, Partial<Omit<Project, "id">>>;
+      offers: PublicTable<Offer, Omit<Offer, "id" | "created_at">, Partial<Omit<Offer, "id">>>;
+      messages: PublicTable<Message, Omit<Message, "id" | "created_at">, Partial<Omit<Message, "id">>>;
+      ai_usage_log: PublicTable<AiUsageLog, Omit<AiUsageLog, "id" | "created_at">, Partial<Omit<AiUsageLog, "id">>>;
+      image_versions: PublicTable<ImageVersion, Omit<ImageVersion, "id" | "created_at">, Partial<Omit<ImageVersion, "id">>>;
+      notifications: PublicTable<Notification, Omit<Notification, "id" | "created_at" | "read">, Partial<Omit<Notification, "id">>>;
+      reviews: PublicTable<Review, Omit<Review, "id" | "created_at">, Partial<Omit<Review, "id">>>;
+      milestones: PublicTable<Milestone, Omit<Milestone, "id" | "created_at">, Partial<Omit<Milestone, "id">>>;
+      business_page_views: PublicTable<
+        BusinessPageView,
+        Omit<BusinessPageView, "id" | "viewed_at">,
+        Partial<Omit<BusinessPageView, "id">>
+      >;
+      furniture_designs: PublicTable<FurnitureDesign, Omit<FurnitureDesign, "id" | "created_at">, Partial<Omit<FurnitureDesign, "id">>>;
+      blog_posts: PublicTable<
+        BlogPost,
+        Omit<BlogPost, "id" | "created_at" | "updated_at"> & { id?: string },
+        Partial<Omit<BlogPost, "id">>
+      >;
+      blog_faqs: PublicTable<
+        BlogFaq,
+        Omit<BlogFaq, "id" | "created_at"> & { id?: string },
+        Partial<Omit<BlogFaq, "id">>
+      >;
     };
+    Views: Record<string, never>;
+    Functions: Record<string, never>;
+    Enums: Record<string, never>;
+    CompositeTypes: Record<string, never>;
   };
 }

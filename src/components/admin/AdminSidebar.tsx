@@ -7,7 +7,7 @@ import {
   FolderOpen,
   Star,
   ArrowLeft,
-  Activity,
+  BookOpen,
 } from "lucide-react";
 
 interface NavItem {
@@ -31,10 +31,12 @@ export function AdminSidebar({ pendingCount = 0 }: AdminSidebarProps) {
     { to: "/admin/clients", label: "Clients", icon: Users },
     { to: "/admin/projects", label: "Projects", icon: FolderOpen },
     { to: "/admin/reviews", label: "Reviews", icon: Star },
+    { to: "/admin/blog", label: "Blog", icon: BookOpen },
   ];
 
   const isActive = (path: string) => {
     if (path === "/admin") return location.pathname === "/admin";
+    if (path === "/admin/blog") return location.pathname.startsWith("/admin/blog");
     return location.pathname.startsWith(path);
   };
 

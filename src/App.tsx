@@ -3,6 +3,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
+import { HelmetProvider } from "react-helmet-async";
 import { useEffect } from "react";
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import { initGA, trackPageView } from "@/lib/analytics";
@@ -34,6 +35,11 @@ import ManageCreators from "./pages/admin/ManageCreators";
 import ManageClients from "./pages/admin/ManageClients";
 import ManageProjects from "./pages/admin/ManageProjects";
 import ManageReviews from "./pages/admin/ManageReviews";
+import AdminBlogListPage from "./pages/admin/AdminBlogListPage";
+import AdminBlogEditorPage from "./pages/admin/AdminBlogEditorPage";
+import AdminBlogPreviewPage from "./pages/admin/AdminBlogPreviewPage";
+import BlogIndexPage from "./pages/BlogIndexPage";
+import BlogPostPage from "./pages/BlogPostPage";
 import { Loader2 } from "lucide-react";
 
 const queryClient = new QueryClient();
@@ -74,12 +80,15 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
+        <HelmetProvider>
         <AnalyticsTracker />
         <AuthProvider>
           <Routes>
             {/* Public routes */}
             <Route path="/" element={<HomeRoute />} />
             <Route path="/auth" element={<AuthPage />} />
+            <Route path="/blog" element={<BlogIndexPage />} />
+            <Route path="/blog/:slug" element={<BlogPostPage />} />
             <Route path="/home" element={
               <ProtectedRoute>
                 <AuthenticatedHome />
@@ -203,11 +212,32 @@ const App = () => (
                 <ManageReviews />
               </ProtectedRoute>
             } />
+            <Route path="/admin/blog" element={
+              <ProtectedRoute requireAdmin>
+                <AdminBlogListPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/admin/blog/new" element={
+              <ProtectedRoute requireAdmin>
+                <AdminBlogEditorPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/admin/blog/preview/:id" element={
+              <ProtectedRoute requireAdmin>
+                <AdminBlogPreviewPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/admin/blog/:id" element={
+              <ProtectedRoute requireAdmin>
+                <AdminBlogEditorPage />
+              </ProtectedRoute>
+            } />
 
             {/* Catch-all */}
             <Route path="*" element={<NotFound />} />
           </Routes>
         </AuthProvider>
+        </HelmetProvider>
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>
