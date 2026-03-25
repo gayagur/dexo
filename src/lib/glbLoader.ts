@@ -95,15 +95,21 @@ export async function loadGLBAsGroup(
           // Skip tiny meshes (handles, bolts, etc. smaller than 2mm)
           if (size.x < 0.002 && size.y < 0.002 && size.z < 0.002) return;
 
-          // Get material color
+          // Get material color — ensure it's a proper THREE.Color
           const mat = child.material as THREE.MeshStandardMaterial;
-          const color = mat?.color ?? new THREE.Color(0.7, 0.5, 0.3);
+          const rawColor = mat?.color;
+          const color = rawColor instanceof THREE.Color
+            ? rawColor
+            : new THREE.Color(rawColor?.r ?? 0.7, rawColor?.g ?? 0.5, rawColor?.b ?? 0.3);
           const materialId = matchMaterial(color);
 
           // If material match is poor, store exact color
           const bestMat = MATERIALS.find((m) => m.id === materialId);
           const bestColor = new THREE.Color(bestMat?.color ?? "#C4A265");
-          const colorDist = color.distanceTo(bestColor);
+          const dr = color.r - bestColor.r;
+          const dg = color.g - bestColor.g;
+          const db = color.b - bestColor.b;
+          const colorDist = Math.sqrt(dr * dr + dg * dg + db * db);
           const customColor = colorDist > 0.15
             ? `#${color.getHexString()}`
             : undefined;
