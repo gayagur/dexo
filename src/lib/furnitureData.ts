@@ -191,6 +191,12 @@ export const MATERIALS: MaterialOption[] = [
   { id: "leather_black", label: "Black Leather", color: "#1A1A1A", category: "Fabric", roughness: 0.85, metalness: 0.0 },
   { id: "leather_tan", label: "Tan Leather", color: "#C19A6B", category: "Fabric", roughness: 0.85, metalness: 0.0 },
   { id: "fabric_gray", label: "Gray Fabric", color: "#9B9B9B", category: "Fabric", roughness: 0.95, metalness: 0.0 },
+  { id: "fabric_cream", label: "Cream Fabric", color: "#F5E6D3", category: "Fabric", roughness: 0.95, metalness: 0.0 },
+  { id: "fabric_beige", label: "Beige Fabric", color: "#D4C4A8", category: "Fabric", roughness: 0.95, metalness: 0.0 },
+  { id: "fabric_ivory", label: "Ivory Fabric", color: "#FFFFF0", category: "Fabric", roughness: 0.95, metalness: 0.0 },
+  { id: "fabric_taupe", label: "Taupe Fabric", color: "#B8A99A", category: "Fabric", roughness: 0.95, metalness: 0.0 },
+  { id: "fabric_charcoal", label: "Charcoal Fabric", color: "#4A4A4A", category: "Fabric", roughness: 0.95, metalness: 0.0 },
+  { id: "fabric_brown", label: "Brown Fabric", color: "#8B7355", category: "Fabric", roughness: 0.95, metalness: 0.0 },
   { id: "fabric_blue", label: "Blue Fabric", color: "#4A6FA5", category: "Fabric", roughness: 0.95, metalness: 0.0 },
   { id: "fabric_green", label: "Green Fabric", color: "#5B7B5E", category: "Fabric", roughness: 0.95, metalness: 0.0 },
   { id: "velvet_navy", label: "Navy Velvet", color: "#1B3A5C", category: "Fabric", roughness: 0.95, metalness: 0.0 },
@@ -300,6 +306,24 @@ function cyl(
     label,
     position: pos,
     size: [diameter, height, diameter],
+    materialId: mat,
+  };
+}
+
+/** Cushion-shaped panel (rounded corners) */
+function cushion(
+  label: string,
+  pos: [number, number, number],
+  size: [number, number, number],
+  mat = "fabric_cream"
+): PanelData {
+  return {
+    id: `p${++panelCounter}`,
+    type: "horizontal",
+    shape: "cushion",
+    label,
+    position: pos,
+    size,
     materialId: mat,
   };
 }
@@ -424,56 +448,105 @@ export function getDefaultTemplate(furnitureId: string, dims: { w: number; h: nu
     case "sofa":
     case "lobby_sofa":
     case "booth_seating": {
-      // Tight-fitting sofa — frame + cushion + back + arms, all flush
+      // Realistic sofa: frame + individual seat cushions + back cushions + arms + throw pillows
       const legH = 0.06;
-      const frameH = 0.18;
-      const cushionH = 0.18;
-      const armW = 0.14;
-      const backT = 0.16;
-      const armH = h - legH - frameH;
-      const backH = h - legH - frameH;
+      const frameH = 0.16;
+      const cushionH = 0.14;
+      const armW = 0.15;
+      const armTopR = 0.06; // rounded arm top
+      const backT = 0.14;
+      const backCushionH = 0.35;
+      const fab = "fabric_cream";
+      const innerW = w - armW * 2;
       const seatD = d - backT;
-      const fab = "fabric_gray";
-      return {
-        panels: [
-          // Frame (hidden solid base)
-          panel("horizontal", "Frame", [0, legH + frameH / 2, 0], [w, frameH, d], "plywood"),
-          // Seat cushion (flush between arms, against backrest)
-          panel("horizontal", "Seat Cushion", [0, legH + frameH + cushionH / 2, -backT / 2], [w - armW * 2, cushionH, seatD], fab),
-          // Backrest (flush against back edge, between arms)
-          panel("vertical", "Backrest", [0, legH + frameH + backH / 2, d / 2 - backT / 2], [w - armW * 2, backH, backT], fab),
-          // Left arm (full depth, flush with frame edge)
-          panel("vertical", "Left Arm", [-w / 2 + armW / 2, legH + frameH + armH / 2, 0], [armW, armH, d], fab),
-          // Right arm (full depth, flush with frame edge)
-          panel("vertical", "Right Arm", [w / 2 - armW / 2, legH + frameH + armH / 2, 0], [armW, armH, d], fab),
-          // Legs
-          cyl("Leg FL", [-w / 2 + 0.08, legH / 2, -d / 2 + 0.08], 0.04, legH, "black_metal"),
-          cyl("Leg FR", [w / 2 - 0.08, legH / 2, -d / 2 + 0.08], 0.04, legH, "black_metal"),
-          cyl("Leg BL", [-w / 2 + 0.08, legH / 2, d / 2 - 0.08], 0.04, legH, "black_metal"),
-          cyl("Leg BR", [w / 2 - 0.08, legH / 2, d / 2 - 0.08], 0.04, legH, "black_metal"),
-        ],
-      };
+      const seatTop = legH + frameH + cushionH;
+      const gap = 0.015; // small gap between cushions
+
+      // How many seat cushions? 2 for sofa, 1 for small
+      const nCush = w > 1.2 ? (w > 2.0 ? 3 : 2) : 1;
+      const cushW = (innerW - gap * (nCush - 1)) / nCush;
+
+      const panels_: PanelData[] = [
+        // Frame base (solid structure under cushions)
+        panel("horizontal", "Frame", [0, legH + frameH / 2, 0], [w, frameH, d], "plywood"),
+        // Backrest structure (solid behind back cushions)
+        panel("vertical", "Back Frame", [0, legH + frameH + (h - legH - frameH) / 2, d / 2 - backT / 2], [innerW, h - legH - frameH, backT * 0.4], "plywood"),
+      ];
+
+      // Individual seat cushions (rounded)
+      for (let i = 0; i < nCush; i++) {
+        const x = -innerW / 2 + cushW / 2 + i * (cushW + gap);
+        panels_.push(
+          cushion(`Seat Cushion ${i + 1}`, [x, legH + frameH + cushionH / 2, -backT / 2], [cushW, cushionH, seatD], fab)
+        );
+      }
+
+      // Individual back cushions (rounded, slightly tilted back)
+      for (let i = 0; i < nCush; i++) {
+        const x = -innerW / 2 + cushW / 2 + i * (cushW + gap);
+        panels_.push(
+          cushion(`Back Cushion ${i + 1}`, [x, seatTop + backCushionH / 2, d / 2 - backT / 2], [cushW, backCushionH, backT], fab)
+        );
+      }
+
+      // Arms (rounded on top using cushion shape)
+      panels_.push(
+        panel("vertical", "Left Arm Base", [-w / 2 + armW / 2, legH + frameH + (h * 0.3) / 2, 0], [armW, h * 0.3, d], fab),
+        cushion("Left Arm Top", [-w / 2 + armW / 2, legH + frameH + h * 0.3 + armTopR / 2, 0], [armW, armTopR, d], fab),
+        panel("vertical", "Right Arm Base", [w / 2 - armW / 2, legH + frameH + (h * 0.3) / 2, 0], [armW, h * 0.3, d], fab),
+        cushion("Right Arm Top", [w / 2 - armW / 2, legH + frameH + h * 0.3 + armTopR / 2, 0], [armW, armTopR, d], fab),
+      );
+
+      // Throw pillows (2 small cushions on the corners)
+      const pillowY = seatTop + 0.12;
+      panels_.push(
+        cushion("Throw Pillow L", [-innerW / 3, pillowY, d * 0.15], [0.35, 0.35, 0.10], "fabric_taupe"),
+        cushion("Throw Pillow R", [innerW / 3, pillowY, d * 0.15], [0.35, 0.35, 0.10], "fabric_brown"),
+      );
+
+      // Legs
+      panels_.push(
+        cyl("Leg FL", [-w / 2 + 0.08, legH / 2, -d / 2 + 0.08], 0.04, legH, "black_metal"),
+        cyl("Leg FR", [w / 2 - 0.08, legH / 2, -d / 2 + 0.08], 0.04, legH, "black_metal"),
+        cyl("Leg BL", [-w / 2 + 0.08, legH / 2, d / 2 - 0.08], 0.04, legH, "black_metal"),
+        cyl("Leg BR", [w / 2 - 0.08, legH / 2, d / 2 - 0.08], 0.04, legH, "black_metal"),
+      );
+
+      return { panels: panels_ };
     }
 
     case "armchair":
     case "lounge_chair": {
-      // Tight-fitting armchair — same structure as sofa
+      // Realistic armchair — same approach with rounded cushions
       const legH = 0.05;
-      const frameH = 0.16;
-      const cushionH = 0.16;
-      const armW = 0.12;
-      const backT = 0.14;
-      const armH = h - legH - frameH;
-      const backH = h - legH - frameH;
+      const frameH = 0.14;
+      const cushionH = 0.14;
+      const armW = 0.13;
+      const armTopR = 0.05;
+      const backT = 0.12;
+      const backCushionH = 0.32;
+      const fab = "fabric_cream";
+      const innerW = w - armW * 2;
       const seatD = d - backT;
-      const fab = "fabric_gray";
+      const seatTop = legH + frameH + cushionH;
+
       return {
         panels: [
+          // Frame
           panel("horizontal", "Frame", [0, legH + frameH / 2, 0], [w, frameH, d], "plywood"),
-          panel("horizontal", "Seat Cushion", [0, legH + frameH + cushionH / 2, -backT / 2], [w - armW * 2, cushionH, seatD], fab),
-          panel("vertical", "Backrest", [0, legH + frameH + backH / 2, d / 2 - backT / 2], [w - armW * 2, backH, backT], fab),
-          panel("vertical", "Left Arm", [-w / 2 + armW / 2, legH + frameH + armH / 2, 0], [armW, armH, d], fab),
-          panel("vertical", "Right Arm", [w / 2 - armW / 2, legH + frameH + armH / 2, 0], [armW, armH, d], fab),
+          panel("vertical", "Back Frame", [0, legH + frameH + (h - legH - frameH) / 2, d / 2 - backT / 2], [innerW, h - legH - frameH, backT * 0.4], "plywood"),
+          // Seat cushion (single, rounded)
+          cushion("Seat Cushion", [0, legH + frameH + cushionH / 2, -backT / 2], [innerW, cushionH, seatD], fab),
+          // Back cushion (single, rounded)
+          cushion("Back Cushion", [0, seatTop + backCushionH / 2, d / 2 - backT / 2], [innerW, backCushionH, backT], fab),
+          // Arms
+          panel("vertical", "Left Arm", [-w / 2 + armW / 2, legH + frameH + (h * 0.3) / 2, 0], [armW, h * 0.3, d], fab),
+          cushion("Left Arm Top", [-w / 2 + armW / 2, legH + frameH + h * 0.3 + armTopR / 2, 0], [armW, armTopR, d], fab),
+          panel("vertical", "Right Arm", [w / 2 - armW / 2, legH + frameH + (h * 0.3) / 2, 0], [armW, h * 0.3, d], fab),
+          cushion("Right Arm Top", [w / 2 - armW / 2, legH + frameH + h * 0.3 + armTopR / 2, 0], [armW, armTopR, d], fab),
+          // Throw pillow
+          cushion("Throw Pillow", [0, seatTop + 0.12, d * 0.15], [0.30, 0.30, 0.10], "fabric_taupe"),
+          // Legs
           cyl("Leg FL", [-w / 2 + 0.06, legH / 2, -d / 2 + 0.06], 0.035, legH, "black_metal"),
           cyl("Leg FR", [w / 2 - 0.06, legH / 2, -d / 2 + 0.06], 0.035, legH, "black_metal"),
           cyl("Leg BL", [-w / 2 + 0.06, legH / 2, d / 2 - 0.06], 0.035, legH, "black_metal"),
