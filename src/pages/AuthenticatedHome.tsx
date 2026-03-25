@@ -3,6 +3,8 @@ import { Link, useNavigate } from 'react-router-dom';
 import { AppLayout } from '@/components/app/AppLayout';
 import { useAuth } from '@/hooks/useAuth';
 import { useProjects } from '@/hooks/useProjects';
+import { useFurnitureDesignDrafts } from '@/hooks/useFurnitureDesignDrafts';
+import { SavedDesignsDraftsSection } from '@/components/customer/SavedDesignsDraftsSection';
 import { useMatchedProjects } from '@/hooks/useMatchedProjects';
 import { useBusinessProfile } from '@/hooks/useBusinessProfile';
 import { useBusinessOffers } from '@/hooks/useOffers';
@@ -357,6 +359,7 @@ function CustomerHome({ firstName }: { firstName: string }) {
   const { projects, loading } = useProjects();
   const projectIds = projects.map((p) => p.id);
   const { offerCounts } = useOffersForProjects(projectIds);
+  const { drafts: furnitureDrafts, loading: draftsLoading, removeDraft } = useFurnitureDesignDrafts();
 
   const totalOffers = Object.values(offerCounts).reduce((sum, n) => sum + n, 0);
   const activeCount = projects.filter((p) => p.status !== 'completed' && p.status !== 'draft').length;
@@ -517,6 +520,16 @@ function CustomerHome({ firstName }: { firstName: string }) {
               </Link>
             </motion.div>
           )}
+
+          <div className="mb-10">
+            <SavedDesignsDraftsSection
+              drafts={furnitureDrafts}
+              loading={draftsLoading}
+              removeDraft={removeDraft}
+              previewLimit={3}
+              viewAllHref="/saved-designs"
+            />
+          </div>
 
           {/* Recent projects */}
           <motion.div
