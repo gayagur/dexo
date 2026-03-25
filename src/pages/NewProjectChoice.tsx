@@ -28,6 +28,7 @@ export default function NewProjectChoice() {
 
   const [step, setStep] = useState<Step>("mode");
   const [saving, setSaving] = useState(false);
+  const [designId, setDesignId] = useState<string | null>(null);
   const [state, setState] = useState<FlowState>({
     mode: null,
     method: null,
@@ -75,44 +76,66 @@ export default function NewProjectChoice() {
     setStep("editor");
   }, []);
 
-  // Step 6: Save from editor
+  // Step 6: Save from editor (upsert — update existing or create new)
   const handleSave = useCallback(
     async (data: { panels: PanelData[]; dims: { w: number; h: number; d: number }; style: string; furnitureId: string; cameraPosition?: [number, number, number]; materialsUsed?: string[] }) => {
       if (!user || saving) return;
       setSaving(true);
 
-      const { data: design, error } = await supabase
-        .from("furniture_designs")
-        .insert({
-          customer_id: user.id,
-          mode: state.mode!,
-          space_type: state.spaceType!,
-          room_id: state.roomId!,
-          furniture_id: data.furnitureId,
-          panels: {
-            ...(typeof data.panels === "object" && !Array.isArray(data.panels) ? data.panels : { groups: [], ungroupedPanels: data.panels }),
-            camera_position: data.cameraPosition ?? [2.5, 2, 3],
-            materials_used: data.materialsUsed ?? [],
-            design_mode: "manual",
-          } as unknown as Record<string, unknown>,
-          dimensions: data.dims as unknown as Record<string, unknown>,
-          style: data.style,
-        })
-        .select("id")
-        .single();
+      const panelData = {
+        ...(typeof data.panels === "object" && !Array.isArray(data.panels) ? data.panels : { groups: [], ungroupedPanels: data.panels }),
+        camera_position: data.cameraPosition ?? [2.5, 2, 3],
+        materials_used: data.materialsUsed ?? [],
+        design_mode: "manual",
+      } as unknown as Record<string, unknown>;
+
+      let savedId = designId;
+
+      if (designId) {
+        // Update existing design
+        const { error } = await supabase
+          .from("furniture_designs")
+          .update({
+            panels: panelData,
+            dimensions: data.dims as unknown as Record<string, unknown>,
+            style: data.style,
+          })
+          .eq("id", designId);
+
+        if (error) {
+          setSaving(false);
+          toast({ title: "Error saving", description: error.message, variant: "destructive" });
+          return;
+        }
+      } else {
+        // Insert new design
+        const { data: design, error } = await supabase
+          .from("furniture_designs")
+          .insert({
+            customer_id: user.id,
+            mode: state.mode!,
+            space_type: state.spaceType!,
+            room_id: state.roomId!,
+            furniture_id: data.furnitureId,
+            panels: panelData,
+            dimensions: data.dims as unknown as Record<string, unknown>,
+            style: data.style,
+          })
+          .select("id")
+          .single();
+
+        if (error || !design) {
+          setSaving(false);
+          toast({ title: "Error saving", description: error?.message ?? "Unknown error", variant: "destructive" });
+          return;
+        }
+        savedId = design.id;
+        setDesignId(design.id);
+      }
 
       setSaving(false);
 
-      if (error) {
-        toast({
-          title: "Error saving design",
-          description: error.message,
-          variant: "destructive",
-        });
-        return;
-      }
-
-      // Store design data in localStorage so AIChatFlow can embed it in project details
+      // Store in localStorage for AIChatFlow
       try {
         localStorage.setItem('dexo_pending_design', JSON.stringify({
           panels: data.panels,
@@ -121,16 +144,14 @@ export default function NewProjectChoice() {
           furnitureId: data.furnitureId,
           roomId: state.roomId,
           spaceType: state.spaceType,
+          designId: savedId,
         }));
       } catch { /* quota exceeded — non-critical */ }
 
-      toast({
-        title: "Design saved!",
-        description: "Continuing to project creation…",
-      });
-      navigate(`/create-project?design_id=${design.id}`);
+      toast({ title: "Design saved!", description: "Your design has been saved." });
+      // Stay in the editor — don't navigate away
     },
-    [user, saving, state, navigate, toast]
+    [user, saving, state, designId, toast]
   );
 
   const getRoomLabel = () => {
