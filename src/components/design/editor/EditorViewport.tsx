@@ -6,6 +6,7 @@ import type { PanelData, GroupData } from "@/lib/furnitureData";
 import { MATERIALS } from "@/lib/furnitureData";
 import { ShapeRenderer, isCompositeShape } from "./ShapeRenderer";
 import { getMaterialTextures } from "@/lib/materialTextures";
+import { applyDesignMaterialToGlbRoot } from "@/lib/glbMaterialOverride";
 import * as THREE from "three";
 
 // ─── Helpers ───────────────────────────────────────────
@@ -704,7 +705,8 @@ export function EditorViewport({
                 <Suspense fallback={null}>
                   <GLBModelRenderer
                     url={g.glbUrl}
-                    groupPosition={g.position}
+                    panels={g.panels}
+                    lightMode={lightMode}
                     dimmed={isDimmed}
                     onClick={(e) => { if (e) e.stopPropagation(); if (!isDimmed) { onSelectGroup(g.id); onSelectPanel(null); closeContextMenu(); } }}
                     onDoubleClick={(e) => { if (e) e.stopPropagation(); if (!isDimmed) onEnterEditMode(g.id); }}
@@ -1872,10 +1874,20 @@ function GroupCornerResizeHandle({
 
 // ─── Group Bounding Box ──────────────────────────────────
 
+/** True when every part shares the same palette entry — then we replace GLB materials (e.g. after group material change). */
+function glbPanelsMaterialUnified(panels: PanelData[]): boolean {
+  if (panels.length === 0) return true;
+  const f = panels[0];
+  return panels.every(
+    (p) => p.materialId === f.materialId && p.customColor === f.customColor,
+  );
+}
+
 /** Renders an imported GLB model with its original geometry */
 function GLBModelRenderer({
   url,
-  groupPosition,
+  panels,
+  lightMode,
   dimmed,
   onClick,
   onDoubleClick,
@@ -1883,7 +1895,8 @@ function GLBModelRenderer({
   onPointerDown,
 }: {
   url: string;
-  groupPosition: [number, number, number];
+  panels: PanelData[];
+  lightMode: EditorLightMode;
   dimmed?: boolean;
   onClick?: (e?: ThreeEvent<MouseEvent>) => void;
   onDoubleClick?: (e?: ThreeEvent<MouseEvent>) => void;
@@ -1891,6 +1904,25 @@ function GLBModelRenderer({
   onPointerDown?: (point: THREE.Vector3, clientX: number) => void;
 }) {
   const { scene } = useGLTF(url);
+  const glbMatState = useMemo(() => {
+    const unified = glbPanelsMaterialUnified(panels);
+    const p0 = panels[0];
+    if (unified) {
+      return {
+        unified: true as const,
+        materialId: p0?.materialId ?? "oak",
+        customColor: p0?.customColor,
+        signature: `u:${p0?.materialId ?? "oak"}|${p0?.customColor ?? ""}`,
+      };
+    }
+    return {
+      unified: false as const,
+      materialId: "oak",
+      customColor: undefined as string | undefined,
+      signature: `m:${panels.map((p) => `${p.materialId}|${p.customColor ?? ""}`).join(";")}`,
+    };
+  }, [panels]);
+
   const cloned = useMemo(() => {
     const c = scene.clone(true);
 
@@ -1902,18 +1934,29 @@ function GLBModelRenderer({
     bbox.getCenter(center);
     c.position.set(-center.x, -center.y, -center.z);
 
-    if (dimmed) {
+    if (glbMatState.unified) {
+      applyDesignMaterialToGlbRoot(c, {
+        materialId: glbMatState.materialId,
+        customColor: glbMatState.customColor,
+        lightMode,
+        dimmed: !!dimmed,
+      });
+    } else if (dimmed) {
       c.traverse((child) => {
         if (child instanceof THREE.Mesh && child.material) {
-          const mat = (child.material as THREE.MeshStandardMaterial).clone();
-          mat.transparent = true;
-          mat.opacity = 0.3;
-          child.material = mat;
+          const mats = Array.isArray(child.material) ? child.material : [child.material];
+          const clonedMats = mats.map((m) => {
+            const cm = m.clone();
+            cm.transparent = true;
+            cm.opacity = 0.3;
+            return cm;
+          });
+          child.material = clonedMats.length === 1 ? clonedMats[0]! : clonedMats;
         }
       });
     }
     return c;
-  }, [scene, dimmed, groupPosition]);
+  }, [scene, dimmed, lightMode, glbMatState.signature, glbMatState.unified, glbMatState.materialId, glbMatState.customColor]);
 
   return (
     <primitive

@@ -693,8 +693,6 @@ export function FurnitureEditor({
       if (g.id !== groupId) return g;
       return {
         ...g,
-        // Clear glbUrl so model switches to panel-based rendering with new material
-        glbUrl: undefined,
         panels: g.panels.map((p) => ({ ...p, materialId, customColor: undefined })),
       };
     }));
@@ -705,7 +703,6 @@ export function FurnitureEditor({
       if (g.id !== groupId) return g;
       return {
         ...g,
-        glbUrl: undefined,
         panels: g.panels.map((p) => ({ ...p, customColor: color })),
       };
     }));
