@@ -187,6 +187,9 @@
     @apply prose-li:marker:text-primary/55;
     @apply prose-hr:border-border/80 prose-hr:my-12;
     @apply prose-code:text-sm prose-code:bg-secondary/80 prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded-md;
+    @apply prose-table:block prose-table:w-full prose-table:max-w-full prose-table:overflow-x-auto prose-table:my-8;
+    @apply prose-th:border prose-th:border-border/60 prose-th:px-3 prose-th:py-2.5 prose-th:text-left prose-th:font-semibold prose-th:bg-secondary/50;
+    @apply prose-td:border prose-td:border-border/60 prose-td:px-3 prose-td:py-2.5 prose-td:align-top;
   }
 
   .blog-tiptap-editor .ProseMirror {

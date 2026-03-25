@@ -2,6 +2,7 @@ import type { Extensions } from "@tiptap/core";
 import Link from "@tiptap/extension-link";
 import Placeholder from "@tiptap/extension-placeholder";
 import StarterKit from "@tiptap/starter-kit";
+import { Table, TableCell, TableHeader, TableRow } from "@tiptap/extension-table";
 import Underline from "@tiptap/extension-underline";
 
 const link = Link.configure({
@@ -28,25 +29,42 @@ const headingConfig = {
   HTMLAttributes: { class: "scroll-mt-24" },
 };
 
+const tableGroup: Extensions = [
+  Table.configure({
+    resizable: false,
+    HTMLAttributes: { class: "blog-table w-full border-collapse text-sm my-8" },
+  }),
+  TableRow.configure({
+    HTMLAttributes: { class: "border-b border-border/60" },
+  }),
+  TableHeader.configure({
+    HTMLAttributes: {
+      class:
+        "bg-secondary/75 px-3 py-2.5 text-left font-semibold text-foreground border border-border/55 align-top",
+    },
+  }),
+  TableCell.configure({
+    HTMLAttributes: { class: "px-3 py-2.5 align-top border border-border/55 text-foreground/90" },
+  }),
+];
+
+const starter = {
+  heading: headingConfig,
+  ...listsAndQuote,
+  link: false as const,
+  underline: false as const,
+};
+
 export function getBlogHtmlExtensions(): Extensions {
-  return [
-    StarterKit.configure({
-      heading: headingConfig,
-      ...listsAndQuote,
-    }),
-    Underline,
-    link,
-  ];
+  return [StarterKit.configure(starter), Underline, link, ...tableGroup];
 }
 
 export function getBlogEditorExtensions(placeholder: string): Extensions {
   return [
-    StarterKit.configure({
-      heading: headingConfig,
-      ...listsAndQuote,
-    }),
+    StarterKit.configure(starter),
     Underline,
     link,
+    ...tableGroup,
     Placeholder.configure({ placeholder }),
   ];
 }

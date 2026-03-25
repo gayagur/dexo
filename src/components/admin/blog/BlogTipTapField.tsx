@@ -10,6 +10,7 @@ import {
   ListOrdered,
   Quote,
   Link as LinkIcon,
+  Table2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -161,6 +162,14 @@ export function BlogTipTapField({ value, onChange, disabled }: BlogTipTapFieldPr
           <Quote className="w-4 h-4" />
         </ToolbarButton>
         <Separator orientation="vertical" className="mx-1 h-6" />
+        <ToolbarButton
+          label="Insert table"
+          onClick={() =>
+            editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()
+          }
+        >
+          <Table2 className="w-4 h-4" />
+        </ToolbarButton>
         <ToolbarButton label="Link" active={editor.isActive("link")} onClick={setLink}>
           <LinkIcon className="w-4 h-4" />
         </ToolbarButton>

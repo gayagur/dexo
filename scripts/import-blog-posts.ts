@@ -16,6 +16,7 @@ import { resolve, dirname, join } from "path";
 import { fileURLToPath } from "url";
 import { generateJSON } from "@tiptap/html/server";
 import { getBlogHtmlExtensions } from "../src/lib/blog-tiptap-extensions.ts";
+import { preprocessBlogMarkdown } from "./blog-preprocess.ts";
 
 config({ path: resolve(process.cwd(), ".env.local") });
 config({ path: resolve(process.cwd(), ".env") });
@@ -115,26 +116,11 @@ function stripDuplicateBlock(body: string, topicNum: number): string {
   return body.replace(re, "").trim();
 }
 
-function preprocessBody(raw: string): string {
-  let t = raw;
-  t = t.replace(/Key Takeaways([A-Z])/g, "## Key Takeaways\n\n$1");
-  t = t.replace(/([a-z])([A-Z][a-z])/g, "$1\n\n$2");
-  t = t.replace(/([.!?])([A-Z][a-z]{2,})/g, "$1\n\n$2");
-  t = t.replace(/(Start designing your own custom furniture at dexo\.com\.?)/gi, "\n\n$1\n");
-  t = t.replace(/\\text\{([^}]*)\}/g, "$1");
-  t = t.replace(/\$([^$]+)\$/g, (_, inner: string) => inner.replace(/\\/g, "").trim());
-  return t.trim();
-}
-
 async function markdownToTipTapDoc(md: string): Promise<Record<string, unknown>> {
   marked.setOptions({ gfm: true, breaks: true });
   let html = await marked.parse(md);
   if (typeof html !== "string") html = String(html);
   html = html.replace(/<h1\b/gi, "<h2");
-  html = html.replace(/<table[\s\S]*?<\/table>/gi, (block) => {
-    const text = block.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim().slice(0, 400);
-    return `<blockquote><p><strong>Reference table.</strong> ${text || "See the comparison details in the article body above."}</p></blockquote>`;
-  });
   try {
     return generateJSON(`<div>${html}</div>`, getBlogHtmlExtensions()) as Record<string, unknown>;
   } catch (e) {
@@ -235,8 +221,8 @@ function extToMime(ext: string): string {
 }
 
 async function main() {
-  const url = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const url = (process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || "").trim();
+  const serviceKey = (process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
 
   if (!url || !serviceKey) {
     console.error(
@@ -306,7 +292,7 @@ async function main() {
     const coverUrl = pub.publicUrl;
 
     let body = stripDuplicateBlock(bodyRaw.trim(), topicNum);
-    body = preprocessBody(body);
+    body = preprocessBlogMarkdown(body);
     const content = await markdownToTipTapDoc(body);
 
     const category = CATEGORIES[Math.min(Math.max(topicNum, 1), 15) - 1];
