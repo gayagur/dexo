@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Helmet } from 'react-helmet-async';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { PremiumTestimonials } from '@/components/PremiumTestimonials';
@@ -154,6 +155,14 @@ const LandingPage = () => {
 
   return (
     <div className="min-h-screen bg-background">
+      <Helmet>
+        <title>DEXO – AI-Powered Interior Design Marketplace</title>
+        <meta name="description" content="Design your dream space with AI. Connect with skilled interior designers, carpenters, and decorators on DEXO." />
+        <link rel="canonical" href="https://dexo.info/" />
+        <meta property="og:url" content="https://dexo.info/" />
+        <meta property="og:title" content="DEXO – AI-Powered Interior Design Marketplace" />
+        <meta property="og:description" content="Design your dream space with AI. Connect with skilled interior designers, carpenters, and decorators." />
+      </Helmet>
       {/* Navigation */}
       <nav
         className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${

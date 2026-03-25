@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { Helmet } from 'react-helmet-async';
 import { useNavigate, useSearchParams, Link, Navigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -217,6 +218,10 @@ const AuthPage = () => {
 
   return (
     <div className="min-h-screen bg-background flex">
+      <Helmet>
+        <title>{isSignUp ? 'Sign Up' : 'Sign In'} | DEXO</title>
+        <meta name="description" content="Sign in or create your DEXO account to design spaces with AI and connect with interior design professionals." />
+      </Helmet>
       {/* Left side - Form */}
       <div className="flex-1 flex items-center justify-center p-8">
         <div className="w-full max-w-md space-y-8">
