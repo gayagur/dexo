@@ -484,20 +484,6 @@ export function getDefaultTemplate(furnitureId: string, dims: { w: number; h: nu
         );
       }
 
-      // Throw pillows leaning against backrest
-      const pillowY = seatTopY + 0.14;
-      const pillowZ = d / 2 - backT - 0.02;
-      if (nCush >= 2) {
-        panels_.push(
-          cushion("Pillow L", [-innerW * 0.3, pillowY, pillowZ], [0.30, 0.30, 0.08], "fabric_taupe"),
-          cushion("Pillow R", [innerW * 0.3, pillowY, pillowZ], [0.30, 0.30, 0.08], "fabric_brown"),
-        );
-      } else {
-        panels_.push(
-          cushion("Pillow", [0, pillowY, pillowZ], [0.30, 0.30, 0.08], "fabric_taupe"),
-        );
-      }
-
       // Legs
       panels_.push(
         cyl("Leg FL", [-w / 2 + 0.08, legH / 2, -d / 2 + 0.08], 0.035, legH, "black_metal"),
@@ -535,8 +521,6 @@ export function getDefaultTemplate(furnitureId: string, dims: { w: number; h: nu
           cushion("Right Arm", [w / 2 - armW / 2, legH + armH / 2, 0], [armW, armH, d], fab),
           // Seat cushion
           cushion("Seat", [0, legH + baseH + cushionH / 2, -backT / 2], [innerW, cushionH, seatD], fab),
-          // Throw pillow
-          cushion("Pillow", [0, seatTopY + 0.12, d / 2 - backT - 0.02], [0.28, 0.28, 0.08], "fabric_taupe"),
           // Legs
           cyl("Leg FL", [-w / 2 + 0.06, legH / 2, -d / 2 + 0.06], 0.03, legH, "black_metal"),
           cyl("Leg FR", [w / 2 - 0.06, legH / 2, -d / 2 + 0.06], 0.03, legH, "black_metal"),
