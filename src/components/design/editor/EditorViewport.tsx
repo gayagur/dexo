@@ -187,18 +187,18 @@ const FLOOR_STYLE: Record<
   }
 > = {
   studio: {
-    sky: "#e8ebf2",
-    floorHex: "#dde1ea",
-    roughness: 0.92,
+    sky: "#e4e8f0",
+    floorHex: "#d4dae6",
+    roughness: 0.88,
     metalness: 0,
-    gridCell: "#aeb4c4",
-    gridSection: "#8c93a6",
+    gridCell: "#9ca6b8",
+    gridSection: "#7a8498",
     hasTexture: false,
     repeat: 1,
   },
   parquet: {
-    sky: "#f5efe8",
-    floorHex: "#e8d4bc",
+    sky: "#f3ece4",
+    floorHex: "#dfc9ae",
     roughness: 0.88,
     metalness: 0,
     gridCell: "#9a7860",
@@ -306,6 +306,9 @@ function createEditorFloorTexture(preset: EditorFloorPreset): THREE.CanvasTextur
   tex.wrapT = THREE.RepeatWrapping;
   tex.repeat.set(style.repeat, style.repeat);
   tex.colorSpace = THREE.SRGBColorSpace;
+  tex.generateMipmaps = true;
+  tex.minFilter = THREE.LinearMipmapLinearFilter;
+  tex.magFilter = THREE.LinearFilter;
   tex.needsUpdate = true;
   return tex;
 }
@@ -352,6 +355,8 @@ function EditorFloorBackdrop({
   floorPreset: EditorFloorPreset;
   lightMode: EditorLightMode;
 }) {
+  const invalidate = useThree((s) => s.invalidate);
+  const gl = useThree((s) => s.gl);
   const style = FLOOR_STYLE[floorPreset];
   const texture = useMemo(() => createEditorFloorTexture(floorPreset), [floorPreset]);
   const night = lightMode === "night";
@@ -370,16 +375,36 @@ function EditorFloorBackdrop({
 
   const mapTint = night ? "#7a808a" : "#ffffff";
 
+  /* CanvasTexture + Environment often miss the first draw; force upload & extra frames */
+  useLayoutEffect(() => {
+    if (texture) {
+      const maxA = gl.capabilities.getMaxAnisotropy?.() ?? 1;
+      if (maxA > 1) texture.anisotropy = Math.min(8, maxA);
+      texture.needsUpdate = true;
+    }
+    invalidate();
+    const id = requestAnimationFrame(() => invalidate());
+    return () => cancelAnimationFrame(id);
+  }, [gl, texture, floorPreset, lightMode, invalidate]);
+
   useEffect(() => {
     return () => {
       texture?.dispose();
     };
   }, [texture]);
 
+  /* Subtle emissive keeps the floor readable before IBL / lights fully contribute */
+  const emissiveIntensity = night ? 0.045 : 0.07;
+
   return (
     <>
-      <color attach="background" args={["#e8ebf2"]} />
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.0025, 0]} receiveShadow>
+      <color attach="background" args={[skyColor]} />
+      <mesh
+        key={`floor-${floorPreset}`}
+        rotation={[-Math.PI / 2, 0, 0]}
+        position={[0, -0.0025, 0]}
+        receiveShadow
+      >
         <planeGeometry args={[48, 48]} />
         {texture ? (
           <meshStandardMaterial
@@ -387,12 +412,16 @@ function EditorFloorBackdrop({
             color={mapTint}
             roughness={style.roughness + (night ? 0.06 : 0)}
             metalness={style.metalness}
+            emissive={solidFloorColor}
+            emissiveIntensity={emissiveIntensity}
           />
         ) : (
           <meshStandardMaterial
             color={solidFloorColor}
             roughness={style.roughness + (night ? 0.06 : 0)}
             metalness={style.metalness}
+            emissive={solidFloorColor}
+            emissiveIntensity={emissiveIntensity}
           />
         )}
       </mesh>
@@ -584,6 +613,9 @@ export function EditorViewport({
           toneMapping: THREE.ACESFilmicToneMapping,
           toneMappingExposure: 1.12,
         }}
+        onCreated={(state) => {
+          requestAnimationFrame(() => state.invalidate());
+        }}
         onPointerMissed={() => {
           if (editingGroupId) {
             onSelectPanel(null); // Deselect but stay in edit mode
@@ -706,6 +738,7 @@ export function EditorViewport({
                   <GLBModelRenderer
                     url={g.glbUrl}
                     panels={g.panels}
+                    preserveGlbDiffuseMaps={g.preserveGlbDiffuseMaps}
                     lightMode={lightMode}
                     dimmed={isDimmed}
                     onClick={(e) => { if (e) e.stopPropagation(); if (!isDimmed) { onSelectGroup(g.id); onSelectPanel(null); closeContextMenu(); } }}
@@ -1975,12 +2008,15 @@ function GLBClonePlain({
   glbMatState,
   lightMode,
   dimmed,
+  preserveOriginalDiffuseMaps,
   ...handlers
 }: {
   scene: THREE.Object3D;
   glbMatState: GlbMatMemoState;
   lightMode: EditorLightMode;
   dimmed?: boolean;
+  /** When true (default), keep per-mesh GLB colors / maps until user overrides group material */
+  preserveOriginalDiffuseMaps?: boolean;
 } & GLBPrimitiveHandlers) {
   const cloned = useMemo(() => {
     const c = scene.clone(true);
@@ -1992,6 +2028,7 @@ function GLBClonePlain({
         customColor: glbMatState.customColor,
         lightMode,
         dimmed: !!dimmed,
+        preserveOriginalDiffuseMaps: preserveOriginalDiffuseMaps !== false,
       });
     } else if (dimmed) {
       c.traverse((child) => {
@@ -2008,7 +2045,7 @@ function GLBClonePlain({
       });
     }
     return c;
-  }, [scene, dimmed, lightMode, glbMatState]);
+  }, [scene, dimmed, lightMode, glbMatState, preserveOriginalDiffuseMaps]);
   return <GLBPrimitiveWithHandlers cloned={cloned} {...handlers} />;
 }
 
@@ -2016,6 +2053,7 @@ function GLBClonePlain({
 function GLBModelRenderer({
   url,
   panels,
+  preserveGlbDiffuseMaps,
   lightMode,
   dimmed,
   onClick,
@@ -2025,6 +2063,8 @@ function GLBModelRenderer({
 }: {
   url: string;
   panels: PanelData[];
+  /** Undefined = preserve authored GLB colors/textures (imported models) */
+  preserveGlbDiffuseMaps?: boolean;
   lightMode: EditorLightMode;
   dimmed?: boolean;
   onClick?: (e?: ThreeEvent<MouseEvent>) => void;
@@ -2079,6 +2119,7 @@ function GLBModelRenderer({
           glbMatState={glbMatState}
           lightMode={lightMode}
           dimmed={dimmed}
+          preserveOriginalDiffuseMaps={preserveGlbDiffuseMaps}
           {...handlers}
         />
       )}

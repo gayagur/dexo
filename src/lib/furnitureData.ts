@@ -237,7 +237,8 @@ export type PanelShape =
   // Structural
   | "cross_brace" | "l_bracket" | "rail" | "rod" | "caster"
   // Decorative
-  | "cushion" | "mattress" | "books" | "vase" | "basket" | "picture_frame" | "lamp_shade";
+  | "cushion" | "mattress" | "books" | "vase" | "basket" | "picture_frame" | "lamp_shade"
+  | "potted_plant";
 
 export interface PanelData {
   id: string;
@@ -270,6 +271,11 @@ export interface GroupData {
   glbUrl?: string;
   /** Scale multiplier for GLB models (default [1,1,1]) */
   scale?: [number, number, number];
+  /**
+   * Imported GLBs: keep per-mesh textures / vertex colors from the file for lighting.
+   * Set to false after the user picks a new palette material or custom color on the group.
+   */
+  preserveGlbDiffuseMaps?: boolean;
 }
 
 /** Snapshot shape for undo/redo and persistence */

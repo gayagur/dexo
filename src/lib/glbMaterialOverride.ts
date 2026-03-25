@@ -23,6 +23,78 @@ function normalScaleForMaterial(mat: MaterialOption | undefined): THREE.Vector2 
 export type GlbMaterialLightMode = "day" | "night";
 
 /**
+ * Rebuild mesh materials for scene lighting while keeping the GLB author's look:
+ * diffuse map, vertex colors, or at minimum the original albedo color (Kenney props).
+ */
+function materialPreservingFileVisuals(
+  oldMat: THREE.Material,
+  geometry: THREE.BufferGeometry,
+  opts: {
+    customColor?: string;
+    paletteRoughness: number;
+    paletteMetalness: number;
+    transparent: boolean;
+    opacity: number;
+    envDefault: number;
+  },
+): THREE.MeshStandardMaterial | null {
+  if (
+    !(oldMat instanceof THREE.MeshStandardMaterial) &&
+    !(oldMat instanceof THREE.MeshPhysicalMaterial)
+  ) {
+    return null;
+  }
+
+  const std = oldMat;
+  const map = std.map ?? undefined;
+  const hasVertexColors = !!geometry.getAttribute("color");
+
+  const rough =
+    typeof std.roughness === "number" && !Number.isNaN(std.roughness)
+      ? std.roughness
+      : opts.paletteRoughness;
+  const metal =
+    typeof std.metalness === "number" && !Number.isNaN(std.metalness)
+      ? std.metalness
+      : opts.paletteMetalness;
+
+  if (map || hasVertexColors) {
+    const tint = opts.customColor
+      ? new THREE.Color(opts.customColor)
+      : map
+        ? new THREE.Color(0xffffff)
+        : std.color.clone();
+    return new THREE.MeshStandardMaterial({
+      map,
+      vertexColors: hasVertexColors,
+      normalMap: std.normalMap ?? undefined,
+      normalScale: std.normalScale ? std.normalScale.clone() : new THREE.Vector2(1, 1),
+      roughness: rough,
+      metalness: metal,
+      color: tint,
+      transparent: opts.transparent,
+      opacity: opts.opacity,
+      envMapIntensity: opts.envDefault,
+    });
+  }
+
+  const albedo = opts.customColor ? new THREE.Color(opts.customColor) : std.color.clone();
+  const out = new THREE.MeshStandardMaterial({
+    color: albedo,
+    roughness: rough,
+    metalness: metal,
+    transparent: opts.transparent,
+    opacity: opts.opacity,
+    envMapIntensity: opts.envDefault,
+  });
+  if (std.emissive && std.emissive.getHex() !== 0) {
+    out.emissive = std.emissive.clone();
+    out.emissiveIntensity = std.emissiveIntensity ?? 1;
+  }
+  return out;
+}
+
+/**
  * Replace materials on every Mesh under `root` with DEXO palette PBR, without touching geometry.
  * Used for imported GLB groups so group material / custom color updates keep original shapes.
  */
@@ -35,6 +107,11 @@ export function applyDesignMaterialToGlbRoot(
     dimmed: boolean;
     /** When set (SH3D picker), applies this image on every mesh and skips palette PBR */
     sh3dColorMap?: THREE.Texture;
+    /**
+     * When true (default), meshes that already have a diffuse map or vertex colors keep them
+     * (Kenney plants, props). Set false after the user applies a palette material to the group.
+     */
+    preserveOriginalDiffuseMaps?: boolean;
   },
 ): void {
   const night = options.lightMode === "night";
@@ -105,13 +182,11 @@ export function applyDesignMaterialToGlbRoot(
 
   const normalScale = normalScaleForMaterial(matEntry);
 
-  root.traverse((child) => {
-    if (!(child instanceof THREE.Mesh)) return;
+  const preserve = options.preserveOriginalDiffuseMaps !== false;
 
-    disposeMaterialRef(child.material);
-
+  const paletteMaterialForSlot = (): THREE.Material => {
     if (isClearGlass) {
-      child.material = new THREE.MeshPhysicalMaterial({
+      return new THREE.MeshPhysicalMaterial({
         transmission: 0.9,
         thickness: 0.5,
         roughness: 0.05,
@@ -119,11 +194,10 @@ export function applyDesignMaterialToGlbRoot(
         transparent: true,
         opacity: options.dimmed ? 0.2 : 0.3,
       });
-      return;
     }
 
     if (textures && isFabric && matEntry) {
-      child.material = new THREE.MeshPhysicalMaterial({
+      return new THREE.MeshPhysicalMaterial({
         map: textures.map,
         normalMap: textures.normalMap,
         normalScale,
@@ -137,11 +211,10 @@ export function applyDesignMaterialToGlbRoot(
         opacity,
         envMapIntensity: matEntry.id.includes("velvet") ? 0.5 : 0.36,
       });
-      return;
     }
 
     if (textures) {
-      child.material = new THREE.MeshStandardMaterial({
+      return new THREE.MeshStandardMaterial({
         map: textures.map,
         normalMap: textures.normalMap,
         normalScale,
@@ -152,10 +225,9 @@ export function applyDesignMaterialToGlbRoot(
         opacity,
         envMapIntensity: isMetal ? envMetal : envDefault,
       });
-      return;
     }
 
-    child.material = new THREE.MeshStandardMaterial({
+    return new THREE.MeshStandardMaterial({
       color: colorHex,
       roughness,
       metalness,
@@ -163,5 +235,45 @@ export function applyDesignMaterialToGlbRoot(
       opacity,
       envMapIntensity: isMetal ? envMetal : envDefault,
     });
+  };
+
+  const preserveOpts = {
+    customColor: options.customColor,
+    paletteRoughness: roughness,
+    paletteMetalness: metalness,
+    transparent,
+    opacity,
+    envDefault,
+  };
+
+  root.traverse((child) => {
+    if (!(child instanceof THREE.Mesh)) return;
+
+    const geo = child.geometry;
+
+    const resolveMaterial = (oldMat: THREE.Material): THREE.Material => {
+      if (preserve) {
+        const phys = oldMat as THREE.MeshPhysicalMaterial;
+        if (phys.transmission != null && phys.transmission > 0.5) {
+          const c = phys.clone();
+          c.transparent = transparent;
+          c.opacity = opacity;
+          return c;
+        }
+        const kept = materialPreservingFileVisuals(oldMat, geo, preserveOpts);
+        if (kept) return kept;
+      }
+      return paletteMaterialForSlot();
+    };
+
+    if (Array.isArray(child.material)) {
+      const next = child.material.map((m) => resolveMaterial(m));
+      disposeMaterialRef(child.material);
+      child.material = next;
+    } else {
+      const next = resolveMaterial(child.material);
+      disposeMaterialRef(child.material);
+      child.material = next;
+    }
   });
 }

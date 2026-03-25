@@ -184,6 +184,7 @@ export async function loadGLBAsGroup(
           rotation: [0, 0, 0],
           panels,
           glbUrl: url,
+          preserveGlbDiffuseMaps: true,
         });
       },
       (progress) => {

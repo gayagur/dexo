@@ -25,7 +25,7 @@ interface ShapeRendererProps {
 const COMPOSITE_SHAPES: Set<PanelShape> = new Set([
   "hairpin_leg", "x_base", "shaker_door", "glass_insert_door", "louvered_door",
   "drawer_box", "open_tray", "cross_brace", "l_bracket", "books",
-  "picture_frame", "basket", "bracket_foot",
+  "picture_frame", "basket", "bracket_foot", "potted_plant",
 ]);
 
 export function isCompositeShape(shape: PanelShape): boolean {
@@ -262,6 +262,8 @@ function CompositeShapeRenderer({
       return <Basket w={w} h={h} d={d} matProps={matProps} />;
     case "bracket_foot":
       return <BracketFoot w={w} h={h} d={d} matProps={matProps} />;
+    case "potted_plant":
+      return <PottedPlant w={w} h={h} d={d} matProps={matProps} isOutline={isOutline} />;
     default:
       return (
         <mesh>
@@ -964,6 +966,99 @@ function BracketFoot({ w, h, d, matProps }: CompProps) {
         <boxGeometry args={[t, h, d]} />
         <meshStandardMaterial {...matProps} />
       </mesh>
+    </group>
+  );
+}
+
+// ─── Potted plant (lathe pot + soil + low-poly foliage) ───
+
+function PottedPlant({
+  w, h, d, matProps, isOutline,
+}: CompProps & { isOutline?: boolean }) {
+  const R = Math.max(w, d) * 0.5;
+  const potH = h * 0.34;
+  const soilH = Math.max(0.012, h * 0.038);
+  const plantRegion = Math.max(0.08, h - potH - soilH);
+  const potY = -h / 2 + potH / 2;
+  const soilY = -h / 2 + potH + soilH / 2;
+  const folY = -h / 2 + potH + soilH + plantRegion * 0.44;
+  const rr = R * 0.92;
+
+  const potGeo = useMemo(() => {
+    const points: THREE.Vector2[] = [];
+    const steps = 28;
+    for (let i = 0; i <= steps; i++) {
+      const t = i / steps;
+      const y = -potH / 2 + t * potH;
+      let rad: number;
+      if (t < 0.06) {
+        rad = rr * (0.3 + (t / 0.06) * 0.08);
+      } else if (t < 0.32) {
+        const u = (t - 0.06) / 0.26;
+        rad = rr * (0.38 + 0.14 * Math.sin(u * Math.PI * 0.5));
+      } else if (t < 0.72) {
+        const u = (t - 0.32) / 0.4;
+        rad = rr * (0.52 - 0.06 * Math.sin(u * Math.PI));
+      } else if (t < 0.88) {
+        const u = (t - 0.72) / 0.16;
+        rad = rr * (0.46 - u * 0.14);
+      } else {
+        const u = (t - 0.88) / 0.12;
+        rad = rr * (0.32 + u * 0.1);
+      }
+      points.push(new THREE.Vector2(Math.max(0.002, rad), y));
+    }
+    return new THREE.LatheGeometry(points, 32);
+  }, [potH, rr]);
+
+  const potMatProps = isOutline ? matProps : {
+    color: "#c49a6c",
+    roughness: 0.82,
+    metalness: 0.04,
+    transparent: matProps.transparent,
+    opacity: matProps.opacity,
+    wireframe: matProps.wireframe,
+  };
+  const soilMatProps = isOutline ? matProps : {
+    color: "#3a2618",
+    roughness: 0.95,
+    metalness: 0,
+    transparent: matProps.transparent,
+    opacity: matProps.opacity,
+    wireframe: matProps.wireframe,
+  };
+
+  const mainFol = Math.min(rr * 0.55, plantRegion * 0.38);
+  const satR = mainFol * 0.42;
+  const satellites: [number, number, number][] = [
+    [rr * 0.42, plantRegion * 0.06, rr * 0.12],
+    [-rr * 0.38, plantRegion * 0.12, -rr * 0.08],
+    [rr * 0.08, plantRegion * 0.18, rr * 0.4],
+    [-rr * 0.12, plantRegion * 0.02, -rr * 0.36],
+    [rr * 0.32, -plantRegion * 0.08, -rr * 0.28],
+    [-rr * 0.28, plantRegion * 0.14, rr * 0.32],
+  ];
+
+  return (
+    <group>
+      <mesh position={[0, potY, 0]} castShadow receiveShadow>
+        <primitive object={potGeo} attach="geometry" />
+        <meshStandardMaterial {...potMatProps} />
+      </mesh>
+      <mesh position={[0, soilY, 0]} castShadow receiveShadow>
+        <cylinderGeometry args={[rr * 0.78, rr * 0.78, soilH, 20]} />
+        <meshStandardMaterial {...soilMatProps} />
+      </mesh>
+      <mesh position={[0, folY, 0]} castShadow receiveShadow>
+        <icosahedronGeometry args={[mainFol, 1]} />
+        <meshStandardMaterial {...matProps} />
+      </mesh>
+      {satellites.map((pos, i) => (
+        <mesh key={i} position={[pos[0], folY + pos[1], pos[2]]} castShadow receiveShadow>
+          <icosahedronGeometry args={[satR, 0]} />
+          <meshStandardMaterial {...matProps} />
+        </mesh>
+      ))}
     </group>
   );
 }

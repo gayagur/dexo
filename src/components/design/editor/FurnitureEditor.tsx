@@ -694,6 +694,7 @@ export function FurnitureEditor({
       // Keep glbUrl — GLBModelRenderer applies materials via applyDesignMaterialToGlbRoot
       return {
         ...g,
+        preserveGlbDiffuseMaps: false,
         panels: g.panels.map((p) => ({ ...p, materialId, customColor: undefined, textureUrl: undefined })),
       };
     }));
@@ -704,6 +705,7 @@ export function FurnitureEditor({
       if (g.id !== groupId) return g;
       return {
         ...g,
+        preserveGlbDiffuseMaps: false,
         panels: g.panels.map((p) => ({ ...p, customColor: color, textureUrl: undefined })),
       };
     }));
@@ -729,6 +731,7 @@ export function FurnitureEditor({
       updateScene(
         (prev) => prev.map((g) => ({
           ...g,
+          ...(g.glbUrl ? { preserveGlbDiffuseMaps: false } : {}),
           panels: g.panels.map((p) => ({ ...p, materialId })),
         })),
         (prev) => prev.map((p) => ({ ...p, materialId }))

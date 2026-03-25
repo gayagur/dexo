@@ -705,6 +705,17 @@ const PART_CATEGORIES: PartCategory[] = [
     label: "Plants & Decor",
     icon: "🌿",
     items: [
+      {
+        id: "potted_plant_simple",
+        label: "Potted plant (simple)",
+        icon: "🪴",
+        description: "Terracotta pot + foliage — no GLB",
+        shape: "potted_plant",
+        type: "vertical",
+        size: [0.28, 0.55, 0.28],
+        materialId: "fabric_green",
+        placeOnSelected: true,
+      },
       { id: "plant1_k", label: "Small Plant 1", icon: "🌱", description: "Succulent (3D)", shape: "sphere", type: "vertical", size: [0.10, 0.15, 0.10], materialId: "fabric_green", groupName: "Small Plant", glbPath: "/models/kenney/plantSmall1.glb" },
       { id: "plant2_k", label: "Small Plant 2", icon: "🌱", description: "Leafy plant (3D)", shape: "sphere", type: "vertical", size: [0.12, 0.18, 0.12], materialId: "fabric_green", groupName: "Small Plant 2", glbPath: "/models/kenney/plantSmall2.glb" },
       { id: "plant3_k", label: "Small Plant 3", icon: "🌱", description: "Herb pot (3D)", shape: "sphere", type: "vertical", size: [0.08, 0.20, 0.08], materialId: "fabric_green", groupName: "Small Plant 3", glbPath: "/models/kenney/plantSmall3.glb" },
