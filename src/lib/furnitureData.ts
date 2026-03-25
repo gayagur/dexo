@@ -256,6 +256,8 @@ export interface GroupData {
   position: [number, number, number];
   rotation: [number, number, number];
   panels: PanelData[];
+  /** When set, render the original GLB model instead of box panels */
+  glbUrl?: string;
 }
 
 /** Snapshot shape for undo/redo and persistence */

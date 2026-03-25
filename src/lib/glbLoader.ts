@@ -176,12 +176,14 @@ export async function loadGLBAsGroup(
           ...(p.customColor ? { customColor: p.customColor } : {}),
         }));
 
+        console.log("[glbLoader] Parsed", panels.length, "parts from", groupName);
         resolve({
           id: crypto.randomUUID(),
           name: groupName,
           position: groupPos,
           rotation: [0, 0, 0],
           panels,
+          glbUrl: url,
         });
       },
       (progress) => {

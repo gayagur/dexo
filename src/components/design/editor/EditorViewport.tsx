@@ -1,6 +1,6 @@
-import React, { useState, useRef, useMemo, useCallback, useEffect, useLayoutEffect } from "react";
+import React, { useState, useRef, useMemo, useCallback, useEffect, useLayoutEffect, Suspense } from "react";
 import { Canvas, useFrame, useThree, type ThreeEvent } from "@react-three/fiber";
-import { OrbitControls, Grid, GizmoHelper, GizmoViewport, Environment, Lightformer, RoundedBox } from "@react-three/drei";
+import { OrbitControls, Grid, GizmoHelper, GizmoViewport, Environment, Lightformer, RoundedBox, useGLTF } from "@react-three/drei";
 // postprocessing removed — @react-three/postprocessing@3 requires fiber@9, crashes on fiber@8
 import type { PanelData, GroupData } from "@/lib/furnitureData";
 import { MATERIALS } from "@/lib/furnitureData";
@@ -699,30 +699,50 @@ export function EditorViewport({
 
           return (
             <group key={g.id} position={g.position} rotation={g.rotation}>
-              {g.panels.map((panel) => (
-                <FurniturePanel
-                  key={panel.id}
-                  panel={panel}
-                  lightMode={lightMode}
-                  selected={false}
-                  dimmed={isDimmed}
-                  opacity={isDimmed ? 0.3 : 1}
-                  isOpen={!!openPanels[panel.id]}
-                  rotationMode={rotationMode}
-                  onClick={(e) => { if (e) e.stopPropagation(); if (!isDimmed) { onSelectGroup(g.id); onSelectPanel(null); closeContextMenu(); } }}
-                  onDoubleClick={(e) => { if (e) e.stopPropagation(); if (!isDimmed) onEnterEditMode(g.id); }}
-                  onContextMenu={(x, y) => {
-                    if (!isDimmed) {
-                      setContextMenu({ panelId: panel.id, label: g.name, x, y, type: "group", groupId: g.id });
-                    } else if (isDoor(panel.label)) {
-                      setContextMenu({ panelId: panel.id, label: panel.label, x, y, type: "door" });
-                    } else if (isDrawer(panel.label)) {
-                      setContextMenu({ panelId: panel.id, label: panel.label, x, y, type: "drawer" });
-                    }
-                  }}
-                  onDragStart={(intersectionPoint, clientX) => { if (!isDimmed) startGroupDrag(g.id, intersectionPoint, clientX); }}
-                />
-              ))}
+              {g.glbUrl ? (
+                /* Imported GLB model — render original 3D geometry */
+                <Suspense fallback={null}>
+                  <GLBModelRenderer
+                    url={g.glbUrl}
+                    groupPosition={g.position}
+                    dimmed={isDimmed}
+                    onClick={(e) => { if (e) e.stopPropagation(); if (!isDimmed) { onSelectGroup(g.id); onSelectPanel(null); closeContextMenu(); } }}
+                    onDoubleClick={(e) => { if (e) e.stopPropagation(); if (!isDimmed) onEnterEditMode(g.id); }}
+                    onContextMenu={(x, y) => {
+                      if (!isDimmed) {
+                        setContextMenu({ panelId: g.panels[0]?.id ?? g.id, label: g.name, x, y, type: "group", groupId: g.id });
+                      }
+                    }}
+                    onPointerDown={(pt, clientX) => { if (!isDimmed) startGroupDrag(g.id, pt, clientX); }}
+                  />
+                </Suspense>
+              ) : (
+                /* Component-based template — render box panels */
+                g.panels.map((panel) => (
+                  <FurniturePanel
+                    key={panel.id}
+                    panel={panel}
+                    lightMode={lightMode}
+                    selected={false}
+                    dimmed={isDimmed}
+                    opacity={isDimmed ? 0.3 : 1}
+                    isOpen={!!openPanels[panel.id]}
+                    rotationMode={rotationMode}
+                    onClick={(e) => { if (e) e.stopPropagation(); if (!isDimmed) { onSelectGroup(g.id); onSelectPanel(null); closeContextMenu(); } }}
+                    onDoubleClick={(e) => { if (e) e.stopPropagation(); if (!isDimmed) onEnterEditMode(g.id); }}
+                    onContextMenu={(x, y) => {
+                      if (!isDimmed) {
+                        setContextMenu({ panelId: panel.id, label: g.name, x, y, type: "group", groupId: g.id });
+                      } else if (isDoor(panel.label)) {
+                        setContextMenu({ panelId: panel.id, label: panel.label, x, y, type: "door" });
+                      } else if (isDrawer(panel.label)) {
+                        setContextMenu({ panelId: panel.id, label: panel.label, x, y, type: "drawer" });
+                      }
+                    }}
+                    onDragStart={(intersectionPoint, clientX) => { if (!isDimmed) startGroupDrag(g.id, intersectionPoint, clientX); }}
+                  />
+                ))
+              )}
               {isSelected && <GroupBoundingBox panels={g.panels} color="#3b82f6" />}
             </group>
           );
@@ -1844,6 +1864,74 @@ function GroupCornerResizeHandle({
 }
 
 // ─── Group Bounding Box ──────────────────────────────────
+
+/** Renders an imported GLB model with its original geometry */
+function GLBModelRenderer({
+  url,
+  groupPosition,
+  dimmed,
+  onClick,
+  onDoubleClick,
+  onContextMenu,
+  onPointerDown,
+}: {
+  url: string;
+  groupPosition: [number, number, number];
+  dimmed?: boolean;
+  onClick?: (e?: ThreeEvent<MouseEvent>) => void;
+  onDoubleClick?: (e?: ThreeEvent<MouseEvent>) => void;
+  onContextMenu?: (x: number, y: number) => void;
+  onPointerDown?: (point: THREE.Vector3, clientX: number) => void;
+}) {
+  const { scene } = useGLTF(url);
+  const cloned = useMemo(() => {
+    const c = scene.clone(true);
+    // Center the model at origin (group position handles world placement)
+    const bbox = new THREE.Box3().setFromObject(c);
+    const center = new THREE.Vector3();
+    bbox.getCenter(center);
+    c.position.sub(new THREE.Vector3(center.x, center.y, center.z));
+    // Re-add the Y offset so model sits on ground
+    c.position.y += -bbox.min.y;
+    // Adjust: group position already centers Y, so shift back
+    c.position.set(
+      c.position.x + groupPosition[0],
+      c.position.y,
+      c.position.z + groupPosition[2],
+    );
+    c.position.sub(new THREE.Vector3(groupPosition[0], groupPosition[1], groupPosition[2]));
+
+    if (dimmed) {
+      c.traverse((child) => {
+        if (child instanceof THREE.Mesh && child.material) {
+          const mat = (child.material as THREE.MeshStandardMaterial).clone();
+          mat.transparent = true;
+          mat.opacity = 0.3;
+          child.material = mat;
+        }
+      });
+    }
+    return c;
+  }, [scene, dimmed, groupPosition]);
+
+  return (
+    <primitive
+      object={cloned}
+      onClick={(e: ThreeEvent<MouseEvent>) => { e.stopPropagation(); onClick?.(e); }}
+      onDoubleClick={(e: ThreeEvent<MouseEvent>) => { e.stopPropagation(); onDoubleClick?.(e); }}
+      onContextMenu={(e: ThreeEvent<MouseEvent>) => {
+        e.stopPropagation();
+        const ne = e.nativeEvent ?? (e as unknown as { nativeEvent: MouseEvent }).nativeEvent;
+        if (ne) { ne.preventDefault?.(); onContextMenu?.(ne.clientX, ne.clientY); }
+      }}
+      onPointerDown={(e: ThreeEvent<PointerEvent>) => {
+        e.stopPropagation();
+        const pt = e.point ?? e.intersections?.[0]?.point;
+        if (pt) onPointerDown?.(pt.clone(), e.nativeEvent.clientX);
+      }}
+    />
+  );
+}
 
 function GroupBoundingBox({ panels, color = "#3b82f6", dashed = false }: {
   panels: PanelData[];
