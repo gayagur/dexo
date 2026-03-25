@@ -424,48 +424,60 @@ export function getDefaultTemplate(furnitureId: string, dims: { w: number; h: nu
     case "sofa":
     case "lobby_sofa":
     case "booth_seating": {
-      // Base + back + 2 arms — seat height ~420mm, fabric material
-      const seatH = 0.42; // 420mm seat height
-      const armW = 0.12;
-      const armH = h * 0.3;
-      const backH = h - seatH;
+      // Tight-fitting sofa — frame + cushion + back + arms, all flush
+      const legH = 0.06;
+      const frameH = 0.18;
+      const cushionH = 0.18;
+      const armW = 0.14;
+      const backT = 0.16;
+      const armH = h - legH - frameH;
+      const backH = h - legH - frameH;
+      const seatD = d - backT;
       const fab = "fabric_gray";
       return {
         panels: [
-          // Seat base (thick cushion)
-          panel("horizontal", "Seat Base", [0, seatH / 2, 0], [w, seatH, d], fab),
-          // Back cushion
-          panel("vertical", "Backrest", [0, seatH + backH / 2, d / 2 - 0.08], [w - armW * 2, backH, 0.15], fab),
-          // Left arm
-          panel("vertical", "Left Arm", [-w / 2 + armW / 2, seatH + armH / 2, 0], [armW, armH, d], fab),
-          // Right arm
-          panel("vertical", "Right Arm", [w / 2 - armW / 2, seatH + armH / 2, 0], [armW, armH, d], fab),
-          // Short legs
-          cyl("Leg FL", [-w / 2 + 0.08, 0.03, -d / 2 + 0.08], 0.04, 0.06, "black_metal"),
-          cyl("Leg FR", [w / 2 - 0.08, 0.03, -d / 2 + 0.08], 0.04, 0.06, "black_metal"),
-          cyl("Leg BL", [-w / 2 + 0.08, 0.03, d / 2 - 0.08], 0.04, 0.06, "black_metal"),
-          cyl("Leg BR", [w / 2 - 0.08, 0.03, d / 2 - 0.08], 0.04, 0.06, "black_metal"),
+          // Frame (hidden solid base)
+          panel("horizontal", "Frame", [0, legH + frameH / 2, 0], [w, frameH, d], "plywood"),
+          // Seat cushion (flush between arms, against backrest)
+          panel("horizontal", "Seat Cushion", [0, legH + frameH + cushionH / 2, -backT / 2], [w - armW * 2, cushionH, seatD], fab),
+          // Backrest (flush against back edge, between arms)
+          panel("vertical", "Backrest", [0, legH + frameH + backH / 2, d / 2 - backT / 2], [w - armW * 2, backH, backT], fab),
+          // Left arm (full depth, flush with frame edge)
+          panel("vertical", "Left Arm", [-w / 2 + armW / 2, legH + frameH + armH / 2, 0], [armW, armH, d], fab),
+          // Right arm (full depth, flush with frame edge)
+          panel("vertical", "Right Arm", [w / 2 - armW / 2, legH + frameH + armH / 2, 0], [armW, armH, d], fab),
+          // Legs
+          cyl("Leg FL", [-w / 2 + 0.08, legH / 2, -d / 2 + 0.08], 0.04, legH, "black_metal"),
+          cyl("Leg FR", [w / 2 - 0.08, legH / 2, -d / 2 + 0.08], 0.04, legH, "black_metal"),
+          cyl("Leg BL", [-w / 2 + 0.08, legH / 2, d / 2 - 0.08], 0.04, legH, "black_metal"),
+          cyl("Leg BR", [w / 2 - 0.08, legH / 2, d / 2 - 0.08], 0.04, legH, "black_metal"),
         ],
       };
     }
 
     case "armchair":
     case "lounge_chair": {
-      const seatH = 0.42; // 420mm seat height
-      const armW = 0.1;
-      const armH = h * 0.28;
-      const backH = h - seatH;
+      // Tight-fitting armchair — same structure as sofa
+      const legH = 0.05;
+      const frameH = 0.16;
+      const cushionH = 0.16;
+      const armW = 0.12;
+      const backT = 0.14;
+      const armH = h - legH - frameH;
+      const backH = h - legH - frameH;
+      const seatD = d - backT;
       const fab = "fabric_gray";
       return {
         panels: [
-          panel("horizontal", "Seat", [0, seatH / 2, 0], [w, seatH, d], fab),
-          panel("vertical", "Backrest", [0, seatH + backH / 2, d / 2 - 0.06], [w - armW * 2, backH, 0.12], fab),
-          panel("vertical", "Left Arm", [-w / 2 + armW / 2, seatH + armH / 2, 0], [armW, armH, d], fab),
-          panel("vertical", "Right Arm", [w / 2 - armW / 2, seatH + armH / 2, 0], [armW, armH, d], fab),
-          cyl("Leg FL", [-w / 2 + 0.06, 0.025, -d / 2 + 0.06], 0.035, 0.05, "black_metal"),
-          cyl("Leg FR", [w / 2 - 0.06, 0.025, -d / 2 + 0.06], 0.035, 0.05, "black_metal"),
-          cyl("Leg BL", [-w / 2 + 0.06, 0.025, d / 2 - 0.06], 0.035, 0.05, "black_metal"),
-          cyl("Leg BR", [w / 2 - 0.06, 0.025, d / 2 - 0.06], 0.035, 0.05, "black_metal"),
+          panel("horizontal", "Frame", [0, legH + frameH / 2, 0], [w, frameH, d], "plywood"),
+          panel("horizontal", "Seat Cushion", [0, legH + frameH + cushionH / 2, -backT / 2], [w - armW * 2, cushionH, seatD], fab),
+          panel("vertical", "Backrest", [0, legH + frameH + backH / 2, d / 2 - backT / 2], [w - armW * 2, backH, backT], fab),
+          panel("vertical", "Left Arm", [-w / 2 + armW / 2, legH + frameH + armH / 2, 0], [armW, armH, d], fab),
+          panel("vertical", "Right Arm", [w / 2 - armW / 2, legH + frameH + armH / 2, 0], [armW, armH, d], fab),
+          cyl("Leg FL", [-w / 2 + 0.06, legH / 2, -d / 2 + 0.06], 0.035, legH, "black_metal"),
+          cyl("Leg FR", [w / 2 - 0.06, legH / 2, -d / 2 + 0.06], 0.035, legH, "black_metal"),
+          cyl("Leg BL", [-w / 2 + 0.06, legH / 2, d / 2 - 0.06], 0.035, legH, "black_metal"),
+          cyl("Leg BR", [w / 2 - 0.06, legH / 2, d / 2 - 0.06], 0.035, legH, "black_metal"),
         ],
       };
     }
