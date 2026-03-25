@@ -22,6 +22,9 @@ export function BlogPostCard({ post }: BlogPostCardProps) {
             src={post.cover_image_url}
             alt={post.cover_image_alt || post.title}
             className="w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-500 ease-out"
+            loading="lazy"
+            width={400}
+            height={250}
           />
         ) : (
           <div className="w-full h-full bg-gradient-to-br from-secondary via-muted/30 to-primary/10" />

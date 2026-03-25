@@ -69,19 +69,35 @@ export default function BlogPostPage() {
 
   const faqJson = useMemo(() => (faqs.length ? buildFaqPageJsonLd(faqs) : null), [faqs]);
 
+  // Breadcrumb JSON-LD
+  const breadcrumbJson = useMemo(() => {
+    if (!post || !origin) return null;
+    return {
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      itemListElement: [
+        { "@type": "ListItem", position: 1, name: "Home", item: origin },
+        { "@type": "ListItem", position: 2, name: "Blog", item: `${origin}/blog` },
+        { "@type": "ListItem", position: 3, name: post.title, item: pageUrl },
+      ],
+    };
+  }, [post, origin, pageUrl]);
+
   const metaTitle = post?.meta_title?.trim() || post?.title || "DEXO Journal";
+  const displayTitle = metaTitle.length > 55 ? metaTitle.slice(0, 55) + "..." : metaTitle;
   const metaDesc =
     post?.meta_description?.trim() ||
     post?.excerpt?.trim() ||
     "Read this article on the DEXO journal — custom furniture and interior design.";
   const ogImage = post?.cover_image_url || undefined;
+  const keywords = post?.keywords?.length ? post.keywords.join(", ") : undefined;
 
   if (loading) {
     return (
       <BlogPublicShell>
         <div className="container max-w-3xl mx-auto py-32 flex justify-center gap-2 text-muted-foreground">
           <Loader2 className="w-5 h-5 animate-spin" />
-          Loading…
+          Loading...
         </div>
       </BlogPublicShell>
     );
@@ -91,7 +107,7 @@ export default function BlogPostPage() {
     return (
       <BlogPublicShell>
         <Helmet>
-          <title>Article not found · DEXO</title>
+          <title>Article not found | DEXO</title>
           <meta name="robots" content="noindex" />
         </Helmet>
         <div className="container max-w-3xl mx-auto py-24 text-center space-y-6 px-5">
@@ -108,37 +124,51 @@ export default function BlogPostPage() {
   return (
     <BlogPublicShell>
       <Helmet>
-        <title>{metaTitle} · DEXO Journal</title>
-        <meta name="description" content={metaDesc} />
-        {pageUrl ? <link rel="canonical" href={pageUrl} /> : null}
+        <title>{displayTitle} | DEXO Blog</title>
+        <meta name="description" content={metaDesc.slice(0, 155)} />
+        {keywords && <meta name="keywords" content={keywords} />}
+        {pageUrl && <link rel="canonical" href={pageUrl} />}
+        {/* Preload cover image for faster LCP */}
+        {ogImage && <link rel="preload" as="image" href={ogImage} />}
+
+        {/* Open Graph */}
         <meta property="og:type" content="article" />
         <meta property="og:title" content={metaTitle} />
-        <meta property="og:description" content={metaDesc} />
-        {ogImage ? <meta property="og:image" content={ogImage} /> : null}
-        {pageUrl ? <meta property="og:url" content={pageUrl} /> : null}
+        <meta property="og:description" content={metaDesc.slice(0, 155)} />
+        {ogImage && <meta property="og:image" content={ogImage} />}
+        {pageUrl && <meta property="og:url" content={pageUrl} />}
+        <meta property="og:site_name" content="DEXO" />
+        {post.published_at && <meta property="article:published_time" content={post.published_at} />}
+        <meta property="article:modified_time" content={post.updated_at} />
+
+        {/* Twitter Card */}
         <meta name="twitter:card" content="summary_large_image" />
         <meta name="twitter:title" content={metaTitle} />
-        <meta name="twitter:description" content={metaDesc} />
-        {ogImage ? <meta name="twitter:image" content={ogImage} /> : null}
-        {articleJson ? (
-          <script
-            type="application/ld+json"
-            dangerouslySetInnerHTML={{ __html: JSON.stringify(articleJson) }}
-          />
-        ) : null}
-        {faqJson ? (
+        <meta name="twitter:description" content={metaDesc.slice(0, 155)} />
+        {ogImage && <meta name="twitter:image" content={ogImage} />}
+
+        {/* JSON-LD: Article */}
+        {articleJson && (
+          <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(articleJson) }} />
+        )}
+        {/* JSON-LD: FAQ */}
+        {faqJson && (
           <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJson) }} />
-        ) : null}
+        )}
+        {/* JSON-LD: Breadcrumb */}
+        {breadcrumbJson && (
+          <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJson) }} />
+        )}
       </Helmet>
 
-      <div className="container max-w-3xl mx-auto px-5 sm:px-8 py-12 sm:py-16">
-        <nav className="mb-10">
-          <Link
-            to="/blog"
-            className="text-sm text-muted-foreground hover:text-primary transition-colors font-medium inline-flex items-center gap-1"
-          >
-            ← Journal
-          </Link>
+      <div className="container max-w-5xl mx-auto px-5 sm:px-8 py-12 sm:py-16">
+        {/* Breadcrumb navigation */}
+        <nav className="mb-10 flex items-center gap-2 text-sm text-muted-foreground" aria-label="Breadcrumb">
+          <Link to="/" className="hover:text-primary transition-colors">Home</Link>
+          <span className="text-border">/</span>
+          <Link to="/blog" className="hover:text-primary transition-colors">Blog</Link>
+          <span className="text-border">/</span>
+          <span className="text-foreground font-medium truncate max-w-[300px]">{post.title}</span>
         </nav>
 
         <BlogArticle
@@ -147,8 +177,8 @@ export default function BlogPostPage() {
           relatedSlot={
             related.length ? (
               <section className="mt-20 pt-12 border-t border-border/70" aria-label="Related articles">
-                <h2 className="font-serif text-2xl font-semibold text-foreground mb-8">Related</h2>
-                <div className="grid sm:grid-cols-1 gap-8">
+                <h2 className="font-serif text-2xl font-semibold text-foreground mb-8">Related Articles</h2>
+                <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
                   {related.map((p) => (
                     <BlogPostCard key={p.id} post={p} />
                   ))}

@@ -266,3 +266,180 @@
   border-color: rgba(192, 86, 33, 0.4) !important;
   background: rgba(192, 86, 33, 0.08) !important;
 }
+
+/* ─── Blog Article Typography ─────────────────────────────── */
+
+.prose-dexo {
+  font-size: 18px;
+  line-height: 1.8;
+  color: hsl(var(--foreground));
+}
+
+.prose-dexo p {
+  margin-bottom: 1.5em;
+}
+
+.prose-dexo h2 {
+  font-family: "Playfair Display", serif;
+  font-size: 1.75rem;
+  font-weight: 600;
+  margin-top: 2.5rem;
+  margin-bottom: 1rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid hsl(var(--border) / 0.4);
+  color: hsl(var(--foreground));
+  line-height: 1.3;
+  scroll-margin-top: 80px;
+}
+
+.prose-dexo h3 {
+  font-family: "Playfair Display", serif;
+  font-size: 1.35rem;
+  font-weight: 600;
+  margin-top: 2rem;
+  margin-bottom: 0.75rem;
+  color: hsl(var(--foreground));
+  line-height: 1.35;
+  scroll-margin-top: 80px;
+}
+
+.prose-dexo a {
+  color: hsl(var(--primary));
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+  transition: border-color 0.2s;
+}
+
+.prose-dexo a:hover {
+  border-bottom-color: hsl(var(--primary));
+}
+
+.prose-dexo ul,
+.prose-dexo ol {
+  margin: 1.25em 0;
+  padding-left: 1.75em;
+}
+
+.prose-dexo ul {
+  list-style: none;
+}
+
+.prose-dexo ul li {
+  position: relative;
+  margin-bottom: 0.5em;
+}
+
+.prose-dexo ul li::before {
+  content: "";
+  position: absolute;
+  left: -1.25em;
+  top: 0.65em;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: hsl(var(--primary) / 0.6);
+}
+
+.prose-dexo ol {
+  list-style: decimal;
+}
+
+.prose-dexo ol li {
+  margin-bottom: 0.5em;
+  padding-left: 0.25em;
+}
+
+.prose-dexo ol li::marker {
+  color: hsl(var(--primary));
+  font-weight: 600;
+}
+
+/* Blockquotes as pull quotes */
+.prose-dexo blockquote {
+  border-left: 3px solid hsl(var(--primary));
+  margin: 2rem 0;
+  padding: 1rem 1.5rem;
+  font-size: 1.15em;
+  font-style: italic;
+  color: hsl(var(--foreground) / 0.85);
+  background: hsl(var(--secondary) / 0.3);
+  border-radius: 0 0.75rem 0.75rem 0;
+}
+
+.prose-dexo blockquote p {
+  margin-bottom: 0;
+}
+
+/* Images within content */
+.prose-dexo img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 0.75rem;
+  margin: 2rem auto;
+  display: block;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+}
+
+/* Tables */
+.prose-dexo table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1.5em 0;
+  font-size: 0.9em;
+}
+
+.prose-dexo th,
+.prose-dexo td {
+  padding: 0.75em 1em;
+  border: 1px solid hsl(var(--border));
+  text-align: left;
+}
+
+.prose-dexo th {
+  background: hsl(var(--secondary) / 0.5);
+  font-weight: 600;
+}
+
+.prose-dexo tr:nth-child(even) td {
+  background: hsl(var(--secondary) / 0.2);
+}
+
+/* Code blocks */
+.prose-dexo code {
+  background: hsl(var(--secondary));
+  padding: 0.15em 0.4em;
+  border-radius: 0.25em;
+  font-size: 0.88em;
+}
+
+.prose-dexo pre {
+  background: hsl(215 30% 15%);
+  color: #e5e7eb;
+  padding: 1.25em 1.5em;
+  border-radius: 0.75em;
+  overflow-x: auto;
+  margin: 1.5em 0;
+  font-size: 0.88em;
+  line-height: 1.7;
+}
+
+.prose-dexo pre code {
+  background: none;
+  padding: 0;
+  font-size: inherit;
+  color: inherit;
+}
+
+/* Horizontal rules as section dividers */
+.prose-dexo hr {
+  border: none;
+  height: 1px;
+  background: hsl(var(--border) / 0.5);
+  margin: 3rem 0;
+}
+
+/* Strong text */
+.prose-dexo strong {
+  font-weight: 600;
+  color: hsl(var(--foreground));
+}
