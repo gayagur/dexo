@@ -63,7 +63,7 @@ export default function FurnitureDesignFlow() {
   }, []);
 
   const handleSave = useCallback(
-    async (data: { panels: EditorSceneData; dims: { w: number; h: number; d: number }; style: string; furnitureId: string }) => {
+    async (data: { panels: EditorSceneData; dims: { w: number; h: number; d: number }; style: string; furnitureId: string; cameraPosition?: [number, number, number]; materialsUsed?: string[] }) => {
       if (!user || saving) return;
       setSaving(true);
 
@@ -75,7 +75,12 @@ export default function FurnitureDesignFlow() {
           space_type: state.spaceType!,
           room_id: state.roomId!,
           furniture_id: data.furnitureId,
-          panels: data.panels as unknown as Record<string, unknown>,
+          panels: {
+            ...data.panels,
+            camera_position: data.cameraPosition ?? [2.5, 2, 3],
+            materials_used: data.materialsUsed ?? [],
+            design_mode: "manual",
+          } as unknown as Record<string, unknown>,
           dimensions: data.dims as unknown as Record<string, unknown>,
           style: data.style,
         })
@@ -146,6 +151,7 @@ export default function FurnitureDesignFlow() {
         <FurnitureEditor
           furnitureType={state.furniture!}
           roomLabel={getRoomLabel()}
+          spaceType={state.spaceType ?? undefined}
           onBack={() => setStep("furniture")}
           onSave={handleSave}
         />

@@ -1683,4 +1683,175 @@ export const LIBRARY_TEMPLATES: LibraryTemplate[] = [
       return [sphere("Knob Handle", [0, w / 2, 0], w)];
     },
   },
+
+  // ════════════════════════════════════════════════════════
+  // ADDITIONAL SEATING VARIANTS
+  // ════════════════════════════════════════════════════════
+
+  {
+    id: "sofa_loveseat",
+    name: "Loveseat Sofa",
+    category: "seating",
+    icon: "🛋️",
+    description: "Compact 2-seater loveseat with cushions and short legs",
+    dims: { w: 1400, h: 850, d: 900 },
+    buildPanels: (dims) => {
+      _pid = 0;
+      const w = dims.w / 1000, h = dims.h / 1000, d = dims.d / 1000;
+      const legH = 0.10;
+      const seatH = 0.42;
+      const armW = 0.10, armH = 0.58;
+      const backT = 0.12;
+      const cushW = (w - armW * 2) / 2;
+      const cushD = d - backT - 0.05;
+      return [
+        // Base frame
+        box("Base", "horizontal", [0, legH + 0.04, 0.03], [w - armW * 2, 0.08, cushD], "fabric_gray"),
+        // Back
+        box("Back", "vertical", [0, (seatH + h) / 2, -d / 2 + backT / 2], [w - armW * 2, h - seatH, backT], "fabric_gray"),
+        // Arms
+        box("Left Arm", "vertical", [-w / 2 + armW / 2, (legH + armH) / 2 + legH / 2, 0], [armW, armH, d], "fabric_gray"),
+        box("Right Arm", "vertical", [w / 2 - armW / 2, (legH + armH) / 2 + legH / 2, 0], [armW, armH, d], "fabric_gray"),
+        // Seat cushions
+        { id: pid(), type: "horizontal" as const, shape: "cushion" as PanelShape, label: "Seat Cushion L", position: [-cushW / 2, seatH, 0.03] as [number, number, number], size: [cushW - 0.02, 0.12, cushD] as [number, number, number], materialId: "fabric_gray" },
+        { id: pid(), type: "horizontal" as const, shape: "cushion" as PanelShape, label: "Seat Cushion R", position: [cushW / 2, seatH, 0.03] as [number, number, number], size: [cushW - 0.02, 0.12, cushD] as [number, number, number], materialId: "fabric_gray" },
+        // Back cushions
+        { id: pid(), type: "vertical" as const, shape: "cushion" as PanelShape, label: "Back Cushion L", position: [-cushW / 2, seatH + 0.28, -d / 2 + backT + 0.06] as [number, number, number], size: [cushW - 0.02, 0.32, 0.12] as [number, number, number], materialId: "fabric_gray" },
+        { id: pid(), type: "vertical" as const, shape: "cushion" as PanelShape, label: "Back Cushion R", position: [cushW / 2, seatH + 0.28, -d / 2 + backT + 0.06] as [number, number, number], size: [cushW - 0.02, 0.32, 0.12] as [number, number, number], materialId: "fabric_gray" },
+        // Legs
+        cyl("Leg FL", [-w / 2 + 0.08, legH / 2, d / 2 - 0.08], 0.035, legH),
+        cyl("Leg FR", [w / 2 - 0.08, legH / 2, d / 2 - 0.08], 0.035, legH),
+        cyl("Leg BL", [-w / 2 + 0.08, legH / 2, -d / 2 + 0.08], 0.035, legH),
+        cyl("Leg BR", [w / 2 - 0.08, legH / 2, -d / 2 + 0.08], 0.035, legH),
+      ];
+    },
+  },
+
+  {
+    id: "armchair_recliner",
+    name: "Recliner Armchair",
+    category: "seating",
+    icon: "💺",
+    description: "Recliner armchair with thick seat, tall back, and footrest",
+    dims: { w: 850, h: 1000, d: 900 },
+    buildPanels: (dims) => {
+      _pid = 0;
+      const w = dims.w / 1000, h = dims.h / 1000, d = dims.d / 1000;
+      const baseH = 0.12;
+      const seatH = 0.46;
+      const armW = 0.14, armH = 0.60;
+      const backT = 0.14;
+      const footW = w - armW * 2, footH = 0.30, footD = 0.28;
+      return [
+        // Wide base
+        box("Base", "horizontal", [0, baseH / 2, 0], [w, baseH, d], "leather_brown"),
+        // Thick seat
+        box("Seat", "horizontal", [0, seatH / 2 + baseH, 0.02], [w - armW * 2, seatH - baseH, d - backT - 0.05], "leather_brown"),
+        // Tall back
+        box("Back", "vertical", [0, (seatH + h) / 2, -d / 2 + backT / 2], [w - armW * 2, h - seatH, backT], "leather_brown"),
+        // Arms
+        box("Left Arm", "vertical", [-w / 2 + armW / 2, (baseH + armH) / 2 + baseH / 2, 0], [armW, armH, d], "leather_brown"),
+        box("Right Arm", "vertical", [w / 2 - armW / 2, (baseH + armH) / 2 + baseH / 2, 0], [armW, armH, d], "leather_brown"),
+        // Extended footrest panel
+        box("Footrest", "horizontal", [0, seatH * 0.55, d / 2 + footD / 2 - 0.05], [footW, 0.06, footD], "leather_brown"),
+      ];
+    },
+  },
+
+  {
+    id: "armchair_wing",
+    name: "Wing Chair",
+    category: "seating",
+    icon: "💺",
+    description: "Wing chair with tall back and angled side wings",
+    dims: { w: 800, h: 1100, d: 850 },
+    buildPanels: (dims) => {
+      _pid = 0;
+      const w = dims.w / 1000, h = dims.h / 1000, d = dims.d / 1000;
+      const legH = 0.15;
+      const seatH = 0.46;
+      const armW = 0.06;
+      const backT = 0.10;
+      const wingH = h - seatH - 0.10;
+      const wingD = 0.25;
+      return [
+        // Seat cushion
+        { id: pid(), type: "horizontal" as const, shape: "cushion" as PanelShape, label: "Seat Cushion", position: [0, seatH + 0.04, 0.03] as [number, number, number], size: [w - armW * 2 - 0.04, 0.10, d - backT - 0.08] as [number, number, number], materialId: "fabric_gray" },
+        // Seat frame
+        box("Seat Frame", "horizontal", [0, seatH / 2 + legH, 0.02], [w - armW * 2, seatH - legH, d - backT - 0.05], "fabric_gray"),
+        // Tall back
+        box("Back", "vertical", [0, (seatH + h) / 2, -d / 2 + backT / 2], [w - armW * 2, h - seatH, backT], "fabric_gray"),
+        // Left wing (vertical panel angled outward)
+        box("Left Wing", "vertical", [-w / 2 + armW / 2, seatH + wingH / 2, -d / 2 + backT + wingD / 2], [armW, wingH, wingD], "fabric_gray"),
+        // Right wing (vertical panel angled outward)
+        box("Right Wing", "vertical", [w / 2 - armW / 2, seatH + wingH / 2, -d / 2 + backT + wingD / 2], [armW, wingH, wingD], "fabric_gray"),
+        // Legs
+        cyl("Leg FL", [-w / 2 + 0.08, legH / 2, d / 2 - 0.08], 0.035, legH),
+        cyl("Leg FR", [w / 2 - 0.08, legH / 2, d / 2 - 0.08], 0.035, legH),
+        cyl("Leg BL", [-w / 2 + 0.08, legH / 2, -d / 2 + 0.08], 0.035, legH),
+        cyl("Leg BR", [w / 2 - 0.08, legH / 2, -d / 2 + 0.08], 0.035, legH),
+      ];
+    },
+  },
+
+  {
+    id: "stool_round",
+    name: "Round Stool",
+    category: "seating",
+    icon: "🪑",
+    description: "Round padded stool with 4 legs",
+    dims: { w: 400, h: 480, d: 400 },
+    buildPanels: (dims) => {
+      _pid = 0;
+      const w = dims.w / 1000, h = dims.h / 1000, d = dims.d / 1000;
+      const seatD = Math.min(w, d);
+      const legH = h - 0.06;
+      return [
+        // Round padded seat (cylinder)
+        cyl("Seat", [0, h - 0.03, 0], seatD * 0.90, 0.06, "fabric_gray"),
+        // 4 legs
+        cyl("Leg FL", [-w / 2 + 0.07, legH / 2, d / 2 - 0.07], 0.025, legH),
+        cyl("Leg FR", [w / 2 - 0.07, legH / 2, d / 2 - 0.07], 0.025, legH),
+        cyl("Leg BL", [-w / 2 + 0.07, legH / 2, -d / 2 + 0.07], 0.025, legH),
+        cyl("Leg BR", [w / 2 - 0.07, legH / 2, -d / 2 + 0.07], 0.025, legH),
+      ];
+    },
+  },
+
+  // ════════════════════════════════════════════════════════
+  // ADDITIONAL TABLE VARIANTS
+  // ════════════════════════════════════════════════════════
+
+  {
+    id: "table_desk_drawers",
+    name: "Desk with Drawers",
+    category: "tables",
+    icon: "🖥️",
+    description: "Desk with left drawer pedestal (3 drawers) and legs on right",
+    dims: { w: 1400, h: 750, d: 700 },
+    buildPanels: (dims) => {
+      _pid = 0;
+      const w = dims.w / 1000, h = dims.h / 1000, d = dims.d / 1000;
+      const pedW = 0.42;
+      const drawerH = (h - T) / 3;
+      const legD = 0.05;
+      const legH = h - T;
+      return [
+        // Desktop
+        box("Top", "horizontal", [0, h - T / 2, 0], [w, T, d]),
+        // Left pedestal side panels
+        box("Pedestal Left", "vertical", [-w / 2 + T / 2, (h - T) / 2, 0], [T, h - T, d]),
+        box("Pedestal Right", "vertical", [-w / 2 + pedW - T / 2, (h - T) / 2, 0], [T, h - T, d]),
+        box("Pedestal Back", "back", [-w / 2 + pedW / 2, (h - T) / 2, -d / 2 + TB / 2], [pedW - T * 2, h - T, TB]),
+        box("Pedestal Bottom", "horizontal", [-w / 2 + pedW / 2, T / 2, 0], [pedW - T * 2, T, d - T]),
+        // 3 drawer fronts
+        { id: pid(), type: "vertical" as const, shape: "drawer_box" as PanelShape, label: "Drawer 1", position: [-w / 2 + pedW / 2, drawerH * 0.5, d / 2 - T / 2] as [number, number, number], size: [pedW - T * 2 - 0.004, drawerH - 0.006, T] as [number, number, number], materialId: "oak" },
+        { id: pid(), type: "vertical" as const, shape: "drawer_box" as PanelShape, label: "Drawer 2", position: [-w / 2 + pedW / 2, drawerH * 1.5, d / 2 - T / 2] as [number, number, number], size: [pedW - T * 2 - 0.004, drawerH - 0.006, T] as [number, number, number], materialId: "oak" },
+        { id: pid(), type: "vertical" as const, shape: "drawer_box" as PanelShape, label: "Drawer 3", position: [-w / 2 + pedW / 2, drawerH * 2.5, d / 2 - T / 2] as [number, number, number], size: [pedW - T * 2 - 0.004, drawerH - 0.006, T] as [number, number, number], materialId: "oak" },
+        // Right side legs
+        cyl("Leg FR", [w / 2 - 0.06, legH / 2, d / 2 - 0.06], legD, legH),
+        cyl("Leg BR", [w / 2 - 0.06, legH / 2, -d / 2 + 0.06], legD, legH),
+      ];
+    },
+  },
 ];

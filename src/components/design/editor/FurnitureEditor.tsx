@@ -40,12 +40,15 @@ import { uploadFurnitureImage, analyzeFurnitureImage, type FurnitureAnalysis } f
 interface FurnitureEditorProps {
   furnitureType: FurnitureOption;
   roomLabel: string;
+  spaceType?: "home" | "commercial";
   onBack: () => void;
   onSave?: (data: {
     panels: EditorSceneData;
     dims: { w: number; h: number; d: number };
     style: string;
     furnitureId: string;
+    cameraPosition?: [number, number, number];
+    materialsUsed?: string[];
   }) => void | Promise<void>;
 }
 
@@ -54,6 +57,7 @@ let nextPanelId = 100;
 export function FurnitureEditor({
   furnitureType,
   roomLabel,
+  spaceType,
   onBack,
   onSave,
 }: FurnitureEditorProps) {
@@ -326,6 +330,27 @@ export function FurnitureEditor({
     setSelectedPanelId(newId);
   }, [editingGroupId, editModePanels, updateScene]);
 
+  const handleDuplicateGroup = useCallback((groupId: string) => {
+    const source = groupsRef.current.find((g) => g.id === groupId);
+    if (!source) return;
+    const newGroupId = crypto.randomUUID();
+    const clonedPanels = source.panels.map((p) => ({
+      ...p,
+      id: `p${++nextPanelId}`,
+      label: p.label,
+    }));
+    const clone: GroupData = {
+      ...source,
+      id: newGroupId,
+      name: `${source.name} Copy`,
+      position: [source.position[0] + 0.05, source.position[1], source.position[2] - 0.05] as [number, number, number],
+      panels: clonedPanels,
+    };
+    updateScene((prev) => [...prev, clone]);
+    setSelectedGroupId(newGroupId);
+    setSelectedPanelId(null);
+  }, [updateScene]);
+
   const handleDeletePanel = useCallback((id: string) => {
     if (editingGroupId) {
       setEditModePanels((prev) => (prev ?? []).filter((p) => p.id !== id));
@@ -425,6 +450,8 @@ export function FurnitureEditor({
   }, [pushHistory, updateScene]);
 
   // ─── Toolbar image import ────────────────────────────
+  // Camera position ref (updated by viewport via onCameraMove)
+  const cameraPositionRef = useRef<[number, number, number]>([2.5, 2, 3]);
   const toolbarFileRef = useRef<HTMLInputElement>(null);
   const [isToolbarAnalyzing, setIsToolbarAnalyzing] = useState(false);
 
@@ -449,11 +476,17 @@ export function FurnitureEditor({
   }, [handleBuildFromImage]);
 
   const handleSave = useCallback(() => {
+    // Collect all unique materials used across all panels
+    const allPanels = [...groups.flatMap((g) => g.panels), ...ungroupedPanels];
+    const materialsUsed = [...new Set(allPanels.map((p) => p.materialId))];
+
     onSave?.({
       panels: { groups, ungroupedPanels },
       dims,
       style,
       furnitureId: furnitureType.id,
+      cameraPosition: cameraPositionRef.current,
+      materialsUsed,
     });
   }, [groups, ungroupedPanels, dims, style, furnitureType.id, onSave]);
 
@@ -470,6 +503,18 @@ export function FurnitureEditor({
       position: [newGroup.position[0] + offset, newGroup.position[1], newGroup.position[2]],
     };
     updateScene((prev) => [...prev, offsetGroup]);
+    setSelectedPanelId(null);
+    setShowLibrary(false);
+  }, [updateScene]);
+
+  const handleImportModel = useCallback((group: GroupData) => {
+    const offset = computeGroupXOffset(groupsRef.current);
+    const offsetGroup: GroupData = {
+      ...group,
+      position: [group.position[0] + offset, group.position[1], group.position[2]],
+    };
+    updateScene((prev) => [...prev, offsetGroup]);
+    setSelectedGroupId(offsetGroup.id);
     setSelectedPanelId(null);
     setShowLibrary(false);
   }, [updateScene]);
@@ -714,6 +759,7 @@ export function FurnitureEditor({
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "d") {
         e.preventDefault();
         if (selectedPanelId) handleDuplicatePanel(selectedPanelId);
+        else if (selectedGroupId && !editingGroupId) handleDuplicateGroup(selectedGroupId);
         return;
       }
 
@@ -797,32 +843,41 @@ export function FurnitureEditor({
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [selectedPanelId, selectedGroupId, selectedPanelIds, editingGroupId, editModePanels, rotationMode, handleUpdatePanel, handleDuplicatePanel, handleDeletePanel, handleDeleteGroup, handleGroupPanels, handleUngroupGroup, handleUpdateGroup, exitEditMode, undo, redo]);
+  }, [selectedPanelId, selectedGroupId, selectedPanelIds, editingGroupId, editModePanels, rotationMode, handleUpdatePanel, handleDuplicatePanel, handleDuplicateGroup, handleDeletePanel, handleDeleteGroup, handleGroupPanels, handleUngroupGroup, handleUpdateGroup, exitEditMode, undo, redo]);
 
   return (
     <div className="h-screen flex flex-col bg-[#FAFAFA]">
       {/* Top bar */}
       <div className="h-14 bg-white border-b border-gray-200 flex items-center justify-between px-4 shrink-0">
-        <div className="flex items-center gap-3">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => editorNavigate("/dashboard")}
-            className="h-8 w-8"
-            title="Home"
-          >
-            <Home className="w-4 h-4" />
-          </Button>
-          <div className="w-px h-6 bg-gray-200" />
+        <div className="flex items-center gap-2">
           <Button variant="ghost" size="icon" onClick={onBack} className="h-8 w-8" title="Back to selection">
             <ArrowLeft className="w-4 h-4" />
           </Button>
-          <div>
-            <h2 className="text-sm font-semibold text-gray-900">
-              {furnitureType.label}
-            </h2>
-            <p className="text-[11px] text-gray-400">{roomLabel}</p>
-          </div>
+          <nav className="flex items-center gap-1 text-xs">
+            <button onClick={() => editorNavigate("/dashboard")} className="text-gray-400 hover:text-[#C87D5A] transition-colors font-medium" title="Home">
+              DEXO
+            </button>
+            <span className="text-gray-300">/</span>
+            <button onClick={() => editorNavigate("/new-project")} className="text-gray-400 hover:text-[#C87D5A] transition-colors">
+              Design Studio
+            </button>
+            {spaceType && (
+              <>
+                <span className="text-gray-300">/</span>
+                <span className="text-gray-400">{spaceType === "home" ? "Home" : "Commercial"}</span>
+              </>
+            )}
+            {roomLabel && (
+              <>
+                <span className="text-gray-300">/</span>
+                <button onClick={onBack} className="text-gray-400 hover:text-[#C87D5A] transition-colors">
+                  {roomLabel}
+                </button>
+              </>
+            )}
+            <span className="text-gray-300">/</span>
+            <span className="text-gray-900 font-semibold">{furnitureType.label}</span>
+          </nav>
         </div>
         <div className="flex items-center gap-2">
           {/* Snap toggle */}
@@ -1034,6 +1089,7 @@ export function FurnitureEditor({
         {showLibrary ? (
           <LibraryBrowser
             onSelectTemplate={handleLoadTemplate}
+            onImportModel={handleImportModel}
             onClose={() => setShowLibrary(false)}
           />
         ) : (
@@ -1083,6 +1139,7 @@ export function FurnitureEditor({
             onScaleGroup={handleScaleGroup}
             lightMode={lightMode}
             floorPreset={floorPreset}
+            onCameraMove={(pos) => { cameraPositionRef.current = pos; }}
           />
         </div>
 

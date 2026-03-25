@@ -430,6 +430,7 @@ export interface EditorViewportProps {
   onScaleGroup: (groupId: string, scaleX: number, scaleY: number, scaleZ: number) => void;
   lightMode: EditorLightMode;
   floorPreset: EditorFloorPreset;
+  onCameraMove?: (pos: [number, number, number]) => void;
   /* Legacy prop — kept for backward compatibility during migration */
   panels?: PanelData[];
 }
@@ -456,6 +457,7 @@ export function EditorViewport({
   onScaleGroup,
   lightMode,
   floorPreset,
+  onCameraMove,
 }: EditorViewportProps) {
   const [openPanels, setOpenPanels] = useState<Record<string, boolean>>({});
   const [contextMenu, setContextMenu] = useState<ContextMenuInfo | null>(null);
@@ -814,6 +816,7 @@ export function EditorViewport({
 
         {/* Set camera when viewMode changes */}
         <ViewSetter viewMode={viewMode} />
+        <CameraTracker onMove={onCameraMove} />
 
         <OrbitControls
           makeDefault
@@ -999,6 +1002,20 @@ function ViewSetter({ viewMode }: { viewMode: ViewMode }) {
     camera.updateProjectionMatrix();
   }, [viewMode, camera]);
 
+  return null;
+}
+
+/** Reports camera position to parent on each frame (throttled) */
+function CameraTracker({ onMove }: { onMove?: (pos: [number, number, number]) => void }) {
+  const { camera } = useThree();
+  const lastReport = useRef(0);
+  useFrame(() => {
+    if (!onMove) return;
+    const now = Date.now();
+    if (now - lastReport.current < 500) return; // throttle to 2Hz
+    lastReport.current = now;
+    onMove([camera.position.x, camera.position.y, camera.position.z]);
+  });
   return null;
 }
 

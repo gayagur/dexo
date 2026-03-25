@@ -8,7 +8,7 @@ import { useImageUpload } from '@/hooks/useImageUpload';
 import type { ChatSessionState } from '@/hooks/useChatSession';
 import { streamChat, generateImage, buildImagePrompt } from '@/lib/ai';
 import { supabase } from '@/lib/supabase';
-import { MATERIALS, HOME_ROOMS, COMMERCIAL_SPACES, FURNITURE_BY_SPACE } from '@/lib/furnitureData';
+import { MATERIALS, HOME_ROOMS, COMMERCIAL_SPACES, FURNITURE_BY_SPACE, type SpaceOption, type FurnitureOption } from '@/lib/furnitureData';
 import { motion, AnimatePresence } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
 import {
@@ -244,6 +244,10 @@ export default function AIChatFlow() {
     return () => { document.body.classList.remove('hide-chat-widget'); };
   }, []);
 
+  // Project mode: furniture (room→furniture) or decorative (category→product)
+  const projectMode = searchParams.get('mode') as 'furniture' | 'decorative' | null;
+  const [selectedRoom, setSelectedRoom] = useState<SpaceOption | null>(null);
+
   // Chat state
   const [messages, setMessages] = useState<DisplayMessage[]>([]);
   const [input, setInput] = useState('');
@@ -378,8 +382,9 @@ export default function AIChatFlow() {
         }
       }
     } catch { /* corrupted data — ignore */ }
-    // Remove ?restore from URL
-    setSearchParams({}, { replace: true });
+    // Remove ?restore from URL but keep mode
+    const keepMode = searchParams.get('mode');
+    setSearchParams(keepMode ? { mode: keepMode } : {}, { replace: true });
     sessionSaveEnabled.current = true;
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -452,8 +457,9 @@ Now let's complete your project brief so designers can give you accurate quotes.
       ];
       setMessages([{ role: 'ai', text: aiGreeting }]);
 
-      // Clean up URL
-      setSearchParams({}, { replace: true });
+      // Clean up URL but keep mode
+      const keepMode = searchParams.get('mode');
+      setSearchParams(keepMode ? { mode: keepMode } : {}, { replace: true });
     })();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -1209,7 +1215,70 @@ Now let's complete your project brief so designers can give you accurate quotes.
                     Your <strong>{designContext.furnitureLabel}</strong> design is ready. Now let's add budget, timeline, and preferences so designers can quote accurately.
                   </p>
                 </>
+              ) : projectMode === 'furniture' ? (
+                /* ── Furniture flow: Room → Furniture type ── */
+                !selectedRoom ? (
+                  <>
+                    <h2 className="text-xl md:text-3xl lg:text-4xl font-serif font-bold text-[#1B2432] mb-2 md:mb-3">
+                      Which room is the furniture for?
+                    </h2>
+                    <p className="text-sm md:text-base text-[#4A5568] max-w-md">
+                      Pick the room where your new furniture will live.
+                    </p>
+                    <div className="mt-4 md:mt-8 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 md:gap-3 max-w-2xl">
+                      {[...HOME_ROOMS, ...COMMERCIAL_SPACES].map((room) => (
+                        <button
+                          key={room.id}
+                          onClick={() => setSelectedRoom(room)}
+                          className={`flex flex-col items-center gap-1.5 px-3 py-3 md:px-4 md:py-4 rounded-xl border border-[#C05621]/10 bg-gradient-to-br ${room.gradient}
+                                     hover:border-[#C05621]/40 hover:shadow-md transition-all duration-200 text-center`}
+                        >
+                          <span className="text-2xl">{room.icon}</span>
+                          <span className="text-xs md:text-sm font-medium text-[#1B2432]">{room.label}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <h2 className="text-xl md:text-3xl lg:text-4xl font-serif font-bold text-[#1B2432] mb-2 md:mb-3">
+                      What furniture for your {selectedRoom.label}?
+                    </h2>
+                    <p className="text-sm md:text-base text-[#4A5568] max-w-md">
+                      Pick the type of furniture you'd like to design.
+                    </p>
+                    <button
+                      onClick={() => setSelectedRoom(null)}
+                      className="mt-2 inline-flex items-center gap-1 text-sm text-[#C05621] hover:underline"
+                    >
+                      <ArrowLeft className="w-3.5 h-3.5" /> Change room
+                    </button>
+                    <div className="mt-4 md:mt-6 grid grid-cols-2 sm:grid-cols-3 gap-2 md:gap-3 max-w-xl">
+                      {(FURNITURE_BY_SPACE[selectedRoom.id] || []).map((f) => (
+                        <button
+                          key={f.id}
+                          onClick={() => {
+                            const msg = `I need a custom ${f.label.toLowerCase()} for my ${selectedRoom.label.toLowerCase()}`;
+                            setInput(msg);
+                            setProgressOverrides(prev => ({
+                              ...prev,
+                              category: 'Custom Furniture Design',
+                              room_type: selectedRoom.label,
+                            }));
+                            setTimeout(() => inputRef.current?.focus(), 50);
+                          }}
+                          className="flex flex-col items-center gap-1.5 px-3 py-3 md:px-4 md:py-4 rounded-xl border border-[#C05621]/10 bg-white
+                                     hover:bg-[#C05621] hover:text-white hover:border-[#C05621] transition-all duration-200 text-center group"
+                        >
+                          <span className="text-2xl">{f.icon}</span>
+                          <span className="text-xs md:text-sm font-medium text-[#1B2432] group-hover:text-white">{f.label}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                )
               ) : (
+                /* ── Design/Decorative flow: Category → product ── */
                 <>
                   <h2 className="text-xl md:text-3xl lg:text-4xl font-serif font-bold text-[#1B2432] mb-2 md:mb-3">
                     What space would you like to transform?
