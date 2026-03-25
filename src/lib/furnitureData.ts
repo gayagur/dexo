@@ -461,6 +461,11 @@ export function getDefaultTemplate(furnitureId: string, dims: { w: number; h: nu
       const seatD = d - backT;
       const seatTopY = legH + baseH + cushionH;
       const gap = 0.01;
+      /** Pull seat cushions slightly forward + shorten depth so they don’t visually eat into the backrest */
+      const seatBackRelief = 0.02;
+      const seatSideInset = 0.008;
+      const seatDUse = Math.max(0.14, seatD - seatBackRelief);
+      const seatZ = -backT / 2 + seatBackRelief / 2;
 
       const nCush = w > 1.2 ? (w > 2.0 ? 3 : 2) : 1;
       const cushW = (innerW - gap * (nCush - 1)) / nCush;
@@ -480,7 +485,12 @@ export function getDefaultTemplate(furnitureId: string, dims: { w: number; h: nu
       for (let i = 0; i < nCush; i++) {
         const x = -innerW / 2 + cushW / 2 + i * (cushW + gap);
         panels_.push(
-          cushion(`Seat ${i + 1}`, [x, legH + baseH + cushionH / 2, -backT / 2], [cushW, cushionH, seatD], fab)
+          cushion(
+            `Seat ${i + 1}`,
+            [x, legH + baseH + cushionH / 2, seatZ],
+            [Math.max(0.08, cushW - seatSideInset * 2), cushionH, seatDUse],
+            fab,
+          )
         );
       }
 
@@ -509,6 +519,9 @@ export function getDefaultTemplate(furnitureId: string, dims: { w: number; h: nu
       const innerW = w - armW * 2;
       const seatD = d - backT;
       const seatTopY = legH + baseH + cushionH;
+      const seatBackRelief = 0.02;
+      const seatDUse = Math.max(0.14, seatD - seatBackRelief);
+      const seatZ = -backT / 2 + seatBackRelief / 2;
 
       return {
         panels: [
@@ -520,7 +533,7 @@ export function getDefaultTemplate(furnitureId: string, dims: { w: number; h: nu
           cushion("Left Arm", [-w / 2 + armW / 2, legH + armH / 2, 0], [armW, armH, d], fab),
           cushion("Right Arm", [w / 2 - armW / 2, legH + armH / 2, 0], [armW, armH, d], fab),
           // Seat cushion
-          cushion("Seat", [0, legH + baseH + cushionH / 2, -backT / 2], [innerW, cushionH, seatD], fab),
+          cushion("Seat", [0, legH + baseH + cushionH / 2, seatZ], [innerW - 0.016, cushionH, seatDUse], fab),
           // Legs
           cyl("Leg FL", [-w / 2 + 0.06, legH / 2, -d / 2 + 0.06], 0.03, legH, "black_metal"),
           cyl("Leg FR", [w / 2 - 0.06, legH / 2, -d / 2 + 0.06], 0.03, legH, "black_metal"),

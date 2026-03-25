@@ -195,8 +195,12 @@ function SingleGeometry({
       return <CasterGeometry radius={radius + pad} />;
 
     // ── Decorative ───────────────────────────────────
-    case "cushion":
-      return <RoundedRectGeometry w={w + pad * 2} h={h + pad * 2} depth={d + pad * 2} cornerRadius={Math.min(w, h, d) * 0.3} />;
+    case "cushion": {
+      // Softer rounding in plan view; cap so thin seat cushions don’t look like tubes
+      const plan = Math.min(w, d);
+      const cr = Math.min(0.048, plan * 0.14, h * 0.55, w / 2, h / 2, d / 2);
+      return <RoundedRectGeometry w={w + pad * 2} h={h + pad * 2} depth={d + pad * 2} cornerRadius={cr} />;
+    }
 
     case "mattress":
       return <RoundedRectGeometry w={w + pad * 2} h={h + pad * 2} depth={d + pad * 2} cornerRadius={0.02} />;
@@ -284,7 +288,10 @@ function RoundedRectGeometry({ w, h, depth, cornerRadius }: { w: number; h: numb
     shape.quadraticCurveTo(-hw, hh, -hw, hh - r);
     shape.lineTo(-hw, -hh + r);
     shape.quadraticCurveTo(-hw, -hh, -hw + r, -hh);
-    return new THREE.ExtrudeGeometry(shape, { depth, bevelEnabled: false });
+    const g = new THREE.ExtrudeGeometry(shape, { depth, bevelEnabled: false });
+    // Extrude extends 0…depth along +Z; boxGeometry is centered — match so placement / “on surface” fits
+    g.translate(0, 0, -depth / 2);
+    return g;
   }, [w, h, depth, cornerRadius]);
 
   return <primitive object={geo} attach="geometry" />;
