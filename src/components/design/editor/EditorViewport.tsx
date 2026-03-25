@@ -1893,20 +1893,14 @@ function GLBModelRenderer({
   const { scene } = useGLTF(url);
   const cloned = useMemo(() => {
     const c = scene.clone(true);
-    // Center the model at origin (group position handles world placement)
+
+    // Center the model so its bounding box center matches the local origin.
+    // The parent <group position={g.position}> handles world placement.
+    // glbLoader sets groupPos = bbox center, so we mirror that here.
     const bbox = new THREE.Box3().setFromObject(c);
     const center = new THREE.Vector3();
     bbox.getCenter(center);
-    c.position.sub(new THREE.Vector3(center.x, center.y, center.z));
-    // Re-add the Y offset so model sits on ground
-    c.position.y += -bbox.min.y;
-    // Adjust: group position already centers Y, so shift back
-    c.position.set(
-      c.position.x + groupPosition[0],
-      c.position.y,
-      c.position.z + groupPosition[2],
-    );
-    c.position.sub(new THREE.Vector3(groupPosition[0], groupPosition[1], groupPosition[2]));
+    c.position.set(-center.x, -center.y, -center.z);
 
     if (dimmed) {
       c.traverse((child) => {
