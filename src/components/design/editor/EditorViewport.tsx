@@ -460,6 +460,8 @@ export interface EditorViewportProps {
   onScaleGroup: (groupId: string, scaleX: number, scaleY: number, scaleZ: number) => void;
   lightMode: EditorLightMode;
   floorPreset: EditorFloorPreset;
+  /** Initial 3D orbit camera position (e.g. when resuming a saved design). */
+  initialCameraPosition?: [number, number, number];
   onCameraMove?: (pos: [number, number, number]) => void;
   /* Legacy prop — kept for backward compatibility during migration */
   panels?: PanelData[];
@@ -487,6 +489,7 @@ export function EditorViewport({
   onScaleGroup,
   lightMode,
   floorPreset,
+  initialCameraPosition,
   onCameraMove,
 }: EditorViewportProps) {
   const [openPanels, setOpenPanels] = useState<Record<string, boolean>>({});
@@ -603,7 +606,7 @@ export function EditorViewport({
       <Canvas
         frameloop="always"
         dpr={[1, 2]}
-        camera={{ position: [2.5, 2, 3], fov: 45 }}
+        camera={{ position: initialCameraPosition ?? [2.5, 2, 3], fov: 45 }}
         shadows
         gl={{
           powerPreference: "high-performance",

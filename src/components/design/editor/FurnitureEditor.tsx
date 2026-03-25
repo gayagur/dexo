@@ -50,6 +50,44 @@ interface FurnitureEditorProps {
     cameraPosition?: [number, number, number];
     materialsUsed?: string[];
   }) => void | Promise<void>;
+  /** Resume a row from `furniture_designs` (groups, dims, style, camera). */
+  initialEditorState?: {
+    groups: GroupData[];
+    ungroupedPanels?: PanelData[];
+    dims?: { w: number; h: number; d: number };
+    style?: string;
+    cameraPosition?: [number, number, number];
+  };
+}
+
+function buildEditorBootstrap(
+  furnitureType: FurnitureOption,
+  initialEditorState?: FurnitureEditorProps["initialEditorState"],
+): {
+  scene: EditorSceneData;
+  dims: { w: number; h: number; d: number };
+  style: string;
+  cameraPosition: [number, number, number];
+} {
+  if (initialEditorState?.groups?.length) {
+    return {
+      scene: {
+        groups: structuredClone(initialEditorState.groups),
+        ungroupedPanels: structuredClone(initialEditorState.ungroupedPanels ?? []),
+      },
+      dims: initialEditorState.dims ?? furnitureType.defaultDims,
+      style: initialEditorState.style ?? "Modern",
+      cameraPosition: initialEditorState.cameraPosition ?? [2.5, 2, 3],
+    };
+  }
+  const defaultTemplate = getDefaultTemplate(furnitureType.id, furnitureType.defaultDims);
+  const initialGroup = createGroupFromPanels(furnitureType.label, defaultTemplate.panels);
+  return {
+    scene: { groups: [initialGroup], ungroupedPanels: [] },
+    dims: furnitureType.defaultDims,
+    style: "Modern",
+    cameraPosition: [2.5, 2, 3],
+  };
 }
 
 let nextPanelId = 100;
@@ -60,9 +98,16 @@ export function FurnitureEditor({
   spaceType,
   onBack,
   onSave,
+  initialEditorState,
 }: FurnitureEditorProps) {
-  const [dims, setDims] = useState(furnitureType.defaultDims);
-  const [style, setStyle] = useState("Modern");
+  const bootstrapRef = useRef<ReturnType<typeof buildEditorBootstrap> | null>(null);
+  if (bootstrapRef.current === null) {
+    bootstrapRef.current = buildEditorBootstrap(furnitureType, initialEditorState);
+  }
+  const boot = bootstrapRef.current;
+
+  const [dims, setDims] = useState(() => boot.dims);
+  const [style, setStyle] = useState(() => boot.style);
   const [chatOpen, setChatOpen] = useState(true);
   const [showAddPicker, setShowAddPicker] = useState(false);
   const [showLibrary, setShowLibrary] = useState(false);
@@ -78,12 +123,9 @@ export function FurnitureEditor({
   const lastSavedHistoryIndex = useRef(0);
   const editorNavigate = useNavigate();
 
-  const defaultTemplate = getDefaultTemplate(furnitureType.id, furnitureType.defaultDims);
-
   // ─── Group / Edit mode state ─────────────────────────
-  const initialGroup = createGroupFromPanels(furnitureType.label, defaultTemplate.panels);
-  const [groups, setGroups] = useState<GroupData[]>([initialGroup]);
-  const [ungroupedPanels, setUngroupedPanels] = useState<PanelData[]>([]);
+  const [groups, setGroups] = useState<GroupData[]>(() => boot.scene.groups);
+  const [ungroupedPanels, setUngroupedPanels] = useState<PanelData[]>(() => boot.scene.ungroupedPanels);
   const [selectedPanelId, setSelectedPanelId] = useState<string | null>(null);
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
   const [editingGroupId, setEditingGroupId] = useState<string | null>(null);
@@ -92,7 +134,7 @@ export function FurnitureEditor({
   // ─── Undo / Redo History ───────────────────────────────
   const MAX_HISTORY = 50;
   const historyRef = useRef<EditorSceneData[]>([
-    { groups: structuredClone([initialGroup]), ungroupedPanels: [] },
+    { groups: structuredClone(boot.scene.groups), ungroupedPanels: structuredClone(boot.scene.ungroupedPanels) },
   ]);
   const historyIndexRef = useRef(0);
   const [, setHistoryVersion] = useState(0);
@@ -462,7 +504,7 @@ export function FurnitureEditor({
 
   // ─── Toolbar image import ────────────────────────────
   // Camera position ref (updated by viewport via onCameraMove)
-  const cameraPositionRef = useRef<[number, number, number]>([2.5, 2, 3]);
+  const cameraPositionRef = useRef<[number, number, number]>(boot.cameraPosition);
   const handleSaveRef = useRef<(() => void) | null>(null);
   const toolbarFileRef = useRef<HTMLInputElement>(null);
   const [isToolbarAnalyzing, setIsToolbarAnalyzing] = useState(false);
@@ -1261,6 +1303,7 @@ export function FurnitureEditor({
               onScaleGroup={handleScaleGroup}
               lightMode={lightMode}
               floorPreset={floorPreset}
+              initialCameraPosition={boot.cameraPosition}
               onCameraMove={(pos) => { cameraPositionRef.current = pos; }}
             />
           </div>

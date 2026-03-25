@@ -19,16 +19,19 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { useAuth } from '@/hooks/useAuth';
+import { supabase } from '@/lib/supabase';
+import { HOME_ROOMS, COMMERCIAL_SPACES } from '@/lib/furnitureData';
+import { findFurnitureOptionById } from '@/lib/furnitureDesignResume';
 import { useProjects } from '@/hooks/useProjects';
 import { useOffersForProjects } from '@/hooks/useOffers';
 import { useChatSession } from '@/hooks/useChatSession';
 import { AppLayout } from '@/components/app/AppLayout';
 import { FurniturePreview } from '@/components/design/FurniturePreview';
-import type { PanelData } from '@/lib/furnitureData';
+import type { EditorSceneData, PanelData } from '@/lib/furnitureData';
 import type { ProjectStatus } from '@/lib/database.types';
 import {
   Plus, MessageSquare, ArrowRight, Loader2, Sparkles, X,
-  Palette, ArrowUpRight, MoreHorizontal, Pencil, Trash2,
+  Palette, ArrowUpRight, MoreHorizontal, Pencil, Trash2, Box,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -98,6 +101,21 @@ const FILTERS: { key: string; label: string }[] = [
 
 function isActiveStatus(status: string): boolean {
   return ['sent', 'offers_received', 'in_progress'].includes(status);
+}
+
+function draftRoomLabel(spaceType: string, roomId: string): string {
+  const rooms = spaceType === 'commercial' ? COMMERCIAL_SPACES : HOME_ROOMS;
+  return rooms.find((r) => r.id === roomId)?.label ?? roomId;
+}
+
+interface FurnitureDesignDraftRow {
+  id: string;
+  furniture_id: string;
+  room_id: string;
+  space_type: string;
+  style: string;
+  created_at: string;
+  panels: unknown;
 }
 
 // ─── Metric Card ────────────────────────────────────────────
@@ -330,6 +348,31 @@ const CustomerDashboard = () => {
   const [activeFilter, setActiveFilter] = useState('all');
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; title: string } | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [furnitureDrafts, setFurnitureDrafts] = useState<FurnitureDesignDraftRow[]>([]);
+  const [draftsLoading, setDraftsLoading] = useState(true);
+
+  useEffect(() => {
+    if (!user) {
+      setFurnitureDrafts([]);
+      setDraftsLoading(false);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      const { data, error } = await supabase
+        .from('furniture_designs')
+        .select('id, furniture_id, room_id, space_type, style, created_at, panels')
+        .eq('customer_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(12);
+      if (cancelled) return;
+      if (!error && data) {
+        setFurnitureDrafts(data as FurnitureDesignDraftRow[]);
+      }
+      setDraftsLoading(false);
+    })();
+    return () => { cancelled = true; };
+  }, [user]);
 
   const handleEdit = (id: string) => {
     navigate(`/project/${id}`);
@@ -533,6 +576,74 @@ const CustomerDashboard = () => {
         </section>
 
         <main className="container mx-auto px-6 py-8 lg:py-10">
+          {/* ─── Saved 3D editor drafts (furniture_designs) ─── */}
+          {!draftsLoading && furnitureDrafts.length > 0 && (
+            <motion.section
+              initial="hidden"
+              animate="visible"
+              variants={fadeUp}
+              className="mb-10"
+            >
+              <div className="flex items-center justify-between gap-4 mb-4">
+                <div className="flex items-center gap-2">
+                  <Box className="w-5 h-5 text-primary/70" />
+                  <h2 className="text-lg font-serif font-normal text-foreground">
+                    Saved 3D drafts
+                  </h2>
+                </div>
+                <Link
+                  to="/new-project"
+                  className="text-xs font-medium text-primary hover:underline"
+                >
+                  New design
+                </Link>
+              </div>
+              <p className="text-sm text-muted-foreground mb-4 max-w-2xl">
+                Continue editing furniture you saved from the 3D editor. These are stored in your account until you delete them from the database or replace them.
+              </p>
+              <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                {furnitureDrafts.map((draft) => {
+                  const furniture = findFurnitureOptionById(draft.furniture_id);
+                  const title = furniture?.label ?? draft.furniture_id;
+                  const room = draftRoomLabel(draft.space_type, draft.room_id);
+                  const created = new Date(draft.created_at).toLocaleDateString(undefined, {
+                    month: 'short',
+                    day: 'numeric',
+                    year: 'numeric',
+                  });
+                  return (
+                    <Card
+                      key={draft.id}
+                      className="overflow-hidden border-border/60 rounded-2xl hover:border-primary/25 hover:shadow-md transition-all"
+                    >
+                      <div className="aspect-[16/10] bg-muted/30">
+                        <FurniturePreview
+                          panels={draft.panels as EditorSceneData}
+                          className="w-full h-full"
+                        />
+                      </div>
+                      <CardContent className="p-3 space-y-2">
+                        <div>
+                          <p className="text-sm font-medium text-foreground truncate">{title}</p>
+                          <p className="text-xs text-muted-foreground truncate">
+                            {room} · {draft.style}
+                          </p>
+                          <p className="text-[10px] text-muted-foreground/80 mt-0.5">{created}</p>
+                        </div>
+                        <Button asChild size="sm" className="w-full gap-1.5">
+                          <Link to={`/new-project?design_id=${draft.id}`}>
+                            Continue editing
+                            <ArrowRight className="w-3.5 h-3.5" />
+                          </Link>
+                        </Button>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+            </motion.section>
+          )}
+
           {/* ─── Loading ─── */}
           {loading && (
             <div className="text-center py-20">
