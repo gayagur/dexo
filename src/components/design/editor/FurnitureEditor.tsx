@@ -1307,6 +1307,19 @@ export function FurnitureEditor({
             setSelectedGroupId(offsetGroup.id);
             setSelectedPanelId(null);
           }}
+          onAddGLB={async (name, glbPath) => {
+            try {
+              const { loadGLBAsGroup } = await import("@/lib/glbLoader");
+              const group = await loadGLBAsGroup(glbPath, name);
+              const offset = computeGroupXOffset(groupsRef.current);
+              const offsetGroup: GroupData = { ...group, position: [group.position[0] + offset, group.position[1], group.position[2]] };
+              updateScene((prev) => [...prev, offsetGroup]);
+              setSelectedGroupId(offsetGroup.id);
+              setSelectedPanelId(null);
+            } catch (err) {
+              console.error("Failed to load GLB:", err);
+            }
+          }}
           onClose={() => setShowAddPicker(false)}
         />
       )}

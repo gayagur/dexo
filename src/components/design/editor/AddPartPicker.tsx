@@ -32,6 +32,8 @@ interface PartPreset {
   buildPanels?: () => PanelData[];
   /** Group name when buildPanels is used */
   groupName?: string;
+  /** Kenney GLB model path — when set, loads the 3D model instead of basic shapes */
+  glbPath?: string;
 }
 
 interface PartCategory {
@@ -578,302 +580,137 @@ const PART_CATEGORIES: PartCategory[] = [
   },
 
   // ─────────────────────────────────────────────────
-  // 9. BATHROOM FIXTURES (multi-part)
+  // 9. BATHROOM FIXTURES (Kenney GLB models)
   // ─────────────────────────────────────────────────
   {
     label: "Bathroom Fixtures",
     icon: "🚿",
     items: [
-      { id: "toilet_standard", label: "Toilet", icon: "🚽", description: "Toilet with tank & seat", shape: "box", type: "vertical", size: [0.38, 0.40, 0.65], materialId: "ceramic_white",
-        groupName: "Toilet", buildPanels: () => [
-          p("Base", "vertical", [0, 0.15, 0.05], [0.35, 0.30, 0.45], "ceramic_white"),
-          p("Tank", "vertical", [0, 0.35, 0.25], [0.30, 0.40, 0.15], "ceramic_white"),
-          { id: addPid(), type: "horizontal" as const, shape: "oval" as PanelShape, label: "Seat", position: [0, 0.32, -0.05] as [number,number,number], size: [0.34, 0.04, 0.38] as [number,number,number], materialId: "ceramic_white" },
-          p("Lid", "horizontal", [0, 0.35, -0.05], [0.32, 0.02, 0.36], "ceramic_white"),
-        ],
-      },
-      { id: "bathtub_oval", label: "Bathtub", icon: "🛁", description: "Freestanding bathtub", shape: "box", type: "horizontal", size: [0.75, 0.50, 1.60], materialId: "ceramic_white",
-        groupName: "Bathtub", buildPanels: () => [
-          p("Outer Shell", "horizontal", [0, 0.25, 0], [0.70, 0.50, 1.50], "ceramic_white"),
-          p("Inner", "horizontal", [0, 0.28, 0], [0.58, 0.42, 1.38], "ceramic_white"),
-          p("Rim", "horizontal", [0, 0.49, 0], [0.72, 0.03, 1.52], "chrome"),
-        ],
-      },
-      { id: "sink_pedestal", label: "Pedestal Sink", icon: "🚰", description: "Sink on pedestal", shape: "cylinder", type: "vertical", size: [0.45, 0.85, 0.45], materialId: "ceramic_white",
-        groupName: "Pedestal Sink", buildPanels: () => [
-          cy("Pedestal", [0, 0.35, 0], 0.15, 0.70, "ceramic_white"),
-          { id: addPid(), type: "horizontal" as const, shape: "half_sphere" as PanelShape, label: "Basin", position: [0, 0.72, 0] as [number,number,number], size: [0.42, 0.12, 0.35] as [number,number,number], materialId: "ceramic_white" },
-          cy("Faucet", [0, 0.82, 0.12], 0.02, 0.12, "chrome"),
-        ],
-      },
-      { id: "shower_cabin", label: "Shower", icon: "🚿", description: "Glass shower enclosure", shape: "box", type: "vertical", size: [0.90, 2.00, 0.90], materialId: "glass",
-        groupName: "Shower", buildPanels: () => [
-          p("Back Wall", "back", [0, 1.0, 0.44], [0.88, 2.0, 0.02], "ceramic_white"),
-          p("Side Wall", "vertical", [-0.44, 1.0, 0], [0.02, 2.0, 0.88], "ceramic_white"),
-          p("Glass Door", "vertical", [0.20, 1.0, -0.44], [0.50, 1.90, 0.008], "glass"),
-          p("Floor Tray", "horizontal", [0, 0.02, 0], [0.88, 0.04, 0.88], "ceramic_white"),
-          cy("Shower Head", [0, 1.90, 0.35], 0.10, 0.02, "chrome"),
-          cy("Shower Pipe", [0, 1.50, 0.43], 0.02, 0.80, "chrome"),
-        ],
-      },
-      { id: "bathroom_mirror", label: "Mirror", icon: "🪞", description: "Wall mirror with frame", shape: "box", type: "back", size: [0.50, 0.70, 0.03], materialId: "mirror",
-        groupName: "Mirror", buildPanels: () => [
-          p("Frame", "back", [0, 0, 0], [0.54, 0.74, 0.02], "walnut"),
-          p("Glass", "back", [0, 0, -0.01], [0.48, 0.68, 0.005], "mirror"),
-        ],
-      },
+      { id: "toilet_standard", label: "Toilet", icon: "🚽", description: "Standard toilet (3D)", shape: "box", type: "vertical", size: [0.38, 0.40, 0.65], materialId: "ceramic_white", groupName: "Toilet", glbPath: "/models/kenney/toilet.glb" },
+      { id: "toilet_square", label: "Square Toilet", icon: "🚽", description: "Modern square (3D)", shape: "box", type: "vertical", size: [0.38, 0.40, 0.60], materialId: "ceramic_white", groupName: "Square Toilet", glbPath: "/models/kenney/toiletSquare.glb" },
+      { id: "bathtub_k", label: "Bathtub", icon: "🛁", description: "Freestanding bathtub (3D)", shape: "box", type: "horizontal", size: [0.75, 0.50, 1.60], materialId: "ceramic_white", groupName: "Bathtub", glbPath: "/models/kenney/bathtub.glb" },
+      { id: "sink_bathroom", label: "Bathroom Sink", icon: "🚰", description: "Wall-mounted sink (3D)", shape: "box", type: "vertical", size: [0.45, 0.85, 0.45], materialId: "ceramic_white", groupName: "Bathroom Sink", glbPath: "/models/kenney/bathroomSink.glb" },
+      { id: "sink_square_k", label: "Square Sink", icon: "🚰", description: "Square sink (3D)", shape: "box", type: "vertical", size: [0.50, 0.85, 0.40], materialId: "ceramic_white", groupName: "Square Sink", glbPath: "/models/kenney/bathroomSinkSquare.glb" },
+      { id: "shower_k", label: "Shower", icon: "🚿", description: "Shower cabin (3D)", shape: "box", type: "vertical", size: [0.90, 2.00, 0.90], materialId: "glass", groupName: "Shower", glbPath: "/models/kenney/shower.glb" },
+      { id: "shower_round_k", label: "Round Shower", icon: "🚿", description: "Round shower (3D)", shape: "box", type: "vertical", size: [0.90, 2.00, 0.90], materialId: "glass", groupName: "Round Shower", glbPath: "/models/kenney/showerRound.glb" },
+      { id: "bathroom_cabinet_k", label: "Bathroom Cabinet", icon: "🗄️", description: "Vanity cabinet (3D)", shape: "box", type: "vertical", size: [0.60, 0.65, 0.40], materialId: "melamine_white", groupName: "Bathroom Cabinet", glbPath: "/models/kenney/bathroomCabinet.glb" },
+      { id: "bathroom_cabinet_drawer_k", label: "Cabinet + Drawer", icon: "🗄️", description: "Drawer cabinet (3D)", shape: "box", type: "vertical", size: [0.60, 0.65, 0.40], materialId: "melamine_white", groupName: "Drawer Cabinet", glbPath: "/models/kenney/bathroomCabinetDrawer.glb" },
+      { id: "bathroom_mirror_k", label: "Mirror", icon: "🪞", description: "Wall mirror (3D)", shape: "box", type: "back", size: [0.50, 0.70, 0.03], materialId: "mirror", groupName: "Mirror", glbPath: "/models/kenney/bathroomMirror.glb" },
     ],
   },
 
   // ─────────────────────────────────────────────────
-  // 10. KITCHEN APPLIANCES (multi-part)
+  // 10. KITCHEN APPLIANCES (Kenney GLB models)
   // ─────────────────────────────────────────────────
   {
     label: "Kitchen Appliances",
     icon: "🍳",
     items: [
-      { id: "fridge", label: "Fridge", icon: "🧊", description: "Fridge with handle", shape: "box", type: "vertical", size: [0.60, 1.70, 0.65], materialId: "melamine_white",
-        groupName: "Fridge", buildPanels: () => [
-          p("Body", "vertical", [0, 0.85, 0], [0.58, 1.68, 0.63], "melamine_white"),
-          p("Freezer Line", "horizontal", [0, 1.25, -0.315], [0.56, 0.005, 0.01], "melamine_gray"),
-          p("Upper Handle", "vertical", [0.26, 1.45, -0.33], [0.02, 0.20, 0.02], "chrome"),
-          p("Lower Handle", "vertical", [0.26, 0.60, -0.33], [0.02, 0.20, 0.02], "chrome"),
-        ],
-      },
-      { id: "oven_standard", label: "Oven", icon: "🔥", description: "Oven with glass door", shape: "box", type: "vertical", size: [0.60, 0.60, 0.55], materialId: "melamine_black",
-        groupName: "Oven", buildPanels: () => [
-          p("Body", "vertical", [0, 0.30, 0], [0.58, 0.58, 0.53], "melamine_black"),
-          p("Glass Door", "vertical", [0, 0.28, -0.27], [0.50, 0.42, 0.005], "tinted_glass"),
-          p("Handle", "horizontal", [0, 0.52, -0.28], [0.40, 0.02, 0.02], "chrome"),
-          p("Control Panel", "vertical", [0, 0.56, -0.27], [0.50, 0.04, 0.01], "melamine_gray"),
-          cy("Knob 1", [-0.15, 0.56, -0.28], 0.02, 0.015, "chrome"),
-          cy("Knob 2", [-0.05, 0.56, -0.28], 0.02, 0.015, "chrome"),
-          cy("Knob 3", [0.05, 0.56, -0.28], 0.02, 0.015, "chrome"),
-          cy("Knob 4", [0.15, 0.56, -0.28], 0.02, 0.015, "chrome"),
-        ],
-      },
-      { id: "washer", label: "Washing Machine", icon: "🧺", description: "Front-load washer", shape: "box", type: "vertical", size: [0.60, 0.85, 0.60], materialId: "melamine_white",
-        groupName: "Washing Machine", buildPanels: () => [
-          p("Body", "vertical", [0, 0.425, 0], [0.58, 0.83, 0.58], "melamine_white"),
-          cy("Drum Door", [0, 0.38, -0.29], 0.36, 0.02, "tinted_glass"),
-          p("Control Panel", "vertical", [0, 0.80, -0.27], [0.50, 0.06, 0.01], "melamine_gray"),
-          cy("Dial", [0, 0.80, -0.29], 0.04, 0.015, "chrome"),
-        ],
-      },
-      { id: "microwave", label: "Microwave", icon: "📦", description: "Countertop microwave", shape: "box", type: "horizontal", size: [0.45, 0.26, 0.35], materialId: "melamine_black",
-        groupName: "Microwave", buildPanels: () => [
-          p("Body", "vertical", [0, 0.13, 0], [0.44, 0.25, 0.34], "melamine_black"),
-          p("Door Glass", "vertical", [-0.05, 0.12, -0.17], [0.28, 0.18, 0.005], "tinted_glass"),
-          p("Control Side", "vertical", [0.17, 0.13, -0.17], [0.08, 0.20, 0.01], "melamine_gray"),
-        ],
-      },
-      { id: "kitchen_sink", label: "Kitchen Sink", icon: "🚰", description: "Double bowl sink", shape: "box", type: "horizontal", size: [0.60, 0.20, 0.50], materialId: "steel",
-        groupName: "Kitchen Sink", buildPanels: () => [
-          p("Counter", "horizontal", [0, 0.02, 0], [0.60, 0.03, 0.50], "steel"),
-          p("Left Bowl", "horizontal", [-0.14, -0.05, 0], [0.25, 0.12, 0.36], "steel"),
-          p("Right Bowl", "horizontal", [0.14, -0.05, 0], [0.25, 0.12, 0.36], "steel"),
-          cy("Faucet", [0, 0.15, 0.18], 0.02, 0.20, "chrome"),
-        ],
-      },
-      { id: "toaster_add", label: "Toaster", icon: "🍞", description: "2-slot toaster", shape: "box", type: "vertical", size: [0.15, 0.18, 0.28], materialId: "steel",
-        groupName: "Toaster", buildPanels: () => [
-          p("Body", "vertical", [0, 0.09, 0], [0.14, 0.17, 0.27], "steel"),
-          p("Slot 1", "horizontal", [-0.03, 0.175, 0], [0.02, 0.005, 0.18], "melamine_black"),
-          p("Slot 2", "horizontal", [0.03, 0.175, 0], [0.02, 0.005, 0.18], "melamine_black"),
-          p("Lever", "vertical", [0.07, 0.10, -0.12], [0.01, 0.04, 0.01], "chrome"),
-        ],
-      },
-      { id: "coffee_machine", label: "Coffee Machine", icon: "☕", description: "Espresso machine", shape: "box", type: "vertical", size: [0.25, 0.35, 0.35], materialId: "melamine_black" },
-      { id: "blender", label: "Blender", icon: "🥤", description: "Kitchen blender", shape: "cylinder", type: "vertical", size: [0.12, 0.35, 0.12], materialId: "steel" },
+      { id: "fridge_k", label: "Fridge", icon: "🧊", description: "Standard fridge (3D)", shape: "box", type: "vertical", size: [0.60, 1.70, 0.65], materialId: "melamine_white", groupName: "Fridge", glbPath: "/models/kenney/kitchenFridge.glb" },
+      { id: "fridge_large_k", label: "Large Fridge", icon: "🧊", description: "Double-door (3D)", shape: "box", type: "vertical", size: [0.85, 1.80, 0.70], materialId: "melamine_white", groupName: "Large Fridge", glbPath: "/models/kenney/kitchenFridgeLarge.glb" },
+      { id: "fridge_small_k", label: "Mini Fridge", icon: "🧊", description: "Under-counter (3D)", shape: "box", type: "vertical", size: [0.50, 0.85, 0.55], materialId: "melamine_white", groupName: "Mini Fridge", glbPath: "/models/kenney/kitchenFridgeSmall.glb" },
+      { id: "fridge_builtin_k", label: "Built-in Fridge", icon: "🧊", description: "Integrated (3D)", shape: "box", type: "vertical", size: [0.60, 1.80, 0.60], materialId: "melamine_white", groupName: "Built-in Fridge", glbPath: "/models/kenney/kitchenFridgeBuiltIn.glb" },
+      { id: "stove_k", label: "Gas Stove", icon: "🔥", description: "Gas stove (3D)", shape: "box", type: "vertical", size: [0.60, 0.85, 0.60], materialId: "steel", groupName: "Gas Stove", glbPath: "/models/kenney/kitchenStove.glb" },
+      { id: "stove_electric_k", label: "Electric Stove", icon: "🔥", description: "Electric (3D)", shape: "box", type: "vertical", size: [0.60, 0.85, 0.60], materialId: "melamine_black", groupName: "Electric Stove", glbPath: "/models/kenney/kitchenStoveElectric.glb" },
+      { id: "microwave_k", label: "Microwave", icon: "📦", description: "Microwave (3D)", shape: "box", type: "horizontal", size: [0.45, 0.26, 0.35], materialId: "melamine_black", groupName: "Microwave", glbPath: "/models/kenney/kitchenMicrowave.glb" },
+      { id: "sink_kitchen_k", label: "Kitchen Sink", icon: "🚰", description: "Kitchen sink (3D)", shape: "box", type: "horizontal", size: [0.60, 0.20, 0.50], materialId: "steel", groupName: "Kitchen Sink", glbPath: "/models/kenney/kitchenSink.glb" },
+      { id: "washer_k", label: "Washer", icon: "🧺", description: "Washing machine (3D)", shape: "box", type: "vertical", size: [0.60, 0.85, 0.60], materialId: "melamine_white", groupName: "Washer", glbPath: "/models/kenney/washer.glb" },
+      { id: "dryer_k", label: "Dryer", icon: "🧺", description: "Dryer (3D)", shape: "box", type: "vertical", size: [0.60, 0.85, 0.60], materialId: "melamine_white", groupName: "Dryer", glbPath: "/models/kenney/dryer.glb" },
+      { id: "washer_dryer_k", label: "Stacked W/D", icon: "🧺", description: "Stacked (3D)", shape: "box", type: "vertical", size: [0.60, 1.70, 0.60], materialId: "melamine_white", groupName: "Stacked Washer/Dryer", glbPath: "/models/kenney/washerDryerStacked.glb" },
+      { id: "blender_k", label: "Blender", icon: "🥤", description: "Blender (3D)", shape: "cylinder", type: "vertical", size: [0.12, 0.35, 0.12], materialId: "steel", groupName: "Blender", glbPath: "/models/kenney/kitchenBlender.glb" },
+      { id: "coffee_k", label: "Coffee Machine", icon: "☕", description: "Coffee machine (3D)", shape: "box", type: "vertical", size: [0.25, 0.35, 0.35], materialId: "melamine_black", groupName: "Coffee Machine", glbPath: "/models/kenney/kitchenCoffeeMachine.glb" },
+      { id: "toaster_k", label: "Toaster", icon: "🍞", description: "Toaster (3D)", shape: "box", type: "vertical", size: [0.15, 0.18, 0.28], materialId: "steel", groupName: "Toaster", glbPath: "/models/kenney/toaster.glb" },
+      { id: "hood_large_k", label: "Range Hood", icon: "🔲", description: "Large range hood (3D)", shape: "box", type: "horizontal", size: [0.90, 0.30, 0.50], materialId: "steel", groupName: "Range Hood", glbPath: "/models/kenney/hoodLarge.glb" },
+      { id: "hood_modern_k", label: "Modern Hood", icon: "🔲", description: "Slim hood (3D)", shape: "box", type: "horizontal", size: [0.60, 0.25, 0.40], materialId: "steel", groupName: "Modern Hood", glbPath: "/models/kenney/hoodModern.glb" },
     ],
   },
 
   // ─────────────────────────────────────────────────
-  // 11. LIGHTING (multi-part)
+  // 11. LIGHTING (Kenney GLB models)
   // ─────────────────────────────────────────────────
   {
     label: "Lighting",
     icon: "💡",
     items: [
-      { id: "lamp_floor_round", label: "Floor Lamp", icon: "🪔", description: "Standing lamp with shade", shape: "cylinder", type: "vertical", size: [0.30, 1.50, 0.30], materialId: "melamine_white",
-        groupName: "Floor Lamp", buildPanels: () => [
-          cy("Base", [0, 0.01, 0], 0.22, 0.02, "black_metal"),
-          cy("Pole", [0, 0.70, 0], 0.02, 1.36, "chrome"),
-          { id: addPid(), type: "vertical" as const, shape: "cone" as PanelShape, label: "Shade", position: [0, 1.42, 0] as [number,number,number], size: [0.28, 0.18, 0.28] as [number,number,number], materialId: "melamine_white" },
-        ],
-      },
-      { id: "lamp_table_round", label: "Table Lamp", icon: "🪔", description: "Table lamp with shade", shape: "cylinder", type: "vertical", size: [0.20, 0.40, 0.20], materialId: "melamine_white",
-        groupName: "Table Lamp", buildPanels: () => [
-          cy("Base", [0, 0.02, 0], 0.08, 0.03, "brass"),
-          cy("Pole", [0, 0.14, 0], 0.015, 0.22, "brass"),
-          { id: addPid(), type: "vertical" as const, shape: "cone" as PanelShape, label: "Shade", position: [0, 0.30, 0] as [number,number,number], size: [0.20, 0.14, 0.20] as [number,number,number], materialId: "melamine_white" },
-        ],
-      },
-      { id: "lamp_ceiling", label: "Pendant Light", icon: "💡", description: "Hanging pendant", shape: "cylinder", type: "vertical", size: [0.30, 0.20, 0.30], materialId: "melamine_white",
-        groupName: "Pendant Light", buildPanels: () => [
-          cy("Cord", [0, 0.15, 0], 0.005, 0.10, "black_metal"),
-          { id: addPid(), type: "vertical" as const, shape: "half_sphere" as PanelShape, label: "Shade", position: [0, 0.05, 0] as [number,number,number], size: [0.28, 0.14, 0.28] as [number,number,number], materialId: "melamine_white" },
-        ],
-      },
-      { id: "lamp_wall", label: "Wall Sconce", icon: "💡", description: "Wall light", shape: "half_sphere", type: "vertical", size: [0.15, 0.15, 0.10], materialId: "brass" },
+      { id: "lamp_floor_round_k", label: "Round Floor Lamp", icon: "🪔", description: "Floor lamp (3D)", shape: "cylinder", type: "vertical", size: [0.30, 1.50, 0.30], materialId: "melamine_white", groupName: "Floor Lamp", glbPath: "/models/kenney/lampRoundFloor.glb" },
+      { id: "lamp_table_round_k", label: "Round Table Lamp", icon: "🪔", description: "Table lamp (3D)", shape: "cylinder", type: "vertical", size: [0.20, 0.40, 0.20], materialId: "melamine_white", groupName: "Table Lamp", glbPath: "/models/kenney/lampRoundTable.glb" },
+      { id: "lamp_floor_square_k", label: "Square Floor Lamp", icon: "🪔", description: "Square lamp (3D)", shape: "box", type: "vertical", size: [0.25, 1.50, 0.25], materialId: "melamine_white", groupName: "Square Floor Lamp", glbPath: "/models/kenney/lampSquareFloor.glb" },
+      { id: "lamp_table_square_k", label: "Square Table Lamp", icon: "🪔", description: "Table lamp (3D)", shape: "box", type: "vertical", size: [0.18, 0.35, 0.18], materialId: "melamine_white", groupName: "Square Table Lamp", glbPath: "/models/kenney/lampSquareTable.glb" },
+      { id: "lamp_ceiling_k", label: "Ceiling Lamp", icon: "💡", description: "Ceiling lamp (3D)", shape: "cylinder", type: "vertical", size: [0.40, 0.10, 0.40], materialId: "melamine_white", groupName: "Ceiling Lamp", glbPath: "/models/kenney/lampSquareCeiling.glb" },
+      { id: "lamp_wall_k", label: "Wall Lamp", icon: "💡", description: "Wall sconce (3D)", shape: "half_sphere", type: "vertical", size: [0.15, 0.15, 0.10], materialId: "brass", groupName: "Wall Lamp", glbPath: "/models/kenney/lampWall.glb" },
+      { id: "ceiling_fan_k", label: "Ceiling Fan", icon: "🌀", description: "Ceiling fan (3D)", shape: "cylinder", type: "horizontal", size: [1.00, 0.25, 1.00], materialId: "melamine_white", groupName: "Ceiling Fan", glbPath: "/models/kenney/ceilingFan.glb" },
     ],
   },
 
   // ─────────────────────────────────────────────────
-  // 12. ELECTRONICS (multi-part)
+  // 12. ELECTRONICS (Kenney GLB models)
   // ─────────────────────────────────────────────────
   {
     label: "Electronics",
     icon: "🖥️",
     items: [
-      { id: "tv_modern", label: "Modern TV", icon: "📺", description: "Flat screen on stand", shape: "box", type: "back", size: [1.00, 0.60, 0.06], materialId: "melamine_black",
-        groupName: "Modern TV", buildPanels: () => [
-          p("Screen", "back", [0, 0.38, 0], [0.98, 0.55, 0.025], "melamine_black"),
-          p("Bezel", "back", [0, 0.38, 0.013], [1.00, 0.57, 0.005], "melamine_gray"),
-          p("Stand Neck", "vertical", [0, 0.08, 0.02], [0.06, 0.12, 0.04], "melamine_gray"),
-          p("Stand Base", "horizontal", [0, 0.01, 0.03], [0.30, 0.015, 0.15], "melamine_gray"),
-        ],
-      },
-      { id: "monitor", label: "Monitor", icon: "🖥️", description: "Computer monitor", shape: "box", type: "back", size: [0.55, 0.40, 0.06], materialId: "melamine_black",
-        groupName: "Monitor", buildPanels: () => [
-          p("Screen", "back", [0, 0.25, 0], [0.53, 0.32, 0.02], "melamine_black"),
-          p("Stand Arm", "vertical", [0, 0.08, 0.02], [0.04, 0.10, 0.04], "melamine_gray"),
-          cy("Stand Base", [0, 0.01, 0.03], 0.12, 0.015, "melamine_gray"),
-        ],
-      },
-      { id: "laptop_add", label: "Laptop", icon: "💻", description: "Open laptop", shape: "box", type: "horizontal", size: [0.35, 0.24, 0.24], materialId: "melamine_gray",
-        groupName: "Laptop", buildPanels: () => [
-          p("Base", "horizontal", [0, 0.01, -0.04], [0.33, 0.015, 0.22], "melamine_gray"),
-          p("Keyboard", "horizontal", [0, 0.018, -0.04], [0.28, 0.003, 0.16], "melamine_black"),
-          p("Screen", "vertical", [0, 0.12, 0.07], [0.31, 0.20, 0.005], "melamine_black", "box"),
-        ],
-      },
-      { id: "speaker_large", label: "Speaker", icon: "🔊", description: "Floor speaker", shape: "box", type: "vertical", size: [0.20, 0.80, 0.25], materialId: "melamine_black",
-        groupName: "Speaker", buildPanels: () => [
-          p("Cabinet", "vertical", [0, 0.40, 0], [0.19, 0.78, 0.24], "melamine_black"),
-          cy("Woofer", [0, 0.25, -0.12], 0.14, 0.02, "melamine_gray"),
-          cy("Tweeter", [0, 0.58, -0.12], 0.06, 0.015, "melamine_gray"),
-        ],
-      },
-      { id: "radio_add", label: "Radio", icon: "📻", description: "Tabletop radio", shape: "box", type: "horizontal", size: [0.25, 0.15, 0.15], materialId: "walnut" },
+      { id: "tv_modern_k", label: "Modern TV", icon: "📺", description: "Flat screen (3D)", shape: "box", type: "back", size: [1.00, 0.56, 0.03], materialId: "melamine_black", groupName: "Modern TV", glbPath: "/models/kenney/televisionModern.glb" },
+      { id: "tv_vintage_k", label: "Vintage TV", icon: "📺", description: "Retro TV (3D)", shape: "box", type: "vertical", size: [0.40, 0.35, 0.35], materialId: "melamine_black", groupName: "Vintage TV", glbPath: "/models/kenney/televisionVintage.glb" },
+      { id: "tv_antenna_k", label: "Antenna TV", icon: "📺", description: "Old TV (3D)", shape: "box", type: "vertical", size: [0.35, 0.30, 0.30], materialId: "melamine_black", groupName: "Antenna TV", glbPath: "/models/kenney/televisionAntenna.glb" },
+      { id: "monitor_k", label: "Monitor", icon: "🖥️", description: "Computer monitor (3D)", shape: "box", type: "back", size: [0.55, 0.35, 0.02], materialId: "melamine_black", groupName: "Monitor", glbPath: "/models/kenney/computerScreen.glb" },
+      { id: "laptop_k", label: "Laptop", icon: "💻", description: "Laptop (3D)", shape: "box", type: "horizontal", size: [0.35, 0.02, 0.24], materialId: "melamine_gray", groupName: "Laptop", glbPath: "/models/kenney/laptop.glb" },
+      { id: "keyboard_k", label: "Keyboard", icon: "⌨️", description: "Keyboard (3D)", shape: "box", type: "horizontal", size: [0.44, 0.02, 0.14], materialId: "melamine_black", groupName: "Keyboard", glbPath: "/models/kenney/computerKeyboard.glb" },
+      { id: "mouse_k", label: "Mouse", icon: "🖱️", description: "Mouse (3D)", shape: "half_sphere", type: "horizontal", size: [0.06, 0.03, 0.10], materialId: "melamine_black", groupName: "Mouse", glbPath: "/models/kenney/computerMouse.glb" },
+      { id: "speaker_k", label: "Speaker", icon: "🔊", description: "Floor speaker (3D)", shape: "box", type: "vertical", size: [0.20, 0.80, 0.25], materialId: "melamine_black", groupName: "Speaker", glbPath: "/models/kenney/speaker.glb" },
+      { id: "speaker_small_k", label: "Small Speaker", icon: "🔊", description: "Bookshelf (3D)", shape: "box", type: "vertical", size: [0.12, 0.20, 0.15], materialId: "melamine_black", groupName: "Small Speaker", glbPath: "/models/kenney/speakerSmall.glb" },
+      { id: "radio_k", label: "Radio", icon: "📻", description: "Tabletop radio (3D)", shape: "box", type: "horizontal", size: [0.25, 0.15, 0.15], materialId: "walnut", groupName: "Radio", glbPath: "/models/kenney/radio.glb" },
     ],
   },
 
   // ─────────────────────────────────────────────────
-  // 13. ROOM ELEMENTS (multi-part)
+  // 13. ROOM ELEMENTS (Kenney GLB + component)
   // ─────────────────────────────────────────────────
   {
     label: "Room Elements",
     icon: "🚪",
     items: [
-      { id: "door_standard", label: "Door", icon: "🚪", description: "Interior door with handle", shape: "box", type: "vertical", size: [0.80, 2.00, 0.04], materialId: "oak",
-        groupName: "Door", buildPanels: () => [
-          p("Panel", "vertical", [0, 1.0, 0], [0.78, 1.98, 0.038], "oak"),
-          cy("Handle", [0.33, 0.95, -0.025], 0.025, 0.04, "chrome"),
-        ],
-      },
-      { id: "window_standard", label: "Window", icon: "🪟", description: "Window with frame", shape: "box", type: "back", size: [0.80, 1.00, 0.06], materialId: "glass",
-        groupName: "Window", buildPanels: () => [
-          p("Frame Top", "horizontal", [0, 0.49, 0], [0.80, 0.04, 0.05], "melamine_white"),
-          p("Frame Bottom", "horizontal", [0, -0.49, 0], [0.80, 0.04, 0.05], "melamine_white"),
-          p("Frame Left", "vertical", [-0.39, 0, 0], [0.04, 0.96, 0.05], "melamine_white"),
-          p("Frame Right", "vertical", [0.39, 0, 0], [0.04, 0.96, 0.05], "melamine_white"),
-          p("Cross Bar", "horizontal", [0, 0, 0], [0.74, 0.03, 0.04], "melamine_white"),
-          p("Glass Top", "back", [0, 0.25, 0], [0.74, 0.44, 0.005], "glass"),
-          p("Glass Bottom", "back", [0, -0.25, 0], [0.74, 0.44, 0.005], "glass"),
-        ],
-      },
+      { id: "doorway_k", label: "Doorway", icon: "🚪", description: "Doorway frame (3D)", shape: "box", type: "vertical", size: [0.90, 2.10, 0.12], materialId: "oak", groupName: "Doorway", glbPath: "/models/kenney/doorway.glb" },
+      { id: "doorway_open_k", label: "Open Doorway", icon: "🚪", description: "Open doorway (3D)", shape: "box", type: "vertical", size: [0.90, 2.10, 0.12], materialId: "oak", groupName: "Open Doorway", glbPath: "/models/kenney/doorwayOpen.glb" },
+      { id: "stairs_k", label: "Stairs", icon: "🪜", description: "Staircase (3D)", shape: "box", type: "vertical", size: [0.90, 2.50, 2.50], materialId: "oak", groupName: "Stairs", glbPath: "/models/kenney/stairs.glb" },
+      { id: "stairs_open_k", label: "Open Stairs", icon: "🪜", description: "Open staircase (3D)", shape: "box", type: "vertical", size: [0.90, 2.50, 2.50], materialId: "oak", groupName: "Open Stairs", glbPath: "/models/kenney/stairsOpen.glb" },
+      { id: "coat_rack_k", label: "Coat Rack (Wall)", icon: "🧥", description: "Wall hooks (3D)", shape: "box", type: "horizontal", size: [0.60, 0.08, 0.10], materialId: "oak", groupName: "Coat Rack", glbPath: "/models/kenney/coatRack.glb" },
+      { id: "coat_rack_stand_k", label: "Coat Rack (Standing)", icon: "🧥", description: "Standing rack (3D)", shape: "cylinder", type: "vertical", size: [0.04, 1.70, 0.04], materialId: "oak", groupName: "Standing Coat Rack", glbPath: "/models/kenney/coatRackStanding.glb" },
+      { id: "trashcan_k", label: "Trashcan", icon: "🗑️", description: "Waste bin (3D)", shape: "cylinder", type: "vertical", size: [0.25, 0.60, 0.25], materialId: "steel", groupName: "Trashcan", glbPath: "/models/kenney/trashcan.glb" },
       { id: "wall_section", label: "Wall Section", icon: "🧱", description: "Wall panel", shape: "box", type: "vertical", size: [1.00, 2.40, 0.12], materialId: "melamine_white" },
       { id: "radiator_add", label: "Radiator", icon: "🔲", description: "Wall radiator", shape: "box", type: "vertical", size: [0.80, 0.60, 0.10], materialId: "melamine_white" },
-      { id: "coat_rack_standing", label: "Coat Rack", icon: "🧥", description: "Standing coat rack", shape: "cylinder", type: "vertical", size: [0.04, 1.70, 0.04], materialId: "oak",
-        groupName: "Coat Rack", buildPanels: () => [
-          cy("Pole", [0, 0.85, 0], 0.035, 1.68, "oak"),
-          cy("Base", [0, 0.01, 0], 0.25, 0.02, "oak"),
-          // hooks
-          cy("Hook 1", [-0.06, 1.60, 0], 0.01, 0.08, "chrome"),
-          cy("Hook 2", [0.06, 1.60, 0], 0.01, 0.08, "chrome"),
-          cy("Hook 3", [0, 1.60, -0.06], 0.01, 0.08, "chrome"),
-          cy("Hook 4", [0, 1.60, 0.06], 0.01, 0.08, "chrome"),
-        ],
-      },
-      { id: "trashcan_add", label: "Trashcan", icon: "🗑️", description: "Waste bin", shape: "cylinder", type: "vertical", size: [0.25, 0.60, 0.25], materialId: "steel" },
     ],
   },
 
   // ─────────────────────────────────────────────────
-  // 14. SOFT FURNISHINGS
+  // 14. SOFT FURNISHINGS (Kenney GLB + component)
   // ─────────────────────────────────────────────────
   {
     label: "Soft Furnishings",
     icon: "🛋️",
     items: [
-      { id: "pillow_white", label: "Pillow (White)", icon: "🛏️", description: "Soft pillow", shape: "cushion", type: "horizontal", size: [0.50, 0.12, 0.35], materialId: "melamine_white", cornerRadius: 0.03 },
-      { id: "pillow_blue", label: "Pillow (Blue)", icon: "🛏️", description: "Blue accent pillow", shape: "cushion", type: "horizontal", size: [0.50, 0.12, 0.35], materialId: "fabric_blue", cornerRadius: 0.03 },
-      { id: "pillow_long", label: "Body Pillow", icon: "🛏️", description: "Long body pillow", shape: "cushion", type: "horizontal", size: [0.80, 0.12, 0.30], materialId: "melamine_white", cornerRadius: 0.03 },
-      { id: "rug_rectangle", label: "Rectangle Rug", icon: "🟫", description: "Area rug", shape: "box", type: "horizontal", size: [2.00, 0.01, 1.40], materialId: "fabric_gray" },
-      { id: "rug_round", label: "Round Rug", icon: "⭕", description: "Round area rug", shape: "cylinder", type: "horizontal", size: [1.50, 0.01, 1.50], materialId: "fabric_gray" },
+      { id: "pillow_k", label: "Pillow", icon: "🛏️", description: "White pillow (3D)", shape: "cushion", type: "horizontal", size: [0.50, 0.12, 0.35], materialId: "melamine_white", groupName: "Pillow", glbPath: "/models/kenney/pillow.glb" },
+      { id: "pillow_blue_k", label: "Blue Pillow", icon: "🛏️", description: "Blue pillow (3D)", shape: "cushion", type: "horizontal", size: [0.50, 0.12, 0.35], materialId: "fabric_blue", groupName: "Blue Pillow", glbPath: "/models/kenney/pillowBlue.glb" },
+      { id: "pillow_long_k", label: "Long Pillow", icon: "🛏️", description: "Body pillow (3D)", shape: "cushion", type: "horizontal", size: [0.80, 0.12, 0.30], materialId: "melamine_white", groupName: "Long Pillow", glbPath: "/models/kenney/pillowLong.glb" },
+      { id: "rug_rect_k", label: "Rectangle Rug", icon: "🟫", description: "Area rug (3D)", shape: "box", type: "horizontal", size: [2.00, 0.01, 1.40], materialId: "fabric_gray", groupName: "Rectangle Rug", glbPath: "/models/kenney/rugRectangle.glb" },
+      { id: "rug_round_k", label: "Round Rug", icon: "⭕", description: "Round rug (3D)", shape: "cylinder", type: "horizontal", size: [1.50, 0.01, 1.50], materialId: "fabric_gray", groupName: "Round Rug", glbPath: "/models/kenney/rugRound.glb" },
+      { id: "rug_square_k", label: "Square Rug", icon: "🟫", description: "Square rug (3D)", shape: "box", type: "horizontal", size: [1.60, 0.01, 1.60], materialId: "fabric_gray", groupName: "Square Rug", glbPath: "/models/kenney/rugSquare.glb" },
+      { id: "rug_doormat_k", label: "Doormat", icon: "🟫", description: "Entry mat (3D)", shape: "box", type: "horizontal", size: [0.60, 0.01, 0.40], materialId: "fabric_gray", groupName: "Doormat", glbPath: "/models/kenney/rugDoormat.glb" },
     ],
   },
 
   // ─────────────────────────────────────────────────
-  // 15. PLANTS & GREENERY (multi-part)
+  // 15. PLANTS & DECORATIVE (Kenney GLB models)
   // ─────────────────────────────────────────────────
   {
-    label: "Plants & Greenery",
+    label: "Plants & Decor",
     icon: "🌿",
     items: [
-      { id: "potted_plant", label: "Potted Plant", icon: "🪴", description: "Plant in terracotta pot", shape: "sphere", type: "vertical", size: [0.25, 0.45, 0.25], materialId: "fabric_green",
-        groupName: "Potted Plant", buildPanels: () => [
-          { id: addPid(), type: "vertical" as const, shape: "cone" as PanelShape, label: "Pot", position: [0, 0.08, 0] as [number,number,number], size: [0.18, 0.16, 0.18] as [number,number,number], materialId: "leather_tan" },
-          p("Soil", "horizontal", [0, 0.16, 0], [0.14, 0.02, 0.14], "walnut"),
-          sp("Foliage 1", [0, 0.28, 0], 0.16, "fabric_green"),
-          sp("Foliage 2", [-0.04, 0.34, 0.03], 0.10, "fabric_green"),
-          sp("Foliage 3", [0.04, 0.32, -0.03], 0.10, "fabric_green"),
-        ],
-      },
-      { id: "plant_small", label: "Small Plant", icon: "🌱", description: "Succulent in pot", shape: "sphere", type: "vertical", size: [0.12, 0.18, 0.12], materialId: "fabric_green",
-        groupName: "Small Plant", buildPanels: () => [
-          cy("Pot", [0, 0.04, 0], 0.09, 0.08, "leather_tan"),
-          sp("Plant", [0, 0.12, 0], 0.08, "fabric_green"),
-        ],
-      },
-      { id: "plant_tree", label: "Indoor Tree", icon: "🌳", description: "Small indoor tree", shape: "sphere", type: "vertical", size: [0.40, 0.90, 0.40], materialId: "fabric_green",
-        groupName: "Indoor Tree", buildPanels: () => [
-          cy("Pot", [0, 0.10, 0], 0.22, 0.20, "leather_tan"),
-          cy("Trunk", [0, 0.40, 0], 0.04, 0.40, "walnut"),
-          sp("Crown 1", [0, 0.68, 0], 0.30, "fabric_green"),
-          sp("Crown 2", [-0.08, 0.76, 0.06], 0.18, "fabric_green"),
-          sp("Crown 3", [0.08, 0.72, -0.05], 0.16, "fabric_green"),
-        ],
-      },
-      { id: "plant_cactus", label: "Cactus", icon: "🌵", description: "Cactus in pot", shape: "cylinder", type: "vertical", size: [0.12, 0.35, 0.12], materialId: "fabric_green",
-        groupName: "Cactus", buildPanels: () => [
-          cy("Pot", [0, 0.05, 0], 0.10, 0.10, "leather_tan"),
-          cy("Body", [0, 0.22, 0], 0.05, 0.24, "fabric_green"),
-          cy("Arm L", [-0.05, 0.25, 0], 0.025, 0.08, "fabric_green"),
-          cy("Arm R", [0.05, 0.28, 0], 0.025, 0.06, "fabric_green"),
-        ],
-      },
-      { id: "vase_flowers", label: "Vase with Flowers", icon: "💐", description: "Ceramic vase with flowers", shape: "cylinder", type: "vertical", size: [0.10, 0.35, 0.10], materialId: "ceramic_white",
-        groupName: "Vase with Flowers", buildPanels: () => [
-          cy("Vase", [0, 0.10, 0], 0.08, 0.20, "ceramic_white"),
-          cy("Stem 1", [-0.01, 0.26, 0.01], 0.005, 0.12, "fabric_green"),
-          cy("Stem 2", [0.01, 0.28, -0.01], 0.005, 0.14, "fabric_green"),
-          cy("Stem 3", [0, 0.27, 0], 0.005, 0.13, "fabric_green"),
-          sp("Flower 1", [-0.01, 0.33, 0.01], 0.03, "velvet_navy"),
-          sp("Flower 2", [0.01, 0.36, -0.01], 0.025, "leather_tan"),
-          sp("Flower 3", [0, 0.34, 0], 0.028, "fabric_blue"),
-        ],
-      },
-      { id: "bear_plush", label: "Teddy Bear", icon: "🧸", description: "Plush teddy bear", shape: "sphere", type: "vertical", size: [0.20, 0.25, 0.15], materialId: "leather_tan",
-        groupName: "Teddy Bear", buildPanels: () => [
-          sp("Body", [0, 0.08, 0], 0.12, "leather_tan"),
-          sp("Head", [0, 0.18, 0], 0.09, "leather_tan"),
-          sp("Ear L", [-0.05, 0.24, 0], 0.03, "leather_tan"),
-          sp("Ear R", [0.05, 0.24, 0], 0.03, "leather_tan"),
-          sp("Nose", [0, 0.17, -0.045], 0.015, "melamine_black"),
-        ],
-      },
+      { id: "plant1_k", label: "Small Plant 1", icon: "🌱", description: "Succulent (3D)", shape: "sphere", type: "vertical", size: [0.10, 0.15, 0.10], materialId: "fabric_green", groupName: "Small Plant", glbPath: "/models/kenney/plantSmall1.glb" },
+      { id: "plant2_k", label: "Small Plant 2", icon: "🌱", description: "Leafy plant (3D)", shape: "sphere", type: "vertical", size: [0.12, 0.18, 0.12], materialId: "fabric_green", groupName: "Small Plant 2", glbPath: "/models/kenney/plantSmall2.glb" },
+      { id: "plant3_k", label: "Small Plant 3", icon: "🌱", description: "Herb pot (3D)", shape: "sphere", type: "vertical", size: [0.08, 0.20, 0.08], materialId: "fabric_green", groupName: "Small Plant 3", glbPath: "/models/kenney/plantSmall3.glb" },
+      { id: "potted_k", label: "Potted Plant", icon: "🪴", description: "Floor plant (3D)", shape: "sphere", type: "vertical", size: [0.30, 0.60, 0.30], materialId: "fabric_green", groupName: "Potted Plant", glbPath: "/models/kenney/pottedPlant.glb" },
+      { id: "books_k", label: "Books", icon: "📚", description: "Book stack (3D)", shape: "box", type: "horizontal", size: [0.18, 0.22, 0.13], materialId: "oak", groupName: "Books", glbPath: "/models/kenney/books.glb" },
+      { id: "bear_k", label: "Teddy Bear", icon: "🧸", description: "Plush bear (3D)", shape: "sphere", type: "vertical", size: [0.20, 0.25, 0.15], materialId: "leather_tan", groupName: "Teddy Bear", glbPath: "/models/kenney/bear.glb" },
     ],
   },
 ];
@@ -891,10 +728,11 @@ interface AddPartPickerProps {
     placeOnSelected?: boolean;
   }) => void;
   onAddGroup?: (name: string, panels: PanelData[]) => void;
+  onAddGLB?: (name: string, glbPath: string) => void;
   onClose: () => void;
 }
 
-export function AddPartPicker({ onAdd, onAddGroup, onClose }: AddPartPickerProps) {
+export function AddPartPicker({ onAdd, onAddGroup, onAddGLB, onClose }: AddPartPickerProps) {
   const [hovered, setHovered] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [expandedCategory, setExpandedCategory] = useState<string | null>(null);
@@ -982,7 +820,9 @@ export function AddPartPicker({ onAdd, onAddGroup, onClose }: AddPartPickerProps
                     <button
                       key={item.id}
                       onClick={() => {
-                        if (item.buildPanels && onAddGroup) {
+                        if (item.glbPath && onAddGLB) {
+                          onAddGLB(item.groupName ?? item.label, item.glbPath);
+                        } else if (item.buildPanels && onAddGroup) {
                           onAddGroup(item.groupName ?? item.label, item.buildPanels());
                         } else {
                           onAdd({
