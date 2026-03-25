@@ -802,7 +802,7 @@ export function EditorViewport({
         ))}
 
         {/* Selection handles for resize (only for ungrouped panels or panels in edit mode, not groups) */}
-        {selectedPanel && !selectedGroupId && !isDoor(selectedPanel.label) && !isDrawer(selectedPanel.label) && !rotationMode && (
+        {selectedPanel && !selectedGroupId && !rotationMode && (
           <SelectionHandles
             panel={selectedPanel}
             onUpdate={onUpdatePanel}
@@ -2152,8 +2152,8 @@ function FurniturePanel({
       onContextMenu(e.nativeEvent.clientX, e.nativeEvent.clientY);
       return;
     }
-    // Left click: start drag/rotation for non-interactive panels
-    if (e.nativeEvent.button === 0 && !panelIsDoor && !panelIsDrawer) {
+    // Left click: start drag/rotation — allow on ALL panels (doors/drawers too)
+    if (e.nativeEvent.button === 0) {
       e.stopPropagation();
       const pt = getWorldPointFromPointerEvent(e, e.object);
       if (!pt) return;
