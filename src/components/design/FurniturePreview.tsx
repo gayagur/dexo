@@ -169,9 +169,11 @@ function PreviewPanel({ panel }: { panel: PanelData }) {
 export interface FurniturePreviewProps {
   panels?: PanelData[] | EditorSceneData;
   className?: string;
+  /** When true, the canvas ignores pointer events (e.g. list cards so overlay buttons work). */
+  disableInteraction?: boolean;
 }
 
-export function FurniturePreview({ panels, className }: FurniturePreviewProps) {
+export function FurniturePreview({ panels, className, disableInteraction }: FurniturePreviewProps) {
   const allPanels = useMemo(() => {
     if (!panels) return [];
     // Detect new format: has 'groups' property
@@ -201,7 +203,7 @@ export function FurniturePreview({ panels, className }: FurniturePreviewProps) {
   }
 
   return (
-    <div className={className}>
+    <div className={`${className ?? ""} ${disableInteraction ? "pointer-events-none" : ""}`.trim()}>
       <Canvas
         camera={{ position: [2, 1.5, 2.5], fov: 45 }}
         shadows

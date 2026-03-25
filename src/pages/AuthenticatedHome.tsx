@@ -4,7 +4,7 @@ import { AppLayout } from '@/components/app/AppLayout';
 import { useAuth } from '@/hooks/useAuth';
 import { useProjects } from '@/hooks/useProjects';
 import { useFurnitureDesignDrafts } from '@/hooks/useFurnitureDesignDrafts';
-import { SavedDesignsDraftsSection } from '@/components/customer/SavedDesignsDraftsSection';
+import { SavedDesignsDraftsSection, SAVED_DRAFTS_PREVIEW_LIMIT } from '@/components/customer/SavedDesignsDraftsSection';
 import { useMatchedProjects } from '@/hooks/useMatchedProjects';
 import { useBusinessProfile } from '@/hooks/useBusinessProfile';
 import { useBusinessOffers } from '@/hooks/useOffers';
@@ -526,7 +526,7 @@ function CustomerHome({ firstName }: { firstName: string }) {
               drafts={furnitureDrafts}
               loading={draftsLoading}
               removeDraft={removeDraft}
-              previewLimit={3}
+              previewLimit={SAVED_DRAFTS_PREVIEW_LIMIT}
               viewAllHref="/saved-designs"
             />
           </div>

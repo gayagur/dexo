@@ -26,6 +26,9 @@ const fadeUp = {
   visible: { opacity: 1, y: 0, transition: { duration: 0.45, ease: [0.25, 0.46, 0.45, 0.94] } },
 };
 
+/** Home / dashboard: show this many drafts before “View all”. */
+export const SAVED_DRAFTS_PREVIEW_LIMIT = 3;
+
 function draftRoomLabel(spaceType: string, roomId: string): string {
   const rooms = spaceType === "commercial" ? COMMERCIAL_SPACES : HOME_ROOMS;
   return rooms.find((r) => r.id === roomId)?.label ?? roomId;
@@ -152,7 +155,13 @@ export function SavedDesignsDraftsSection({
             Loading designs…
           </div>
         ) : (
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div
+            className={
+              previewLimit != null
+                ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 max-w-6xl"
+                : "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4"
+            }
+          >
             {visible.map((draft) => {
               const furniture = findFurnitureOptionById(draft.furniture_id);
               const cardTitle = furniture?.label ?? draft.furniture_id;
@@ -167,20 +176,22 @@ export function SavedDesignsDraftsSection({
                   key={draft.id}
                   className="overflow-hidden border-border/60 rounded-2xl hover:border-primary/25 hover:shadow-md transition-all"
                 >
-                  <div className="aspect-[16/10] bg-muted/30 relative">
+                  {/* Canvas must not sit above controls: preview is pointer-events-none + delete layered on top */}
+                  <div className="aspect-[16/10] bg-muted/30 relative isolate overflow-hidden">
+                    <FurniturePreview
+                      panels={draft.panels as EditorSceneData}
+                      disableInteraction
+                      className="absolute inset-0 h-full w-full min-h-0"
+                    />
                     <button
                       type="button"
-                      className="absolute top-2 right-2 z-10 h-8 w-8 rounded-full bg-background/90 border border-border/60 shadow-sm flex items-center justify-center text-muted-foreground hover:text-destructive hover:border-destructive/30 transition-colors"
+                      className="absolute top-2 right-2 z-20 pointer-events-auto h-9 w-9 rounded-full bg-background/95 border border-border shadow-md flex items-center justify-center text-muted-foreground hover:text-destructive hover:border-destructive/40 transition-colors"
                       title="Delete design"
                       aria-label={`Delete ${cardTitle}`}
                       onClick={() => setDeleteTarget(draft)}
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
-                    <FurniturePreview
-                      panels={draft.panels as EditorSceneData}
-                      className="w-full h-full"
-                    />
                   </div>
                   <CardContent className="p-3 space-y-2">
                     <div>
@@ -190,12 +201,24 @@ export function SavedDesignsDraftsSection({
                       </p>
                       <p className="text-[10px] text-muted-foreground/80 mt-0.5">{created}</p>
                     </div>
-                    <Button asChild size="sm" className="w-full gap-1.5">
-                      <Link to={`/new-project?design_id=${draft.id}`}>
-                        Continue editing
-                        <ArrowRight className="w-3.5 h-3.5" />
-                      </Link>
-                    </Button>
+                    <div className="flex gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="shrink-0 gap-1 text-muted-foreground hover:text-destructive border-destructive/20 hover:border-destructive/50 hover:bg-destructive/5"
+                        onClick={() => setDeleteTarget(draft)}
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        Delete
+                      </Button>
+                      <Button asChild size="sm" className="flex-1 min-w-0 gap-1.5">
+                        <Link to={`/new-project?design_id=${draft.id}`}>
+                          Continue editing
+                          <ArrowRight className="w-3.5 h-3.5 shrink-0" />
+                        </Link>
+                      </Button>
+                    </div>
                   </CardContent>
                 </Card>
               );

@@ -21,7 +21,7 @@ import {
 import { useAuth } from '@/hooks/useAuth';
 import { useProjects } from '@/hooks/useProjects';
 import { useFurnitureDesignDrafts } from '@/hooks/useFurnitureDesignDrafts';
-import { SavedDesignsDraftsSection } from '@/components/customer/SavedDesignsDraftsSection';
+import { SavedDesignsDraftsSection, SAVED_DRAFTS_PREVIEW_LIMIT } from '@/components/customer/SavedDesignsDraftsSection';
 import { useOffersForProjects } from '@/hooks/useOffers';
 import { useChatSession } from '@/hooks/useChatSession';
 import { AppLayout } from '@/components/app/AppLayout';
@@ -541,7 +541,7 @@ const CustomerDashboard = () => {
             drafts={furnitureDrafts}
             loading={draftsLoading}
             removeDraft={removeDraft}
-            previewLimit={3}
+            previewLimit={SAVED_DRAFTS_PREVIEW_LIMIT}
             viewAllHref="/saved-designs"
           />
 
