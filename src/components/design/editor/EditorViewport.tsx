@@ -1,5 +1,5 @@
 import React, { useState, useRef, useMemo, useCallback, useEffect, useLayoutEffect } from "react";
-import { Canvas, useFrame, useThree } from "@react-three/fiber";
+import { Canvas, useFrame, useThree, type ThreeEvent } from "@react-three/fiber";
 import { OrbitControls, Grid, GizmoHelper, GizmoViewport, Environment, Lightformer, RoundedBox } from "@react-three/drei";
 // postprocessing removed — @react-three/postprocessing@3 requires fiber@9, crashes on fiber@8
 import type { PanelData, GroupData } from "@/lib/furnitureData";
@@ -18,6 +18,21 @@ function isInteractive(label: string) { return isDoor(label) || isDrawer(label);
 
 function snapToGrid(value: number, gridSize: number): number {
   return Math.round(value / gridSize) * gridSize;
+}
+
+/** World point for drag/resize; falls back to mesh position if R3F omits intersection data (avoids null.point crashes). */
+function getWorldPointFromPointerEvent(
+  e: ThreeEvent<PointerEvent>,
+  object: THREE.Object3D | null | undefined
+): THREE.Vector3 | null {
+  const direct = e.point ?? e.intersections?.[0]?.point;
+  if (direct) return direct.clone();
+  if (object) {
+    const v = new THREE.Vector3();
+    object.getWorldPosition(v);
+    return v;
+  }
+  return null;
 }
 
 // ─── Types ─────────────────────────────────────────────
@@ -294,6 +309,31 @@ function createEditorFloorTexture(preset: EditorFloorPreset): THREE.CanvasTextur
   return tex;
 }
 
+/** Adaptive performance: reduce DPR when FPS drops below threshold */
+function AdaptivePerformance() {
+  const { gl } = useThree();
+  const frameCount = useRef(0);
+  const lastTime = useRef(performance.now());
+
+  useFrame(() => {
+    frameCount.current++;
+    const now = performance.now();
+    const elapsed = now - lastTime.current;
+    if (elapsed >= 2000) {
+      const fps = (frameCount.current / elapsed) * 1000;
+      if (fps < 25) {
+        gl.setPixelRatio(1);
+      } else if (fps > 50) {
+        gl.setPixelRatio(Math.min(2, window.devicePixelRatio));
+      }
+      frameCount.current = 0;
+      lastTime.current = now;
+    }
+  });
+
+  return null;
+}
+
 /** Tone-mapping exposure follows day / night */
 function EditorToneExposure({ lightMode }: { lightMode: EditorLightMode }) {
   const gl = useThree((s) => s.gl);
@@ -551,6 +591,7 @@ export function EditorViewport({
           closeContextMenu();
         }}
       >
+        <AdaptivePerformance />
         <EditorToneExposure lightMode={lightMode} />
         <EditorFloorBackdrop floorPreset={floorPreset} lightMode={lightMode} />
 
@@ -1358,12 +1399,14 @@ function ResizeHandle({
     <mesh
       ref={meshRef}
       position={offset}
-      onPointerDown={(e) => {
+      onPointerDown={(e: ThreeEvent<PointerEvent>) => {
         e.stopPropagation();
+        const pt = getWorldPointFromPointerEvent(e, e.object);
+        if (!pt) return;
         setDragging(true);
         onInteractionChange(true);
         dragStart.current = {
-          point: e.point.clone(),
+          point: pt,
           size: [...panelSize] as [number, number, number],
           pos: [...panelPos] as [number, number, number],
         };
@@ -1545,6 +1588,15 @@ function GroupResizeHandle({
   useEffect(() => {
     if (!dragging) return;
 
+    const start = dragStart.current;
+    if (!start?.point) {
+      setDragging(false);
+      gl.domElement.style.cursor = "";
+      onInteractionChange(false);
+      onDragInfoChange(null);
+      return;
+    }
+
     const axisVec = new THREE.Vector3(
       axis === 0 ? 1 : 0,
       axis === 1 ? 1 : 0,
@@ -1556,7 +1608,7 @@ function GroupResizeHandle({
     if (planeNormal.lengthSq() < 0.001) planeNormal.copy(camDir);
 
     const plane = new THREE.Plane();
-    plane.setFromNormalAndCoplanarPoint(planeNormal, dragStart.current!.point);
+    plane.setFromNormalAndCoplanarPoint(planeNormal, start.point);
 
     const onPointerMove = (e: PointerEvent) => {
       if (!dragStart.current) return;
@@ -1605,20 +1657,22 @@ function GroupResizeHandle({
       gl.domElement.removeEventListener("pointermove", onPointerMove);
       gl.domElement.removeEventListener("pointerup", onPointerUp);
     };
-  }, [dragging, axis, dir, groupId, camera, raycaster, gl, onScaleGroup, onInteractionChange, onDragInfoChange, groupPanels]);
+  }, [dragging, axis, dir, groupId, camera, raycaster, gl, onScaleGroup, onInteractionChange, onDragInfoChange]);
 
   return (
     <mesh
       ref={meshRef}
       position={offset}
-      onPointerDown={(e) => {
+      onPointerDown={(e: ThreeEvent<PointerEvent>) => {
         e.stopPropagation();
+        const pt = getWorldPointFromPointerEvent(e, e.object);
+        if (!pt) return;
         const bbox = computeGroupBbox(groupPanels);
         setDragging(true);
         prevScale.current = 1;
         onInteractionChange(true);
         dragStart.current = {
-          point: e.point.clone(),
+          point: pt,
           bboxSize: [...bbox.size] as [number, number, number],
         };
         gl.domElement.style.cursor = cursorStyle;
@@ -1671,10 +1725,19 @@ function GroupCornerResizeHandle({
   useEffect(() => {
     if (!dragging) return;
 
+    const start = dragStart.current;
+    if (!start?.point) {
+      setDragging(false);
+      gl.domElement.style.cursor = "";
+      onInteractionChange(false);
+      onDragInfoChange(null);
+      return;
+    }
+
     // Use XZ plane for corner handles (W+D)
     const planeNormal = new THREE.Vector3(0, 1, 0);
     const plane = new THREE.Plane();
-    plane.setFromNormalAndCoplanarPoint(planeNormal, dragStart.current!.point);
+    plane.setFromNormalAndCoplanarPoint(planeNormal, start.point);
 
     const onPointerMove = (e: PointerEvent) => {
       if (!dragStart.current) return;
@@ -1726,20 +1789,22 @@ function GroupCornerResizeHandle({
       gl.domElement.removeEventListener("pointermove", onPointerMove);
       gl.domElement.removeEventListener("pointerup", onPointerUp);
     };
-  }, [dragging, axes, groupId, camera, raycaster, gl, onScaleGroup, onInteractionChange, onDragInfoChange, groupPanels]);
+  }, [dragging, axes, groupId, camera, raycaster, gl, onScaleGroup, onInteractionChange, onDragInfoChange]);
 
   return (
     <mesh
       ref={meshRef}
       position={offset}
-      onPointerDown={(e) => {
+      onPointerDown={(e: ThreeEvent<PointerEvent>) => {
         e.stopPropagation();
+        const pt = getWorldPointFromPointerEvent(e, e.object);
+        if (!pt) return;
         const bbox = computeGroupBbox(groupPanels);
         setDragging(true);
         prevScales.current = [1, 1, 1];
         onInteractionChange(true);
         dragStart.current = {
-          point: e.point.clone(),
+          point: pt,
           bboxSize: [...bbox.size] as [number, number, number],
         };
         gl.domElement.style.cursor = "nwse-resize";
@@ -1913,7 +1978,7 @@ function FurniturePanel({
   const raycastProp = dimmed ? { raycast: noopRaycast } : {};
 
   const handleClick = (e: any) => { e.stopPropagation(); onClick(); };
-  const handlePointerDown = (e: any) => {
+  const handlePointerDown = (e: ThreeEvent<PointerEvent>) => {
     if (e.nativeEvent.button === 2) {
       e.stopPropagation();
       onContextMenu(e.nativeEvent.clientX, e.nativeEvent.clientY);
@@ -1922,7 +1987,9 @@ function FurniturePanel({
     // Left click: start drag/rotation for non-interactive panels
     if (e.nativeEvent.button === 0 && !panelIsDoor && !panelIsDrawer) {
       e.stopPropagation();
-      onDragStart(e.point.clone(), e.nativeEvent.clientX);
+      const pt = getWorldPointFromPointerEvent(e, e.object);
+      if (!pt) return;
+      onDragStart(pt, e.nativeEvent.clientX);
     }
   };
 

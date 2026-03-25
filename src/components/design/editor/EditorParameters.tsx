@@ -4,6 +4,84 @@ import { Label } from "@/components/ui/label";
 import { MATERIALS, type PanelData, type MaterialOption, type GroupData } from "@/lib/furnitureData";
 import { Ruler, Layers, Palette, RotateCw, ChevronDown, ChevronRight } from "lucide-react";
 
+// ─── Helper: adjust hex color brightness ─────────────────
+function adjustBrightness(hex: string, amount: number): string {
+  const r = Math.max(0, Math.min(255, parseInt(hex.slice(1, 3), 16) + amount));
+  const g = Math.max(0, Math.min(255, parseInt(hex.slice(3, 5), 16) + amount));
+  const b = Math.max(0, Math.min(255, parseInt(hex.slice(5, 7), 16) + amount));
+  return `#${r.toString(16).padStart(2, "0")}${g.toString(16).padStart(2, "0")}${b.toString(16).padStart(2, "0")}`;
+}
+
+// ─── Material Swatch with 3D-style thumbnail ─────────────
+function MaterialSwatch({ material, selected, onClick }: {
+  material: MaterialOption;
+  selected: boolean;
+  onClick: () => void;
+}) {
+  const isWood = material.category === "Wood" || material.category === "Engineered";
+  const isMetal = material.category === "Metal";
+  const isFabric = material.category === "Fabric";
+  const isGlass = material.category === "Glass";
+  const isStone = material.category === "Stone";
+
+  // Build a CSS gradient that suggests the material type
+  let background = material.color;
+  if (isWood) {
+    const c = material.color;
+    background = `repeating-linear-gradient(
+      0deg,
+      ${c} 0px, ${c} 3px,
+      ${adjustBrightness(c, -15)} 3px, ${adjustBrightness(c, -15)} 4px,
+      ${c} 4px, ${c} 6px,
+      ${adjustBrightness(c, -8)} 6px, ${adjustBrightness(c, -8)} 7px
+    )`;
+  } else if (isMetal) {
+    background = `linear-gradient(135deg, ${adjustBrightness(material.color, 30)} 0%, ${material.color} 40%, ${adjustBrightness(material.color, -15)} 60%, ${adjustBrightness(material.color, 20)} 100%)`;
+  } else if (isGlass) {
+    background = `linear-gradient(135deg, rgba(255,255,255,0.5) 0%, ${material.color}88 50%, rgba(255,255,255,0.3) 100%)`;
+  } else if (isStone) {
+    background = `radial-gradient(circle at 30% 30%, ${adjustBrightness(material.color, 10)} 0%, ${material.color} 50%, ${adjustBrightness(material.color, -10)} 100%)`;
+  } else if (isFabric) {
+    const c = material.color;
+    background = `repeating-linear-gradient(
+      45deg,
+      ${c} 0px, ${c} 2px,
+      ${adjustBrightness(c, -5)} 2px, ${adjustBrightness(c, -5)} 3px
+    ), repeating-linear-gradient(
+      -45deg,
+      ${c} 0px, ${c} 2px,
+      ${adjustBrightness(c, -5)} 2px, ${adjustBrightness(c, -5)} 3px
+    )`;
+  }
+
+  return (
+    <button
+      onClick={onClick}
+      className={`w-10 h-10 rounded-lg border-2 transition-all relative overflow-hidden group ${
+        selected
+          ? "border-[#C87D5A] ring-2 ring-[#C87D5A]/20 scale-110"
+          : "border-gray-200 hover:border-gray-400 hover:scale-105"
+      }`}
+      style={{ background }}
+      title={material.label}
+    >
+      {/* Sphere highlight overlay for 3D effect */}
+      <div
+        className="absolute inset-0 rounded-lg opacity-30"
+        style={{
+          background: "radial-gradient(circle at 35% 35%, rgba(255,255,255,0.6) 0%, transparent 60%)",
+        }}
+      />
+      {/* Label on hover */}
+      <div className="absolute inset-0 flex items-end justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+        <span className="text-[7px] font-medium text-white bg-black/60 px-1 rounded-t leading-tight">
+          {material.label}
+        </span>
+      </div>
+    </button>
+  );
+}
+
 interface EditorParametersProps {
   panel: PanelData | null;
   selectedGroup: GroupData | null;
@@ -182,18 +260,13 @@ export function EditorParameters({
               <p className="text-[11px] text-gray-400 uppercase tracking-wider mb-1.5">
                 {cat}
               </p>
-              <div className="flex flex-wrap gap-1.5">
+              <div className="flex flex-wrap gap-2">
                 {MATERIALS.filter((m) => m.category === cat).map((m) => (
-                  <button
+                  <MaterialSwatch
                     key={m.id}
+                    material={m}
+                    selected={m.id === dominantMaterial}
                     onClick={() => onUpdateGroupMaterial(selectedGroup.id, m.id)}
-                    className={`w-8 h-8 rounded-lg border-2 transition-all ${
-                      m.id === dominantMaterial
-                        ? "border-[#C87D5A] ring-2 ring-[#C87D5A]/20"
-                        : "border-gray-200 hover:border-gray-300"
-                    }`}
-                    style={{ backgroundColor: m.color }}
-                    title={m.label}
                   />
                 ))}
               </div>
@@ -408,18 +481,13 @@ export function EditorParameters({
                 <p className="text-[11px] text-gray-400 uppercase tracking-wider mb-1.5">
                   {cat}
                 </p>
-                <div className="flex flex-wrap gap-1.5">
+                <div className="flex flex-wrap gap-2">
                   {MATERIALS.filter((m) => m.category === cat).map((m) => (
-                    <button
+                    <MaterialSwatch
                       key={m.id}
+                      material={m}
+                      selected={m.id === panel.materialId}
                       onClick={() => onUpdatePanel(panel.id, { materialId: m.id })}
-                      className={`w-8 h-8 rounded-lg border-2 transition-all ${
-                        m.id === panel.materialId
-                          ? "border-[#C87D5A] ring-2 ring-[#C87D5A]/20"
-                          : "border-gray-200 hover:border-gray-300"
-                      }`}
-                      style={{ backgroundColor: m.color }}
-                      title={m.label}
                     />
                   ))}
                 </div>
