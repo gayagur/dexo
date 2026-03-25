@@ -314,6 +314,7 @@ interface EditorParametersProps {
   onScaleGroup: (groupId: string, scaleX: number, scaleY: number, scaleZ: number) => void;
   onUpdateGroupMaterial: (groupId: string, materialId: string) => void;
   onCustomGroupColor: (groupId: string, color: string) => void;
+  onUpdateGroupTexture?: (groupId: string, textureUrl: string) => void;
   onUpdateDims: (dims: { w: number; h: number; d: number }) => void;
   style: string;
   onStyleChange: (style: string) => void;
@@ -336,11 +337,17 @@ export function EditorParameters({
   onScaleGroup,
   onUpdateGroupMaterial,
   onCustomGroupColor,
+  onUpdateGroupTexture,
   onUpdateDims,
   style,
   onStyleChange,
   multiSelectCount,
 }: EditorParametersProps) {
+  // Shared SH3D texture cache for both group and panel material pickers
+  const [sh3dTextures, setSh3dTextures] = useState<SH3DTexture[]>([]);
+  const sh3dTexturesRef = { current: sh3dTextures }; // simple ref pattern
+  useEffect(() => { loadSH3DCatalog().then(setSh3dTextures); }, []);
+
   const renderGroupProperties = () => {
     if (!selectedGroup) return null;
 
@@ -472,6 +479,10 @@ export function EditorParameters({
         <MaterialPickerSection
           selectedMaterialId={dominantMaterial}
           onSelectMaterial={(id) => onUpdateGroupMaterial(selectedGroup.id, id)}
+          onSelectSH3DTexture={(texId) => {
+            const tex = sh3dTexturesRef.current.find(t => t.id === texId);
+            if (tex && onUpdateGroupTexture) onUpdateGroupTexture(selectedGroup.id, getSH3DTextureUrl(tex.file));
+          }}
           onCustomColor={(color) => onCustomGroupColor(selectedGroup.id, color)}
           customColor={MATERIALS.find((m) => m.id === dominantMaterial)?.color}
           label="Material (All)"
@@ -663,8 +674,12 @@ export function EditorParameters({
           {/* Material Picker */}
           <MaterialPickerSection
             selectedMaterialId={panel.materialId}
-            onSelectMaterial={(id) => onUpdatePanel(panel.id, { materialId: id, customColor: undefined })}
-            onCustomColor={(color) => onUpdatePanel(panel.id, { customColor: color })}
+            onSelectMaterial={(id) => onUpdatePanel(panel.id, { materialId: id, customColor: undefined, textureUrl: undefined })}
+            onSelectSH3DTexture={(texId) => {
+              const tex = sh3dTexturesRef.current.find(t => t.id === texId);
+              if (tex) onUpdatePanel(panel.id, { textureUrl: getSH3DTextureUrl(tex.file), customColor: undefined });
+            }}
+            onCustomColor={(color) => onUpdatePanel(panel.id, { customColor: color, textureUrl: undefined })}
             customColor={panel.customColor}
           />
         </>

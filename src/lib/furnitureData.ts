@@ -244,6 +244,8 @@ export interface PanelData {
   materialId: string;
   label: string;
   customColor?: string; // If set, overrides material color
+  /** SH3D texture URL — when set, loaded as color map on MeshStandardMaterial */
+  textureUrl?: string;
 }
 
 export interface FurnitureTemplate {

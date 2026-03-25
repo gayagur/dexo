@@ -2050,11 +2050,22 @@ function FurniturePanel({
   const shape = panel.shape ?? "box";
   const panelRotation = panel.rotation ?? [0, 0, 0];
 
-  // PBR textures (skip for custom colors and glass)
+  // SH3D external texture (loaded from URL)
+  const sh3dTexture = useMemo(() => {
+    if (!panel.textureUrl) return null;
+    const tex = new THREE.TextureLoader().load(panel.textureUrl);
+    tex.wrapS = THREE.RepeatWrapping;
+    tex.wrapT = THREE.RepeatWrapping;
+    tex.repeat.set(2, 2);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    return tex;
+  }, [panel.textureUrl]);
+
+  // PBR textures (skip for custom colors, glass, and SH3D textures)
   const textures = useMemo(() => {
-    if (panel.customColor || !mat) return null;
+    if (panel.customColor || panel.textureUrl || !mat) return null;
     return getMaterialTextures(mat.id, mat.color, mat.category);
-  }, [panel.customColor, mat?.id, mat?.color, mat?.category]);
+  }, [panel.customColor, panel.textureUrl, mat?.id, mat?.color, mat?.category]);
 
   // Configure texture tiling — fabric needs dense repeats so weave reads on large cushions
   useMemo(() => {
@@ -2120,6 +2131,14 @@ function FurniturePanel({
     metalness,
     transparent: isTransparent,
     opacity: effectiveOpacity,
+    // SH3D texture takes priority over PBR textures and custom color
+    ...(sh3dTexture ? { map: sh3dTexture, color: selected ? "#e8c4a8" : "#ffffff" } : {}),
+    ...(textures && !sh3dTexture ? {
+      map: textures.map,
+      normalMap: textures.normalMap,
+      normalScale,
+      roughnessMap: textures.roughnessMap,
+    } : {}),
   };
 
   // When dimmed, disable raycasting
