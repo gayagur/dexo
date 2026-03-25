@@ -924,14 +924,15 @@ export function FurnitureEditor({
   }, [selectedPanelId, selectedGroupId, selectedPanelIds, editingGroupId, editModePanels, rotationMode, handleUpdatePanel, handleDuplicatePanel, handleDuplicateGroup, handleDeletePanel, handleDeleteGroup, handleGroupPanels, handleUngroupGroup, handleUpdateGroup, exitEditMode, undo, redo, handleSave]);
 
   return (
-    <div className="h-screen flex flex-col bg-[#FAFAFA]">
-      {/* Top bar */}
-      <div className="h-14 bg-white border-b border-gray-200 flex items-center justify-between px-4 shrink-0">
-        <div className="flex items-center gap-2">
-          <Button variant="ghost" size="icon" onClick={onBack} className="h-8 w-8" title="Back to selection">
+    <div className="h-screen flex flex-col bg-[#FAFAFA] overflow-hidden min-h-0">
+      {/* Top bar — wrap / scroll so controls stay reachable on narrow viewports */}
+      <div className="shrink-0 bg-white border-b border-gray-200 px-3 sm:px-4 py-2 min-w-0">
+        <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between lg:gap-3 min-w-0">
+        <div className="flex items-center gap-2 min-w-0">
+          <Button variant="ghost" size="icon" onClick={onBack} className="h-8 w-8 shrink-0" title="Back to selection">
             <ArrowLeft className="w-4 h-4" />
           </Button>
-          <nav className="flex items-center gap-1 text-xs">
+          <nav className="flex items-center gap-1 text-xs min-w-0 overflow-x-auto whitespace-nowrap [scrollbar-width:thin]">
             <button onClick={() => editorNavigate("/dashboard")} className="text-gray-400 hover:text-[#C87D5A] transition-colors font-medium" title="Home">
               DEXO
             </button>
@@ -957,7 +958,7 @@ export function FurnitureEditor({
             <span className="text-gray-900 font-semibold">{furnitureType.label}</span>
           </nav>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-2 lg:flex-1 lg:min-w-0 lg:justify-end">
           {/* Snap toggle */}
           <button
             title={snapEnabled ? "Snap ON (10mm grid)" : "Snap OFF"}
@@ -1199,10 +1200,11 @@ export function FurnitureEditor({
             Finish & Submit
           </Button>
         </div>
+        </div>
       </div>
 
       {/* Four-panel layout */}
-      <div className="flex-1 flex overflow-hidden">
+      <div className="flex-1 flex min-h-0 min-w-0 overflow-hidden">
         {showLibrary ? (
           <LibraryBrowser
             onSelectTemplate={handleLoadTemplate}
@@ -1231,32 +1233,34 @@ export function FurnitureEditor({
           />
         )}
 
-        <div className="flex-1 p-3">
-          <EditorViewport
-            panels={activePanels}
-            selectedPanelId={selectedPanelId}
-            snapEnabled={snapEnabled}
-            rotationMode={rotationMode}
-            viewMode={viewMode}
-            onSelectPanel={setSelectedPanelId}
-            onUpdatePanel={handleUpdatePanel}
-            groups={groups}
-            ungroupedPanels={ungroupedPanels}
-            editingGroupId={editingGroupId}
-            editingPanels={editModePanels}
-            selectedGroupId={selectedGroupId}
-            onSelectGroup={setSelectedGroupId}
-            onUpdateGroup={handleUpdateGroup}
-            onEnterEditMode={enterEditMode}
-            onExitEditMode={exitEditMode}
-            onRenameGroup={handleRenameGroup}
-            onUngroupGroup={handleUngroupGroup}
-            onDeleteGroup={handleDeleteGroup}
-            onScaleGroup={handleScaleGroup}
-            lightMode={lightMode}
-            floorPreset={floorPreset}
-            onCameraMove={(pos) => { cameraPositionRef.current = pos; }}
-          />
+        <div className="flex-1 min-w-0 min-h-0 p-3 flex flex-col">
+          <div className="flex-1 min-h-0 min-w-0">
+            <EditorViewport
+              panels={activePanels}
+              selectedPanelId={selectedPanelId}
+              snapEnabled={snapEnabled}
+              rotationMode={rotationMode}
+              viewMode={viewMode}
+              onSelectPanel={setSelectedPanelId}
+              onUpdatePanel={handleUpdatePanel}
+              groups={groups}
+              ungroupedPanels={ungroupedPanels}
+              editingGroupId={editingGroupId}
+              editingPanels={editModePanels}
+              selectedGroupId={selectedGroupId}
+              onSelectGroup={setSelectedGroupId}
+              onUpdateGroup={handleUpdateGroup}
+              onEnterEditMode={enterEditMode}
+              onExitEditMode={exitEditMode}
+              onRenameGroup={handleRenameGroup}
+              onUngroupGroup={handleUngroupGroup}
+              onDeleteGroup={handleDeleteGroup}
+              onScaleGroup={handleScaleGroup}
+              lightMode={lightMode}
+              floorPreset={floorPreset}
+              onCameraMove={(pos) => { cameraPositionRef.current = pos; }}
+            />
+          </div>
         </div>
 
         <EditorParameters

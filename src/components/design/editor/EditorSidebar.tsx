@@ -288,7 +288,7 @@ export function EditorSidebar({
   /* ── Edit Mode ─────────────────────────────────────────────────────── */
   if (editingGroupId && editingPanels) {
     return (
-      <div className="w-64 bg-white border-r border-gray-200 flex flex-col h-full">
+      <div className="w-64 shrink-0 bg-white border-r border-gray-200 flex flex-col h-full">
         {/* Header */}
         <div className="px-4 py-3 border-b border-gray-100 flex items-center gap-2">
           <button
@@ -336,7 +336,7 @@ export function EditorSidebar({
 
   /* ── Scene Mode ────────────────────────────────────────────────────── */
   return (
-    <div className="w-64 bg-white border-r border-gray-200 flex flex-col h-full">
+    <div className="w-64 shrink-0 bg-white border-r border-gray-200 flex flex-col h-full">
       {/* Header */}
       <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
         <h3 className="text-sm font-semibold text-gray-900">Objects</h3>
