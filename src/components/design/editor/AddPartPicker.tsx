@@ -953,8 +953,8 @@ export function AddPartPicker({ onAdd, onAddGroup, onClose }: AddPartPickerProps
         <div className="flex-1 overflow-y-auto p-4 space-y-3">
           {filteredCategories.map((category) => {
             const isExpanded = expandedCategory === category.label || search.length > 0;
-            const showItems = isExpanded ? category.items : category.items.slice(0, 6);
-            const hasMore = category.items.length > 6 && !isExpanded;
+            const showItems = isExpanded ? category.items : [];
+            const hasMore = !isExpanded;
 
             return (
               <div key={category.label}>
@@ -973,7 +973,7 @@ export function AddPartPicker({ onAdd, onAddGroup, onClose }: AddPartPickerProps
                   </span>
                   <div className="flex-1" />
                   <span className="text-[10px] text-gray-300 group-hover:text-gray-500 transition-colors">
-                    {isExpanded ? "collapse" : "show all"}
+                    {isExpanded ? "▾ collapse" : `▸ ${category.items.length} items`}
                   </span>
                 </button>
 
