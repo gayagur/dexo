@@ -1,8 +1,8 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { MATERIALS, type PanelData, type MaterialOption, type GroupData } from "@/lib/furnitureData";
-import { Ruler, Layers, Palette, RotateCw, ChevronDown, ChevronRight } from "lucide-react";
+import { Ruler, Layers, Palette, RotateCw, ChevronDown, ChevronRight, Search } from "lucide-react";
 
 // ─── Helper: adjust hex color brightness ─────────────────
 function adjustBrightness(hex: string, amount: number): string {
@@ -82,6 +82,117 @@ function MaterialSwatch({ material, selected, onClick }: {
   );
 }
 
+// ─── Material Picker with search & collapsible categories ──
+function MaterialPickerSection({
+  selectedMaterialId,
+  onSelectMaterial,
+  onCustomColor,
+  customColor,
+  label = "Material",
+}: {
+  selectedMaterialId: string;
+  onSelectMaterial: (materialId: string) => void;
+  onCustomColor?: (color: string) => void;
+  customColor?: string;
+  label?: string;
+}) {
+  const [search, setSearch] = useState("");
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+  const matCategories = [...new Set(MATERIALS.map((m) => m.category))];
+
+  const filtered = useMemo(() => {
+    if (!search.trim()) return MATERIALS;
+    const q = search.toLowerCase();
+    return MATERIALS.filter(
+      (m) => m.label.toLowerCase().includes(q) || m.category.toLowerCase().includes(q) || m.id.toLowerCase().includes(q)
+    );
+  }, [search]);
+
+  const filteredCategories = useMemo(() => {
+    const cats = new Set(filtered.map((m) => m.category));
+    return matCategories.filter((c) => cats.has(c));
+  }, [filtered, matCategories]);
+
+  return (
+    <div className="p-4">
+      <div className="flex items-center gap-2 mb-2">
+        <Palette className="w-4 h-4 text-gray-500" />
+        <h3 className="text-sm font-semibold text-gray-900">{label}</h3>
+      </div>
+
+      {/* Search */}
+      <div className="relative mb-3">
+        <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-gray-300" />
+        <input
+          type="text"
+          placeholder="Search materials..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="w-full h-7 pl-7 pr-2 rounded-md bg-gray-50 border border-gray-200 text-[11px] text-gray-700 placeholder:text-gray-300 focus:outline-none focus:border-gray-300"
+        />
+      </div>
+
+      {/* Collapsible categories */}
+      {filteredCategories.map((cat) => {
+        const isCollapsed = collapsed[cat] ?? false;
+        const catMaterials = filtered.filter((m) => m.category === cat);
+
+        return (
+          <div key={cat} className="mb-2">
+            <button
+              onClick={() => setCollapsed((p) => ({ ...p, [cat]: !p[cat] }))}
+              className="flex items-center gap-1.5 w-full text-left mb-1.5 group"
+            >
+              {isCollapsed ? (
+                <ChevronRight className="w-3 h-3 text-gray-400" />
+              ) : (
+                <ChevronDown className="w-3 h-3 text-gray-400" />
+              )}
+              <span className="text-[11px] text-gray-400 uppercase tracking-wider group-hover:text-gray-600">
+                {cat}
+              </span>
+              <span className="text-[9px] text-gray-300 ml-auto">{catMaterials.length}</span>
+            </button>
+            {!isCollapsed && (
+              <div className="flex flex-wrap gap-1.5 ml-4">
+                {catMaterials.map((m) => (
+                  <MaterialSwatch
+                    key={m.id}
+                    material={m}
+                    selected={m.id === selectedMaterialId}
+                    onClick={() => onSelectMaterial(m.id)}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+        );
+      })}
+
+      {filteredCategories.length === 0 && search && (
+        <p className="text-[10px] text-gray-400 text-center py-3">No materials match "{search}"</p>
+      )}
+
+      {/* Custom color */}
+      {onCustomColor && (
+        <div className="mt-3 pt-3 border-t border-gray-100">
+          <p className="text-[11px] text-gray-400 uppercase tracking-wider mb-1.5">Custom Color</p>
+          <div className="flex items-center gap-2">
+            <input
+              type="color"
+              value={customColor ?? MATERIALS.find((m) => m.id === selectedMaterialId)?.color ?? "#C4A265"}
+              onChange={(e) => onCustomColor(e.target.value)}
+              className="w-8 h-8 rounded-lg border border-gray-200 cursor-pointer"
+              style={{ padding: 0 }}
+            />
+            <span className="text-[10px] text-gray-400">Pick any color</span>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 interface EditorParametersProps {
   panel: PanelData | null;
   selectedGroup: GroupData | null;
@@ -120,8 +231,6 @@ export function EditorParameters({
   onStyleChange,
   multiSelectCount,
 }: EditorParametersProps) {
-  const matCategories = [...new Set(MATERIALS.map((m) => m.category))];
-
   const renderGroupProperties = () => {
     if (!selectedGroup) return null;
 
@@ -250,42 +359,13 @@ export function EditorParameters({
         </div>
 
         {/* Group Material — apply to all panels */}
-        <div className="p-4">
-          <div className="flex items-center gap-2 mb-3">
-            <Palette className="w-4 h-4 text-gray-500" />
-            <h3 className="text-sm font-semibold text-gray-900">Material (All)</h3>
-          </div>
-          {matCategories.map((cat) => (
-            <div key={cat} className="mb-3">
-              <p className="text-[11px] text-gray-400 uppercase tracking-wider mb-1.5">
-                {cat}
-              </p>
-              <div className="flex flex-wrap gap-2">
-                {MATERIALS.filter((m) => m.category === cat).map((m) => (
-                  <MaterialSwatch
-                    key={m.id}
-                    material={m}
-                    selected={m.id === dominantMaterial}
-                    onClick={() => onUpdateGroupMaterial(selectedGroup.id, m.id)}
-                  />
-                ))}
-              </div>
-            </div>
-          ))}
-          <div className="mt-3 pt-3 border-t border-gray-100">
-            <p className="text-[11px] text-gray-400 uppercase tracking-wider mb-1.5">Custom Color</p>
-            <div className="flex items-center gap-2">
-              <input
-                type="color"
-                value={MATERIALS.find(m => m.id === dominantMaterial)?.color ?? "#C4A265"}
-                onChange={(e) => onCustomGroupColor(selectedGroup.id, e.target.value)}
-                className="w-8 h-8 rounded-lg border border-gray-200 cursor-pointer"
-                style={{ padding: 0 }}
-              />
-              <span className="text-[10px] text-gray-400">Pick any color</span>
-            </div>
-          </div>
-        </div>
+        <MaterialPickerSection
+          selectedMaterialId={dominantMaterial}
+          onSelectMaterial={(id) => onUpdateGroupMaterial(selectedGroup.id, id)}
+          onCustomColor={(color) => onCustomGroupColor(selectedGroup.id, color)}
+          customColor={MATERIALS.find((m) => m.id === dominantMaterial)?.color}
+          label="Material (All)"
+        />
       </>
     );
   };
@@ -471,50 +551,12 @@ export function EditorParameters({
           )}
 
           {/* Material Picker */}
-          <div className="p-4">
-            <div className="flex items-center gap-2 mb-3">
-              <Palette className="w-4 h-4 text-gray-500" />
-              <h3 className="text-sm font-semibold text-gray-900">Material</h3>
-            </div>
-            {matCategories.map((cat) => (
-              <div key={cat} className="mb-3">
-                <p className="text-[11px] text-gray-400 uppercase tracking-wider mb-1.5">
-                  {cat}
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  {MATERIALS.filter((m) => m.category === cat).map((m) => (
-                    <MaterialSwatch
-                      key={m.id}
-                      material={m}
-                      selected={m.id === panel.materialId}
-                      onClick={() => onUpdatePanel(panel.id, { materialId: m.id })}
-                    />
-                  ))}
-                </div>
-              </div>
-            ))}
-            <div className="mt-3 pt-3 border-t border-gray-100">
-              <p className="text-[11px] text-gray-400 uppercase tracking-wider mb-1.5">Custom Color</p>
-              <div className="flex items-center gap-2">
-                <input
-                  type="color"
-                  value={panel.customColor ?? MATERIALS.find(m => m.id === panel.materialId)?.color ?? "#C4A265"}
-                  onChange={(e) => onUpdatePanel(panel.id, { customColor: e.target.value })}
-                  className="w-8 h-8 rounded-lg border border-gray-200 cursor-pointer"
-                  style={{ padding: 0 }}
-                />
-                <span className="text-[10px] text-gray-400">Pick any color</span>
-                {panel.customColor && (
-                  <button
-                    onClick={() => onUpdatePanel(panel.id, { customColor: undefined })}
-                    className="text-[10px] text-red-400 hover:text-red-600"
-                  >
-                    Reset
-                  </button>
-                )}
-              </div>
-            </div>
-          </div>
+          <MaterialPickerSection
+            selectedMaterialId={panel.materialId}
+            onSelectMaterial={(id) => onUpdatePanel(panel.id, { materialId: id, customColor: undefined })}
+            onCustomColor={(color) => onUpdatePanel(panel.id, { customColor: color })}
+            customColor={panel.customColor}
+          />
         </>
       );
     }

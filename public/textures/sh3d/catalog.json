@@ -1,0 +1,1160 @@
+[
+  {
+    "id": "sh3d_beige_fabric",
+    "name": "Beige fabric",
+    "category": "fabric",
+    "file": "fabric/beige_fabric.jpg"
+  },
+  {
+    "id": "sh3d_beige_fabric2",
+    "name": "Beige fabric",
+    "category": "fabric",
+    "file": "fabric/beige_fabric2.jpg"
+  },
+  {
+    "id": "sh3d_beige_pattern",
+    "name": "Beige pattern",
+    "category": "fabric",
+    "file": "fabric/beige_pattern.png"
+  },
+  {
+    "id": "sh3d_irregular_cercles",
+    "name": "Irregular circles",
+    "category": "fabric",
+    "file": "fabric/irregular-cercles.png"
+  },
+  {
+    "id": "sh3d_orange_pattern",
+    "name": "Orange pattern",
+    "category": "fabric",
+    "file": "fabric/orange_pattern.png"
+  },
+  {
+    "id": "sh3d_orange_napkin_texture",
+    "name": "Orange napkin",
+    "category": "fabric",
+    "file": "fabric/orange-napkin-texture.png"
+  },
+  {
+    "id": "sh3d_square_shapes",
+    "name": "Square shapes",
+    "category": "fabric",
+    "file": "fabric/square_shapes.png"
+  },
+  {
+    "id": "sh3d_vertical_blue_lines",
+    "name": "Blue lines",
+    "category": "fabric",
+    "file": "fabric/vertical_blue_lines.png"
+  },
+  {
+    "id": "sh3d_vertical_brown_lines",
+    "name": "Brown lines",
+    "category": "fabric",
+    "file": "fabric/vertical_brown_lines.png"
+  },
+  {
+    "id": "sh3d_vertical_lines",
+    "name": "Green lines",
+    "category": "fabric",
+    "file": "fabric/vertical_lines.png"
+  },
+  {
+    "id": "sh3d_floor_carpet_grey_and_white",
+    "name": "Gray and white carpeting",
+    "category": "floor",
+    "file": "floor/floor-carpet-grey-and-white.jpg"
+  },
+  {
+    "id": "sh3d_floor_carpeting_grey",
+    "name": "Gray carpeting",
+    "category": "floor",
+    "file": "floor/floor-carpeting-grey.jpg"
+  },
+  {
+    "id": "sh3d_pink_carpet",
+    "name": "Pink carpeting",
+    "category": "floor",
+    "file": "floor/pink-carpet.jpg"
+  },
+  {
+    "id": "sh3d_dark_ceramic_tiles",
+    "name": "Dark ceramic tiles",
+    "category": "floor",
+    "file": "floor/dark-ceramic-tiles.jpg"
+  },
+  {
+    "id": "sh3d_grey_ceramic_tiles",
+    "name": "Gray ceramic tiles",
+    "category": "floor",
+    "file": "floor/grey-ceramic-tiles.jpg"
+  },
+  {
+    "id": "sh3d_light_brown_tiles",
+    "name": "Light brown tiles",
+    "category": "floor",
+    "file": "floor/light-brown-tiles.jpg"
+  },
+  {
+    "id": "sh3d_marble_floor_tiles",
+    "name": "Marble floor tiles",
+    "category": "floor",
+    "file": "floor/marble-floor-tiles.jpg"
+  },
+  {
+    "id": "sh3d_terrazo_floor",
+    "name": "Gray Tiles",
+    "category": "floor",
+    "file": "floor/terrazo-floor.jpg"
+  },
+  {
+    "id": "sh3d_grass_darker",
+    "name": "Grass darker",
+    "category": "floor",
+    "file": "floor/grass_darker.jpg"
+  },
+  {
+    "id": "sh3d_grass",
+    "name": "Grass",
+    "category": "floor",
+    "file": "floor/grass.jpg"
+  },
+  {
+    "id": "sh3d_beige_leather",
+    "name": "Beige leather",
+    "category": "misc",
+    "file": "misc/beige-leather.jpg"
+  },
+  {
+    "id": "sh3d_dark_leather",
+    "name": "Dark leather",
+    "category": "misc",
+    "file": "misc/dark-leather.jpg"
+  },
+  {
+    "id": "sh3d_orange_leather",
+    "name": "Orange leather",
+    "category": "misc",
+    "file": "misc/orange-leather.jpg"
+  },
+  {
+    "id": "sh3d_beige_granite_cook_tops",
+    "name": "Beige granite",
+    "category": "misc",
+    "file": "misc/beige-granite-cook-tops.jpg"
+  },
+  {
+    "id": "sh3d_dark_granite_cook_tops",
+    "name": "Dark granite",
+    "category": "misc",
+    "file": "misc/dark-granite-cook-tops.jpg"
+  },
+  {
+    "id": "sh3d_white_marble",
+    "name": "White marble",
+    "category": "misc",
+    "file": "misc/white-marble.jpg"
+  },
+  {
+    "id": "sh3d_dark_carpet",
+    "name": "Dark carpet",
+    "category": "fabric",
+    "file": "fabric/dark-carpet.jpg"
+  },
+  {
+    "id": "sh3d_yellow_carpet",
+    "name": "Yellow carpet",
+    "category": "fabric",
+    "file": "fabric/yellow-carpet.jpg"
+  },
+  {
+    "id": "sh3d_pavement_2",
+    "name": "Pavement",
+    "category": "floor",
+    "file": "floor/pavement_2.jpg"
+  },
+  {
+    "id": "sh3d_pavement",
+    "name": "Pavement",
+    "category": "floor",
+    "file": "floor/pavement.jpg"
+  },
+  {
+    "id": "sh3d_chess_parquet",
+    "name": "Chess wooden floor",
+    "category": "floor",
+    "file": "floor/chess-parquet.jpg"
+  },
+  {
+    "id": "sh3d_english_parquet_1",
+    "name": "Wooden floor",
+    "category": "floor",
+    "file": "floor/english-parquet-1.jpg"
+  },
+  {
+    "id": "sh3d_english_parquet_2",
+    "name": "Wooden floor",
+    "category": "floor",
+    "file": "floor/english-parquet-2.jpg"
+  },
+  {
+    "id": "sh3d_english_parquet_3",
+    "name": "Wooden floor",
+    "category": "floor",
+    "file": "floor/english-parquet-3.jpg"
+  },
+  {
+    "id": "sh3d_english_parquet_dark",
+    "name": "Wooden floor",
+    "category": "floor",
+    "file": "floor/english-parquet-dark.jpg"
+  },
+  {
+    "id": "sh3d_hungarian_parquet",
+    "name": "Hungarian wooden floor",
+    "category": "floor",
+    "file": "floor/hungarian_parquet.jpg"
+  },
+  {
+    "id": "sh3d_stones_wall_coloured",
+    "name": "Colored stones",
+    "category": "wall",
+    "file": "wall/stones_wall_coloured.jpg"
+  },
+  {
+    "id": "sh3d_wall_with_little_stones",
+    "name": "Little stones",
+    "category": "wall",
+    "file": "wall/wall_with_little_stones.jpg"
+  },
+  {
+    "id": "sh3d_basic_white_tile",
+    "name": "White tile",
+    "category": "wall",
+    "file": "wall/basic-white-tile.jpg"
+  },
+  {
+    "id": "sh3d_marble_tiles",
+    "name": "Marble tiles",
+    "category": "wall",
+    "file": "wall/marble-tiles.jpg"
+  },
+  {
+    "id": "sh3d_travertine_tiles",
+    "name": "Travertine tiles",
+    "category": "wall",
+    "file": "wall/travertine-tiles.jpg"
+  },
+  {
+    "id": "sh3d_wall_tile_bathroom",
+    "name": "Small tiles",
+    "category": "wall",
+    "file": "wall/wall-tile-bathroom.jpg"
+  },
+  {
+    "id": "sh3d_wall_tiles_brown",
+    "name": "Brown tiles",
+    "category": "wall",
+    "file": "wall/wall-tiles-brown.jpg"
+  },
+  {
+    "id": "sh3d_beige_bricks_wall_bricks",
+    "name": "Beige bricks",
+    "category": "wall",
+    "file": "wall/beige-bricks-wall-bricks.jpg"
+  },
+  {
+    "id": "sh3d_compact_and_grey_marble_for_cook_tops",
+    "name": "Compact gray marble",
+    "category": "misc",
+    "file": "misc/compact-and-grey-marble-for-cook-tops.jpg"
+  },
+  {
+    "id": "sh3d_blue_fibres_fabric_for_furniture",
+    "name": "Blue fibres",
+    "category": "fabric",
+    "file": "fabric/blue-fibres_fabric-for-furniture.jpg"
+  },
+  {
+    "id": "sh3d_flowers_and_yellow_fabric_for_furniture",
+    "name": "Flowers and yellow",
+    "category": "fabric",
+    "file": "fabric/flowers_and_yellow_fabric-for-furniture.png"
+  },
+  {
+    "id": "sh3d_pink_squares_fabric_for_furniture",
+    "name": "Pink squares",
+    "category": "fabric",
+    "file": "fabric/pink_squares_fabric-for-furniture.jpg"
+  },
+  {
+    "id": "sh3d_yellow_and_grey_squares_fabric_for_furniture",
+    "name": "Yellow and gray squares",
+    "category": "fabric",
+    "file": "fabric/yellow_and_grey_squares-fabric-for-furniture.jpg"
+  },
+  {
+    "id": "sh3d_brown_esparto_fibers",
+    "name": "Brown fibers",
+    "category": "fabric",
+    "file": "fabric/brown-esparto-fibers.jpg"
+  },
+  {
+    "id": "sh3d_classic_red_squares_fabric_for_furniture",
+    "name": "Classic red squares",
+    "category": "fabric",
+    "file": "fabric/classic-red-squares-fabric-for-furniture.jpg"
+  },
+  {
+    "id": "sh3d_brown_circles_floor_carpeting",
+    "name": "Brown circles carpeting",
+    "category": "floor",
+    "file": "floor/brown-circles-floor-carpeting.jpg"
+  },
+  {
+    "id": "sh3d_dark_blue_seamless_floor_carpeting",
+    "name": "Dark blue carpeting",
+    "category": "floor",
+    "file": "floor/dark-blue-seamless-floor-carpeting.jpg"
+  },
+  {
+    "id": "sh3d_gray_and_cyan_floor_carpeting",
+    "name": "Gray and cyan carpeting",
+    "category": "floor",
+    "file": "floor/gray-and-cyan-floor-carpeting.jpg"
+  },
+  {
+    "id": "sh3d_gray_and_green_floor_carpeting",
+    "name": "Gray and green carpeting",
+    "category": "floor",
+    "file": "floor/gray-and-green-floor-carpeting.jpg"
+  },
+  {
+    "id": "sh3d_gray_medium_thick_floor_carpeting",
+    "name": "Gray medium thick carpeting",
+    "category": "floor",
+    "file": "floor/gray-medium-thick-floor-carpeting.jpg"
+  },
+  {
+    "id": "sh3d_gray_medium_thick_with_squares_floor_carpeting",
+    "name": "Gray with squares carpeting",
+    "category": "floor",
+    "file": "floor/gray-medium-thick-with-squares-floor-carpeting.jpg"
+  },
+  {
+    "id": "sh3d_hairy_gray_floor_carpeting",
+    "name": "Hairy gray floor carpeting",
+    "category": "floor",
+    "file": "floor/hairy-gray-floor-carpeting.jpg"
+  },
+  {
+    "id": "sh3d_red_and_yellow_floor_carpeting",
+    "name": "Red and yellow carpeting",
+    "category": "floor",
+    "file": "floor/red-and-yellow-floor-carpeting.jpg"
+  },
+  {
+    "id": "sh3d_yellow_medium_floor_carpeting",
+    "name": "Yellow medium carpeting",
+    "category": "floor",
+    "file": "floor/yellow-medium-floor-carpeting.jpg"
+  },
+  {
+    "id": "sh3d_brown_terrazzo_floor_tiles",
+    "name": "Brown terrace tiles",
+    "category": "floor",
+    "file": "floor/brown-terrazzo-floor-tiles.jpg"
+  },
+  {
+    "id": "sh3d_terrazzo_floor_tiles",
+    "name": "Beige and blue tiles",
+    "category": "floor",
+    "file": "floor/terrazzo-floor-tiles.jpg"
+  },
+  {
+    "id": "sh3d_big_stones_floor_tiles",
+    "name": "Big stones",
+    "category": "floor",
+    "file": "floor/big-stones-floor-tiles.jpg"
+  },
+  {
+    "id": "sh3d_multi_grey_stones_floor_tiles",
+    "name": "Gray stones tiles",
+    "category": "floor",
+    "file": "floor/multi-grey-stones-floor-tiles.jpg"
+  },
+  {
+    "id": "sh3d_stained_brown_ceramic_floor_tiles",
+    "name": "Stained brown tiles",
+    "category": "floor",
+    "file": "floor/stained-brown-ceramic-floor-tiles.jpg"
+  },
+  {
+    "id": "sh3d_stoneway_floor_tiles",
+    "name": "Stoneway tiles",
+    "category": "floor",
+    "file": "floor/stoneway-floor-tiles.jpg"
+  },
+  {
+    "id": "sh3d_thin_grey_ceramics_floor_tiles",
+    "name": "Thin gray ceramic tiles",
+    "category": "floor",
+    "file": "floor/thin-grey-ceramics-floor-tiles.jpg"
+  },
+  {
+    "id": "sh3d_grey_marble_for_cook_tops",
+    "name": "Gray marble",
+    "category": "misc",
+    "file": "misc/grey_marble_for_cook-tops.jpg"
+  },
+  {
+    "id": "sh3d_dark_brown_leather",
+    "name": "Dark brown leather",
+    "category": "misc",
+    "file": "misc/dark-brown_leather.jpg"
+  },
+  {
+    "id": "sh3d_green_leather",
+    "name": "Green leather",
+    "category": "misc",
+    "file": "misc/green_leather.jpg"
+  },
+  {
+    "id": "sh3d_old_grey_bricks",
+    "name": "Old gray bricks",
+    "category": "wall",
+    "file": "wall/old_grey_bricks.jpg"
+  },
+  {
+    "id": "sh3d_red_building_bricks",
+    "name": "Red raw bricks",
+    "category": "wall",
+    "file": "wall/red-building-bricks.jpg"
+  },
+  {
+    "id": "sh3d_red_stones_brown_background_stonewalls",
+    "name": "Brown stones",
+    "category": "wall",
+    "file": "wall/red-stones-brown-background-stonewalls.jpg"
+  },
+  {
+    "id": "sh3d_beige_wall_with_white_stones_roughcast",
+    "name": "Beige roughcast with white stones",
+    "category": "wall",
+    "file": "wall/beige-wall-with-white-stones-roughcast.jpg"
+  },
+  {
+    "id": "sh3d_concentrated_stones_roughcast",
+    "name": "Small stones roughcast",
+    "category": "wall",
+    "file": "wall/concentrated-stones-roughcast.jpg"
+  },
+  {
+    "id": "sh3d_coloured_stones_stonewalls",
+    "name": "Colored stones",
+    "category": "wall",
+    "file": "wall/coloured-stones-stonewalls.jpg"
+  },
+  {
+    "id": "sh3d_stone_bricks_stonewall",
+    "name": "Stone bricks",
+    "category": "wall",
+    "file": "wall/stone-bricks-stonewall.jpg"
+  },
+  {
+    "id": "sh3d_old_castle_stonewall",
+    "name": "Old stones",
+    "category": "wall",
+    "file": "wall/old-castle-stonewall.jpg"
+  },
+  {
+    "id": "sh3d_blue_and_geometric_kitchen_tiles",
+    "name": "Blue and geometric tiles",
+    "category": "wall",
+    "file": "wall/blue-and-geometric-kitchen-tiles.png"
+  },
+  {
+    "id": "sh3d_blue_rectangles_bathroom_tiles",
+    "name": "Blue rectangles tiles",
+    "category": "wall",
+    "file": "wall/blue-rectangles-bathroom-tiles.png"
+  },
+  {
+    "id": "sh3d_browns_bathroom_tiles",
+    "name": "Brown and beige tiles",
+    "category": "wall",
+    "file": "wall/browns-bathroom-tiles.jpg"
+  },
+  {
+    "id": "sh3d_geometric_kitchen_tiles",
+    "name": "Geometric tiles",
+    "category": "wall",
+    "file": "wall/geometric-kitchen-tiles.png"
+  },
+  {
+    "id": "sh3d_green_and_yello_geometry_kitchen_tiles",
+    "name": "Green and yellow geometry tiles",
+    "category": "wall",
+    "file": "wall/green-and-yello-geometry-kitchen-tiles.png"
+  },
+  {
+    "id": "sh3d_green_apples_and_white_kitchen_tiles",
+    "name": "Green apples and white tiles",
+    "category": "wall",
+    "file": "wall/green-apples-and-white-kitchen-tiles.png"
+  },
+  {
+    "id": "sh3d_green_apples_kitchen_tiles",
+    "name": "Green apples tiles",
+    "category": "wall",
+    "file": "wall/green-apples-kitchen-tiles.png"
+  },
+  {
+    "id": "sh3d_irregular_orange_kitchen_tiles",
+    "name": "Brown tiles",
+    "category": "wall",
+    "file": "wall/irregular-orange-kitchen-tiles.jpg"
+  },
+  {
+    "id": "sh3d_little_browns_kitchen_wall_tiles",
+    "name": "Brown and beige tiles",
+    "category": "wall",
+    "file": "wall/little-browns-kitchen-wall-tiles.jpg"
+  },
+  {
+    "id": "sh3d_multifruit_multicolor_kitchen_tiles",
+    "name": "Fruits multicolor tiles",
+    "category": "wall",
+    "file": "wall/multifruit-multicolor-kitchen-tiles.png"
+  },
+  {
+    "id": "sh3d_multifruit_orange_kitchen_tiles",
+    "name": "Fruits orange tiles",
+    "category": "wall",
+    "file": "wall/multifruit-orange-kitchen-tiles.png"
+  },
+  {
+    "id": "sh3d_orange_and_browns_kitchen_tiles",
+    "name": "Orange and brown tiles",
+    "category": "wall",
+    "file": "wall/orange-and-browns-kitchen-tiles.png"
+  },
+  {
+    "id": "sh3d_red_tomatoes_and_white_kitchen_tiles",
+    "name": "Red tomatoes and white tiles",
+    "category": "wall",
+    "file": "wall/red-tomatoes-and-white-kitchen-tiles.png"
+  },
+  {
+    "id": "sh3d_red_tomatoes_kitchen_tiles",
+    "name": "Red tomatoes tiles",
+    "category": "wall",
+    "file": "wall/red-tomatoes-kitchen-tiles.png"
+  },
+  {
+    "id": "sh3d_rough_brown_kitchen_tiles",
+    "name": "Rough brown tiles",
+    "category": "wall",
+    "file": "wall/rough-brown-kitchen-tiles.jpg"
+  },
+  {
+    "id": "sh3d_white_with_border_kitchen_tiles",
+    "name": "White tiles with border",
+    "category": "wall",
+    "file": "wall/white-with-border-kitchen-tiles.png"
+  },
+  {
+    "id": "sh3d_yellow_lemon_and_white_kitchen_tiles",
+    "name": "Yellow lemon and white tiles",
+    "category": "wall",
+    "file": "wall/yellow-lemon-and-white-kitchen-tiles.png"
+  },
+  {
+    "id": "sh3d_yellow_lemon_kitchen_tiles",
+    "name": "Yellow lemon tiles",
+    "category": "wall",
+    "file": "wall/yellow-lemon-kitchen-tiles.png"
+  },
+  {
+    "id": "sh3d_yellow_pears_and_white_kitchen_tiles",
+    "name": "Yellow pears and white tiles",
+    "category": "wall",
+    "file": "wall/yellow-pears-and-white-kitchen-tiles.png"
+  },
+  {
+    "id": "sh3d_yellow_pears_kitchen_tiles",
+    "name": "Yellow pears tiles",
+    "category": "wall",
+    "file": "wall/yellow-pears-kitchen-tiles.png"
+  },
+  {
+    "id": "sh3d_browns_and_blue_geometrics_kitchen_tiles",
+    "name": "Browns and blue tiles",
+    "category": "wall",
+    "file": "wall/browns-and-blue-geometrics-kitchen-tiles.jpg"
+  },
+  {
+    "id": "sh3d_fruits_kitchen_tiles",
+    "name": "Fruits kitchen tiles",
+    "category": "wall",
+    "file": "wall/fruits-kitchen-tiles.jpg"
+  },
+  {
+    "id": "sh3d_green_and_black_bathroom_tiles",
+    "name": "Green and black tiles",
+    "category": "wall",
+    "file": "wall/green-and-black-bathroom-tiles.png"
+  },
+  {
+    "id": "sh3d_green_and_bone_kitchen_tiles",
+    "name": "Green and bone tiles",
+    "category": "wall",
+    "file": "wall/green-and-bone-kitchen-tiles.png"
+  },
+  {
+    "id": "sh3d_orange_line_and_flowers_kitchen_tiles",
+    "name": "Orange line and flowers tiles",
+    "category": "wall",
+    "file": "wall/orange-line-and-flowers-kitchen-tiles.png"
+  },
+  {
+    "id": "sh3d_rustic_brown_beige_bathroom_tiles",
+    "name": "Rustic brown beige tiles",
+    "category": "wall",
+    "file": "wall/rustic-brown-beige-bathroom-tiles.jpg"
+  },
+  {
+    "id": "sh3d_grey_dark_parquet",
+    "name": "Gray dark wooden floor",
+    "category": "floor",
+    "file": "floor/grey-dark-parquet.jpg"
+  },
+  {
+    "id": "sh3d_light_beige_parquet",
+    "name": "Light beige wooden floor",
+    "category": "floor",
+    "file": "floor/light-beige-parquet.jpg"
+  },
+  {
+    "id": "sh3d_oak_brown_parquet",
+    "name": "Oak wooden floor",
+    "category": "floor",
+    "file": "floor/oak-brown-parquet.jpg"
+  },
+  {
+    "id": "sh3d_red_brown_parquet",
+    "name": "Red brown wooden floor",
+    "category": "floor",
+    "file": "floor/red-brown-parquet.jpg"
+  },
+  {
+    "id": "sh3d_old_and_light_gray_parquet",
+    "name": "Light gray wooden floor",
+    "category": "floor",
+    "file": "floor/old-and-light-gray-parquet.jpg"
+  },
+  {
+    "id": "sh3d_old_brown_parquet",
+    "name": "Old brown wooden floor",
+    "category": "floor",
+    "file": "floor/old-brown-parquet.jpg"
+  },
+  {
+    "id": "sh3d_old_grey_parquet",
+    "name": "Old gray wooden floor",
+    "category": "floor",
+    "file": "floor/old-grey-parquet.jpg"
+  },
+  {
+    "id": "sh3d_bathroom_tile_beige",
+    "name": "Beige tiles",
+    "category": "wall",
+    "file": "wall/bathroom-tile-beige.jpg"
+  },
+  {
+    "id": "sh3d_black_and_white_stones",
+    "name": "Black and white stones",
+    "category": "floor",
+    "file": "floor/black-and-white-stones.jpg"
+  },
+  {
+    "id": "sh3d_carpet_with_coloured_tiles",
+    "name": "Carpet with colored tiles",
+    "category": "fabric",
+    "file": "fabric/carpet-with-coloured-tiles.jpg"
+  },
+  {
+    "id": "sh3d_coloured_glass_stones",
+    "name": "Colored glass stones",
+    "category": "floor",
+    "file": "floor/coloured-glass-stones.jpg"
+  },
+  {
+    "id": "sh3d_detailed_mosaic_arab_wall",
+    "name": "Detailed mosaic",
+    "category": "wall",
+    "file": "wall/detailed-mosaic-arab-wall.jpg"
+  },
+  {
+    "id": "sh3d_fantasy_wall_mosaic",
+    "name": "Fantasy mosaic",
+    "category": "wall",
+    "file": "wall/fantasy-wall-mosaic.jpg"
+  },
+  {
+    "id": "sh3d_floor_stones_1",
+    "name": "Floor stones",
+    "category": "floor",
+    "file": "floor/floor-stones-1.jpg"
+  },
+  {
+    "id": "sh3d_floor_stones_2",
+    "name": "Floor stones",
+    "category": "floor",
+    "file": "floor/floor-stones-2.jpg"
+  },
+  {
+    "id": "sh3d_little_stones_bathroom",
+    "name": "Little stones",
+    "category": "wall",
+    "file": "wall/little-stones-bathroom.jpg"
+  },
+  {
+    "id": "sh3d_mosaic_patchwork",
+    "name": "Mosaic patchwork",
+    "category": "wall",
+    "file": "wall/mosaic-patchwork.jpg"
+  },
+  {
+    "id": "sh3d_old_mosaic_arab_wall",
+    "name": "Old mosaic",
+    "category": "wall",
+    "file": "wall/old-mosaic-arab-wall.jpg"
+  },
+  {
+    "id": "sh3d_old_mosaic_wall_arab_2",
+    "name": "Old mosaic",
+    "category": "wall",
+    "file": "wall/old-mosaic-wall-arab-2.jpg"
+  },
+  {
+    "id": "sh3d_portuguese_wall_2",
+    "name": "Blue mosaic",
+    "category": "wall",
+    "file": "wall/portuguese-wall-2.jpg"
+  },
+  {
+    "id": "sh3d_portuguese_wall",
+    "name": "Green mosaic",
+    "category": "wall",
+    "file": "wall/portuguese-wall.jpg"
+  },
+  {
+    "id": "sh3d_tiled_stones_for_bathroom",
+    "name": "Tiled stones",
+    "category": "wall",
+    "file": "wall/tiled-stones-for-bathroom.jpg"
+  },
+  {
+    "id": "sh3d_wall_portuguese_mosaic_3_green",
+    "name": "Green mosaic",
+    "category": "wall",
+    "file": "wall/wall-portuguese-mosaic-3-green.jpg"
+  },
+  {
+    "id": "sh3d_wall_portuguese_mosaic_3",
+    "name": "Blue mosaic",
+    "category": "wall",
+    "file": "wall/wall-portuguese-mosaic-3.jpg"
+  },
+  {
+    "id": "sh3d_red_carpet_large_hair",
+    "name": "Red carpet with thick hair",
+    "category": "fabric",
+    "file": "fabric/red-carpet-large-hair.jpg"
+  },
+  {
+    "id": "sh3d_beige_carpet_rounded",
+    "name": "Round beige carpet",
+    "category": "fabric",
+    "file": "fabric/beige-carpet-rounded.jpg"
+  },
+  {
+    "id": "sh3d_old_carpet",
+    "name": "Oriental carpet",
+    "category": "fabric",
+    "file": "fabric/old-carpet.jpg"
+  },
+  {
+    "id": "sh3d_gray_carpet",
+    "name": "Gray carpet",
+    "category": "fabric",
+    "file": "fabric/gray-carpet.jpg"
+  },
+  {
+    "id": "sh3d_mexican_carpet",
+    "name": "Mexican carpet",
+    "category": "fabric",
+    "file": "fabric/mexican-carpet.jpg"
+  },
+  {
+    "id": "sh3d_geometric_brown_carpet",
+    "name": "Geometric brown carpet",
+    "category": "fabric",
+    "file": "fabric/geometric-brown-carpet.jpg"
+  },
+  {
+    "id": "sh3d_red_american_carpet",
+    "name": "Red American carpet",
+    "category": "fabric",
+    "file": "fabric/red-american-carpet.jpg"
+  },
+  {
+    "id": "sh3d_oriental_carpet",
+    "name": "Oriental carpet",
+    "category": "fabric",
+    "file": "fabric/oriental-carpet.jpg"
+  },
+  {
+    "id": "sh3d_carpet_with_geometric_shapes",
+    "name": "Carpet with geometric shapes",
+    "category": "fabric",
+    "file": "fabric/carpet-with-geometric-shapes.jpg"
+  },
+  {
+    "id": "sh3d_old_and_red_bricks_wall",
+    "name": "Old red bricks wall",
+    "category": "wall",
+    "file": "wall/old-and-red-bricks-wall.jpg"
+  },
+  {
+    "id": "sh3d_red_bricks_wall",
+    "name": "Red bricks",
+    "category": "wall",
+    "file": "wall/red-bricks-wall.jpg"
+  },
+  {
+    "id": "sh3d_teira_blue_velvet",
+    "name": "Teira blue velvet",
+    "category": "fabric",
+    "file": "fabric/teira-blue-velvet.jpg"
+  },
+  {
+    "id": "sh3d_pansy_purple_velvet",
+    "name": "Pansy purple velvet",
+    "category": "fabric",
+    "file": "fabric/pansy-purple-velvet.jpg"
+  },
+  {
+    "id": "sh3d_peacock_velvet",
+    "name": "Peacock velvet",
+    "category": "fabric",
+    "file": "fabric/peacock-velvet.jpg"
+  },
+  {
+    "id": "sh3d_light_moss_yellow",
+    "name": "Light moss yellow",
+    "category": "fabric",
+    "file": "fabric/light-moss-yellow.jpg"
+  },
+  {
+    "id": "sh3d_claret_cotton_velvet",
+    "name": "Claret red velvet",
+    "category": "fabric",
+    "file": "fabric/claret-cotton-velvet.jpg"
+  },
+  {
+    "id": "sh3d_peacock_blue_velvet",
+    "name": "Peacock blue velvet",
+    "category": "fabric",
+    "file": "fabric/peacock_blue_velvet.jpg"
+  },
+  {
+    "id": "sh3d_green_fabric_for_furniture",
+    "name": "Green fabric",
+    "category": "fabric",
+    "file": "fabric/green-fabric-for-furniture.jpg"
+  },
+  {
+    "id": "sh3d_orange_fabric_for_furniture",
+    "name": "Orange fabric",
+    "category": "fabric",
+    "file": "fabric/orange-fabric-for-furniture.jpg"
+  },
+  {
+    "id": "sh3d_red_and_black_plaid_furniture_fabric",
+    "name": "Red and black plaid",
+    "category": "fabric",
+    "file": "fabric/red-and-black-plaid-furniture-fabric.png"
+  },
+  {
+    "id": "sh3d_yellow_and_black_plaid_furniture_fabric",
+    "name": "Yellow and black plaid",
+    "category": "fabric",
+    "file": "fabric/yellow-and-black-plaid-furniture-fabric.png"
+  },
+  {
+    "id": "sh3d_blue_and_green_plaid_furniture_fabric",
+    "name": "Blue and green plaid",
+    "category": "fabric",
+    "file": "fabric/blue-and-green-plaid-furniture-fabric.png"
+  },
+  {
+    "id": "sh3d_striped_fabric_texture",
+    "name": "Beige lines",
+    "category": "fabric",
+    "file": "fabric/striped-fabric-texture.jpg"
+  },
+  {
+    "id": "sh3d_beige_carpet_square",
+    "name": "Beige carpet",
+    "category": "fabric",
+    "file": "fabric/beige-carpet-square.jpg"
+  },
+  {
+    "id": "sh3d_blue_painted_wood",
+    "name": "Blue painted wood",
+    "category": "wood",
+    "file": "wood/blue-painted-wood.jpg"
+  },
+  {
+    "id": "sh3d_concrete_wall_1",
+    "name": "Concrete",
+    "category": "wall",
+    "file": "wall/concrete-wall-1.jpg"
+  },
+  {
+    "id": "sh3d_concrete_wall_2",
+    "name": "Rough concrete",
+    "category": "wall",
+    "file": "wall/concrete-wall-2.jpg"
+  },
+  {
+    "id": "sh3d_concrete_wall_3",
+    "name": "Concrete",
+    "category": "wall",
+    "file": "wall/concrete-wall-3.jpg"
+  },
+  {
+    "id": "sh3d_brick_wall_with_old_stones",
+    "name": "Old bricks",
+    "category": "wall",
+    "file": "wall/brick-wall-with-old-stones.jpg"
+  },
+  {
+    "id": "sh3d_old_floor_tile",
+    "name": "Blue and beige tiles",
+    "category": "floor",
+    "file": "floor/old-floor-tile.jpg"
+  },
+  {
+    "id": "sh3d_old_stones_wall",
+    "name": "Old stones",
+    "category": "wall",
+    "file": "wall/old-stones-wall.jpg"
+  },
+  {
+    "id": "sh3d_red_metal_floor",
+    "name": "Red metal",
+    "category": "floor",
+    "file": "floor/red-metal-floor.jpg"
+  },
+  {
+    "id": "sh3d_rusty_metal_texture",
+    "name": "Rusty metal",
+    "category": "misc",
+    "file": "misc/rusty-metal-texture.jpg"
+  },
+  {
+    "id": "sh3d_wall_metal_texture",
+    "name": "Metal",
+    "category": "misc",
+    "file": "misc/wall-metal-texture.jpg"
+  },
+  {
+    "id": "sh3d_gray_metal_floor",
+    "name": "Gray metal",
+    "category": "floor",
+    "file": "floor/gray-metal-floor.jpg"
+  },
+  {
+    "id": "sh3d_clay_floor",
+    "name": "Clay small tiles",
+    "category": "floor",
+    "file": "floor/clay-floor.jpg"
+  },
+  {
+    "id": "sh3d_dry_mud",
+    "name": "Dry soil",
+    "category": "floor",
+    "file": "floor/dry_mud.jpg"
+  },
+  {
+    "id": "sh3d_field_of_daisies",
+    "name": "Field of daisies",
+    "category": "floor",
+    "file": "floor/field-of-daisies.jpg"
+  },
+  {
+    "id": "sh3d_field_of_poppies",
+    "name": "Field of poppies",
+    "category": "floor",
+    "file": "floor/field-of-poppies.jpg"
+  },
+  {
+    "id": "sh3d_field_with_floral_stripes",
+    "name": "Field with floral stripes",
+    "category": "floor",
+    "file": "floor/field-with-floral-stripes.jpg"
+  },
+  {
+    "id": "sh3d_field_with_white_and_yellow_flowers",
+    "name": "Field with white and yellow flowers",
+    "category": "floor",
+    "file": "floor/field-with-white-and-yellow-flowers.jpg"
+  },
+  {
+    "id": "sh3d_floor_slates",
+    "name": "Blue slates",
+    "category": "floor",
+    "file": "floor/floor-slates.jpg"
+  },
+  {
+    "id": "sh3d_floor_tiles_hexagonal",
+    "name": "Hexagonal tiles",
+    "category": "floor",
+    "file": "floor/floor-tiles-hexagonal.jpg"
+  },
+  {
+    "id": "sh3d_ground_gravel",
+    "name": "Soil gravel",
+    "category": "floor",
+    "file": "floor/ground-gravel.jpg"
+  },
+  {
+    "id": "sh3d_ground_pebbles",
+    "name": "Multicolor pebbles",
+    "category": "floor",
+    "file": "floor/ground-pebbles.jpg"
+  },
+  {
+    "id": "sh3d_old_bricks_floor",
+    "name": "Old bricks",
+    "category": "floor",
+    "file": "floor/old-bricks-floor.jpg"
+  },
+  {
+    "id": "sh3d_sandy_soil_2",
+    "name": "Sandy soil",
+    "category": "floor",
+    "file": "floor/sandy-soil-2.jpg"
+  },
+  {
+    "id": "sh3d_sandy_soil",
+    "name": "Sandy soil",
+    "category": "floor",
+    "file": "floor/sandy-soil.jpg"
+  },
+  {
+    "id": "sh3d_sea_rush_woven",
+    "name": "Woven sea rush",
+    "category": "floor",
+    "file": "floor/sea-rush-woven.jpg"
+  },
+  {
+    "id": "sh3d_wet_mud",
+    "name": "Wet soil",
+    "category": "floor",
+    "file": "floor/wet-mud.jpg"
+  },
+  {
+    "id": "sh3d_wooden_bathroom_floor",
+    "name": "Wooden floor",
+    "category": "floor",
+    "file": "floor/wooden-bathroom-floor.jpg"
+  },
+  {
+    "id": "sh3d_blue_fabric",
+    "name": "Blue jean",
+    "category": "fabric",
+    "file": "fabric/blue-fabric.jpg"
+  },
+  {
+    "id": "sh3d_fireplace_stones",
+    "name": "Stones",
+    "category": "wall",
+    "file": "wall/fireplace-stones.jpg"
+  },
+  {
+    "id": "sh3d_granite",
+    "name": "Granite",
+    "category": "misc",
+    "file": "misc/granite.jpg"
+  },
+  {
+    "id": "sh3d_soil",
+    "name": "Soil",
+    "category": "floor",
+    "file": "floor/soil.jpg"
+  },
+  {
+    "id": "sh3d_tile_ext_border",
+    "name": "Beige tiles",
+    "category": "floor",
+    "file": "floor/tile-ext-border.jpg"
+  },
+  {
+    "id": "sh3d_trunk",
+    "name": "Trunk",
+    "category": "wood",
+    "file": "wood/trunk.jpg"
+  },
+  {
+    "id": "sh3d_wood",
+    "name": "Red wood",
+    "category": "wood",
+    "file": "wood/wood.jpg"
+  },
+  {
+    "id": "sh3d_pebbles",
+    "name": "Pebbles",
+    "category": "floor",
+    "file": "floor/pebbles.jpg"
+  },
+  {
+    "id": "sh3d_ground_pebbles_2",
+    "name": "Gray pebbles",
+    "category": "floor",
+    "file": "floor/ground-pebbles-2.jpg"
+  },
+  {
+    "id": "sh3d_asphalte_clair_4x4m",
+    "name": "Light asphalt",
+    "category": "floor",
+    "file": "floor/asphalte-clair-4x4m.jpg"
+  },
+  {
+    "id": "sh3d_asphalte_fonce_4x4m",
+    "name": "Dark asphalt",
+    "category": "floor",
+    "file": "floor/asphalte-fonce-4x4m.jpg"
+  },
+  {
+    "id": "sh3d_zebra_asphalte_clair_4x4m",
+    "name": "Striped light asphalt",
+    "category": "floor",
+    "file": "floor/zebra-asphalte-clair-4x4m.jpg"
+  },
+  {
+    "id": "sh3d_zebra_asphalte_fonce_4x4m",
+    "name": "Striped dark asphalt",
+    "category": "floor",
+    "file": "floor/zebra-asphalte-fonce-4x4m.jpg"
+  },
+  {
+    "id": "sh3d_paves_autobloquants_60x60cm",
+    "name": "Pavement",
+    "category": "floor",
+    "file": "floor/paves-autobloquants-60x60cm.jpg"
+  }
+]
