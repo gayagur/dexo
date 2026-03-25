@@ -31,7 +31,7 @@ import {
   findGroupContainingPanel,
 } from "@/lib/groupUtils";
 import type { LibraryTemplate } from "@/lib/libraryData";
-import { ArrowLeft, Save, RotateCcw, RotateCw, MessageSquare, Magnet, HelpCircle, X, BookOpen, Undo2, Redo2, Box, Square, PanelTop, PanelLeft, ImagePlus, Loader2, Home, Sun, Moon } from "lucide-react";
+import { ArrowLeft, Save, RotateCcw, RotateCw, MessageSquare, Magnet, HelpCircle, X, BookOpen, Undo2, Redo2, Box, Square, PanelTop, PanelLeft, ImagePlus, Loader2, Home, Sun, Moon, Check, LogOut, SendHorizonal } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import type { ViewMode, EditorLightMode, EditorFloorPreset } from "./EditorViewport";
 import { EDITOR_FLOOR_OPTIONS } from "./EditorViewport";
@@ -72,6 +72,10 @@ export function FurnitureEditor({
   const [viewMode, setViewMode] = useState<ViewMode>("3d");
   const [lightMode, setLightMode] = useState<EditorLightMode>("day");
   const [floorPreset, setFloorPreset] = useState<EditorFloorPreset>("studio");
+  const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "unsaved">("idle");
+  const [showLeaveConfirm, setShowLeaveConfirm] = useState<{ action: () => void } | null>(null);
+  const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastSavedHistoryIndex = useRef(0);
   const editorNavigate = useNavigate();
 
   const defaultTemplate = getDefaultTemplate(furnitureType.id, furnitureType.defaultDims);
@@ -104,6 +108,13 @@ export function FurnitureEditor({
     }
     historyIndexRef.current = historyRef.current.length - 1;
     setHistoryVersion((v) => v + 1);
+    // Mark as unsaved when user makes changes
+    setSaveStatus((s) => s === "saving" ? s : "unsaved");
+    // Auto-save: debounce 60s after last change
+    if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
+    autoSaveTimer.current = setTimeout(() => {
+      handleSaveRef.current?.();
+    }, 60_000);
   }, []);
 
   const undo = useCallback(() => {
@@ -452,6 +463,7 @@ export function FurnitureEditor({
   // ─── Toolbar image import ────────────────────────────
   // Camera position ref (updated by viewport via onCameraMove)
   const cameraPositionRef = useRef<[number, number, number]>([2.5, 2, 3]);
+  const handleSaveRef = useRef<(() => void) | null>(null);
   const toolbarFileRef = useRef<HTMLInputElement>(null);
   const [isToolbarAnalyzing, setIsToolbarAnalyzing] = useState(false);
 
@@ -475,20 +487,49 @@ export function FurnitureEditor({
     handleBuildFromImage(analysis, action ? "replace" : "add");
   }, [handleBuildFromImage]);
 
-  const handleSave = useCallback(() => {
-    // Collect all unique materials used across all panels
-    const allPanels = [...groups.flatMap((g) => g.panels), ...ungroupedPanels];
-    const materialsUsed = [...new Set(allPanels.map((p) => p.materialId))];
+  const handleSave = useCallback(async () => {
+    if (!onSave || saveStatus === "saving") return;
+    setSaveStatus("saving");
+    try {
+      const allPanels = [...groups.flatMap((g) => g.panels), ...ungroupedPanels];
+      const materialsUsed = [...new Set(allPanels.map((p) => p.materialId))];
+      await onSave({
+        panels: { groups, ungroupedPanels },
+        dims,
+        style,
+        furnitureId: furnitureType.id,
+        cameraPosition: cameraPositionRef.current,
+        materialsUsed,
+      });
+      lastSavedHistoryIndex.current = historyIndexRef.current;
+      setSaveStatus("saved");
+      setTimeout(() => setSaveStatus((s) => s === "saved" ? "idle" : s), 2500);
+    } catch {
+      setSaveStatus("unsaved");
+    }
+  }, [groups, ungroupedPanels, dims, style, furnitureType.id, onSave, saveStatus]);
 
-    onSave?.({
-      panels: { groups, ungroupedPanels },
-      dims,
-      style,
-      furnitureId: furnitureType.id,
-      cameraPosition: cameraPositionRef.current,
-      materialsUsed,
-    });
-  }, [groups, ungroupedPanels, dims, style, furnitureType.id, onSave]);
+  // Keep ref in sync for auto-save timer
+  handleSaveRef.current = handleSave;
+
+  const handleSaveAndExit = useCallback(async () => {
+    await handleSave();
+    editorNavigate("/dashboard");
+  }, [handleSave, editorNavigate]);
+
+  const handleFinishSubmit = useCallback(async () => {
+    await handleSave();
+    // Navigate to project creation with design context
+    editorNavigate("/create-project");
+  }, [handleSave, editorNavigate]);
+
+  const guardedNavigate = useCallback((action: () => void) => {
+    if (saveStatus === "unsaved" || historyIndexRef.current !== lastSavedHistoryIndex.current) {
+      setShowLeaveConfirm({ action });
+    } else {
+      action();
+    }
+  }, [saveStatus]);
 
   const handleLoadTemplate = useCallback((template: LibraryTemplate) => {
     const newDims = template.dims;
@@ -649,7 +690,9 @@ export function FurnitureEditor({
       if (g.id !== groupId) return g;
       return {
         ...g,
-        panels: g.panels.map((p) => ({ ...p, materialId })),
+        // Clear glbUrl so model switches to panel-based rendering with new material
+        glbUrl: undefined,
+        panels: g.panels.map((p) => ({ ...p, materialId, customColor: undefined })),
       };
     }));
   }, [updateScene]);
@@ -659,6 +702,7 @@ export function FurnitureEditor({
       if (g.id !== groupId) return g;
       return {
         ...g,
+        glbUrl: undefined,
         panels: g.panels.map((p) => ({ ...p, customColor: color })),
       };
     }));
@@ -719,11 +763,33 @@ export function FurnitureEditor({
     }
   }, [editingGroupId, updateScene]);
 
+  // ─── Warn on navigation with unsaved changes ──────────
+  useEffect(() => {
+    const handler = (e: BeforeUnloadEvent) => {
+      if (saveStatus === "unsaved" || historyIndexRef.current !== lastSavedHistoryIndex.current) {
+        e.preventDefault();
+        e.returnValue = "";
+      }
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => {
+      window.removeEventListener("beforeunload", handler);
+      if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
+    };
+  }, [saveStatus]);
+
   // ─── Keyboard shortcuts ────────────────────────────────
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
       const tag = (e.target as HTMLElement).tagName;
       if (tag === "INPUT" || tag === "TEXTAREA") return;
+
+      // Ctrl+S — Save
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") {
+        e.preventDefault();
+        handleSave();
+        return;
+      }
 
       // Undo / Redo
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z") {
@@ -843,7 +909,7 @@ export function FurnitureEditor({
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [selectedPanelId, selectedGroupId, selectedPanelIds, editingGroupId, editModePanels, rotationMode, handleUpdatePanel, handleDuplicatePanel, handleDuplicateGroup, handleDeletePanel, handleDeleteGroup, handleGroupPanels, handleUngroupGroup, handleUpdateGroup, exitEditMode, undo, redo]);
+  }, [selectedPanelId, selectedGroupId, selectedPanelIds, editingGroupId, editModePanels, rotationMode, handleUpdatePanel, handleDuplicatePanel, handleDuplicateGroup, handleDeletePanel, handleDeleteGroup, handleGroupPanels, handleUngroupGroup, handleUpdateGroup, exitEditMode, undo, redo, handleSave]);
 
   return (
     <div className="h-screen flex flex-col bg-[#FAFAFA]">
@@ -1073,13 +1139,52 @@ export function FurnitureEditor({
             <RotateCcw className="w-3.5 h-3.5 mr-1.5" />
             Reset
           </Button>
+
+          {/* Save status indicator */}
+          {saveStatus === "saving" && (
+            <span className="flex items-center gap-1.5 text-[11px] text-gray-400 animate-pulse">
+              <Loader2 className="w-3 h-3 animate-spin" /> Saving...
+            </span>
+          )}
+          {saveStatus === "saved" && (
+            <span className="flex items-center gap-1.5 text-[11px] text-green-600">
+              <Check className="w-3 h-3" /> Saved
+            </span>
+          )}
+          {saveStatus === "unsaved" && (
+            <span className="flex items-center gap-1 text-[11px] text-amber-500 font-medium">
+              ● Unsaved
+            </span>
+          )}
+
           <Button
             size="sm"
             onClick={handleSave}
+            disabled={saveStatus === "saving"}
             className="h-8 bg-[#C87D5A] hover:bg-[#B06B4A] text-white"
+            title="Save (Ctrl+S)"
           >
-            <Save className="w-3.5 h-3.5 mr-1.5" />
-            Save Design
+            {saveStatus === "saving" ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <Save className="w-3.5 h-3.5 mr-1.5" />}
+            Save
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => guardedNavigate(handleSaveAndExit)}
+            className="h-8"
+            title="Save and return to dashboard"
+          >
+            <LogOut className="w-3.5 h-3.5 mr-1.5" />
+            Save & Exit
+          </Button>
+          <Button
+            size="sm"
+            onClick={() => guardedNavigate(handleFinishSubmit)}
+            className="h-8 bg-[#1B2432] hover:bg-[#2A3544] text-white"
+            title="Save and submit to creators"
+          >
+            <SendHorizonal className="w-3.5 h-3.5 mr-1.5" />
+            Finish & Submit
           </Button>
         </div>
       </div>
@@ -1345,6 +1450,43 @@ export function FurnitureEditor({
                   <li>• <strong>Double-click</strong> a group to enter edit mode; press <strong>Esc</strong> or click <strong>Done</strong> to exit</li>
                 </ul>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Unsaved changes confirmation dialog */}
+      {showLeaveConfirm && (
+        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-2xl w-[400px] p-6 border border-gray-200">
+            <h3 className="text-base font-serif font-semibold text-gray-900 mb-2">Unsaved Changes</h3>
+            <p className="text-sm text-gray-500 mb-5">You have unsaved changes. Would you like to save before leaving?</p>
+            <div className="flex gap-2 justify-end">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => { setShowLeaveConfirm(null); showLeaveConfirm.action(); }}
+              >
+                Don't Save
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowLeaveConfirm(null)}
+              >
+                Cancel
+              </Button>
+              <Button
+                size="sm"
+                className="bg-[#C87D5A] hover:bg-[#B06B4A] text-white"
+                onClick={async () => {
+                  await handleSave();
+                  setShowLeaveConfirm(null);
+                  showLeaveConfirm.action();
+                }}
+              >
+                Save & Leave
+              </Button>
             </div>
           </div>
         </div>
