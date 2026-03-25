@@ -377,7 +377,7 @@ function EditorFloorBackdrop({
 
   return (
     <>
-      <color attach="background" args={[skyColor]} />
+      <color attach="background" args={["#e8ebf2"]} />
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.0025, 0]} receiveShadow>
         <planeGeometry args={[48, 48]} />
         {texture ? (
@@ -698,7 +698,7 @@ export function EditorViewport({
           }
 
           return (
-            <group key={g.id} position={g.position} rotation={g.rotation}>
+            <group key={g.id} position={g.position} rotation={g.rotation} scale={g.scale ?? [1, 1, 1]}>
               {g.glbUrl ? (
                 /* Imported GLB model — render original 3D geometry */
                 <Suspense fallback={null}>
@@ -885,10 +885,17 @@ export function EditorViewport({
         </div>
       )}
 
-      {/* Rotation mode indicator */}
-      {rotationMode && (
+      {/* Mode indicator */}
+      {rotationMode ? (
         <div className="absolute bottom-3 left-1/2 -translate-x-1/2 bg-blue-600 text-white text-xs px-3 py-1.5 rounded-lg font-medium z-40 pointer-events-none">
           Rotation Mode &mdash; drag object to rotate &middot; Press R or Esc to exit
+        </div>
+      ) : (
+        <div className="absolute bottom-3 left-3 text-[10px] text-gray-400 z-40 pointer-events-none flex gap-3">
+          <span>Drag: move X/Z</span>
+          <span>Shift+Drag: move Y</span>
+          <span>Right-click drag: pan camera</span>
+          <span>Scroll: zoom</span>
         </div>
       )}
 

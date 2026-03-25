@@ -258,6 +258,8 @@ export interface GroupData {
   panels: PanelData[];
   /** When set, render the original GLB model instead of box panels */
   glbUrl?: string;
+  /** Scale multiplier for GLB models (default [1,1,1]) */
+  scale?: [number, number, number];
 }
 
 /** Snapshot shape for undo/redo and persistence */

@@ -665,8 +665,11 @@ export function FurnitureEditor({
   const handleScaleGroup = useCallback((groupId: string, scaleX: number, scaleY: number, scaleZ: number) => {
     updateScene((prev) => prev.map((g) => {
       if (g.id !== groupId) return g;
+      // For GLB models, accumulate scale transform
+      const prevScale = g.scale ?? [1, 1, 1];
       return {
         ...g,
+        scale: [prevScale[0] * scaleX, prevScale[1] * scaleY, prevScale[2] * scaleZ] as [number, number, number],
         panels: g.panels.map((p) => ({
           ...p,
           position: [
