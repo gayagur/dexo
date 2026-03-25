@@ -1205,7 +1205,6 @@ export function FurnitureEditor({
         {showLibrary ? (
           <LibraryBrowser
             onSelectTemplate={handleLoadTemplate}
-            onImportModel={handleImportModel}
             onClose={() => setShowLibrary(false)}
           />
         ) : (

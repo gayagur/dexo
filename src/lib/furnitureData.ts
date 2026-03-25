@@ -246,6 +246,8 @@ export interface PanelData {
   customColor?: string; // If set, overrides material color
   /** SH3D texture URL — when set, loaded as color map on MeshStandardMaterial */
   textureUrl?: string;
+  /** Corner radius in meters for RoundedBox shapes (default 0.002 for wood, 0.02 for cushions) */
+  cornerRadius?: number;
 }
 
 export interface FurnitureTemplate {

@@ -12,16 +12,18 @@ export interface LibraryTemplate {
 }
 
 export const LIBRARY_CATEGORIES: { id: string; label: string; icon: string }[] = [
-  { id: "tables", label: "Tables", icon: "🪑" },
+  { id: "seating", label: "Sofas & Seating", icon: "🛋️" },
+  { id: "chairs", label: "Chairs", icon: "🪑" },
+  { id: "tables", label: "Tables", icon: "🍽️" },
+  { id: "desks", label: "Desks", icon: "🖥️" },
   { id: "cabinets", label: "Cabinets", icon: "🗄️" },
+  { id: "bookshelves", label: "Bookshelves", icon: "📚" },
   { id: "wardrobes", label: "Wardrobes", icon: "👔" },
   { id: "dressers", label: "Dressers & Stands", icon: "📺" },
   { id: "beds", label: "Beds", icon: "🛏️" },
   { id: "kitchen", label: "Kitchen", icon: "🍳" },
-  { id: "seating", label: "Seating", icon: "🛋️" },
-  { id: "appliances", label: "Appliances", icon: "🧊" },
-  { id: "room", label: "Room Elements", icon: "🚪" },
-  { id: "details", label: "Details", icon: "🔧" },
+  { id: "bathroom", label: "Bathroom", icon: "🚿" },
+  { id: "outdoor", label: "Outdoor", icon: "🌿" },
 ];
 
 // ─── Helpers ────────────────────────────────────────────
@@ -96,6 +98,17 @@ function sphere(
 const T = 0.018;   // panel thickness
 const TB = 0.006;  // back panel thickness
 const TC = 0.030;  // countertop thickness
+
+/** 4 cylindrical legs inset from corners */
+function fourLegsInset(w: number, h: number, d: number, legH: number, dia = 0.04, inset = 0.06, mat = "black_metal"): PanelData[] {
+  const y = legH / 2;
+  return [
+    cyl("Leg FL", [-w/2 + inset, y, -d/2 + inset], dia, legH, mat),
+    cyl("Leg FR", [w/2 - inset, y, -d/2 + inset], dia, legH, mat),
+    cyl("Leg BL", [-w/2 + inset, y, d/2 - inset], dia, legH, mat),
+    cyl("Leg BR", [w/2 - inset, y, d/2 - inset], dia, legH, mat),
+  ];
+}
 
 // ─── Templates ──────────────────────────────────────────
 
@@ -1851,6 +1864,1061 @@ export const LIBRARY_TEMPLATES: LibraryTemplate[] = [
         // Right side legs
         cyl("Leg FR", [w / 2 - 0.06, legH / 2, d / 2 - 0.06], legD, legH),
         cyl("Leg BR", [w / 2 - 0.06, legH / 2, -d / 2 + 0.06], legD, legH),
+      ];
+    },
+  },
+
+  // ════════════════════════════════════════════════════════
+  // KENNEY-MATCHED SOFAS & SEATING
+  // ════════════════════════════════════════════════════════
+
+  {
+    id: "sofa_corner",
+    name: "Corner Sectional Sofa",
+    category: "seating",
+    icon: "🛋️",
+    description: "L-shaped corner sectional sofa with cushions and 8 short legs",
+    dims: { w: 2200, h: 850, d: 2200 },
+    buildPanels: (d) => {
+      _pid = 0;
+      const w = d.w / 1000, h = d.h / 1000, dp = d.d / 1000;
+      const seatH = 0.42, legH = 0.08;
+      const armW = 0.10, armH = 0.58;
+      const backT = 0.12;
+      const mainW = w, mainD = 0.90;
+      const sideW = 0.90, sideD = dp;
+      const cushW = (mainW - armW - sideW) / 3;
+      const cushWs = (sideD - armW - mainD) / 2;
+      return [
+        // Main section base
+        box("Main Base", "horizontal", [-(w - sideW) / 2, legH + 0.04, -dp / 2 + mainD / 2], [mainW - sideW, 0.08, mainD - backT], "fabric_gray"),
+        // Main back
+        box("Main Back", "vertical", [-(w - sideW) / 2, (seatH + h) / 2, -dp / 2 + backT / 2], [mainW - sideW, h - seatH, backT], "fabric_gray"),
+        // Main left arm
+        box("Left Arm", "vertical", [-w / 2 + armW / 2, (legH + armH) / 2 + legH / 2, -dp / 2 + mainD / 2], [armW, armH, mainD], "fabric_gray"),
+        // Corner section base
+        box("Corner Base", "horizontal", [w / 2 - sideW / 2, legH + 0.04, 0], [sideW, 0.08, sideD - backT], "fabric_gray"),
+        // Corner back (along the right side)
+        box("Corner Back", "vertical", [w / 2 - backT / 2, (seatH + h) / 2, 0], [backT, h - seatH, sideD], "fabric_gray"),
+        // Corner front arm
+        box("Front Arm", "vertical", [w / 2 - sideW / 2, (legH + armH) / 2 + legH / 2, dp / 2 - armW / 2], [sideW, armH, armW], "fabric_gray"),
+        // Main seat cushions (3)
+        { id: pid(), type: "horizontal" as const, shape: "cushion" as PanelShape, label: "Seat Cushion 1", position: [-w / 2 + armW + cushW * 0.5, seatH, -dp / 2 + mainD / 2] as [number, number, number], size: [cushW - 0.02, 0.12, mainD - backT - 0.04] as [number, number, number], materialId: "fabric_gray" },
+        { id: pid(), type: "horizontal" as const, shape: "cushion" as PanelShape, label: "Seat Cushion 2", position: [-w / 2 + armW + cushW * 1.5, seatH, -dp / 2 + mainD / 2] as [number, number, number], size: [cushW - 0.02, 0.12, mainD - backT - 0.04] as [number, number, number], materialId: "fabric_gray" },
+        { id: pid(), type: "horizontal" as const, shape: "cushion" as PanelShape, label: "Seat Cushion 3", position: [-w / 2 + armW + cushW * 2.5, seatH, -dp / 2 + mainD / 2] as [number, number, number], size: [cushW - 0.02, 0.12, mainD - backT - 0.04] as [number, number, number], materialId: "fabric_gray" },
+        // Corner seat cushions (2)
+        { id: pid(), type: "horizontal" as const, shape: "cushion" as PanelShape, label: "Corner Cushion 1", position: [w / 2 - sideW / 2, seatH, -dp / 2 + mainD + cushWs * 0.5] as [number, number, number], size: [sideW - backT - 0.04, 0.12, cushWs - 0.02] as [number, number, number], materialId: "fabric_gray" },
+        { id: pid(), type: "horizontal" as const, shape: "cushion" as PanelShape, label: "Corner Cushion 2", position: [w / 2 - sideW / 2, seatH, -dp / 2 + mainD + cushWs * 1.5] as [number, number, number], size: [sideW - backT - 0.04, 0.12, cushWs - 0.02] as [number, number, number], materialId: "fabric_gray" },
+        // 8 legs
+        cyl("Leg 1", [-w / 2 + 0.06, legH / 2, -dp / 2 + 0.06], 0.035, legH),
+        cyl("Leg 2", [-w / 2 + 0.06, legH / 2, -dp / 2 + mainD - 0.06], 0.035, legH),
+        cyl("Leg 3", [w / 2 - sideW - 0.06, legH / 2, -dp / 2 + 0.06], 0.035, legH),
+        cyl("Leg 4", [w / 2 - sideW - 0.06, legH / 2, -dp / 2 + mainD - 0.06], 0.035, legH),
+        cyl("Leg 5", [w / 2 - 0.06, legH / 2, -dp / 2 + 0.06], 0.035, legH),
+        cyl("Leg 6", [w / 2 - 0.06, legH / 2, dp / 2 - 0.06], 0.035, legH),
+        cyl("Leg 7", [w / 2 - sideW + 0.06, legH / 2, dp / 2 - 0.06], 0.035, legH),
+        cyl("Leg 8", [w / 2 - sideW + 0.06, legH / 2, -dp / 2 + mainD + 0.06], 0.035, legH),
+      ];
+    },
+  },
+
+  {
+    id: "sofa_design",
+    name: "Modern Design Sofa",
+    category: "seating",
+    icon: "🛋️",
+    description: "Low-profile modern sofa with thin arms and metal legs",
+    dims: { w: 1800, h: 700, d: 850 },
+    buildPanels: (d) => {
+      _pid = 0;
+      const w = d.w / 1000, h = d.h / 1000, dp = d.d / 1000;
+      const legH = 0.15, seatH = 0.36;
+      const armW = 0.05, armH = 0.40;
+      const backT = 0.06, backH = h - seatH;
+      const cushW = (w - armW * 2) / 3;
+      const cushD = dp - backT - 0.06;
+      return [
+        // Thin frame
+        box("Frame", "horizontal", [0, legH + 0.02, 0.02], [w - armW * 2, 0.04, cushD], "oak"),
+        // Low back
+        box("Back", "vertical", [0, seatH + backH / 2, -dp / 2 + backT / 2], [w - armW * 2, backH, backT], "fabric_gray"),
+        // Thin arms
+        box("Left Arm", "vertical", [-w / 2 + armW / 2, legH + armH / 2, 0], [armW, armH, dp * 0.8], "fabric_gray"),
+        box("Right Arm", "vertical", [w / 2 - armW / 2, legH + armH / 2, 0], [armW, armH, dp * 0.8], "fabric_gray"),
+        // 3 seat cushions
+        { id: pid(), type: "horizontal" as const, shape: "cushion" as PanelShape, label: "Seat Cushion 1", position: [-cushW, seatH, 0.02] as [number, number, number], size: [cushW - 0.02, 0.10, cushD] as [number, number, number], materialId: "fabric_gray" },
+        { id: pid(), type: "horizontal" as const, shape: "cushion" as PanelShape, label: "Seat Cushion 2", position: [0, seatH, 0.02] as [number, number, number], size: [cushW - 0.02, 0.10, cushD] as [number, number, number], materialId: "fabric_gray" },
+        { id: pid(), type: "horizontal" as const, shape: "cushion" as PanelShape, label: "Seat Cushion 3", position: [cushW, seatH, 0.02] as [number, number, number], size: [cushW - 0.02, 0.10, cushD] as [number, number, number], materialId: "fabric_gray" },
+        // 4 tapered metal legs
+        cone("Leg FL", [-w / 2 + 0.10, legH / 2, dp / 2 - 0.10], 0.03, legH, "black_metal"),
+        cone("Leg FR", [w / 2 - 0.10, legH / 2, dp / 2 - 0.10], 0.03, legH, "black_metal"),
+        cone("Leg BL", [-w / 2 + 0.10, legH / 2, -dp / 2 + 0.10], 0.03, legH, "black_metal"),
+        cone("Leg BR", [w / 2 - 0.10, legH / 2, -dp / 2 + 0.10], 0.03, legH, "black_metal"),
+      ];
+    },
+  },
+
+  {
+    id: "sofa_design_corner",
+    name: "Design Corner Sofa",
+    category: "seating",
+    icon: "🛋️",
+    description: "L-shaped modern design corner sofa with thin profile and metal legs",
+    dims: { w: 2400, h: 700, d: 2400 },
+    buildPanels: (d) => {
+      _pid = 0;
+      const w = d.w / 1000, h = d.h / 1000, dp = d.d / 1000;
+      const legH = 0.15, seatH = 0.36;
+      const armW = 0.05, armH = 0.40;
+      const backT = 0.06, backH = h - seatH;
+      const mainD = 0.85, sideW = 0.85;
+      return [
+        // Main section frame
+        box("Main Frame", "horizontal", [-(w - sideW) / 2, legH + 0.02, -dp / 2 + mainD / 2], [w - sideW, 0.04, mainD - backT], "oak"),
+        // Main back
+        box("Main Back", "vertical", [-(w - sideW) / 2, seatH + backH / 2, -dp / 2 + backT / 2], [w - sideW, backH, backT], "fabric_gray"),
+        // Left arm
+        box("Left Arm", "vertical", [-w / 2 + armW / 2, legH + armH / 2, -dp / 2 + mainD / 2], [armW, armH, mainD * 0.8], "fabric_gray"),
+        // Corner section frame
+        box("Corner Frame", "horizontal", [w / 2 - sideW / 2, legH + 0.02, 0], [sideW, 0.04, dp - backT], "oak"),
+        // Corner back (right side)
+        box("Corner Back", "vertical", [w / 2 - backT / 2, seatH + backH / 2, 0], [backT, backH, dp], "fabric_gray"),
+        // Front arm
+        box("Front Arm", "vertical", [w / 2 - sideW / 2, legH + armH / 2, dp / 2 - armW / 2], [sideW * 0.8, armH, armW], "fabric_gray"),
+        // Main cushions
+        { id: pid(), type: "horizontal" as const, shape: "cushion" as PanelShape, label: "Main Cushion 1", position: [-(w - sideW) / 2 - 0.30, seatH, -dp / 2 + mainD / 2] as [number, number, number], size: [0.58, 0.10, mainD - backT - 0.06] as [number, number, number], materialId: "fabric_gray" },
+        { id: pid(), type: "horizontal" as const, shape: "cushion" as PanelShape, label: "Main Cushion 2", position: [-(w - sideW) / 2 + 0.30, seatH, -dp / 2 + mainD / 2] as [number, number, number], size: [0.58, 0.10, mainD - backT - 0.06] as [number, number, number], materialId: "fabric_gray" },
+        // Corner cushion
+        { id: pid(), type: "horizontal" as const, shape: "cushion" as PanelShape, label: "Corner Cushion", position: [w / 2 - sideW / 2, seatH, 0] as [number, number, number], size: [sideW - backT - 0.04, 0.10, dp - mainD - armW] as [number, number, number], materialId: "fabric_gray" },
+        // 6 tapered metal legs
+        cone("Leg 1", [-w / 2 + 0.10, legH / 2, -dp / 2 + 0.10], 0.03, legH, "black_metal"),
+        cone("Leg 2", [-w / 2 + 0.10, legH / 2, -dp / 2 + mainD - 0.10], 0.03, legH, "black_metal"),
+        cone("Leg 3", [w / 2 - sideW - 0.10, legH / 2, -dp / 2 + 0.10], 0.03, legH, "black_metal"),
+        cone("Leg 4", [w / 2 - 0.10, legH / 2, -dp / 2 + 0.10], 0.03, legH, "black_metal"),
+        cone("Leg 5", [w / 2 - 0.10, legH / 2, dp / 2 - 0.10], 0.03, legH, "black_metal"),
+        cone("Leg 6", [w / 2 - sideW + 0.10, legH / 2, dp / 2 - 0.10], 0.03, legH, "black_metal"),
+      ];
+    },
+  },
+
+  {
+    id: "sofa_long",
+    name: "4-Seater Long Sofa",
+    category: "seating",
+    icon: "🛋️",
+    description: "Extra-wide 4-seater sofa with 4 cushions and short legs",
+    dims: { w: 2600, h: 850, d: 900 },
+    buildPanels: (d) => {
+      _pid = 0;
+      const w = d.w / 1000, h = d.h / 1000, dp = d.d / 1000;
+      const legH = 0.10, seatH = 0.42;
+      const armW = 0.10, armH = 0.58;
+      const backT = 0.12;
+      const cushW = (w - armW * 2) / 4;
+      const cushD = dp - backT - 0.05;
+      return [
+        // Base frame
+        box("Base", "horizontal", [0, legH + 0.04, 0.03], [w - armW * 2, 0.08, cushD], "fabric_gray"),
+        // Back
+        box("Back", "vertical", [0, (seatH + h) / 2, -dp / 2 + backT / 2], [w - armW * 2, h - seatH, backT], "fabric_gray"),
+        // Arms
+        box("Left Arm", "vertical", [-w / 2 + armW / 2, (legH + armH) / 2 + legH / 2, 0], [armW, armH, dp], "fabric_gray"),
+        box("Right Arm", "vertical", [w / 2 - armW / 2, (legH + armH) / 2 + legH / 2, 0], [armW, armH, dp], "fabric_gray"),
+        // 4 seat cushions
+        { id: pid(), type: "horizontal" as const, shape: "cushion" as PanelShape, label: "Seat Cushion 1", position: [-w / 2 + armW + cushW * 0.5, seatH, 0.03] as [number, number, number], size: [cushW - 0.02, 0.12, cushD] as [number, number, number], materialId: "fabric_gray" },
+        { id: pid(), type: "horizontal" as const, shape: "cushion" as PanelShape, label: "Seat Cushion 2", position: [-w / 2 + armW + cushW * 1.5, seatH, 0.03] as [number, number, number], size: [cushW - 0.02, 0.12, cushD] as [number, number, number], materialId: "fabric_gray" },
+        { id: pid(), type: "horizontal" as const, shape: "cushion" as PanelShape, label: "Seat Cushion 3", position: [-w / 2 + armW + cushW * 2.5, seatH, 0.03] as [number, number, number], size: [cushW - 0.02, 0.12, cushD] as [number, number, number], materialId: "fabric_gray" },
+        { id: pid(), type: "horizontal" as const, shape: "cushion" as PanelShape, label: "Seat Cushion 4", position: [-w / 2 + armW + cushW * 3.5, seatH, 0.03] as [number, number, number], size: [cushW - 0.02, 0.12, cushD] as [number, number, number], materialId: "fabric_gray" },
+        // 4 back cushions
+        { id: pid(), type: "vertical" as const, shape: "cushion" as PanelShape, label: "Back Cushion 1", position: [-w / 2 + armW + cushW * 0.5, seatH + 0.28, -dp / 2 + backT + 0.06] as [number, number, number], size: [cushW - 0.02, 0.32, 0.12] as [number, number, number], materialId: "fabric_gray" },
+        { id: pid(), type: "vertical" as const, shape: "cushion" as PanelShape, label: "Back Cushion 2", position: [-w / 2 + armW + cushW * 1.5, seatH + 0.28, -dp / 2 + backT + 0.06] as [number, number, number], size: [cushW - 0.02, 0.32, 0.12] as [number, number, number], materialId: "fabric_gray" },
+        { id: pid(), type: "vertical" as const, shape: "cushion" as PanelShape, label: "Back Cushion 3", position: [-w / 2 + armW + cushW * 2.5, seatH + 0.28, -dp / 2 + backT + 0.06] as [number, number, number], size: [cushW - 0.02, 0.32, 0.12] as [number, number, number], materialId: "fabric_gray" },
+        { id: pid(), type: "vertical" as const, shape: "cushion" as PanelShape, label: "Back Cushion 4", position: [-w / 2 + armW + cushW * 3.5, seatH + 0.28, -dp / 2 + backT + 0.06] as [number, number, number], size: [cushW - 0.02, 0.32, 0.12] as [number, number, number], materialId: "fabric_gray" },
+        // Legs
+        cyl("Leg FL", [-w / 2 + 0.08, legH / 2, dp / 2 - 0.08], 0.035, legH),
+        cyl("Leg FR", [w / 2 - 0.08, legH / 2, dp / 2 - 0.08], 0.035, legH),
+        cyl("Leg BL", [-w / 2 + 0.08, legH / 2, -dp / 2 + 0.08], 0.035, legH),
+        cyl("Leg BR", [w / 2 - 0.08, legH / 2, -dp / 2 + 0.08], 0.035, legH),
+      ];
+    },
+  },
+
+  {
+    id: "sofa_ottoman",
+    name: "Ottoman / Footrest",
+    category: "seating",
+    icon: "🛋️",
+    description: "Low padded ottoman with single cushion top and 4 short legs",
+    dims: { w: 600, h: 400, d: 600 },
+    buildPanels: (d) => {
+      _pid = 0;
+      const w = d.w / 1000, h = d.h / 1000, dp = d.d / 1000;
+      const legH = 0.08;
+      return [
+        // Base box
+        box("Base", "horizontal", [0, legH + (h - legH - 0.12) / 2, 0], [w - 0.02, h - legH - 0.12, dp - 0.02], "fabric_gray"),
+        // Top cushion
+        { id: pid(), type: "horizontal" as const, shape: "cushion" as PanelShape, label: "Cushion", position: [0, h - 0.06, 0] as [number, number, number], size: [w - 0.02, 0.12, dp - 0.02] as [number, number, number], materialId: "fabric_gray" },
+        // 4 legs
+        cyl("Leg FL", [-w / 2 + 0.06, legH / 2, dp / 2 - 0.06], 0.03, legH),
+        cyl("Leg FR", [w / 2 - 0.06, legH / 2, dp / 2 - 0.06], 0.03, legH),
+        cyl("Leg BL", [-w / 2 + 0.06, legH / 2, -dp / 2 + 0.06], 0.03, legH),
+        cyl("Leg BR", [w / 2 - 0.06, legH / 2, -dp / 2 + 0.06], 0.03, legH),
+      ];
+    },
+  },
+
+  {
+    id: "armchair_lounge",
+    name: "Lounge Chair",
+    category: "seating",
+    icon: "💺",
+    description: "Reclined-back lounge chair with wide seat and short legs",
+    dims: { w: 750, h: 800, d: 850 },
+    buildPanels: (d) => {
+      _pid = 0;
+      const w = d.w / 1000, h = d.h / 1000, dp = d.d / 1000;
+      const legH = 0.10, seatH = 0.40;
+      const armW = 0.10, armH = 0.50;
+      const backT = 0.12;
+      return [
+        // Wide seat
+        box("Seat", "horizontal", [0, seatH / 2 + legH, 0.04], [w - armW * 2, seatH - legH, dp - backT - 0.06], "fabric_gray"),
+        // Reclined back (slightly tilted via deeper thickness)
+        box("Back", "vertical", [0, (seatH + h) / 2, -dp / 2 + backT / 2], [w - armW * 2, h - seatH, backT], "fabric_gray"),
+        // Arms
+        box("Left Arm", "vertical", [-w / 2 + armW / 2, (legH + armH) / 2 + legH / 2, 0.02], [armW, armH, dp * 0.85], "fabric_gray"),
+        box("Right Arm", "vertical", [w / 2 - armW / 2, (legH + armH) / 2 + legH / 2, 0.02], [armW, armH, dp * 0.85], "fabric_gray"),
+        // Seat cushion
+        { id: pid(), type: "horizontal" as const, shape: "cushion" as PanelShape, label: "Seat Cushion", position: [0, seatH + 0.04, 0.04] as [number, number, number], size: [w - armW * 2 - 0.04, 0.10, dp - backT - 0.10] as [number, number, number], materialId: "fabric_gray" },
+        // Legs
+        cyl("Leg FL", [-w / 2 + 0.08, legH / 2, dp / 2 - 0.08], 0.035, legH),
+        cyl("Leg FR", [w / 2 - 0.08, legH / 2, dp / 2 - 0.08], 0.035, legH),
+        cyl("Leg BL", [-w / 2 + 0.08, legH / 2, -dp / 2 + 0.08], 0.035, legH),
+        cyl("Leg BR", [w / 2 - 0.08, legH / 2, -dp / 2 + 0.08], 0.035, legH),
+      ];
+    },
+  },
+
+  {
+    id: "armchair_relax",
+    name: "Relax Lounge Chair",
+    category: "seating",
+    icon: "💺",
+    description: "Deep recline lounge chair with attached ottoman section",
+    dims: { w: 750, h: 900, d: 1000 },
+    buildPanels: (d) => {
+      _pid = 0;
+      const w = d.w / 1000, h = d.h / 1000, dp = d.d / 1000;
+      const legH = 0.10, seatH = 0.38;
+      const armW = 0.10, armH = 0.50;
+      const backT = 0.14;
+      const chairD = 0.60, ottomanD = dp - chairD - 0.05;
+      return [
+        // Chair seat
+        box("Seat", "horizontal", [0, seatH / 2 + legH, -dp / 2 + chairD / 2], [w - armW * 2, seatH - legH, chairD - backT], "fabric_gray"),
+        // Tall reclined back
+        box("Back", "vertical", [0, (seatH + h) / 2, -dp / 2 + backT / 2], [w - armW * 2, h - seatH, backT], "fabric_gray"),
+        // Arms
+        box("Left Arm", "vertical", [-w / 2 + armW / 2, (legH + armH) / 2 + legH / 2, -dp / 2 + chairD / 2], [armW, armH, chairD], "fabric_gray"),
+        box("Right Arm", "vertical", [w / 2 - armW / 2, (legH + armH) / 2 + legH / 2, -dp / 2 + chairD / 2], [armW, armH, chairD], "fabric_gray"),
+        // Seat cushion
+        { id: pid(), type: "horizontal" as const, shape: "cushion" as PanelShape, label: "Seat Cushion", position: [0, seatH + 0.04, -dp / 2 + chairD / 2] as [number, number, number], size: [w - armW * 2 - 0.04, 0.10, chairD - backT - 0.06] as [number, number, number], materialId: "fabric_gray" },
+        // Ottoman section
+        box("Ottoman Base", "horizontal", [0, seatH / 2 + legH, dp / 2 - ottomanD / 2], [w - armW * 2, seatH - legH, ottomanD], "fabric_gray"),
+        { id: pid(), type: "horizontal" as const, shape: "cushion" as PanelShape, label: "Ottoman Cushion", position: [0, seatH + 0.04, dp / 2 - ottomanD / 2] as [number, number, number], size: [w - armW * 2 - 0.04, 0.10, ottomanD - 0.04] as [number, number, number], materialId: "fabric_gray" },
+        // Legs
+        cyl("Leg FL", [-w / 2 + 0.08, legH / 2, dp / 2 - 0.08], 0.035, legH),
+        cyl("Leg FR", [w / 2 - 0.08, legH / 2, dp / 2 - 0.08], 0.035, legH),
+        cyl("Leg BL", [-w / 2 + 0.08, legH / 2, -dp / 2 + 0.08], 0.035, legH),
+        cyl("Leg BR", [w / 2 - 0.08, legH / 2, -dp / 2 + 0.08], 0.035, legH),
+      ];
+    },
+  },
+
+  {
+    id: "armchair_design",
+    name: "Design Accent Chair",
+    category: "seating",
+    icon: "💺",
+    description: "Minimal design accent chair with thin seat/back and visible legs",
+    dims: { w: 650, h: 750, d: 700 },
+    buildPanels: (d) => {
+      _pid = 0;
+      const w = d.w / 1000, h = d.h / 1000, dp = d.d / 1000;
+      const legH = 0.38, seatH = 0.40;
+      const backT = 0.04, backH = h - seatH;
+      return [
+        // Thin seat
+        box("Seat", "horizontal", [0, seatH, 0.03], [w * 0.85, 0.05, dp - 0.12], "fabric_gray"),
+        // Thin back
+        box("Back", "vertical", [0, seatH + backH / 2, -dp / 2 + backT / 2], [w * 0.85, backH, backT], "fabric_gray"),
+        // Seat cushion
+        { id: pid(), type: "horizontal" as const, shape: "cushion" as PanelShape, label: "Seat Cushion", position: [0, seatH + 0.05, 0.03] as [number, number, number], size: [w * 0.80, 0.08, dp - 0.16] as [number, number, number], materialId: "fabric_gray" },
+        // 4 visible tapered legs
+        cone("Leg FL", [-w / 2 + 0.08, legH / 2, dp / 2 - 0.08], 0.025, legH, "black_metal"),
+        cone("Leg FR", [w / 2 - 0.08, legH / 2, dp / 2 - 0.08], 0.025, legH, "black_metal"),
+        cone("Leg BL", [-w / 2 + 0.08, legH / 2, -dp / 2 + 0.08], 0.025, legH, "black_metal"),
+        cone("Leg BR", [w / 2 - 0.08, legH / 2, -dp / 2 + 0.08], 0.025, legH, "black_metal"),
+      ];
+    },
+  },
+
+  {
+    id: "chair_cushion",
+    name: "Chair with Cushion",
+    category: "seating",
+    icon: "🪑",
+    description: "Basic wood chair with fabric seat cushion",
+    dims: { w: 450, h: 900, d: 500 },
+    buildPanels: (d) => {
+      _pid = 0;
+      const w = d.w / 1000, h = d.h / 1000, dp = d.d / 1000;
+      const seatH = 0.45, legD = 0.03;
+      return [
+        // Wood seat
+        box("Seat", "horizontal", [0, seatH, 0], [w, T, dp], "oak"),
+        // Fabric cushion on top
+        { id: pid(), type: "horizontal" as const, shape: "cushion" as PanelShape, label: "Seat Cushion", position: [0, seatH + T / 2 + 0.025, 0] as [number, number, number], size: [w - 0.04, 0.05, dp - 0.04] as [number, number, number], materialId: "fabric_gray" },
+        // Back
+        box("Back", "vertical", [0, (seatH + h) / 2, -dp / 2 + T / 2], [w, h - seatH, T], "oak"),
+        // 4 legs
+        cyl("Leg FL", [-w / 2 + 0.04, seatH / 2, dp / 2 - 0.04], legD, seatH, "oak"),
+        cyl("Leg FR", [w / 2 - 0.04, seatH / 2, dp / 2 - 0.04], legD, seatH, "oak"),
+        cyl("Leg BL", [-w / 2 + 0.04, seatH / 2, -dp / 2 + 0.04], legD, seatH, "oak"),
+        cyl("Leg BR", [w / 2 - 0.04, seatH / 2, -dp / 2 + 0.04], legD, seatH, "oak"),
+      ];
+    },
+  },
+
+  {
+    id: "chair_modern_cushion",
+    name: "Modern Cushion Chair",
+    category: "seating",
+    icon: "🪑",
+    description: "Shell-style seat on thin metal legs",
+    dims: { w: 500, h: 800, d: 500 },
+    buildPanels: (d) => {
+      _pid = 0;
+      const w = d.w / 1000, h = d.h / 1000, dp = d.d / 1000;
+      const seatH = 0.44, legD = 0.02;
+      const shellH = h - seatH;
+      return [
+        // Shell seat (rounded)
+        { id: pid(), type: "horizontal" as const, shape: "rounded_rect" as PanelShape, label: "Shell Seat", position: [0, seatH, 0.02] as [number, number, number], size: [w - 0.04, 0.06, dp - 0.06] as [number, number, number], materialId: "fabric_gray" },
+        // Shell back (curved)
+        { id: pid(), type: "vertical" as const, shape: "rounded_rect" as PanelShape, label: "Shell Back", position: [0, seatH + shellH / 2, -dp / 2 + 0.03] as [number, number, number], size: [w - 0.06, shellH, 0.04] as [number, number, number], materialId: "fabric_gray" },
+        // Seat cushion
+        { id: pid(), type: "horizontal" as const, shape: "cushion" as PanelShape, label: "Cushion", position: [0, seatH + 0.05, 0.02] as [number, number, number], size: [w - 0.10, 0.06, dp - 0.12] as [number, number, number], materialId: "fabric_gray" },
+        // 4 thin metal legs
+        cyl("Leg FL", [-w / 2 + 0.06, seatH / 2, dp / 2 - 0.06], legD, seatH),
+        cyl("Leg FR", [w / 2 - 0.06, seatH / 2, dp / 2 - 0.06], legD, seatH),
+        cyl("Leg BL", [-w / 2 + 0.06, seatH / 2, -dp / 2 + 0.06], legD, seatH),
+        cyl("Leg BR", [w / 2 - 0.06, seatH / 2, -dp / 2 + 0.06], legD, seatH),
+      ];
+    },
+  },
+
+  {
+    id: "chair_modern_frame",
+    name: "Modern Frame Chair",
+    category: "seating",
+    icon: "🪑",
+    description: "Wire/tube frame chair with cushion seat",
+    dims: { w: 550, h: 850, d: 550 },
+    buildPanels: (d) => {
+      _pid = 0;
+      const w = d.w / 1000, h = d.h / 1000, dp = d.d / 1000;
+      const seatH = 0.45, tubeD = 0.025;
+      return [
+        // Metal frame - seat rails
+        box("Frame Front", "horizontal", [0, seatH, dp / 2 - 0.02], [w, tubeD, tubeD], "black_metal"),
+        box("Frame Back", "horizontal", [0, seatH, -dp / 2 + 0.02], [w, tubeD, tubeD], "black_metal"),
+        box("Frame Left", "horizontal", [-w / 2 + 0.02, seatH, 0], [tubeD, tubeD, dp], "black_metal"),
+        box("Frame Right", "horizontal", [w / 2 - 0.02, seatH, 0], [tubeD, tubeD, dp], "black_metal"),
+        // Seat cushion
+        { id: pid(), type: "horizontal" as const, shape: "cushion" as PanelShape, label: "Seat Cushion", position: [0, seatH + 0.04, 0] as [number, number, number], size: [w - 0.08, 0.08, dp - 0.08] as [number, number, number], materialId: "fabric_gray" },
+        // Back frame
+        box("Back Frame L", "vertical", [-w / 2 + 0.02, (seatH + h) / 2, -dp / 2 + 0.02], [tubeD, h - seatH, tubeD], "black_metal"),
+        box("Back Frame R", "vertical", [w / 2 - 0.02, (seatH + h) / 2, -dp / 2 + 0.02], [tubeD, h - seatH, tubeD], "black_metal"),
+        box("Back Frame Top", "horizontal", [0, h - tubeD / 2, -dp / 2 + 0.02], [w - 0.04, tubeD, tubeD], "black_metal"),
+        // Back cushion
+        { id: pid(), type: "vertical" as const, shape: "cushion" as PanelShape, label: "Back Cushion", position: [0, seatH + (h - seatH) / 2, -dp / 2 + 0.05] as [number, number, number], size: [w - 0.10, h - seatH - 0.08, 0.06] as [number, number, number], materialId: "fabric_gray" },
+        // 4 tube legs
+        cyl("Leg FL", [-w / 2 + 0.02, seatH / 2, dp / 2 - 0.02], tubeD, seatH),
+        cyl("Leg FR", [w / 2 - 0.02, seatH / 2, dp / 2 - 0.02], tubeD, seatH),
+        cyl("Leg BL", [-w / 2 + 0.02, seatH / 2, -dp / 2 + 0.02], tubeD, seatH),
+        cyl("Leg BR", [w / 2 - 0.02, seatH / 2, -dp / 2 + 0.02], tubeD, seatH),
+      ];
+    },
+  },
+
+  {
+    id: "chair_rounded",
+    name: "Rounded Dining Chair",
+    category: "seating",
+    icon: "🪑",
+    description: "Dining chair with curved back and round seat",
+    dims: { w: 480, h: 850, d: 480 },
+    buildPanels: (d) => {
+      _pid = 0;
+      const w = d.w / 1000, h = d.h / 1000, dp = d.d / 1000;
+      const seatH = 0.45, legD = 0.028;
+      const seatDiam = Math.min(w, dp) * 0.90;
+      return [
+        // Round seat (cylinder)
+        cyl("Seat", [0, seatH, 0], seatDiam, 0.04, "oak"),
+        // Curved back (rounded_rect)
+        { id: pid(), type: "vertical" as const, shape: "rounded_rect" as PanelShape, label: "Back", position: [0, (seatH + h) / 2, -dp / 2 + 0.02] as [number, number, number], size: [w * 0.85, h - seatH, 0.02] as [number, number, number], materialId: "oak" },
+        // 4 legs
+        cyl("Leg FL", [-w / 2 + 0.07, seatH / 2, dp / 2 - 0.07], legD, seatH, "oak"),
+        cyl("Leg FR", [w / 2 - 0.07, seatH / 2, dp / 2 - 0.07], legD, seatH, "oak"),
+        cyl("Leg BL", [-w / 2 + 0.07, seatH / 2, -dp / 2 + 0.07], legD, seatH, "oak"),
+        cyl("Leg BR", [w / 2 - 0.07, seatH / 2, -dp / 2 + 0.07], legD, seatH, "oak"),
+      ];
+    },
+  },
+
+  {
+    id: "stool_bar_square",
+    name: "Square Bar Stool",
+    category: "seating",
+    icon: "🪑",
+    description: "Bar stool with square seat and 4 tall legs",
+    dims: { w: 400, h: 750, d: 400 },
+    buildPanels: (d) => {
+      _pid = 0;
+      const w = d.w / 1000, h = d.h / 1000, dp = d.d / 1000;
+      const legH = h - T;
+      const legD = 0.028;
+      return [
+        // Square seat
+        box("Seat", "horizontal", [0, h - T / 2, 0], [w, T, dp], "oak"),
+        // Footrest bar
+        box("Footrest", "horizontal", [0, legH * 0.35, 0], [w - 0.06, 0.02, 0.02], "black_metal"),
+        // 4 tall legs
+        cyl("Leg FL", [-w / 2 + 0.05, legH / 2, dp / 2 - 0.05], legD, legH),
+        cyl("Leg FR", [w / 2 - 0.05, legH / 2, dp / 2 - 0.05], legD, legH),
+        cyl("Leg BL", [-w / 2 + 0.05, legH / 2, -dp / 2 + 0.05], legD, legH),
+        cyl("Leg BR", [w / 2 - 0.05, legH / 2, -dp / 2 + 0.05], legD, legH),
+      ];
+    },
+  },
+
+  {
+    id: "bench_simple",
+    name: "Simple Bench",
+    category: "seating",
+    icon: "🪑",
+    description: "Long bench with no back and 4 legs",
+    dims: { w: 1200, h: 450, d: 400 },
+    buildPanels: (d) => {
+      _pid = 0;
+      const w = d.w / 1000, h = d.h / 1000, dp = d.d / 1000;
+      const legH = h - T;
+      const legD = 0.04;
+      return [
+        // Seat plank
+        box("Seat", "horizontal", [0, h - T / 2, 0], [w, T, dp], "oak"),
+        // 4 legs
+        cyl("Leg FL", [-w / 2 + 0.08, legH / 2, dp / 2 - 0.06], legD, legH, "oak"),
+        cyl("Leg FR", [w / 2 - 0.08, legH / 2, dp / 2 - 0.06], legD, legH, "oak"),
+        cyl("Leg BL", [-w / 2 + 0.08, legH / 2, -dp / 2 + 0.06], legD, legH, "oak"),
+        cyl("Leg BR", [w / 2 - 0.08, legH / 2, -dp / 2 + 0.06], legD, legH, "oak"),
+      ];
+    },
+  },
+
+  {
+    id: "bench_cushion",
+    name: "Bench with Cushion",
+    category: "seating",
+    icon: "🪑",
+    description: "Long bench with fabric seat cushion and 4 legs",
+    dims: { w: 1200, h: 480, d: 400 },
+    buildPanels: (d) => {
+      _pid = 0;
+      const w = d.w / 1000, h = d.h / 1000, dp = d.d / 1000;
+      const cushH = 0.06;
+      const legH = h - T - cushH;
+      const legD = 0.04;
+      return [
+        // Seat plank
+        box("Seat", "horizontal", [0, h - cushH - T / 2, 0], [w, T, dp], "oak"),
+        // Fabric cushion
+        { id: pid(), type: "horizontal" as const, shape: "cushion" as PanelShape, label: "Cushion", position: [0, h - cushH / 2, 0] as [number, number, number], size: [w - 0.04, cushH, dp - 0.04] as [number, number, number], materialId: "fabric_gray" },
+        // 4 legs
+        cyl("Leg FL", [-w / 2 + 0.08, legH / 2, dp / 2 - 0.06], legD, legH, "oak"),
+        cyl("Leg FR", [w / 2 - 0.08, legH / 2, dp / 2 - 0.06], legD, legH, "oak"),
+        cyl("Leg BL", [-w / 2 + 0.08, legH / 2, -dp / 2 + 0.06], legD, legH, "oak"),
+        cyl("Leg BR", [w / 2 - 0.08, legH / 2, -dp / 2 + 0.06], legD, legH, "oak"),
+      ];
+    },
+  },
+
+  {
+    id: "bench_cushion_low",
+    name: "Low Bench with Cushion",
+    category: "seating",
+    icon: "🪑",
+    description: "Low bench with fabric seat cushion and 4 short legs",
+    dims: { w: 1200, h: 380, d: 400 },
+    buildPanels: (d) => {
+      _pid = 0;
+      const w = d.w / 1000, h = d.h / 1000, dp = d.d / 1000;
+      const cushH = 0.06;
+      const legH = h - T - cushH;
+      const legD = 0.04;
+      return [
+        // Seat plank
+        box("Seat", "horizontal", [0, h - cushH - T / 2, 0], [w, T, dp], "oak"),
+        // Fabric cushion
+        { id: pid(), type: "horizontal" as const, shape: "cushion" as PanelShape, label: "Cushion", position: [0, h - cushH / 2, 0] as [number, number, number], size: [w - 0.04, cushH, dp - 0.04] as [number, number, number], materialId: "fabric_gray" },
+        // 4 short legs
+        cyl("Leg FL", [-w / 2 + 0.08, legH / 2, dp / 2 - 0.06], legD, legH, "oak"),
+        cyl("Leg FR", [w / 2 - 0.08, legH / 2, dp / 2 - 0.06], legD, legH, "oak"),
+        cyl("Leg BL", [-w / 2 + 0.08, legH / 2, -dp / 2 + 0.06], legD, legH, "oak"),
+        cyl("Leg BR", [w / 2 - 0.08, legH / 2, -dp / 2 + 0.06], legD, legH, "oak"),
+      ];
+    },
+  },
+
+  // ═══════════════ TABLES (Kenney matches) ═══════════════
+
+  // Kenney: table (basic 4-leg)
+  {
+    id: "table_basic", name: "Basic Table", category: "tables", icon: "🍽️",
+    description: "Simple 4-leg table", dims: { w: 1000, h: 750, d: 600 },
+    buildPanels: (d) => {
+      const w = d.w/1000, h = d.h/1000, dp = d.d/1000;
+      return [
+        box("Top", "horizontal", [0, h - 0.015, 0], [w, TC, dp]),
+        ...fourLegsInset(w, h, dp, h - TC, 0.04, 0.06),
+      ];
+    },
+  },
+  // Kenney: tableCloth
+  {
+    id: "table_cloth", name: "Table with Cloth", category: "tables", icon: "🍽️",
+    description: "Table with draped cloth", dims: { w: 1000, h: 750, d: 600 },
+    buildPanels: (d) => {
+      const w = d.w/1000, h = d.h/1000, dp = d.d/1000;
+      return [
+        box("Top", "horizontal", [0, h - 0.015, 0], [w, TC, dp]),
+        box("Cloth", "horizontal", [0, h - 0.005, 0], [w + 0.10, 0.005, dp + 0.10], "melamine_white"),
+        ...fourLegsInset(w, h, dp, h - TC, 0.04, 0.06),
+      ];
+    },
+  },
+  // Kenney: tableCross
+  {
+    id: "table_cross", name: "Cross-Leg Table", category: "tables", icon: "🍽️",
+    description: "Table with X-crossed legs", dims: { w: 1200, h: 750, d: 700 },
+    buildPanels: (d) => {
+      const w = d.w/1000, h = d.h/1000, dp = d.d/1000;
+      return [
+        box("Top", "horizontal", [0, h - 0.015, 0], [w, TC, dp]),
+        { id: pid(), type: "back" as const, shape: "cross_brace" as PanelShape, label: "Left X-Leg", position: [-w/2 + 0.10, (h - TC)/2, 0] as [number,number,number], size: [0.06, h - TC, dp - 0.12] as [number,number,number], materialId: "oak" },
+        { id: pid(), type: "back" as const, shape: "cross_brace" as PanelShape, label: "Right X-Leg", position: [w/2 - 0.10, (h - TC)/2, 0] as [number,number,number], size: [0.06, h - TC, dp - 0.12] as [number,number,number], materialId: "oak" },
+      ];
+    },
+  },
+  // Kenney: tableGlass
+  {
+    id: "table_glass", name: "Glass Table", category: "tables", icon: "🍽️",
+    description: "Table with glass top and metal legs", dims: { w: 1200, h: 750, d: 700 },
+    buildPanels: (d) => {
+      const w = d.w/1000, h = d.h/1000, dp = d.d/1000;
+      return [
+        box("Glass Top", "horizontal", [0, h - 0.008, 0], [w, 0.012, dp], "glass"),
+        ...fourLegsInset(w, h, dp, h - 0.012, 0.04, 0.06, "chrome"),
+      ];
+    },
+  },
+  // Kenney: tableRound
+  {
+    id: "table_round", name: "Round Table", category: "tables", icon: "🍽️",
+    description: "Round pedestal table", dims: { w: 900, h: 750, d: 900 },
+    buildPanels: (d) => {
+      const w = d.w/1000, h = d.h/1000;
+      return [
+        { id: pid(), type: "horizontal" as const, shape: "cylinder" as PanelShape, label: "Round Top", position: [0, h - 0.015, 0] as [number,number,number], size: [w, TC, w] as [number,number,number], materialId: "oak" },
+        cyl("Pedestal", [0, (h - TC) / 2, 0], 0.08, h - TC, "black_metal"),
+        { id: pid(), type: "horizontal" as const, shape: "cylinder" as PanelShape, label: "Base", position: [0, 0.015, 0] as [number,number,number], size: [0.45, 0.03, 0.45] as [number,number,number], materialId: "black_metal" },
+      ];
+    },
+  },
+  // Kenney: tableCoffeeGlassSquare
+  {
+    id: "table_coffee_glass_sq", name: "Square Glass Coffee Table", category: "tables", icon: "☕",
+    description: "Low glass coffee table, square", dims: { w: 800, h: 400, d: 800 },
+    buildPanels: (d) => {
+      const w = d.w/1000, h = d.h/1000, dp = d.d/1000;
+      return [
+        box("Glass Top", "horizontal", [0, h - 0.006, 0], [w, 0.012, dp], "glass"),
+        ...fourLegsInset(w, h, dp, h - 0.012, 0.035, 0.05, "chrome"),
+      ];
+    },
+  },
+
+  // ═══════════════ DESKS (Kenney matches) ═══════════════
+
+  // Kenney: desk (basic)
+  {
+    id: "desk_basic", name: "Basic Desk", category: "desks", icon: "🖥️",
+    description: "Simple desk with drawer", dims: { w: 1200, h: 750, d: 600 },
+    buildPanels: (d) => {
+      const w = d.w/1000, h = d.h/1000, dp = d.d/1000;
+      return [
+        box("Top", "horizontal", [0, h - T/2, 0], [w, T, dp]),
+        box("Left Side", "vertical", [-w/2 + T/2, h/2, 0], [T, h, dp]),
+        box("Right Leg", "vertical", [w/2 - 0.04, h*0.4/2, -dp/2 + 0.04], [0.04, h*0.4, 0.04], "black_metal"),
+        box("Right Leg 2", "vertical", [w/2 - 0.04, h*0.4/2, dp/2 - 0.04], [0.04, h*0.4, 0.04], "black_metal"),
+        { id: pid(), type: "horizontal" as const, shape: "drawer_box" as PanelShape, label: "Drawer", position: [-w/4, h*0.55, 0] as [number,number,number], size: [w*0.35, 0.12, dp - 0.04] as [number,number,number], materialId: "oak" },
+      ];
+    },
+  },
+  // Kenney: deskCorner
+  {
+    id: "desk_corner", name: "Corner Desk", category: "desks", icon: "🖥️",
+    description: "L-shaped corner desk", dims: { w: 1600, h: 750, d: 1600 },
+    buildPanels: (d) => {
+      const w = d.w/1000, h = d.h/1000, dp = d.d/1000;
+      const legH = h - T;
+      return [
+        box("Main Top", "horizontal", [0, h - T/2, dp/4], [w, T, dp/2]),
+        box("Side Top", "horizontal", [w/4, h - T/2, 0], [w/2, T, dp]),
+        cyl("Leg FL", [-w/2 + 0.06, legH/2, dp/2 - 0.06], 0.04, legH, "black_metal"),
+        cyl("Leg FR", [w/2 - 0.06, legH/2, dp/2 - 0.06], 0.04, legH, "black_metal"),
+        cyl("Leg BL", [-w/2 + 0.06, legH/2, 0], 0.04, legH, "black_metal"),
+        cyl("Leg BR", [w/2 - 0.06, legH/2, -dp/2 + 0.06], 0.04, legH, "black_metal"),
+        cyl("Leg Corner", [w/4, legH/2, dp/4], 0.04, legH, "black_metal"),
+      ];
+    },
+  },
+
+  // ═══════════════ BOOKSHELVES (Kenney matches) ═══════════════
+
+  // Kenney: bookcaseClosed
+  {
+    id: "bookcase_closed", name: "Closed Bookcase", category: "bookshelves", icon: "📚",
+    description: "Tall bookcase with back panel", dims: { w: 800, h: 1800, d: 300 },
+    buildPanels: (d) => {
+      const w = d.w/1000, h = d.h/1000, dp = d.d/1000;
+      const shelves = 5;
+      const panels: PanelData[] = [
+        box("Left Side", "vertical", [-w/2 + T/2, h/2, 0], [T, h, dp]),
+        box("Right Side", "vertical", [w/2 - T/2, h/2, 0], [T, h, dp]),
+        box("Top", "horizontal", [0, h - T/2, 0], [w, T, dp]),
+        box("Bottom", "horizontal", [0, T/2, 0], [w, T, dp]),
+        box("Back", "back", [0, h/2, dp/2 - TB/2], [w - T*2, h - T*2, TB]),
+      ];
+      for (let i = 1; i < shelves; i++) {
+        const y = T + (h - T*2) * (i / shelves);
+        panels.push(box(`Shelf ${i}`, "horizontal", [0, y, 0], [w - T*2, T, dp - TB]));
+      }
+      return panels;
+    },
+  },
+  // Kenney: bookcaseClosedDoors
+  {
+    id: "bookcase_doors", name: "Bookcase with Doors", category: "bookshelves", icon: "📚",
+    description: "Bookcase with bottom doors", dims: { w: 800, h: 1800, d: 300 },
+    buildPanels: (d) => {
+      const w = d.w/1000, h = d.h/1000, dp = d.d/1000;
+      const doorH = h * 0.35;
+      const panels: PanelData[] = [
+        box("Left Side", "vertical", [-w/2 + T/2, h/2, 0], [T, h, dp]),
+        box("Right Side", "vertical", [w/2 - T/2, h/2, 0], [T, h, dp]),
+        box("Top", "horizontal", [0, h - T/2, 0], [w, T, dp]),
+        box("Bottom", "horizontal", [0, T/2, 0], [w, T, dp]),
+        box("Back", "back", [0, h/2, dp/2 - TB/2], [w - T*2, h - T*2, TB]),
+        box("Mid Shelf", "horizontal", [0, doorH, 0], [w - T*2, T, dp - TB]),
+        box("Shelf 2", "horizontal", [0, doorH + (h - doorH)/3, 0], [w - T*2, T, dp - TB]),
+        box("Shelf 3", "horizontal", [0, doorH + 2*(h - doorH)/3, 0], [w - T*2, T, dp - TB]),
+        box("Left Door", "vertical", [-w/4, doorH/2, -dp/2 + T/2], [w/2 - T, doorH - T*2, T]),
+        box("Right Door", "vertical", [w/4, doorH/2, -dp/2 + T/2], [w/2 - T, doorH - T*2, T]),
+      ];
+      return panels;
+    },
+  },
+  // Kenney: bookcaseClosedWide
+  {
+    id: "bookcase_wide", name: "Wide Bookcase", category: "bookshelves", icon: "📚",
+    description: "Wide tall bookcase", dims: { w: 1200, h: 1800, d: 300 },
+    buildPanels: (d) => {
+      const w = d.w/1000, h = d.h/1000, dp = d.d/1000;
+      const panels: PanelData[] = [
+        box("Left Side", "vertical", [-w/2 + T/2, h/2, 0], [T, h, dp]),
+        box("Right Side", "vertical", [w/2 - T/2, h/2, 0], [T, h, dp]),
+        box("Top", "horizontal", [0, h - T/2, 0], [w, T, dp]),
+        box("Bottom", "horizontal", [0, T/2, 0], [w, T, dp]),
+        box("Back", "back", [0, h/2, dp/2 - TB/2], [w - T*2, h - T*2, TB]),
+        box("Divider", "vertical", [0, h/2, 0], [T, h - T*2, dp - TB]),
+      ];
+      for (let i = 1; i <= 4; i++) {
+        const y = T + (h - T*2) * (i / 5);
+        panels.push(box(`Shelf ${i}`, "horizontal", [0, y, 0], [w - T*2, T, dp - TB]));
+      }
+      return panels;
+    },
+  },
+  // Kenney: bookcaseOpenLow
+  {
+    id: "bookcase_low", name: "Low Open Bookcase", category: "bookshelves", icon: "📚",
+    description: "Low open shelving unit", dims: { w: 800, h: 900, d: 300 },
+    buildPanels: (d) => {
+      const w = d.w/1000, h = d.h/1000, dp = d.d/1000;
+      return [
+        box("Left Side", "vertical", [-w/2 + T/2, h/2, 0], [T, h, dp]),
+        box("Right Side", "vertical", [w/2 - T/2, h/2, 0], [T, h, dp]),
+        box("Top", "horizontal", [0, h - T/2, 0], [w, T, dp]),
+        box("Bottom", "horizontal", [0, T/2, 0], [w, T, dp]),
+        box("Shelf 1", "horizontal", [0, h * 0.33, 0], [w - T*2, T, dp]),
+        box("Shelf 2", "horizontal", [0, h * 0.66, 0], [w - T*2, T, dp]),
+      ];
+    },
+  },
+
+  // ═══════════════ CHAIRS (separate category) ═══════════════
+
+  // Kenney: chairDesk (office/desk chair on wheels)
+  {
+    id: "chair_desk", name: "Desk Chair", category: "chairs", icon: "💺",
+    description: "Office desk chair with wheels", dims: { w: 550, h: 900, d: 550 },
+    buildPanels: (d) => {
+      const w = d.w/1000, h = d.h/1000, dp = d.d/1000;
+      const seatH = 0.48;
+      return [
+        { id: pid(), type: "horizontal" as const, shape: "cushion" as PanelShape, label: "Seat", position: [0, seatH, 0] as [number,number,number], size: [w, 0.06, dp] as [number,number,number], materialId: "fabric_gray" },
+        { id: pid(), type: "vertical" as const, shape: "cushion" as PanelShape, label: "Backrest", position: [0, seatH + (h-seatH)/2, dp/2 - 0.04] as [number,number,number], size: [w*0.85, h - seatH - 0.06, 0.05] as [number,number,number], materialId: "fabric_gray" },
+        cyl("Pedestal", [0, seatH/2, 0], 0.06, seatH - 0.03, "chrome"),
+        cyl("Base", [0, 0.015, 0], 0.50, 0.03, "black_metal"),
+        box("Armrest L", "horizontal", [-w/2 + 0.04, seatH + 0.10, 0], [0.04, 0.02, dp*0.5], "black_metal"),
+        box("Armrest R", "horizontal", [w/2 - 0.04, seatH + 0.10, 0], [0.04, 0.02, dp*0.5], "black_metal"),
+      ];
+    },
+  },
+
+  // ═══════════════ BATHROOM (Kenney matches) ═══════════════
+
+  // Kenney: bathroomCabinet
+  {
+    id: "bathroom_cabinet", name: "Bathroom Cabinet", category: "bathroom", icon: "🚿",
+    description: "Under-sink vanity cabinet", dims: { w: 600, h: 650, d: 400 },
+    buildPanels: (d) => {
+      const w = d.w/1000, h = d.h/1000, dp = d.d/1000;
+      return [
+        box("Left Side", "vertical", [-w/2 + T/2, h/2, 0], [T, h, dp]),
+        box("Right Side", "vertical", [w/2 - T/2, h/2, 0], [T, h, dp]),
+        box("Top", "horizontal", [0, h - T/2, 0], [w, T, dp], "marble_white"),
+        box("Bottom", "horizontal", [0, T/2, 0], [w, T, dp]),
+        box("Back", "back", [0, h/2, dp/2 - TB/2], [w - T*2, h - T*2, TB]),
+        box("Left Door", "vertical", [-w/4, h/2, -dp/2 + T/2], [w/2 - T, h - T*2, T], "melamine_white"),
+        box("Right Door", "vertical", [w/4, h/2, -dp/2 + T/2], [w/2 - T, h - T*2, T], "melamine_white"),
+      ];
+    },
+  },
+  // Kenney: bathroomCabinetDrawer
+  {
+    id: "bathroom_drawer_cabinet", name: "Bathroom Drawer Cabinet", category: "bathroom", icon: "🚿",
+    description: "Vanity with drawers", dims: { w: 600, h: 650, d: 400 },
+    buildPanels: (d) => {
+      const w = d.w/1000, h = d.h/1000, dp = d.d/1000;
+      const drawerH = (h - T*3) / 3;
+      return [
+        box("Left Side", "vertical", [-w/2 + T/2, h/2, 0], [T, h, dp]),
+        box("Right Side", "vertical", [w/2 - T/2, h/2, 0], [T, h, dp]),
+        box("Top", "horizontal", [0, h - T/2, 0], [w, T, dp], "marble_white"),
+        box("Bottom", "horizontal", [0, T/2, 0], [w, T, dp]),
+        box("Back", "back", [0, h/2, dp/2 - TB/2], [w - T*2, h - T*2, TB]),
+        { id: pid(), type: "horizontal" as const, shape: "drawer_box" as PanelShape, label: "Drawer 1", position: [0, T + drawerH/2, 0] as [number,number,number], size: [w - T*2 - 0.01, drawerH, dp - TB - 0.01] as [number,number,number], materialId: "melamine_white" },
+        { id: pid(), type: "horizontal" as const, shape: "drawer_box" as PanelShape, label: "Drawer 2", position: [0, T*2 + drawerH*1.5, 0] as [number,number,number], size: [w - T*2 - 0.01, drawerH, dp - TB - 0.01] as [number,number,number], materialId: "melamine_white" },
+        { id: pid(), type: "horizontal" as const, shape: "drawer_box" as PanelShape, label: "Drawer 3", position: [0, T*3 + drawerH*2.5, 0] as [number,number,number], size: [w - T*2 - 0.01, drawerH, dp - TB - 0.01] as [number,number,number], materialId: "melamine_white" },
+      ];
+    },
+  },
+
+  // ═══════════════ KITCHEN EXTRAS (Kenney matches) ═══════════════
+
+  // Kenney: kitchenCabinetCornerInner
+  {
+    id: "kitchen_corner_inner", name: "Kitchen Corner (Inner)", category: "kitchen", icon: "🍳",
+    description: "Inner corner base cabinet", dims: { w: 600, h: 850, d: 600 },
+    buildPanels: (d) => {
+      const w = d.w/1000, h = d.h/1000, dp = d.d/1000;
+      return [
+        box("Left Side", "vertical", [-w/2 + T/2, h/2 - TC/2, 0], [T, h - TC, dp]),
+        box("Back Side", "vertical", [0, h/2 - TC/2, dp/2 - T/2], [w, h - TC, T]),
+        box("Counter", "horizontal", [0, h - TC/2, 0], [w, TC, dp], "marble_white"),
+        box("Bottom", "horizontal", [0, T/2, 0], [w - T, T, dp - T]),
+      ];
+    },
+  },
+  // Kenney: kitchenCabinetCornerRound
+  {
+    id: "kitchen_corner_round", name: "Kitchen Corner (Rounded)", category: "kitchen", icon: "🍳",
+    description: "Rounded corner cabinet", dims: { w: 600, h: 850, d: 600 },
+    buildPanels: (d) => {
+      const w = d.w/1000, h = d.h/1000, dp = d.d/1000;
+      return [
+        box("Left Side", "vertical", [-w/2 + T/2, h/2 - TC/2, 0], [T, h - TC, dp]),
+        box("Back Side", "vertical", [0, h/2 - TC/2, dp/2 - T/2], [w, h - TC, T]),
+        box("Counter", "horizontal", [0, h - TC/2, 0], [w, TC, dp], "marble_white"),
+        box("Bottom", "horizontal", [0, T/2, 0], [w - T, T, dp - T]),
+        { id: pid(), type: "vertical" as const, shape: "cylinder" as PanelShape, label: "Curved Door", position: [-w/2 + 0.02, h/2 - TC/2, -dp/2 + 0.02] as [number,number,number], size: [w*0.6, h - TC - T*2, w*0.6] as [number,number,number], materialId: "melamine_white" },
+      ];
+    },
+  },
+  // Kenney: kitchenCabinetDrawer
+  {
+    id: "kitchen_cabinet_drawer", name: "Kitchen Drawer Cabinet", category: "kitchen", icon: "🍳",
+    description: "Base cabinet with drawers", dims: { w: 600, h: 850, d: 560 },
+    buildPanels: (d) => {
+      const w = d.w/1000, h = d.h/1000, dp = d.d/1000;
+      const bodyH = h - TC;
+      const drawerH = (bodyH - T*2) / 3;
+      return [
+        box("Left Side", "vertical", [-w/2 + T/2, bodyH/2, 0], [T, bodyH, dp]),
+        box("Right Side", "vertical", [w/2 - T/2, bodyH/2, 0], [T, bodyH, dp]),
+        box("Counter", "horizontal", [0, h - TC/2, 0], [w, TC, dp], "marble_white"),
+        box("Bottom", "horizontal", [0, T/2, 0], [w - T*2, T, dp]),
+        box("Back", "back", [0, bodyH/2, dp/2 - TB/2], [w - T*2, bodyH - T, TB]),
+        { id: pid(), type: "horizontal" as const, shape: "drawer_box" as PanelShape, label: "Drawer 1", position: [0, T + drawerH*0.5, -dp/4] as [number,number,number], size: [w - T*2 - 0.02, drawerH - 0.01, dp/2] as [number,number,number], materialId: "melamine_white" },
+        { id: pid(), type: "horizontal" as const, shape: "drawer_box" as PanelShape, label: "Drawer 2", position: [0, T + drawerH*1.5, -dp/4] as [number,number,number], size: [w - T*2 - 0.02, drawerH - 0.01, dp/2] as [number,number,number], materialId: "melamine_white" },
+        { id: pid(), type: "horizontal" as const, shape: "drawer_box" as PanelShape, label: "Drawer 3", position: [0, T + drawerH*2.5, -dp/4] as [number,number,number], size: [w - T*2 - 0.02, drawerH - 0.01, dp/2] as [number,number,number], materialId: "melamine_white" },
+      ];
+    },
+  },
+  // Kenney: kitchenCabinetUpperCorner
+  {
+    id: "kitchen_upper_corner", name: "Upper Corner Cabinet", category: "kitchen", icon: "🍳",
+    description: "Corner wall cabinet", dims: { w: 600, h: 700, d: 300 },
+    buildPanels: (d) => {
+      const w = d.w/1000, h = d.h/1000, dp = d.d/1000;
+      return [
+        box("Left Side", "vertical", [-w/2 + T/2, h/2, 0], [T, h, dp]),
+        box("Back", "vertical", [0, h/2, dp/2 - T/2], [w, h, T]),
+        box("Top", "horizontal", [0, h - T/2, 0], [w, T, dp]),
+        box("Bottom", "horizontal", [0, T/2, 0], [w, T, dp]),
+        box("Shelf", "horizontal", [0, h/2, 0], [w - T, T, dp - T]),
+      ];
+    },
+  },
+  // Kenney: kitchenCabinetUpperDouble
+  {
+    id: "kitchen_upper_double", name: "Upper Double Cabinet", category: "kitchen", icon: "🍳",
+    description: "Wide wall cabinet with 2 doors", dims: { w: 900, h: 700, d: 300 },
+    buildPanels: (d) => {
+      const w = d.w/1000, h = d.h/1000, dp = d.d/1000;
+      return [
+        box("Left Side", "vertical", [-w/2 + T/2, h/2, 0], [T, h, dp]),
+        box("Right Side", "vertical", [w/2 - T/2, h/2, 0], [T, h, dp]),
+        box("Top", "horizontal", [0, h - T/2, 0], [w, T, dp]),
+        box("Bottom", "horizontal", [0, T/2, 0], [w, T, dp]),
+        box("Back", "back", [0, h/2, dp/2 - TB/2], [w - T*2, h - T*2, TB]),
+        box("Shelf", "horizontal", [0, h/2, 0], [w - T*2, T, dp - TB]),
+        box("Left Door", "vertical", [-w/4, h/2, -dp/2 + T/2], [w/2 - T, h - T*2, T]),
+        box("Right Door", "vertical", [w/4, h/2, -dp/2 + T/2], [w/2 - T, h - T*2, T]),
+      ];
+    },
+  },
+  // Kenney: kitchenCabinetUpperLow
+  {
+    id: "kitchen_upper_low", name: "Low Wall Cabinet", category: "kitchen", icon: "🍳",
+    description: "Short wall cabinet", dims: { w: 600, h: 400, d: 300 },
+    buildPanels: (d) => {
+      const w = d.w/1000, h = d.h/1000, dp = d.d/1000;
+      return [
+        box("Left Side", "vertical", [-w/2 + T/2, h/2, 0], [T, h, dp]),
+        box("Right Side", "vertical", [w/2 - T/2, h/2, 0], [T, h, dp]),
+        box("Top", "horizontal", [0, h - T/2, 0], [w, T, dp]),
+        box("Bottom", "horizontal", [0, T/2, 0], [w, T, dp]),
+        box("Back", "back", [0, h/2, dp/2 - TB/2], [w - T*2, h - T*2, TB]),
+        box("Door", "vertical", [0, h/2, -dp/2 + T/2], [w - T*2, h - T*2, T]),
+      ];
+    },
+  },
+  // Kenney: kitchenBar
+  {
+    id: "kitchen_bar", name: "Kitchen Bar", category: "kitchen", icon: "🍳",
+    description: "Kitchen bar/counter section", dims: { w: 600, h: 1050, d: 400 },
+    buildPanels: (d) => {
+      const w = d.w/1000, h = d.h/1000, dp = d.d/1000;
+      return [
+        box("Counter", "horizontal", [0, h - TC/2, 0], [w, TC, dp], "marble_white"),
+        box("Left Side", "vertical", [-w/2 + T/2, h/2 - TC/2, 0], [T, h - TC, dp]),
+        box("Right Side", "vertical", [w/2 - T/2, h/2 - TC/2, 0], [T, h - TC, dp]),
+        box("Back", "back", [0, h/2 - TC/2, dp/2 - TB/2], [w - T*2, h - TC, TB]),
+      ];
+    },
+  },
+  // Kenney: kitchenBarEnd
+  {
+    id: "kitchen_bar_end", name: "Kitchen Bar End", category: "kitchen", icon: "🍳",
+    description: "Bar counter end piece with overhang", dims: { w: 600, h: 1050, d: 600 },
+    buildPanels: (d) => {
+      const w = d.w/1000, h = d.h/1000, dp = d.d/1000;
+      return [
+        box("Counter", "horizontal", [0, h - TC/2, -0.10], [w, TC, dp + 0.20], "marble_white"),
+        box("Left Side", "vertical", [-w/2 + T/2, h/2 - TC/2, 0], [T, h - TC, dp]),
+        box("Right Side", "vertical", [w/2 - T/2, h/2 - TC/2, 0], [T, h - TC, dp]),
+        box("Back", "back", [0, h/2 - TC/2, dp/2 - TB/2], [w - T*2, h - TC, TB]),
+        box("Front", "vertical", [0, h/2 - TC/2, -dp/2 + T/2], [w - T*2, h - TC, T]),
+      ];
+    },
+  },
+
+  // ═══════════════ OUTDOOR (Kenney matches) ═══════════════
+
+  // Kenney: sideTable
+  {
+    id: "side_table_basic", name: "Side Table", category: "tables", icon: "🍽️",
+    description: "Small side/end table", dims: { w: 450, h: 550, d: 450 },
+    buildPanels: (d) => {
+      const w = d.w/1000, h = d.h/1000, dp = d.d/1000;
+      return [
+        box("Top", "horizontal", [0, h - T/2, 0], [w, T, dp]),
+        ...fourLegsInset(w, h, dp, h - T, 0.035, 0.05),
+      ];
+    },
+  },
+  // Kenney: sideTableDrawers
+  {
+    id: "side_table_drawers", name: "Side Table with Drawers", category: "dressers", icon: "📺",
+    description: "Small table with 2 drawers", dims: { w: 450, h: 550, d: 400 },
+    buildPanels: (d) => {
+      const w = d.w/1000, h = d.h/1000, dp = d.d/1000;
+      return [
+        box("Top", "horizontal", [0, h - T/2, 0], [w, T, dp]),
+        box("Left Side", "vertical", [-w/2 + T/2, h/2, 0], [T, h, dp]),
+        box("Right Side", "vertical", [w/2 - T/2, h/2, 0], [T, h, dp]),
+        box("Bottom", "horizontal", [0, T/2, 0], [w, T, dp]),
+        box("Back", "back", [0, h/2, dp/2 - TB/2], [w - T*2, h - T*2, TB]),
+        { id: pid(), type: "horizontal" as const, shape: "drawer_box" as PanelShape, label: "Drawer 1", position: [0, h*0.35, 0] as [number,number,number], size: [w - T*2 - 0.02, (h - T*2)*0.4, dp - TB - 0.02] as [number,number,number], materialId: "oak" },
+        { id: pid(), type: "horizontal" as const, shape: "drawer_box" as PanelShape, label: "Drawer 2", position: [0, h*0.70, 0] as [number,number,number], size: [w - T*2 - 0.02, (h - T*2)*0.4, dp - TB - 0.02] as [number,number,number], materialId: "oak" },
+      ];
+    },
+  },
+
+  // ═══════════════ TV & ENTERTAINMENT ═══════════════
+
+  // Kenney: cabinetTelevision
+  {
+    id: "cabinet_tv", name: "TV Cabinet", category: "dressers", icon: "📺",
+    description: "Open TV stand", dims: { w: 1200, h: 500, d: 400 },
+    buildPanels: (d) => {
+      const w = d.w/1000, h = d.h/1000, dp = d.d/1000;
+      return [
+        box("Top", "horizontal", [0, h - T/2, 0], [w, T, dp]),
+        box("Left Side", "vertical", [-w/2 + T/2, h/2, 0], [T, h, dp]),
+        box("Right Side", "vertical", [w/2 - T/2, h/2, 0], [T, h, dp]),
+        box("Bottom", "horizontal", [0, T/2, 0], [w, T, dp]),
+        box("Shelf", "horizontal", [0, h/2, 0], [w - T*2, T, dp - TB]),
+        box("Back", "back", [0, h/2, dp/2 - TB/2], [w - T*2, h - T*2, TB]),
+      ];
+    },
+  },
+  // Kenney: cabinetTelevisionDoors
+  {
+    id: "cabinet_tv_doors", name: "TV Cabinet with Doors", category: "dressers", icon: "📺",
+    description: "TV stand with cabinet doors", dims: { w: 1200, h: 500, d: 400 },
+    buildPanels: (d) => {
+      const w = d.w/1000, h = d.h/1000, dp = d.d/1000;
+      return [
+        box("Top", "horizontal", [0, h - T/2, 0], [w, T, dp]),
+        box("Left Side", "vertical", [-w/2 + T/2, h/2, 0], [T, h, dp]),
+        box("Right Side", "vertical", [w/2 - T/2, h/2, 0], [T, h, dp]),
+        box("Bottom", "horizontal", [0, T/2, 0], [w, T, dp]),
+        box("Divider L", "vertical", [-w/4, h/2, 0], [T, h - T*2, dp - TB]),
+        box("Divider R", "vertical", [w/4, h/2, 0], [T, h - T*2, dp - TB]),
+        box("Back", "back", [0, h/2, dp/2 - TB/2], [w - T*2, h - T*2, TB]),
+        box("Left Door", "vertical", [-w*3/8, h/2, -dp/2 + T/2], [w/4 - T, h - T*2, T]),
+        box("Right Door", "vertical", [w*3/8, h/2, -dp/2 + T/2], [w/4 - T, h - T*2, T]),
+      ];
+    },
+  },
+
+  // ═══════════════ BED ACCESSORIES ═══════════════
+
+  // Kenney: cabinetBed (nightstand no drawer)
+  {
+    id: "nightstand_basic", name: "Basic Nightstand", category: "dressers", icon: "🛏️",
+    description: "Simple bedside table", dims: { w: 400, h: 500, d: 350 },
+    buildPanels: (d) => {
+      const w = d.w/1000, h = d.h/1000, dp = d.d/1000;
+      return [
+        box("Top", "horizontal", [0, h - T/2, 0], [w, T, dp]),
+        box("Left Side", "vertical", [-w/2 + T/2, h/2, 0], [T, h, dp]),
+        box("Right Side", "vertical", [w/2 - T/2, h/2, 0], [T, h, dp]),
+        box("Bottom", "horizontal", [0, T/2, 0], [w, T, dp]),
+        box("Shelf", "horizontal", [0, h*0.45, 0], [w - T*2, T, dp]),
+      ];
+    },
+  },
+  // Kenney: cabinetBedDrawer
+  {
+    id: "nightstand_drawer", name: "Nightstand with Drawer", category: "dressers", icon: "🛏️",
+    description: "Bedside table with drawer", dims: { w: 400, h: 500, d: 350 },
+    buildPanels: (d) => {
+      const w = d.w/1000, h = d.h/1000, dp = d.d/1000;
+      return [
+        box("Top", "horizontal", [0, h - T/2, 0], [w, T, dp]),
+        box("Left Side", "vertical", [-w/2 + T/2, h/2, 0], [T, h, dp]),
+        box("Right Side", "vertical", [w/2 - T/2, h/2, 0], [T, h, dp]),
+        box("Bottom", "horizontal", [0, T/2, 0], [w, T, dp]),
+        box("Back", "back", [0, h/2, dp/2 - TB/2], [w - T*2, h - T*2, TB]),
+        { id: pid(), type: "horizontal" as const, shape: "drawer_box" as PanelShape, label: "Drawer", position: [0, h*0.65, 0] as [number,number,number], size: [w - T*2 - 0.02, h*0.25, dp - TB - 0.02] as [number,number,number], materialId: "oak" },
+        box("Open Shelf", "horizontal", [0, h*0.30, 0], [w - T*2, T, dp - TB]),
+      ];
+    },
+  },
+  // Kenney: cabinetBedDrawerTable
+  {
+    id: "nightstand_table", name: "Nightstand Table", category: "dressers", icon: "🛏️",
+    description: "Modern nightstand with open shelf", dims: { w: 400, h: 550, d: 350 },
+    buildPanels: (d) => {
+      const w = d.w/1000, h = d.h/1000, dp = d.d/1000;
+      return [
+        box("Top", "horizontal", [0, h - T/2, 0], [w, T, dp]),
+        box("Left Side", "vertical", [-w/2 + T/2, h/2, 0], [T, h, dp]),
+        box("Right Side", "vertical", [w/2 - T/2, h/2, 0], [T, h, dp]),
+        box("Bottom", "horizontal", [0, 0.08, 0], [w, T, dp]),
+        box("Shelf", "horizontal", [0, h*0.40, 0], [w - T*2, T, dp]),
+        { id: pid(), type: "horizontal" as const, shape: "drawer_box" as PanelShape, label: "Drawer", position: [0, h*0.70, 0] as [number,number,number], size: [w - T*2 - 0.02, h*0.20, dp - 0.04] as [number,number,number], materialId: "oak" },
+      ];
+    },
+  },
+
+  // ═══════════════ BUNK BED ═══════════════
+
+  {
+    id: "bed_bunk", name: "Bunk Bed", category: "beds", icon: "🛏️",
+    description: "Stacked double bunk bed", dims: { w: 1000, h: 1700, d: 2000 },
+    buildPanels: (d) => {
+      const w = d.w/1000, h = d.h/1000, dp = d.d/1000;
+      const postW = 0.06;
+      const bottomSlat = 0.30;
+      const topSlat = h * 0.55;
+      return [
+        // 4 corner posts
+        box("Post FL", "vertical", [-w/2 + postW/2, h/2, -dp/2 + postW/2], [postW, h, postW]),
+        box("Post FR", "vertical", [w/2 - postW/2, h/2, -dp/2 + postW/2], [postW, h, postW]),
+        box("Post BL", "vertical", [-w/2 + postW/2, h/2, dp/2 - postW/2], [postW, h, postW]),
+        box("Post BR", "vertical", [w/2 - postW/2, h/2, dp/2 - postW/2], [postW, h, postW]),
+        // Bottom bed
+        box("Bottom Slats", "horizontal", [0, bottomSlat, 0], [w - postW*2, T, dp - postW*2]),
+        box("Bottom Side Rail L", "horizontal", [-w/2 + postW, bottomSlat + 0.05, 0], [T, 0.10, dp - postW*2]),
+        box("Bottom Side Rail R", "horizontal", [w/2 - postW, bottomSlat + 0.05, 0], [T, 0.10, dp - postW*2]),
+        { id: pid(), type: "horizontal" as const, shape: "mattress" as PanelShape, label: "Bottom Mattress", position: [0, bottomSlat + 0.10, 0] as [number,number,number], size: [w - postW*2 - 0.04, 0.15, dp - postW*2 - 0.04] as [number,number,number], materialId: "melamine_white" },
+        // Top bed
+        box("Top Slats", "horizontal", [0, topSlat, 0], [w - postW*2, T, dp - postW*2]),
+        box("Top Side Rail L", "horizontal", [-w/2 + postW, topSlat + 0.05, 0], [T, 0.10, dp - postW*2]),
+        box("Top Side Rail R", "horizontal", [w/2 - postW, topSlat + 0.05, 0], [T, 0.10, dp - postW*2]),
+        { id: pid(), type: "horizontal" as const, shape: "mattress" as PanelShape, label: "Top Mattress", position: [0, topSlat + 0.10, 0] as [number,number,number], size: [w - postW*2 - 0.04, 0.15, dp - postW*2 - 0.04] as [number,number,number], materialId: "melamine_white" },
+        // Ladder
+        box("Ladder Rail L", "vertical", [w/2 - 0.02, (bottomSlat + topSlat)/2 + 0.10, -dp/2 + 0.10], [0.03, topSlat - bottomSlat + 0.10, 0.03]),
+        box("Ladder Rail R", "vertical", [w/2 - 0.02, (bottomSlat + topSlat)/2 + 0.10, -dp/2 + 0.30], [0.03, topSlat - bottomSlat + 0.10, 0.03]),
       ];
     },
   },

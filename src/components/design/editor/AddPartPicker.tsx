@@ -560,6 +560,146 @@ const PART_CATEGORIES: PartCategory[] = [
       },
     ],
   },
+
+  // ─────────────────────────────────────────────────
+  // 9. BATHROOM FIXTURES
+  // ─────────────────────────────────────────────────
+  {
+    label: "Bathroom Fixtures",
+    icon: "🚿",
+    items: [
+      { id: "toilet_standard", label: "Toilet", icon: "🚽", description: "Standard toilet", shape: "box", type: "vertical", size: [0.38, 0.40, 0.65], materialId: "ceramic_white" },
+      { id: "toilet_square", label: "Square Toilet", icon: "🚽", description: "Modern square design", shape: "box", type: "vertical", size: [0.38, 0.40, 0.60], materialId: "ceramic_white" },
+      { id: "bathtub_oval", label: "Bathtub", icon: "🛁", description: "Freestanding oval bathtub", shape: "half_sphere", type: "horizontal", size: [0.75, 0.50, 1.60], materialId: "ceramic_white" },
+      { id: "sink_round", label: "Sink (Round)", icon: "🚰", description: "Round bathroom sink", shape: "cylinder", type: "horizontal", size: [0.45, 0.15, 0.45], materialId: "ceramic_white" },
+      { id: "sink_square", label: "Sink (Square)", icon: "🚰", description: "Square bathroom sink", shape: "box", type: "horizontal", size: [0.50, 0.12, 0.40], materialId: "ceramic_white" },
+      { id: "shower_cabin", label: "Shower Cabin", icon: "🚿", description: "Glass shower enclosure", shape: "box", type: "vertical", size: [0.90, 2.00, 0.90], materialId: "glass" },
+      { id: "shower_round", label: "Round Shower", icon: "🚿", description: "Round glass shower", shape: "cylinder", type: "vertical", size: [0.90, 2.00, 0.90], materialId: "glass" },
+      { id: "bathroom_cabinet", label: "Bathroom Cabinet", icon: "🗄️", description: "Under-sink cabinet", shape: "box", type: "vertical", size: [0.60, 0.65, 0.40], materialId: "melamine_white" },
+      { id: "bathroom_cabinet_drawer", label: "Cabinet with Drawer", icon: "🗄️", description: "Bathroom drawer cabinet", shape: "box", type: "vertical", size: [0.60, 0.65, 0.40], materialId: "melamine_white" },
+      { id: "bathroom_mirror", label: "Mirror", icon: "🪞", description: "Wall-mounted mirror", shape: "box", type: "back", size: [0.50, 0.70, 0.01], materialId: "mirror" },
+    ],
+  },
+
+  // ─────────────────────────────────────────────────
+  // 10. KITCHEN APPLIANCES
+  // ─────────────────────────────────────────────────
+  {
+    label: "Kitchen Appliances",
+    icon: "🍳",
+    items: [
+      { id: "fridge", label: "Fridge", icon: "🧊", description: "Standard fridge", shape: "box", type: "vertical", size: [0.60, 1.70, 0.65], materialId: "melamine_white" },
+      { id: "fridge_large", label: "Large Fridge", icon: "🧊", description: "Double-door fridge", shape: "box", type: "vertical", size: [0.85, 1.80, 0.70], materialId: "melamine_white" },
+      { id: "fridge_small", label: "Mini Fridge", icon: "🧊", description: "Under-counter fridge", shape: "box", type: "vertical", size: [0.50, 0.85, 0.55], materialId: "melamine_white" },
+      { id: "fridge_builtin", label: "Built-in Fridge", icon: "🧊", description: "Integrated fridge", shape: "box", type: "vertical", size: [0.60, 1.80, 0.60], materialId: "melamine_white" },
+      { id: "oven_standard", label: "Oven", icon: "🔥", description: "Built-in oven", shape: "box", type: "vertical", size: [0.60, 0.60, 0.55], materialId: "melamine_black" },
+      { id: "stove_gas", label: "Gas Stove", icon: "🔥", description: "4-burner gas stove", shape: "box", type: "horizontal", size: [0.60, 0.85, 0.60], materialId: "steel" },
+      { id: "stove_electric", label: "Electric Stove", icon: "🔥", description: "Electric cooktop", shape: "box", type: "horizontal", size: [0.60, 0.85, 0.60], materialId: "melamine_black" },
+      { id: "microwave", label: "Microwave", icon: "📦", description: "Countertop microwave", shape: "box", type: "horizontal", size: [0.45, 0.26, 0.35], materialId: "melamine_black" },
+      { id: "kitchen_sink", label: "Kitchen Sink", icon: "🚰", description: "Drop-in kitchen sink", shape: "box", type: "horizontal", size: [0.60, 0.20, 0.50], materialId: "steel" },
+      { id: "washer", label: "Washing Machine", icon: "🧺", description: "Front-loading washer", shape: "box", type: "vertical", size: [0.60, 0.85, 0.60], materialId: "melamine_white" },
+      { id: "dryer", label: "Dryer", icon: "🧺", description: "Clothes dryer", shape: "box", type: "vertical", size: [0.60, 0.85, 0.60], materialId: "melamine_white" },
+      { id: "washer_dryer_stack", label: "Stacked Washer/Dryer", icon: "🧺", description: "Stacked units", shape: "box", type: "vertical", size: [0.60, 1.70, 0.60], materialId: "melamine_white" },
+      { id: "blender", label: "Blender", icon: "🥤", description: "Kitchen blender", shape: "cylinder", type: "vertical", size: [0.12, 0.35, 0.12], materialId: "steel" },
+      { id: "coffee_machine", label: "Coffee Machine", icon: "☕", description: "Espresso machine", shape: "box", type: "vertical", size: [0.25, 0.35, 0.35], materialId: "melamine_black" },
+      { id: "toaster_add", label: "Toaster", icon: "🍞", description: "2-slot toaster", shape: "box", type: "vertical", size: [0.15, 0.18, 0.28], materialId: "steel" },
+      { id: "range_hood_large", label: "Range Hood (Large)", icon: "🔲", description: "Wide range hood", shape: "box", type: "horizontal", size: [0.90, 0.30, 0.50], materialId: "steel" },
+      { id: "range_hood_modern", label: "Range Hood (Modern)", icon: "🔲", description: "Slim modern hood", shape: "box", type: "horizontal", size: [0.60, 0.25, 0.40], materialId: "steel" },
+    ],
+  },
+
+  // ─────────────────────────────────────────────────
+  // 11. LIGHTING
+  // ─────────────────────────────────────────────────
+  {
+    label: "Lighting",
+    icon: "💡",
+    items: [
+      { id: "lamp_floor_round", label: "Round Floor Lamp", icon: "🪔", description: "Standing floor lamp with round shade", shape: "lamp_shade", type: "vertical", size: [0.30, 1.50, 0.30], materialId: "melamine_white", shapeParams: { topRatio: 0.3 } },
+      { id: "lamp_table_round", label: "Round Table Lamp", icon: "🪔", description: "Table lamp with round shade", shape: "lamp_shade", type: "vertical", size: [0.20, 0.40, 0.20], materialId: "melamine_white", shapeParams: { topRatio: 0.3 } },
+      { id: "lamp_floor_square", label: "Square Floor Lamp", icon: "🪔", description: "Floor lamp with square shade", shape: "box", type: "vertical", size: [0.25, 1.50, 0.25], materialId: "melamine_white" },
+      { id: "lamp_table_square", label: "Square Table Lamp", icon: "🪔", description: "Table lamp with square shade", shape: "box", type: "vertical", size: [0.18, 0.35, 0.18], materialId: "melamine_white" },
+      { id: "lamp_ceiling", label: "Ceiling Lamp", icon: "💡", description: "Ceiling-mounted lamp", shape: "cylinder", type: "vertical", size: [0.40, 0.10, 0.40], materialId: "melamine_white" },
+      { id: "lamp_wall", label: "Wall Sconce", icon: "💡", description: "Wall-mounted light", shape: "half_sphere", type: "vertical", size: [0.15, 0.15, 0.10], materialId: "brass" },
+      { id: "ceiling_fan_add", label: "Ceiling Fan", icon: "🌀", description: "Fan with light", shape: "cylinder", type: "horizontal", size: [1.00, 0.25, 1.00], materialId: "melamine_white" },
+    ],
+  },
+
+  // ─────────────────────────────────────────────────
+  // 12. ELECTRONICS
+  // ─────────────────────────────────────────────────
+  {
+    label: "Electronics",
+    icon: "🖥️",
+    items: [
+      { id: "tv_modern", label: "Modern TV", icon: "📺", description: "Flat screen TV", shape: "box", type: "back", size: [1.00, 0.56, 0.03], materialId: "melamine_black" },
+      { id: "tv_vintage", label: "Vintage TV", icon: "📺", description: "Retro CRT TV", shape: "box", type: "vertical", size: [0.40, 0.35, 0.35], materialId: "melamine_black" },
+      { id: "tv_antenna", label: "Antenna TV", icon: "📺", description: "Old antenna TV", shape: "box", type: "vertical", size: [0.35, 0.30, 0.30], materialId: "melamine_black" },
+      { id: "monitor", label: "Computer Monitor", icon: "🖥️", description: "Desktop monitor", shape: "box", type: "back", size: [0.55, 0.35, 0.02], materialId: "melamine_black" },
+      { id: "laptop_add", label: "Laptop", icon: "💻", description: "Open laptop", shape: "box", type: "horizontal", size: [0.35, 0.02, 0.24], materialId: "melamine_gray" },
+      { id: "keyboard_add", label: "Keyboard", icon: "⌨️", description: "Computer keyboard", shape: "box", type: "horizontal", size: [0.44, 0.02, 0.14], materialId: "melamine_black" },
+      { id: "mouse_add", label: "Mouse", icon: "🖱️", description: "Computer mouse", shape: "half_sphere", type: "horizontal", size: [0.06, 0.03, 0.10], materialId: "melamine_black" },
+      { id: "speaker_large", label: "Speaker", icon: "🔊", description: "Floor speaker", shape: "box", type: "vertical", size: [0.20, 0.80, 0.25], materialId: "melamine_black" },
+      { id: "speaker_small", label: "Small Speaker", icon: "🔊", description: "Bookshelf speaker", shape: "box", type: "vertical", size: [0.12, 0.20, 0.15], materialId: "melamine_black" },
+      { id: "radio_add", label: "Radio", icon: "📻", description: "Tabletop radio", shape: "box", type: "horizontal", size: [0.25, 0.15, 0.15], materialId: "walnut" },
+    ],
+  },
+
+  // ─────────────────────────────────────────────────
+  // 13. ROOM ELEMENTS
+  // ─────────────────────────────────────────────────
+  {
+    label: "Room Elements",
+    icon: "🚪",
+    items: [
+      { id: "door_standard", label: "Door", icon: "🚪", description: "Interior door", shape: "box", type: "vertical", size: [0.80, 2.00, 0.04], materialId: "oak" },
+      { id: "door_front", label: "Front Door", icon: "🚪", description: "Exterior entry door", shape: "box", type: "vertical", size: [0.90, 2.10, 0.05], materialId: "walnut" },
+      { id: "window_standard", label: "Window", icon: "🪟", description: "Double-hung window", shape: "box", type: "back", size: [0.80, 1.00, 0.06], materialId: "glass" },
+      { id: "window_slide", label: "Sliding Window", icon: "🪟", description: "Sliding glass window", shape: "box", type: "back", size: [1.20, 1.00, 0.06], materialId: "glass" },
+      { id: "wall_section", label: "Wall Section", icon: "🧱", description: "Wall panel", shape: "box", type: "vertical", size: [1.00, 2.40, 0.12], materialId: "melamine_white" },
+      { id: "wall_half", label: "Half Wall", icon: "🧱", description: "Low wall / partition", shape: "box", type: "vertical", size: [1.00, 1.20, 0.12], materialId: "melamine_white" },
+      { id: "wall_corner", label: "Wall Corner", icon: "🧱", description: "L-shaped wall corner", shape: "box", type: "vertical", size: [0.12, 2.40, 1.00], materialId: "melamine_white" },
+      { id: "stairs_add", label: "Stairs", icon: "🪜", description: "Staircase section", shape: "box", type: "vertical", size: [0.90, 2.50, 2.50], materialId: "oak" },
+      { id: "radiator_add", label: "Radiator", icon: "🔲", description: "Wall radiator", shape: "box", type: "vertical", size: [0.80, 0.60, 0.10], materialId: "melamine_white" },
+      { id: "coat_rack", label: "Coat Rack (Wall)", icon: "🧥", description: "Wall-mounted hooks", shape: "box", type: "horizontal", size: [0.60, 0.08, 0.10], materialId: "oak" },
+      { id: "coat_rack_standing", label: "Coat Rack (Standing)", icon: "🧥", description: "Free-standing coat rack", shape: "cylinder", type: "vertical", size: [0.04, 1.70, 0.04], materialId: "oak" },
+      { id: "trashcan_add", label: "Trashcan", icon: "🗑️", description: "Waste bin", shape: "cylinder", type: "vertical", size: [0.25, 0.60, 0.25], materialId: "steel" },
+      { id: "cardboard_box_closed", label: "Box (Closed)", icon: "📦", description: "Cardboard box", shape: "box", type: "vertical", size: [0.40, 0.30, 0.40], materialId: "oak" },
+      { id: "cardboard_box_open", label: "Box (Open)", icon: "📦", description: "Open cardboard box", shape: "open_tray", type: "horizontal", size: [0.40, 0.30, 0.40], materialId: "oak" },
+    ],
+  },
+
+  // ─────────────────────────────────────────────────
+  // 14. SOFT FURNISHINGS
+  // ─────────────────────────────────────────────────
+  {
+    label: "Soft Furnishings",
+    icon: "🛋️",
+    items: [
+      { id: "pillow_white", label: "Pillow (White)", icon: "🛏️", description: "Standard white pillow", shape: "cushion", type: "horizontal", size: [0.50, 0.12, 0.35], materialId: "melamine_white" },
+      { id: "pillow_blue", label: "Pillow (Blue)", icon: "🛏️", description: "Blue accent pillow", shape: "cushion", type: "horizontal", size: [0.50, 0.12, 0.35], materialId: "fabric_blue" },
+      { id: "pillow_long", label: "Long Pillow", icon: "🛏️", description: "Body pillow", shape: "cushion", type: "horizontal", size: [0.80, 0.12, 0.30], materialId: "melamine_white" },
+      { id: "rug_rectangle", label: "Rectangle Rug", icon: "🟫", description: "Rectangular area rug", shape: "box", type: "horizontal", size: [2.00, 0.01, 1.40], materialId: "fabric_gray" },
+      { id: "rug_round", label: "Round Rug", icon: "⭕", description: "Round area rug", shape: "cylinder", type: "horizontal", size: [1.50, 0.01, 1.50], materialId: "fabric_gray" },
+      { id: "rug_square", label: "Square Rug", icon: "🟫", description: "Square area rug", shape: "box", type: "horizontal", size: [1.60, 0.01, 1.60], materialId: "fabric_gray" },
+      { id: "rug_doormat", label: "Doormat", icon: "🟫", description: "Small entry mat", shape: "box", type: "horizontal", size: [0.60, 0.01, 0.40], materialId: "fabric_gray" },
+    ],
+  },
+
+  // ─────────────────────────────────────────────────
+  // 15. PLANTS & GREENERY
+  // ─────────────────────────────────────────────────
+  {
+    label: "Plants & Greenery",
+    icon: "🌿",
+    items: [
+      { id: "plant_small_1", label: "Small Plant 1", icon: "🌱", description: "Succulent in pot", shape: "sphere", type: "vertical", size: [0.10, 0.15, 0.10], materialId: "fabric_green" },
+      { id: "plant_small_2", label: "Small Plant 2", icon: "🌱", description: "Small leafy plant", shape: "sphere", type: "vertical", size: [0.12, 0.18, 0.12], materialId: "fabric_green" },
+      { id: "plant_small_3", label: "Small Plant 3", icon: "🌱", description: "Herb pot", shape: "sphere", type: "vertical", size: [0.08, 0.20, 0.08], materialId: "fabric_green" },
+      { id: "potted_plant", label: "Potted Plant", icon: "🪴", description: "Medium floor plant", shape: "sphere", type: "vertical", size: [0.30, 0.60, 0.30], materialId: "fabric_green" },
+      { id: "bear_plush", label: "Teddy Bear", icon: "🧸", description: "Plush teddy bear", shape: "sphere", type: "vertical", size: [0.20, 0.25, 0.15], materialId: "leather_tan" },
+    ],
+  },
 ];
 
 // ─── Component ─────────────────────────────────────────

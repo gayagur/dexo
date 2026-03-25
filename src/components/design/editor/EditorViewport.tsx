@@ -2265,8 +2265,8 @@ function FurniturePanel({
         <group position={panel.position} rotation={panelRotation as any}>
           <RoundedBox
             args={[w, h, d]}
-            radius={0.002}
-            smoothness={4}
+            radius={panel.cornerRadius ?? 0.002}
+            smoothness={panel.cornerRadius && panel.cornerRadius > 0.005 ? 6 : 4}
             onClick={handleClick}
             onPointerDown={handlePointerDown}
             onPointerEnter={() => { document.body.style.cursor = cursorStyle; }}

@@ -634,6 +634,34 @@ export function EditorParameters({
             </div>
           </div>
 
+          {/* Corner Radius (for box/rounded_rect shapes) */}
+          {(!panel.shape || panel.shape === "box" || panel.shape === "rounded_rect" || panel.shape === "cushion" || panel.shape === "mattress") && (
+            <div className="p-4 border-t border-gray-100">
+              <div className="flex items-center justify-between mb-2">
+                <Label className="text-[11px] text-gray-500">Corner Radius</Label>
+                <span className="text-[10px] text-gray-400 font-mono">
+                  {Math.round((panel.cornerRadius ?? 0.002) * 1000)}mm
+                </span>
+              </div>
+              <input
+                type="range"
+                min={0}
+                max={50}
+                step={1}
+                value={Math.round((panel.cornerRadius ?? 0.002) * 1000)}
+                onChange={(e) => {
+                  const mm = parseInt(e.target.value);
+                  onUpdatePanel(panel.id, { cornerRadius: mm / 1000 });
+                }}
+                className="w-full h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-[#C87D5A]"
+              />
+              <div className="flex justify-between text-[9px] text-gray-300 mt-0.5">
+                <span>0mm (sharp)</span>
+                <span>50mm (round)</span>
+              </div>
+            </div>
+          )}
+
           {/* Shape Parameters (if applicable) */}
           {panel.shapeParams && Object.keys(panel.shapeParams).length > 0 && (
             <div className="p-4 border-t border-gray-100">
