@@ -618,15 +618,16 @@ export function getDefaultTemplate(furnitureId: string, dims: { w: number; h: nu
     case "desk":
     case "study_desk":
     case "office_desk_c": {
-      // Top + 4 cylindrical legs + back modesty panel + optional drawer unit
+      // Top + 4 cylindrical legs + modesty panel under the desktop
       const topT = 0.025;
       const legH = h - topT;
+      const modestyH = legH * 0.45; // sits in lower half, never exceeds tabletop
       return {
         panels: [
           panel("horizontal", "Desktop", [0, h - topT / 2, 0], [w, topT, d]),
           ...fourLegs(w, h, d, legH, 0.045, 0.05, "black_metal"),
-          // Modesty panel (back)
-          panel("back", "Modesty Panel", [0, h * 0.3, d / 2 - 0.01], [w - 0.12, h * 0.4, t]),
+          // Modesty panel (back, sits UNDER the desktop)
+          panel("back", "Modesty Panel", [0, legH - modestyH / 2, d / 2 - 0.01], [w - 0.12, modestyH, t]),
           // Cable tray bar
           panel("horizontal", "Cable Tray", [0, h * 0.08, d / 2 - 0.08], [w * 0.5, 0.02, 0.1], "black_metal"),
         ],
@@ -651,15 +652,18 @@ export function getDefaultTemplate(furnitureId: string, dims: { w: number; h: nu
     case "vanity_table": {
       const topT = 0.020;
       const legH = h - topT;
+      const drawerH = 0.14; // drawer height — fits under tabletop
+      const drawerW = 0.30;
+      const drawerY = h - topT - drawerH / 2; // flush under the desktop
       return {
         panels: [
           panel("horizontal", "Top", [0, h - topT / 2, 0], [w, topT, d]),
           ...fourLegs(w, h, d, legH, 0.04, 0.05),
-          // Drawer unit on one side
-          panel("vertical", "Drawer Left", [-w / 2 + 0.05, h * 0.65, 0], [t, h * 0.25, d - 0.04]),
-          panel("vertical", "Drawer Right", [-w / 2 + 0.35, h * 0.65, 0], [t, h * 0.25, d - 0.04]),
-          panel("horizontal", "Drawer Bottom", [-w / 2 + 0.2, h * 0.52, 0], [0.28, t, d - 0.04]),
-          panel("vertical", "Drawer Front", [-w / 2 + 0.2, h * 0.65, -d / 2 + 0.01], [0.30, h * 0.25, t], "melamine_white"),
+          // Drawer unit tucked under the desktop on the left side
+          panel("vertical", "Drawer Left Wall", [-w / 2 + 0.05, drawerY, 0], [t, drawerH, d - 0.04]),
+          panel("vertical", "Drawer Right Wall", [-w / 2 + 0.05 + drawerW, drawerY, 0], [t, drawerH, d - 0.04]),
+          panel("horizontal", "Drawer Bottom", [-w / 2 + 0.05 + drawerW / 2, h - topT - drawerH, 0], [drawerW, t, d - 0.04]),
+          panel("vertical", "Drawer Front", [-w / 2 + 0.05 + drawerW / 2, drawerY, -d / 2 + 0.01], [drawerW + 0.02, drawerH, t], "melamine_white"),
         ],
       };
     }
