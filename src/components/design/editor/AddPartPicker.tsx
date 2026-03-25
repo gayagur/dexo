@@ -4,6 +4,18 @@ import type { PanelData, PanelShape } from "@/lib/furnitureData";
 
 // ─── Part definition ───────────────────────────────────
 
+let _addPid = 9000;
+function addPid(): string { return `add-${++_addPid}`; }
+function p(label: string, type: PanelData["type"], pos: [number,number,number], size: [number,number,number], mat: string, shape?: PanelShape, params?: Record<string,number>): PanelData {
+  return { id: addPid(), type, label, position: pos, size, materialId: mat, ...(shape && shape !== "box" ? { shape } : {}), ...(params ? { shapeParams: params } : {}) };
+}
+function cy(label: string, pos: [number,number,number], dia: number, h: number, mat: string): PanelData {
+  return { id: addPid(), type: "vertical", shape: "cylinder" as PanelShape, label, position: pos, size: [dia, h, dia], materialId: mat };
+}
+function sp(label: string, pos: [number,number,number], dia: number, mat: string): PanelData {
+  return { id: addPid(), type: "vertical", shape: "sphere" as PanelShape, label, position: pos, size: [dia, dia, dia], materialId: mat };
+}
+
 interface PartPreset {
   id: string;
   label: string;
@@ -16,6 +28,10 @@ interface PartPreset {
   shapeParams?: Record<string, number>;
   /** When true, spawns centered on the selected panel’s top (or highest horizontal surface). */
   placeOnSelected?: boolean;
+  /** Multi-part items: when set, adds a GROUP with these panels instead of a single panel */
+  buildPanels?: () => PanelData[];
+  /** Group name when buildPanels is used */
+  groupName?: string;
 }
 
 interface PartCategory {
@@ -562,110 +578,225 @@ const PART_CATEGORIES: PartCategory[] = [
   },
 
   // ─────────────────────────────────────────────────
-  // 9. BATHROOM FIXTURES
+  // 9. BATHROOM FIXTURES (multi-part)
   // ─────────────────────────────────────────────────
   {
     label: "Bathroom Fixtures",
     icon: "🚿",
     items: [
-      { id: "toilet_standard", label: "Toilet", icon: "🚽", description: "Standard toilet", shape: "box", type: "vertical", size: [0.38, 0.40, 0.65], materialId: "ceramic_white" },
-      { id: "toilet_square", label: "Square Toilet", icon: "🚽", description: "Modern square design", shape: "box", type: "vertical", size: [0.38, 0.40, 0.60], materialId: "ceramic_white" },
-      { id: "bathtub_oval", label: "Bathtub", icon: "🛁", description: "Freestanding oval bathtub", shape: "half_sphere", type: "horizontal", size: [0.75, 0.50, 1.60], materialId: "ceramic_white" },
-      { id: "sink_round", label: "Sink (Round)", icon: "🚰", description: "Round bathroom sink", shape: "cylinder", type: "horizontal", size: [0.45, 0.15, 0.45], materialId: "ceramic_white" },
-      { id: "sink_square", label: "Sink (Square)", icon: "🚰", description: "Square bathroom sink", shape: "box", type: "horizontal", size: [0.50, 0.12, 0.40], materialId: "ceramic_white" },
-      { id: "shower_cabin", label: "Shower Cabin", icon: "🚿", description: "Glass shower enclosure", shape: "box", type: "vertical", size: [0.90, 2.00, 0.90], materialId: "glass" },
-      { id: "shower_round", label: "Round Shower", icon: "🚿", description: "Round glass shower", shape: "cylinder", type: "vertical", size: [0.90, 2.00, 0.90], materialId: "glass" },
-      { id: "bathroom_cabinet", label: "Bathroom Cabinet", icon: "🗄️", description: "Under-sink cabinet", shape: "box", type: "vertical", size: [0.60, 0.65, 0.40], materialId: "melamine_white" },
-      { id: "bathroom_cabinet_drawer", label: "Cabinet with Drawer", icon: "🗄️", description: "Bathroom drawer cabinet", shape: "box", type: "vertical", size: [0.60, 0.65, 0.40], materialId: "melamine_white" },
-      { id: "bathroom_mirror", label: "Mirror", icon: "🪞", description: "Wall-mounted mirror", shape: "box", type: "back", size: [0.50, 0.70, 0.01], materialId: "mirror" },
+      { id: "toilet_standard", label: "Toilet", icon: "🚽", description: "Toilet with tank & seat", shape: "box", type: "vertical", size: [0.38, 0.40, 0.65], materialId: "ceramic_white",
+        groupName: "Toilet", buildPanels: () => [
+          p("Base", "vertical", [0, 0.15, 0.05], [0.35, 0.30, 0.45], "ceramic_white"),
+          p("Tank", "vertical", [0, 0.35, 0.25], [0.30, 0.40, 0.15], "ceramic_white"),
+          { id: addPid(), type: "horizontal" as const, shape: "oval" as PanelShape, label: "Seat", position: [0, 0.32, -0.05] as [number,number,number], size: [0.34, 0.04, 0.38] as [number,number,number], materialId: "ceramic_white" },
+          p("Lid", "horizontal", [0, 0.35, -0.05], [0.32, 0.02, 0.36], "ceramic_white"),
+        ],
+      },
+      { id: "bathtub_oval", label: "Bathtub", icon: "🛁", description: "Freestanding bathtub", shape: "box", type: "horizontal", size: [0.75, 0.50, 1.60], materialId: "ceramic_white",
+        groupName: "Bathtub", buildPanels: () => [
+          p("Outer Shell", "horizontal", [0, 0.25, 0], [0.70, 0.50, 1.50], "ceramic_white"),
+          p("Inner", "horizontal", [0, 0.28, 0], [0.58, 0.42, 1.38], "ceramic_white"),
+          p("Rim", "horizontal", [0, 0.49, 0], [0.72, 0.03, 1.52], "chrome"),
+        ],
+      },
+      { id: "sink_pedestal", label: "Pedestal Sink", icon: "🚰", description: "Sink on pedestal", shape: "cylinder", type: "vertical", size: [0.45, 0.85, 0.45], materialId: "ceramic_white",
+        groupName: "Pedestal Sink", buildPanels: () => [
+          cy("Pedestal", [0, 0.35, 0], 0.15, 0.70, "ceramic_white"),
+          { id: addPid(), type: "horizontal" as const, shape: "half_sphere" as PanelShape, label: "Basin", position: [0, 0.72, 0] as [number,number,number], size: [0.42, 0.12, 0.35] as [number,number,number], materialId: "ceramic_white" },
+          cy("Faucet", [0, 0.82, 0.12], 0.02, 0.12, "chrome"),
+        ],
+      },
+      { id: "shower_cabin", label: "Shower", icon: "🚿", description: "Glass shower enclosure", shape: "box", type: "vertical", size: [0.90, 2.00, 0.90], materialId: "glass",
+        groupName: "Shower", buildPanels: () => [
+          p("Back Wall", "back", [0, 1.0, 0.44], [0.88, 2.0, 0.02], "ceramic_white"),
+          p("Side Wall", "vertical", [-0.44, 1.0, 0], [0.02, 2.0, 0.88], "ceramic_white"),
+          p("Glass Door", "vertical", [0.20, 1.0, -0.44], [0.50, 1.90, 0.008], "glass"),
+          p("Floor Tray", "horizontal", [0, 0.02, 0], [0.88, 0.04, 0.88], "ceramic_white"),
+          cy("Shower Head", [0, 1.90, 0.35], 0.10, 0.02, "chrome"),
+          cy("Shower Pipe", [0, 1.50, 0.43], 0.02, 0.80, "chrome"),
+        ],
+      },
+      { id: "bathroom_mirror", label: "Mirror", icon: "🪞", description: "Wall mirror with frame", shape: "box", type: "back", size: [0.50, 0.70, 0.03], materialId: "mirror",
+        groupName: "Mirror", buildPanels: () => [
+          p("Frame", "back", [0, 0, 0], [0.54, 0.74, 0.02], "walnut"),
+          p("Glass", "back", [0, 0, -0.01], [0.48, 0.68, 0.005], "mirror"),
+        ],
+      },
     ],
   },
 
   // ─────────────────────────────────────────────────
-  // 10. KITCHEN APPLIANCES
+  // 10. KITCHEN APPLIANCES (multi-part)
   // ─────────────────────────────────────────────────
   {
     label: "Kitchen Appliances",
     icon: "🍳",
     items: [
-      { id: "fridge", label: "Fridge", icon: "🧊", description: "Standard fridge", shape: "box", type: "vertical", size: [0.60, 1.70, 0.65], materialId: "melamine_white" },
-      { id: "fridge_large", label: "Large Fridge", icon: "🧊", description: "Double-door fridge", shape: "box", type: "vertical", size: [0.85, 1.80, 0.70], materialId: "melamine_white" },
-      { id: "fridge_small", label: "Mini Fridge", icon: "🧊", description: "Under-counter fridge", shape: "box", type: "vertical", size: [0.50, 0.85, 0.55], materialId: "melamine_white" },
-      { id: "fridge_builtin", label: "Built-in Fridge", icon: "🧊", description: "Integrated fridge", shape: "box", type: "vertical", size: [0.60, 1.80, 0.60], materialId: "melamine_white" },
-      { id: "oven_standard", label: "Oven", icon: "🔥", description: "Built-in oven", shape: "box", type: "vertical", size: [0.60, 0.60, 0.55], materialId: "melamine_black" },
-      { id: "stove_gas", label: "Gas Stove", icon: "🔥", description: "4-burner gas stove", shape: "box", type: "horizontal", size: [0.60, 0.85, 0.60], materialId: "steel" },
-      { id: "stove_electric", label: "Electric Stove", icon: "🔥", description: "Electric cooktop", shape: "box", type: "horizontal", size: [0.60, 0.85, 0.60], materialId: "melamine_black" },
-      { id: "microwave", label: "Microwave", icon: "📦", description: "Countertop microwave", shape: "box", type: "horizontal", size: [0.45, 0.26, 0.35], materialId: "melamine_black" },
-      { id: "kitchen_sink", label: "Kitchen Sink", icon: "🚰", description: "Drop-in kitchen sink", shape: "box", type: "horizontal", size: [0.60, 0.20, 0.50], materialId: "steel" },
-      { id: "washer", label: "Washing Machine", icon: "🧺", description: "Front-loading washer", shape: "box", type: "vertical", size: [0.60, 0.85, 0.60], materialId: "melamine_white" },
-      { id: "dryer", label: "Dryer", icon: "🧺", description: "Clothes dryer", shape: "box", type: "vertical", size: [0.60, 0.85, 0.60], materialId: "melamine_white" },
-      { id: "washer_dryer_stack", label: "Stacked Washer/Dryer", icon: "🧺", description: "Stacked units", shape: "box", type: "vertical", size: [0.60, 1.70, 0.60], materialId: "melamine_white" },
-      { id: "blender", label: "Blender", icon: "🥤", description: "Kitchen blender", shape: "cylinder", type: "vertical", size: [0.12, 0.35, 0.12], materialId: "steel" },
+      { id: "fridge", label: "Fridge", icon: "🧊", description: "Fridge with handle", shape: "box", type: "vertical", size: [0.60, 1.70, 0.65], materialId: "melamine_white",
+        groupName: "Fridge", buildPanels: () => [
+          p("Body", "vertical", [0, 0.85, 0], [0.58, 1.68, 0.63], "melamine_white"),
+          p("Freezer Line", "horizontal", [0, 1.25, -0.315], [0.56, 0.005, 0.01], "melamine_gray"),
+          p("Upper Handle", "vertical", [0.26, 1.45, -0.33], [0.02, 0.20, 0.02], "chrome"),
+          p("Lower Handle", "vertical", [0.26, 0.60, -0.33], [0.02, 0.20, 0.02], "chrome"),
+        ],
+      },
+      { id: "oven_standard", label: "Oven", icon: "🔥", description: "Oven with glass door", shape: "box", type: "vertical", size: [0.60, 0.60, 0.55], materialId: "melamine_black",
+        groupName: "Oven", buildPanels: () => [
+          p("Body", "vertical", [0, 0.30, 0], [0.58, 0.58, 0.53], "melamine_black"),
+          p("Glass Door", "vertical", [0, 0.28, -0.27], [0.50, 0.42, 0.005], "tinted_glass"),
+          p("Handle", "horizontal", [0, 0.52, -0.28], [0.40, 0.02, 0.02], "chrome"),
+          p("Control Panel", "vertical", [0, 0.56, -0.27], [0.50, 0.04, 0.01], "melamine_gray"),
+          cy("Knob 1", [-0.15, 0.56, -0.28], 0.02, 0.015, "chrome"),
+          cy("Knob 2", [-0.05, 0.56, -0.28], 0.02, 0.015, "chrome"),
+          cy("Knob 3", [0.05, 0.56, -0.28], 0.02, 0.015, "chrome"),
+          cy("Knob 4", [0.15, 0.56, -0.28], 0.02, 0.015, "chrome"),
+        ],
+      },
+      { id: "washer", label: "Washing Machine", icon: "🧺", description: "Front-load washer", shape: "box", type: "vertical", size: [0.60, 0.85, 0.60], materialId: "melamine_white",
+        groupName: "Washing Machine", buildPanels: () => [
+          p("Body", "vertical", [0, 0.425, 0], [0.58, 0.83, 0.58], "melamine_white"),
+          cy("Drum Door", [0, 0.38, -0.29], 0.36, 0.02, "tinted_glass"),
+          p("Control Panel", "vertical", [0, 0.80, -0.27], [0.50, 0.06, 0.01], "melamine_gray"),
+          cy("Dial", [0, 0.80, -0.29], 0.04, 0.015, "chrome"),
+        ],
+      },
+      { id: "microwave", label: "Microwave", icon: "📦", description: "Countertop microwave", shape: "box", type: "horizontal", size: [0.45, 0.26, 0.35], materialId: "melamine_black",
+        groupName: "Microwave", buildPanels: () => [
+          p("Body", "vertical", [0, 0.13, 0], [0.44, 0.25, 0.34], "melamine_black"),
+          p("Door Glass", "vertical", [-0.05, 0.12, -0.17], [0.28, 0.18, 0.005], "tinted_glass"),
+          p("Control Side", "vertical", [0.17, 0.13, -0.17], [0.08, 0.20, 0.01], "melamine_gray"),
+        ],
+      },
+      { id: "kitchen_sink", label: "Kitchen Sink", icon: "🚰", description: "Double bowl sink", shape: "box", type: "horizontal", size: [0.60, 0.20, 0.50], materialId: "steel",
+        groupName: "Kitchen Sink", buildPanels: () => [
+          p("Counter", "horizontal", [0, 0.02, 0], [0.60, 0.03, 0.50], "steel"),
+          p("Left Bowl", "horizontal", [-0.14, -0.05, 0], [0.25, 0.12, 0.36], "steel"),
+          p("Right Bowl", "horizontal", [0.14, -0.05, 0], [0.25, 0.12, 0.36], "steel"),
+          cy("Faucet", [0, 0.15, 0.18], 0.02, 0.20, "chrome"),
+        ],
+      },
+      { id: "toaster_add", label: "Toaster", icon: "🍞", description: "2-slot toaster", shape: "box", type: "vertical", size: [0.15, 0.18, 0.28], materialId: "steel",
+        groupName: "Toaster", buildPanels: () => [
+          p("Body", "vertical", [0, 0.09, 0], [0.14, 0.17, 0.27], "steel"),
+          p("Slot 1", "horizontal", [-0.03, 0.175, 0], [0.02, 0.005, 0.18], "melamine_black"),
+          p("Slot 2", "horizontal", [0.03, 0.175, 0], [0.02, 0.005, 0.18], "melamine_black"),
+          p("Lever", "vertical", [0.07, 0.10, -0.12], [0.01, 0.04, 0.01], "chrome"),
+        ],
+      },
       { id: "coffee_machine", label: "Coffee Machine", icon: "☕", description: "Espresso machine", shape: "box", type: "vertical", size: [0.25, 0.35, 0.35], materialId: "melamine_black" },
-      { id: "toaster_add", label: "Toaster", icon: "🍞", description: "2-slot toaster", shape: "box", type: "vertical", size: [0.15, 0.18, 0.28], materialId: "steel" },
-      { id: "range_hood_large", label: "Range Hood (Large)", icon: "🔲", description: "Wide range hood", shape: "box", type: "horizontal", size: [0.90, 0.30, 0.50], materialId: "steel" },
-      { id: "range_hood_modern", label: "Range Hood (Modern)", icon: "🔲", description: "Slim modern hood", shape: "box", type: "horizontal", size: [0.60, 0.25, 0.40], materialId: "steel" },
+      { id: "blender", label: "Blender", icon: "🥤", description: "Kitchen blender", shape: "cylinder", type: "vertical", size: [0.12, 0.35, 0.12], materialId: "steel" },
     ],
   },
 
   // ─────────────────────────────────────────────────
-  // 11. LIGHTING
+  // 11. LIGHTING (multi-part)
   // ─────────────────────────────────────────────────
   {
     label: "Lighting",
     icon: "💡",
     items: [
-      { id: "lamp_floor_round", label: "Round Floor Lamp", icon: "🪔", description: "Standing floor lamp with round shade", shape: "lamp_shade", type: "vertical", size: [0.30, 1.50, 0.30], materialId: "melamine_white", shapeParams: { topRatio: 0.3 } },
-      { id: "lamp_table_round", label: "Round Table Lamp", icon: "🪔", description: "Table lamp with round shade", shape: "lamp_shade", type: "vertical", size: [0.20, 0.40, 0.20], materialId: "melamine_white", shapeParams: { topRatio: 0.3 } },
-      { id: "lamp_floor_square", label: "Square Floor Lamp", icon: "🪔", description: "Floor lamp with square shade", shape: "box", type: "vertical", size: [0.25, 1.50, 0.25], materialId: "melamine_white" },
-      { id: "lamp_table_square", label: "Square Table Lamp", icon: "🪔", description: "Table lamp with square shade", shape: "box", type: "vertical", size: [0.18, 0.35, 0.18], materialId: "melamine_white" },
-      { id: "lamp_ceiling", label: "Ceiling Lamp", icon: "💡", description: "Ceiling-mounted lamp", shape: "cylinder", type: "vertical", size: [0.40, 0.10, 0.40], materialId: "melamine_white" },
-      { id: "lamp_wall", label: "Wall Sconce", icon: "💡", description: "Wall-mounted light", shape: "half_sphere", type: "vertical", size: [0.15, 0.15, 0.10], materialId: "brass" },
-      { id: "ceiling_fan_add", label: "Ceiling Fan", icon: "🌀", description: "Fan with light", shape: "cylinder", type: "horizontal", size: [1.00, 0.25, 1.00], materialId: "melamine_white" },
+      { id: "lamp_floor_round", label: "Floor Lamp", icon: "🪔", description: "Standing lamp with shade", shape: "cylinder", type: "vertical", size: [0.30, 1.50, 0.30], materialId: "melamine_white",
+        groupName: "Floor Lamp", buildPanels: () => [
+          cy("Base", [0, 0.01, 0], 0.22, 0.02, "black_metal"),
+          cy("Pole", [0, 0.70, 0], 0.02, 1.36, "chrome"),
+          { id: addPid(), type: "vertical" as const, shape: "cone" as PanelShape, label: "Shade", position: [0, 1.42, 0] as [number,number,number], size: [0.28, 0.18, 0.28] as [number,number,number], materialId: "melamine_white" },
+        ],
+      },
+      { id: "lamp_table_round", label: "Table Lamp", icon: "🪔", description: "Table lamp with shade", shape: "cylinder", type: "vertical", size: [0.20, 0.40, 0.20], materialId: "melamine_white",
+        groupName: "Table Lamp", buildPanels: () => [
+          cy("Base", [0, 0.02, 0], 0.08, 0.03, "brass"),
+          cy("Pole", [0, 0.14, 0], 0.015, 0.22, "brass"),
+          { id: addPid(), type: "vertical" as const, shape: "cone" as PanelShape, label: "Shade", position: [0, 0.30, 0] as [number,number,number], size: [0.20, 0.14, 0.20] as [number,number,number], materialId: "melamine_white" },
+        ],
+      },
+      { id: "lamp_ceiling", label: "Pendant Light", icon: "💡", description: "Hanging pendant", shape: "cylinder", type: "vertical", size: [0.30, 0.20, 0.30], materialId: "melamine_white",
+        groupName: "Pendant Light", buildPanels: () => [
+          cy("Cord", [0, 0.15, 0], 0.005, 0.10, "black_metal"),
+          { id: addPid(), type: "vertical" as const, shape: "half_sphere" as PanelShape, label: "Shade", position: [0, 0.05, 0] as [number,number,number], size: [0.28, 0.14, 0.28] as [number,number,number], materialId: "melamine_white" },
+        ],
+      },
+      { id: "lamp_wall", label: "Wall Sconce", icon: "💡", description: "Wall light", shape: "half_sphere", type: "vertical", size: [0.15, 0.15, 0.10], materialId: "brass" },
     ],
   },
 
   // ─────────────────────────────────────────────────
-  // 12. ELECTRONICS
+  // 12. ELECTRONICS (multi-part)
   // ─────────────────────────────────────────────────
   {
     label: "Electronics",
     icon: "🖥️",
     items: [
-      { id: "tv_modern", label: "Modern TV", icon: "📺", description: "Flat screen TV", shape: "box", type: "back", size: [1.00, 0.56, 0.03], materialId: "melamine_black" },
-      { id: "tv_vintage", label: "Vintage TV", icon: "📺", description: "Retro CRT TV", shape: "box", type: "vertical", size: [0.40, 0.35, 0.35], materialId: "melamine_black" },
-      { id: "tv_antenna", label: "Antenna TV", icon: "📺", description: "Old antenna TV", shape: "box", type: "vertical", size: [0.35, 0.30, 0.30], materialId: "melamine_black" },
-      { id: "monitor", label: "Computer Monitor", icon: "🖥️", description: "Desktop monitor", shape: "box", type: "back", size: [0.55, 0.35, 0.02], materialId: "melamine_black" },
-      { id: "laptop_add", label: "Laptop", icon: "💻", description: "Open laptop", shape: "box", type: "horizontal", size: [0.35, 0.02, 0.24], materialId: "melamine_gray" },
-      { id: "keyboard_add", label: "Keyboard", icon: "⌨️", description: "Computer keyboard", shape: "box", type: "horizontal", size: [0.44, 0.02, 0.14], materialId: "melamine_black" },
-      { id: "mouse_add", label: "Mouse", icon: "🖱️", description: "Computer mouse", shape: "half_sphere", type: "horizontal", size: [0.06, 0.03, 0.10], materialId: "melamine_black" },
-      { id: "speaker_large", label: "Speaker", icon: "🔊", description: "Floor speaker", shape: "box", type: "vertical", size: [0.20, 0.80, 0.25], materialId: "melamine_black" },
-      { id: "speaker_small", label: "Small Speaker", icon: "🔊", description: "Bookshelf speaker", shape: "box", type: "vertical", size: [0.12, 0.20, 0.15], materialId: "melamine_black" },
+      { id: "tv_modern", label: "Modern TV", icon: "📺", description: "Flat screen on stand", shape: "box", type: "back", size: [1.00, 0.60, 0.06], materialId: "melamine_black",
+        groupName: "Modern TV", buildPanels: () => [
+          p("Screen", "back", [0, 0.38, 0], [0.98, 0.55, 0.025], "melamine_black"),
+          p("Bezel", "back", [0, 0.38, 0.013], [1.00, 0.57, 0.005], "melamine_gray"),
+          p("Stand Neck", "vertical", [0, 0.08, 0.02], [0.06, 0.12, 0.04], "melamine_gray"),
+          p("Stand Base", "horizontal", [0, 0.01, 0.03], [0.30, 0.015, 0.15], "melamine_gray"),
+        ],
+      },
+      { id: "monitor", label: "Monitor", icon: "🖥️", description: "Computer monitor", shape: "box", type: "back", size: [0.55, 0.40, 0.06], materialId: "melamine_black",
+        groupName: "Monitor", buildPanels: () => [
+          p("Screen", "back", [0, 0.25, 0], [0.53, 0.32, 0.02], "melamine_black"),
+          p("Stand Arm", "vertical", [0, 0.08, 0.02], [0.04, 0.10, 0.04], "melamine_gray"),
+          cy("Stand Base", [0, 0.01, 0.03], 0.12, 0.015, "melamine_gray"),
+        ],
+      },
+      { id: "laptop_add", label: "Laptop", icon: "💻", description: "Open laptop", shape: "box", type: "horizontal", size: [0.35, 0.24, 0.24], materialId: "melamine_gray",
+        groupName: "Laptop", buildPanels: () => [
+          p("Base", "horizontal", [0, 0.01, -0.04], [0.33, 0.015, 0.22], "melamine_gray"),
+          p("Keyboard", "horizontal", [0, 0.018, -0.04], [0.28, 0.003, 0.16], "melamine_black"),
+          p("Screen", "vertical", [0, 0.12, 0.07], [0.31, 0.20, 0.005], "melamine_black", "box"),
+        ],
+      },
+      { id: "speaker_large", label: "Speaker", icon: "🔊", description: "Floor speaker", shape: "box", type: "vertical", size: [0.20, 0.80, 0.25], materialId: "melamine_black",
+        groupName: "Speaker", buildPanels: () => [
+          p("Cabinet", "vertical", [0, 0.40, 0], [0.19, 0.78, 0.24], "melamine_black"),
+          cy("Woofer", [0, 0.25, -0.12], 0.14, 0.02, "melamine_gray"),
+          cy("Tweeter", [0, 0.58, -0.12], 0.06, 0.015, "melamine_gray"),
+        ],
+      },
       { id: "radio_add", label: "Radio", icon: "📻", description: "Tabletop radio", shape: "box", type: "horizontal", size: [0.25, 0.15, 0.15], materialId: "walnut" },
     ],
   },
 
   // ─────────────────────────────────────────────────
-  // 13. ROOM ELEMENTS
+  // 13. ROOM ELEMENTS (multi-part)
   // ─────────────────────────────────────────────────
   {
     label: "Room Elements",
     icon: "🚪",
     items: [
-      { id: "door_standard", label: "Door", icon: "🚪", description: "Interior door", shape: "box", type: "vertical", size: [0.80, 2.00, 0.04], materialId: "oak" },
-      { id: "door_front", label: "Front Door", icon: "🚪", description: "Exterior entry door", shape: "box", type: "vertical", size: [0.90, 2.10, 0.05], materialId: "walnut" },
-      { id: "window_standard", label: "Window", icon: "🪟", description: "Double-hung window", shape: "box", type: "back", size: [0.80, 1.00, 0.06], materialId: "glass" },
-      { id: "window_slide", label: "Sliding Window", icon: "🪟", description: "Sliding glass window", shape: "box", type: "back", size: [1.20, 1.00, 0.06], materialId: "glass" },
+      { id: "door_standard", label: "Door", icon: "🚪", description: "Interior door with handle", shape: "box", type: "vertical", size: [0.80, 2.00, 0.04], materialId: "oak",
+        groupName: "Door", buildPanels: () => [
+          p("Panel", "vertical", [0, 1.0, 0], [0.78, 1.98, 0.038], "oak"),
+          cy("Handle", [0.33, 0.95, -0.025], 0.025, 0.04, "chrome"),
+        ],
+      },
+      { id: "window_standard", label: "Window", icon: "🪟", description: "Window with frame", shape: "box", type: "back", size: [0.80, 1.00, 0.06], materialId: "glass",
+        groupName: "Window", buildPanels: () => [
+          p("Frame Top", "horizontal", [0, 0.49, 0], [0.80, 0.04, 0.05], "melamine_white"),
+          p("Frame Bottom", "horizontal", [0, -0.49, 0], [0.80, 0.04, 0.05], "melamine_white"),
+          p("Frame Left", "vertical", [-0.39, 0, 0], [0.04, 0.96, 0.05], "melamine_white"),
+          p("Frame Right", "vertical", [0.39, 0, 0], [0.04, 0.96, 0.05], "melamine_white"),
+          p("Cross Bar", "horizontal", [0, 0, 0], [0.74, 0.03, 0.04], "melamine_white"),
+          p("Glass Top", "back", [0, 0.25, 0], [0.74, 0.44, 0.005], "glass"),
+          p("Glass Bottom", "back", [0, -0.25, 0], [0.74, 0.44, 0.005], "glass"),
+        ],
+      },
       { id: "wall_section", label: "Wall Section", icon: "🧱", description: "Wall panel", shape: "box", type: "vertical", size: [1.00, 2.40, 0.12], materialId: "melamine_white" },
-      { id: "wall_half", label: "Half Wall", icon: "🧱", description: "Low wall / partition", shape: "box", type: "vertical", size: [1.00, 1.20, 0.12], materialId: "melamine_white" },
-      { id: "wall_corner", label: "Wall Corner", icon: "🧱", description: "L-shaped wall corner", shape: "box", type: "vertical", size: [0.12, 2.40, 1.00], materialId: "melamine_white" },
-      { id: "stairs_add", label: "Stairs", icon: "🪜", description: "Staircase section", shape: "box", type: "vertical", size: [0.90, 2.50, 2.50], materialId: "oak" },
       { id: "radiator_add", label: "Radiator", icon: "🔲", description: "Wall radiator", shape: "box", type: "vertical", size: [0.80, 0.60, 0.10], materialId: "melamine_white" },
-      { id: "coat_rack", label: "Coat Rack (Wall)", icon: "🧥", description: "Wall-mounted hooks", shape: "box", type: "horizontal", size: [0.60, 0.08, 0.10], materialId: "oak" },
-      { id: "coat_rack_standing", label: "Coat Rack (Standing)", icon: "🧥", description: "Free-standing coat rack", shape: "cylinder", type: "vertical", size: [0.04, 1.70, 0.04], materialId: "oak" },
+      { id: "coat_rack_standing", label: "Coat Rack", icon: "🧥", description: "Standing coat rack", shape: "cylinder", type: "vertical", size: [0.04, 1.70, 0.04], materialId: "oak",
+        groupName: "Coat Rack", buildPanels: () => [
+          cy("Pole", [0, 0.85, 0], 0.035, 1.68, "oak"),
+          cy("Base", [0, 0.01, 0], 0.25, 0.02, "oak"),
+          // hooks
+          cy("Hook 1", [-0.06, 1.60, 0], 0.01, 0.08, "chrome"),
+          cy("Hook 2", [0.06, 1.60, 0], 0.01, 0.08, "chrome"),
+          cy("Hook 3", [0, 1.60, -0.06], 0.01, 0.08, "chrome"),
+          cy("Hook 4", [0, 1.60, 0.06], 0.01, 0.08, "chrome"),
+        ],
+      },
       { id: "trashcan_add", label: "Trashcan", icon: "🗑️", description: "Waste bin", shape: "cylinder", type: "vertical", size: [0.25, 0.60, 0.25], materialId: "steel" },
-      { id: "cardboard_box_closed", label: "Box (Closed)", icon: "📦", description: "Cardboard box", shape: "box", type: "vertical", size: [0.40, 0.30, 0.40], materialId: "oak" },
-      { id: "cardboard_box_open", label: "Box (Open)", icon: "📦", description: "Open cardboard box", shape: "open_tray", type: "horizontal", size: [0.40, 0.30, 0.40], materialId: "oak" },
     ],
   },
 
@@ -676,28 +807,73 @@ const PART_CATEGORIES: PartCategory[] = [
     label: "Soft Furnishings",
     icon: "🛋️",
     items: [
-      { id: "pillow_white", label: "Pillow (White)", icon: "🛏️", description: "Standard white pillow", shape: "cushion", type: "horizontal", size: [0.50, 0.12, 0.35], materialId: "melamine_white" },
-      { id: "pillow_blue", label: "Pillow (Blue)", icon: "🛏️", description: "Blue accent pillow", shape: "cushion", type: "horizontal", size: [0.50, 0.12, 0.35], materialId: "fabric_blue" },
-      { id: "pillow_long", label: "Long Pillow", icon: "🛏️", description: "Body pillow", shape: "cushion", type: "horizontal", size: [0.80, 0.12, 0.30], materialId: "melamine_white" },
-      { id: "rug_rectangle", label: "Rectangle Rug", icon: "🟫", description: "Rectangular area rug", shape: "box", type: "horizontal", size: [2.00, 0.01, 1.40], materialId: "fabric_gray" },
+      { id: "pillow_white", label: "Pillow (White)", icon: "🛏️", description: "Soft pillow", shape: "cushion", type: "horizontal", size: [0.50, 0.12, 0.35], materialId: "melamine_white", cornerRadius: 0.03 },
+      { id: "pillow_blue", label: "Pillow (Blue)", icon: "🛏️", description: "Blue accent pillow", shape: "cushion", type: "horizontal", size: [0.50, 0.12, 0.35], materialId: "fabric_blue", cornerRadius: 0.03 },
+      { id: "pillow_long", label: "Body Pillow", icon: "🛏️", description: "Long body pillow", shape: "cushion", type: "horizontal", size: [0.80, 0.12, 0.30], materialId: "melamine_white", cornerRadius: 0.03 },
+      { id: "rug_rectangle", label: "Rectangle Rug", icon: "🟫", description: "Area rug", shape: "box", type: "horizontal", size: [2.00, 0.01, 1.40], materialId: "fabric_gray" },
       { id: "rug_round", label: "Round Rug", icon: "⭕", description: "Round area rug", shape: "cylinder", type: "horizontal", size: [1.50, 0.01, 1.50], materialId: "fabric_gray" },
-      { id: "rug_square", label: "Square Rug", icon: "🟫", description: "Square area rug", shape: "box", type: "horizontal", size: [1.60, 0.01, 1.60], materialId: "fabric_gray" },
-      { id: "rug_doormat", label: "Doormat", icon: "🟫", description: "Small entry mat", shape: "box", type: "horizontal", size: [0.60, 0.01, 0.40], materialId: "fabric_gray" },
     ],
   },
 
   // ─────────────────────────────────────────────────
-  // 15. PLANTS & GREENERY
+  // 15. PLANTS & GREENERY (multi-part)
   // ─────────────────────────────────────────────────
   {
     label: "Plants & Greenery",
     icon: "🌿",
     items: [
-      { id: "plant_small_1", label: "Small Plant 1", icon: "🌱", description: "Succulent in pot", shape: "sphere", type: "vertical", size: [0.10, 0.15, 0.10], materialId: "fabric_green" },
-      { id: "plant_small_2", label: "Small Plant 2", icon: "🌱", description: "Small leafy plant", shape: "sphere", type: "vertical", size: [0.12, 0.18, 0.12], materialId: "fabric_green" },
-      { id: "plant_small_3", label: "Small Plant 3", icon: "🌱", description: "Herb pot", shape: "sphere", type: "vertical", size: [0.08, 0.20, 0.08], materialId: "fabric_green" },
-      { id: "potted_plant", label: "Potted Plant", icon: "🪴", description: "Medium floor plant", shape: "sphere", type: "vertical", size: [0.30, 0.60, 0.30], materialId: "fabric_green" },
-      { id: "bear_plush", label: "Teddy Bear", icon: "🧸", description: "Plush teddy bear", shape: "sphere", type: "vertical", size: [0.20, 0.25, 0.15], materialId: "leather_tan" },
+      { id: "potted_plant", label: "Potted Plant", icon: "🪴", description: "Plant in terracotta pot", shape: "sphere", type: "vertical", size: [0.25, 0.45, 0.25], materialId: "fabric_green",
+        groupName: "Potted Plant", buildPanels: () => [
+          { id: addPid(), type: "vertical" as const, shape: "cone" as PanelShape, label: "Pot", position: [0, 0.08, 0] as [number,number,number], size: [0.18, 0.16, 0.18] as [number,number,number], materialId: "leather_tan" },
+          p("Soil", "horizontal", [0, 0.16, 0], [0.14, 0.02, 0.14], "walnut"),
+          sp("Foliage 1", [0, 0.28, 0], 0.16, "fabric_green"),
+          sp("Foliage 2", [-0.04, 0.34, 0.03], 0.10, "fabric_green"),
+          sp("Foliage 3", [0.04, 0.32, -0.03], 0.10, "fabric_green"),
+        ],
+      },
+      { id: "plant_small", label: "Small Plant", icon: "🌱", description: "Succulent in pot", shape: "sphere", type: "vertical", size: [0.12, 0.18, 0.12], materialId: "fabric_green",
+        groupName: "Small Plant", buildPanels: () => [
+          cy("Pot", [0, 0.04, 0], 0.09, 0.08, "leather_tan"),
+          sp("Plant", [0, 0.12, 0], 0.08, "fabric_green"),
+        ],
+      },
+      { id: "plant_tree", label: "Indoor Tree", icon: "🌳", description: "Small indoor tree", shape: "sphere", type: "vertical", size: [0.40, 0.90, 0.40], materialId: "fabric_green",
+        groupName: "Indoor Tree", buildPanels: () => [
+          cy("Pot", [0, 0.10, 0], 0.22, 0.20, "leather_tan"),
+          cy("Trunk", [0, 0.40, 0], 0.04, 0.40, "walnut"),
+          sp("Crown 1", [0, 0.68, 0], 0.30, "fabric_green"),
+          sp("Crown 2", [-0.08, 0.76, 0.06], 0.18, "fabric_green"),
+          sp("Crown 3", [0.08, 0.72, -0.05], 0.16, "fabric_green"),
+        ],
+      },
+      { id: "plant_cactus", label: "Cactus", icon: "🌵", description: "Cactus in pot", shape: "cylinder", type: "vertical", size: [0.12, 0.35, 0.12], materialId: "fabric_green",
+        groupName: "Cactus", buildPanels: () => [
+          cy("Pot", [0, 0.05, 0], 0.10, 0.10, "leather_tan"),
+          cy("Body", [0, 0.22, 0], 0.05, 0.24, "fabric_green"),
+          cy("Arm L", [-0.05, 0.25, 0], 0.025, 0.08, "fabric_green"),
+          cy("Arm R", [0.05, 0.28, 0], 0.025, 0.06, "fabric_green"),
+        ],
+      },
+      { id: "vase_flowers", label: "Vase with Flowers", icon: "💐", description: "Ceramic vase with flowers", shape: "cylinder", type: "vertical", size: [0.10, 0.35, 0.10], materialId: "ceramic_white",
+        groupName: "Vase with Flowers", buildPanels: () => [
+          cy("Vase", [0, 0.10, 0], 0.08, 0.20, "ceramic_white"),
+          cy("Stem 1", [-0.01, 0.26, 0.01], 0.005, 0.12, "fabric_green"),
+          cy("Stem 2", [0.01, 0.28, -0.01], 0.005, 0.14, "fabric_green"),
+          cy("Stem 3", [0, 0.27, 0], 0.005, 0.13, "fabric_green"),
+          sp("Flower 1", [-0.01, 0.33, 0.01], 0.03, "velvet_navy"),
+          sp("Flower 2", [0.01, 0.36, -0.01], 0.025, "leather_tan"),
+          sp("Flower 3", [0, 0.34, 0], 0.028, "fabric_blue"),
+        ],
+      },
+      { id: "bear_plush", label: "Teddy Bear", icon: "🧸", description: "Plush teddy bear", shape: "sphere", type: "vertical", size: [0.20, 0.25, 0.15], materialId: "leather_tan",
+        groupName: "Teddy Bear", buildPanels: () => [
+          sp("Body", [0, 0.08, 0], 0.12, "leather_tan"),
+          sp("Head", [0, 0.18, 0], 0.09, "leather_tan"),
+          sp("Ear L", [-0.05, 0.24, 0], 0.03, "leather_tan"),
+          sp("Ear R", [0.05, 0.24, 0], 0.03, "leather_tan"),
+          sp("Nose", [0, 0.17, -0.045], 0.015, "melamine_black"),
+        ],
+      },
     ],
   },
 ];
@@ -714,10 +890,11 @@ interface AddPartPickerProps {
     shapeParams?: Record<string, number>;
     placeOnSelected?: boolean;
   }) => void;
+  onAddGroup?: (name: string, panels: PanelData[]) => void;
   onClose: () => void;
 }
 
-export function AddPartPicker({ onAdd, onClose }: AddPartPickerProps) {
+export function AddPartPicker({ onAdd, onAddGroup, onClose }: AddPartPickerProps) {
   const [hovered, setHovered] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [expandedCategory, setExpandedCategory] = useState<string | null>(null);
@@ -805,15 +982,19 @@ export function AddPartPicker({ onAdd, onClose }: AddPartPickerProps) {
                     <button
                       key={item.id}
                       onClick={() => {
-                        onAdd({
-                          shape: item.shape,
-                          type: item.type,
-                          label: item.label,
-                          size: item.size,
-                          materialId: item.materialId,
-                          shapeParams: item.shapeParams,
-                          placeOnSelected: item.placeOnSelected,
-                        });
+                        if (item.buildPanels && onAddGroup) {
+                          onAddGroup(item.groupName ?? item.label, item.buildPanels());
+                        } else {
+                          onAdd({
+                            shape: item.shape,
+                            type: item.type,
+                            label: item.label,
+                            size: item.size,
+                            materialId: item.materialId,
+                            shapeParams: item.shapeParams,
+                            placeOnSelected: item.placeOnSelected,
+                          });
+                        }
                         onClose();
                       }}
                       onMouseEnter={() => setHovered(item.id)}

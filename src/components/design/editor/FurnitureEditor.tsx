@@ -1302,6 +1302,14 @@ export function FurnitureEditor({
       {showAddPicker && (
         <AddPartPicker
           onAdd={handleAddPart}
+          onAddGroup={(name, panels) => {
+            const group = createGroupFromPanels(name, panels);
+            const offset = computeGroupXOffset(groupsRef.current);
+            const offsetGroup = { ...group, position: [group.position[0] + offset, group.position[1], group.position[2]] as [number,number,number] };
+            updateScene((prev) => [...prev, offsetGroup]);
+            setSelectedGroupId(offsetGroup.id);
+            setSelectedPanelId(null);
+          }}
           onClose={() => setShowAddPicker(false)}
         />
       )}
