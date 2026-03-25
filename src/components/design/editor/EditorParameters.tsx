@@ -1,7 +1,8 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { MATERIALS, type PanelData, type MaterialOption, type GroupData } from "@/lib/furnitureData";
+import { loadSH3DCatalog, getSH3DTextureUrl, type SH3DTexture } from "@/lib/sh3dTextures";
 import { Ruler, Layers, Palette, RotateCw, ChevronDown, ChevronRight, Search } from "lucide-react";
 
 // ─── Helper: adjust hex color brightness ─────────────────
@@ -82,23 +83,69 @@ function MaterialSwatch({ material, selected, onClick }: {
   );
 }
 
+// ─── SH3D Texture Thumbnail ────────────────────────────────
+function SH3DTextureSwatch({ texture, selected, onClick }: {
+  texture: SH3DTexture;
+  selected: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      title={texture.name}
+      className={`w-10 h-10 rounded-lg border-2 transition-all relative overflow-hidden group ${
+        selected
+          ? "border-[#C87D5A] ring-2 ring-[#C87D5A]/30 scale-110"
+          : "border-gray-200 hover:border-gray-400 hover:scale-105"
+      }`}
+    >
+      <img
+        src={getSH3DTextureUrl(texture.file)}
+        alt={texture.name}
+        className="w-full h-full object-cover"
+        loading="lazy"
+      />
+      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
+      <div className="absolute bottom-0 left-0 right-0 bg-black/50 text-[6px] text-white truncate px-0.5 leading-tight opacity-0 group-hover:opacity-100 transition-opacity">
+        {texture.name}
+      </div>
+    </button>
+  );
+}
+
 // ─── Material Picker with search & collapsible categories ──
+const SH3D_CATEGORY_LABELS: Record<string, string> = {
+  fabric: "Fabric & Carpet",
+  floor: "Floor & Tile",
+  wall: "Wall & Brick",
+  wood: "Wood Grain",
+  misc: "Stone & Other",
+};
+
 function MaterialPickerSection({
   selectedMaterialId,
   onSelectMaterial,
+  onSelectSH3DTexture,
   onCustomColor,
   customColor,
   label = "Material",
 }: {
   selectedMaterialId: string;
   onSelectMaterial: (materialId: string) => void;
+  onSelectSH3DTexture?: (textureId: string) => void;
   onCustomColor?: (color: string) => void;
   customColor?: string;
   label?: string;
 }) {
   const [search, setSearch] = useState("");
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+  const [sh3dTextures, setSh3dTextures] = useState<SH3DTexture[]>([]);
   const matCategories = [...new Set(MATERIALS.map((m) => m.category))];
+
+  // Load SH3D catalog on mount
+  useEffect(() => {
+    loadSH3DCatalog().then(setSh3dTextures);
+  }, []);
 
   const filtered = useMemo(() => {
     if (!search.trim()) return MATERIALS;
@@ -108,10 +155,25 @@ function MaterialPickerSection({
     );
   }, [search]);
 
+  const filteredSH3D = useMemo(() => {
+    if (!search.trim()) return sh3dTextures;
+    const q = search.toLowerCase();
+    return sh3dTextures.filter(
+      (t) => t.name.toLowerCase().includes(q) || t.category.toLowerCase().includes(q)
+    );
+  }, [search, sh3dTextures]);
+
   const filteredCategories = useMemo(() => {
     const cats = new Set(filtered.map((m) => m.category));
     return matCategories.filter((c) => cats.has(c));
   }, [filtered, matCategories]);
+
+  const sh3dCategories = useMemo(() => {
+    const cats = new Set(filteredSH3D.map((t) => t.category));
+    return [...cats];
+  }, [filteredSH3D]);
+
+  const hasResults = filteredCategories.length > 0 || sh3dCategories.length > 0;
 
   return (
     <div className="p-4">
@@ -125,22 +187,26 @@ function MaterialPickerSection({
         <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-gray-300" />
         <input
           type="text"
-          placeholder="Search materials..."
+          placeholder="Search materials & textures..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="w-full h-7 pl-7 pr-2 rounded-md bg-gray-50 border border-gray-200 text-[11px] text-gray-700 placeholder:text-gray-300 focus:outline-none focus:border-gray-300"
         />
       </div>
 
-      {/* Collapsible categories */}
+      {/* PBR Materials (collapsible categories) */}
+      {filteredCategories.length > 0 && (
+        <p className="text-[9px] text-[#C87D5A] font-semibold uppercase tracking-widest mb-1.5">PBR Materials</p>
+      )}
       {filteredCategories.map((cat) => {
-        const isCollapsed = collapsed[cat] ?? false;
+        const key = `pbr_${cat}`;
+        const isCollapsed = collapsed[key] ?? false;
         const catMaterials = filtered.filter((m) => m.category === cat);
 
         return (
-          <div key={cat} className="mb-2">
+          <div key={key} className="mb-2">
             <button
-              onClick={() => setCollapsed((p) => ({ ...p, [cat]: !p[cat] }))}
+              onClick={() => setCollapsed((p) => ({ ...p, [key]: !p[key] }))}
               className="flex items-center gap-1.5 w-full text-left mb-1.5 group"
             >
               {isCollapsed ? (
@@ -151,6 +217,7 @@ function MaterialPickerSection({
               <span className="text-[11px] text-gray-400 uppercase tracking-wider group-hover:text-gray-600">
                 {cat}
               </span>
+              <span className="text-[8px] bg-amber-100 text-amber-700 rounded px-1 ml-1">PBR</span>
               <span className="text-[9px] text-gray-300 ml-auto">{catMaterials.length}</span>
             </button>
             {!isCollapsed && (
@@ -169,7 +236,50 @@ function MaterialPickerSection({
         );
       })}
 
-      {filteredCategories.length === 0 && search && (
+      {/* SH3D Textures */}
+      {sh3dCategories.length > 0 && (
+        <p className="text-[9px] text-blue-500 font-semibold uppercase tracking-widest mb-1.5 mt-3 pt-2 border-t border-gray-100">
+          Textures ({filteredSH3D.length})
+        </p>
+      )}
+      {sh3dCategories.map((cat) => {
+        const key = `sh3d_${cat}`;
+        const isCollapsed = collapsed[key] ?? true; // SH3D collapsed by default
+        const catTextures = filteredSH3D.filter((t) => t.category === cat);
+
+        return (
+          <div key={key} className="mb-2">
+            <button
+              onClick={() => setCollapsed((p) => ({ ...p, [key]: !p[key] }))}
+              className="flex items-center gap-1.5 w-full text-left mb-1.5 group"
+            >
+              {isCollapsed ? (
+                <ChevronRight className="w-3 h-3 text-gray-400" />
+              ) : (
+                <ChevronDown className="w-3 h-3 text-gray-400" />
+              )}
+              <span className="text-[11px] text-gray-400 uppercase tracking-wider group-hover:text-gray-600">
+                {SH3D_CATEGORY_LABELS[cat] || cat}
+              </span>
+              <span className="text-[9px] text-gray-300 ml-auto">{catTextures.length}</span>
+            </button>
+            {!isCollapsed && (
+              <div className="flex flex-wrap gap-1.5 ml-4">
+                {catTextures.map((t) => (
+                  <SH3DTextureSwatch
+                    key={t.id}
+                    texture={t}
+                    selected={t.id === selectedMaterialId}
+                    onClick={() => onSelectSH3DTexture ? onSelectSH3DTexture(t.id) : onSelectMaterial(t.id)}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+        );
+      })}
+
+      {!hasResults && search && (
         <p className="text-[10px] text-gray-400 text-center py-3">No materials match "{search}"</p>
       )}
 
