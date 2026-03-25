@@ -3,9 +3,9 @@ import { verifyAuth } from "../_shared/auth.ts";
 import { logUsage } from "../_shared/usage.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
 
-const MODEL = "black-forest-labs/FLUX.1-kontext-dev";
+const MODEL = "black-forest-labs/FLUX.1-kontext-max";
 const MAX_EDITS_PER_IMAGE = 5;
-const COST_PER_MP = 0.015; // per image (FLUX.1-kontext-dev)
+const COST_PER_MP = 0.04; // per image (FLUX.1-kontext-max)
 
 // ─── Structured Error Codes ────────────────────────────────
 type ErrorCode =

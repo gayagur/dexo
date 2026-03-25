@@ -3,9 +3,9 @@ import { verifyAuth } from "../_shared/auth.ts";
 import { logUsage, getDailyUsageCount } from "../_shared/usage.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
 
-const MODEL = "black-forest-labs/FLUX.1-dev";
+const MODEL = "black-forest-labs/FLUX.1-schnell";
 const MAX_IMAGES_PER_PROJECT = 4;
-const COST_PER_MP = 0.025; // per megapixel (FLUX.1-dev)
+const COST_PER_MP = 0.003; // per megapixel (FLUX.1-schnell)
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -23,7 +23,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Cap resolution at 1024x1024 (FLUX.1-dev supports higher res)
+    // Cap resolution at 1024x1024
     const w = Math.min(width, 1024);
     const h = Math.min(height, 1024);
 
@@ -55,61 +55,71 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Call FLUX.1-dev via Together AI (with Pollinations fallback)
-    let tempUrl: string | null = null;
-    let usedFallback = false;
+    // Call FLUX.1-dev via Together AI
+    console.log("[generate-image] Calling Together AI with model:", MODEL);
+    console.log("[generate-image] Prompt:", prompt.slice(0, 100));
+    console.log("[generate-image] Dimensions:", w, "x", h);
 
-    try {
-      const response = await fetch("https://api.together.xyz/v1/images/generations", {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${togetherApiKey}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model: MODEL,
-          prompt,
-          width: w,
-          height: h,
-          steps: 28,
-          n: 1,
-          response_format: "url",
-        }),
-      });
+    const requestBody = {
+      model: MODEL,
+      prompt,
+      width: w,
+      height: h,
+      steps: 4,
+      n: 1,
+      response_format: "url",
+    };
 
-      if (response.ok) {
-        const result = await response.json();
-        tempUrl = result.data?.[0]?.url || null;
-      } else {
-        const errText = await response.text();
-        console.error("Together AI image error:", response.status, errText);
-      }
-    } catch (togetherErr) {
-      console.error("Together AI image fetch error:", togetherErr);
-    }
+    const response = await fetch("https://api.together.xyz/v1/images/generations", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${togetherApiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(requestBody),
+    });
 
-    // Fallback to Pollinations if Together AI failed
-    if (!tempUrl) {
-      console.log("Falling back to Pollinations for image generation");
-      usedFallback = true;
-      const encodedPrompt = encodeURIComponent(prompt);
-      tempUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=${w}&height=${h}&nologo=true`;
-      // Verify the URL works
+    console.log("[generate-image] Together AI response status:", response.status);
+
+    const responseText = await response.text();
+    console.log("[generate-image] Together AI raw response:", responseText.slice(0, 500));
+
+    if (!response.ok) {
+      console.error("[generate-image] Together AI ERROR:", response.status, responseText);
+      let errMsg = "Image generation failed";
       try {
-        const checkResp = await fetch(tempUrl, { method: "HEAD" });
-        if (!checkResp.ok) {
-          return new Response(
-            JSON.stringify({ error: "Image generation failed (both providers)" }),
-            { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-          );
-        }
-      } catch {
-        return new Response(
-          JSON.stringify({ error: "Image generation failed" }),
-          { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
+        const errJson = JSON.parse(responseText);
+        if (errJson.error?.message) errMsg = errJson.error.message;
+        else if (errJson.error) errMsg = typeof errJson.error === "string" ? errJson.error : JSON.stringify(errJson.error);
+      } catch { /* use default */ }
+      return new Response(
+        JSON.stringify({ error: errMsg }),
+        { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
+
+    let result;
+    try {
+      result = JSON.parse(responseText);
+    } catch {
+      console.error("[generate-image] Failed to parse response JSON");
+      return new Response(
+        JSON.stringify({ error: "Invalid response from AI service" }),
+        { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const tempUrl = result.data?.[0]?.url;
+
+    if (!tempUrl) {
+      console.error("[generate-image] No image URL in response:", JSON.stringify(result).slice(0, 500));
+      return new Response(
+        JSON.stringify({ error: "No image returned from AI" }),
+        { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    console.log("[generate-image] Got temp URL:", tempUrl.slice(0, 100));
 
     // Download the temporary image
     const imageResponse = await fetch(tempUrl);
@@ -153,14 +163,14 @@ Deno.serve(async (req) => {
 
     // Log usage
     const megapixels = (w * h) / 1_000_000;
-    const cost = usedFallback ? 0 : megapixels * COST_PER_MP;
+    const cost = megapixels * COST_PER_MP;
 
     logUsage({
       userId,
       functionName: "generate-image",
-      model: usedFallback ? "pollinations-fallback" : MODEL,
+      model: MODEL,
       costUsd: cost,
-      metadata: { projectId, width: w, height: h, promptPreview: prompt.slice(0, 100), fallback: usedFallback },
+      metadata: { projectId, width: w, height: h, promptPreview: prompt.slice(0, 100) },
     }).catch((err) => console.error("Usage log failed:", err));
 
     return new Response(

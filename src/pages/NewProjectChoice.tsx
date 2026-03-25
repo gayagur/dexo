@@ -41,7 +41,7 @@ export default function NewProjectChoice() {
     setState((s) => ({ ...s, mode }));
     if (mode === "decorative") {
       // Decorative goes straight to AI — editor not available yet
-      navigate("/create-project");
+      navigate("/create-project?mode=decorative");
     } else {
       setStep("method");
     }
@@ -51,7 +51,7 @@ export default function NewProjectChoice() {
   const handleMethodSelect = useCallback((method: "editor" | "ai") => {
     setState((s) => ({ ...s, method }));
     if (method === "ai") {
-      navigate("/create-project");
+      navigate("/create-project?mode=furniture");
     } else {
       setStep("space");
     }
@@ -77,7 +77,7 @@ export default function NewProjectChoice() {
 
   // Step 6: Save from editor
   const handleSave = useCallback(
-    async (data: { panels: PanelData[]; dims: { w: number; h: number; d: number }; style: string; furnitureId: string }) => {
+    async (data: { panels: PanelData[]; dims: { w: number; h: number; d: number }; style: string; furnitureId: string; cameraPosition?: [number, number, number]; materialsUsed?: string[] }) => {
       if (!user || saving) return;
       setSaving(true);
 
@@ -89,7 +89,12 @@ export default function NewProjectChoice() {
           space_type: state.spaceType!,
           room_id: state.roomId!,
           furniture_id: data.furnitureId,
-          panels: data.panels as unknown as Record<string, unknown>,
+          panels: {
+            ...(typeof data.panels === "object" && !Array.isArray(data.panels) ? data.panels : { groups: [], ungroupedPanels: data.panels }),
+            camera_position: data.cameraPosition ?? [2.5, 2, 3],
+            materials_used: data.materialsUsed ?? [],
+            design_mode: "manual",
+          } as unknown as Record<string, unknown>,
           dimensions: data.dims as unknown as Record<string, unknown>,
           style: data.style,
         })
@@ -180,6 +185,7 @@ export default function NewProjectChoice() {
         <FurnitureEditor
           furnitureType={state.furniture!}
           roomLabel={getRoomLabel()}
+          spaceType={state.spaceType ?? undefined}
           onBack={() => setStep("furniture")}
           onSave={handleSave}
         />
