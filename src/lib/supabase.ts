@@ -1,11 +1,26 @@
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "./database.types";
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+const envUrl = (import.meta.env.VITE_SUPABASE_URL as string | undefined)?.trim();
+const envKey = (import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined)?.trim();
 
-if (!supabaseUrl || !supabaseAnonKey) {
+/** Set when real project URL + anon key exist (not dev placeholders). */
+export const isSupabaseConfigured = Boolean(envUrl && envKey);
+
+if (import.meta.env.PROD && !isSupabaseConfigured) {
   throw new Error("Missing Supabase environment variables");
+}
+
+// In dev, missing .env.local used to throw at import time → blank white screen. Use placeholders so the UI can load; auth/API will fail until configured.
+const supabaseUrl =
+  envUrl ?? "https://__dexo_missing_env__.invalid";
+const supabaseAnonKey =
+  envKey ?? "sb-local-dev-placeholder-anon-key";
+
+if (import.meta.env.DEV && !isSupabaseConfigured) {
+  console.warn(
+    "[DEXO] Missing VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY. Copy .env.example to .env.local and add your Supabase URL and anon key.",
+  );
 }
 
 export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {

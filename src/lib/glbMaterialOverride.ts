@@ -33,14 +33,41 @@ export function applyDesignMaterialToGlbRoot(
     customColor?: string;
     lightMode: GlbMaterialLightMode;
     dimmed: boolean;
+    /** When set (SH3D picker), applies this image on every mesh and skips palette PBR */
+    sh3dColorMap?: THREE.Texture;
   },
 ): void {
+  const night = options.lightMode === "night";
+  const envDefault = night ? 0.62 : 0.88;
+  const transparent = options.dimmed;
+  const opacity = options.dimmed ? 0.3 : 1;
+
+  if (options.sh3dColorMap) {
+    const map = options.sh3dColorMap;
+    map.wrapS = map.wrapT = THREE.RepeatWrapping;
+    map.repeat.set(2, 2);
+    map.colorSpace = THREE.SRGBColorSpace;
+    root.updateMatrixWorld(true);
+    root.traverse((child) => {
+      if (!(child instanceof THREE.Mesh)) return;
+      disposeMaterialRef(child.material);
+      child.material = new THREE.MeshStandardMaterial({
+        map,
+        color: 0xffffff,
+        roughness: 0.88,
+        metalness: 0.04,
+        transparent,
+        opacity,
+        envMapIntensity: envDefault,
+      });
+    });
+    return;
+  }
+
   const matEntry = MATERIALS.find((m) => m.id === options.materialId);
   const roughness = matEntry?.roughness ?? 0.7;
   const metalness = matEntry?.metalness ?? 0.05;
-  const night = options.lightMode === "night";
   const envMetal = night ? 4.75 : 2.5;
-  const envDefault = night ? 0.62 : 0.88;
   const isMetal = matEntry?.category === "Metal";
   const isFabric = matEntry?.category === "Fabric";
   const isClearGlass = options.materialId === "glass";
@@ -77,8 +104,6 @@ export function applyDesignMaterialToGlbRoot(
   }
 
   const normalScale = normalScaleForMaterial(matEntry);
-  const transparent = options.dimmed;
-  const opacity = options.dimmed ? 0.3 : 1;
 
   root.traverse((child) => {
     if (!(child instanceof THREE.Mesh)) return;

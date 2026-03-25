@@ -1,6 +1,6 @@
 import React, { useState, useRef, useMemo, useCallback, useEffect, useLayoutEffect, Suspense } from "react";
 import { Canvas, useFrame, useThree, type ThreeEvent } from "@react-three/fiber";
-import { OrbitControls, Grid, GizmoHelper, GizmoViewport, Environment, Lightformer, RoundedBox, useGLTF } from "@react-three/drei";
+import { OrbitControls, Grid, GizmoHelper, GizmoViewport, Environment, Lightformer, RoundedBox, useGLTF, useTexture } from "@react-three/drei";
 // postprocessing removed — @react-three/postprocessing@3 requires fiber@9, crashes on fiber@8
 import type { PanelData, GroupData } from "@/lib/furnitureData";
 import { MATERIALS } from "@/lib/furnitureData";
@@ -1879,60 +1879,112 @@ function glbPanelsMaterialUnified(panels: PanelData[]): boolean {
   if (panels.length === 0) return true;
   const f = panels[0];
   return panels.every(
-    (p) => p.materialId === f.materialId && p.customColor === f.customColor,
+    (p) =>
+      p.materialId === f.materialId &&
+      p.customColor === f.customColor &&
+      (p.textureUrl ?? "") === (f.textureUrl ?? ""),
   );
 }
 
-/** Renders an imported GLB model with its original geometry */
-function GLBModelRenderer({
-  url,
-  panels,
-  lightMode,
-  dimmed,
-  onClick,
-  onDoubleClick,
-  onContextMenu,
-  onPointerDown,
-}: {
-  url: string;
-  panels: PanelData[];
-  lightMode: EditorLightMode;
-  dimmed?: boolean;
+function centerGlbCloneRoot(c: THREE.Object3D) {
+  const bbox = new THREE.Box3().setFromObject(c);
+  const center = new THREE.Vector3();
+  bbox.getCenter(center);
+  c.position.set(-center.x, -center.y, -center.z);
+}
+
+type GlbMatMemoState =
+  | {
+      unified: true;
+      materialId: string;
+      customColor?: string;
+      textureUrl?: string;
+      signature: string;
+    }
+  | {
+      unified: false;
+      materialId: string;
+      customColor?: string;
+      signature: string;
+    };
+
+type GLBPrimitiveHandlers = {
   onClick?: (e?: ThreeEvent<MouseEvent>) => void;
   onDoubleClick?: (e?: ThreeEvent<MouseEvent>) => void;
   onContextMenu?: (x: number, y: number) => void;
   onPointerDown?: (point: THREE.Vector3, clientX: number) => void;
-}) {
-  const { scene } = useGLTF(url);
-  const glbMatState = useMemo(() => {
-    const unified = glbPanelsMaterialUnified(panels);
-    const p0 = panels[0];
-    if (unified) {
-      return {
-        unified: true as const,
-        materialId: p0?.materialId ?? "oak",
-        customColor: p0?.customColor,
-        signature: `u:${p0?.materialId ?? "oak"}|${p0?.customColor ?? ""}`,
-      };
-    }
-    return {
-      unified: false as const,
-      materialId: "oak",
-      customColor: undefined as string | undefined,
-      signature: `m:${panels.map((p) => `${p.materialId}|${p.customColor ?? ""}`).join(";")}`,
-    };
-  }, [panels]);
+};
 
+function GLBPrimitiveWithHandlers({
+  cloned,
+  onClick,
+  onDoubleClick,
+  onContextMenu,
+  onPointerDown,
+}: { cloned: THREE.Object3D } & GLBPrimitiveHandlers) {
+  return (
+    <primitive
+      object={cloned}
+      onClick={(e: ThreeEvent<MouseEvent>) => { e.stopPropagation(); onClick?.(e); }}
+      onDoubleClick={(e: ThreeEvent<MouseEvent>) => { e.stopPropagation(); onDoubleClick?.(e); }}
+      onContextMenu={(e: ThreeEvent<MouseEvent>) => {
+        e.stopPropagation();
+        const ne = e.nativeEvent ?? (e as unknown as { nativeEvent: MouseEvent }).nativeEvent;
+        if (ne) { ne.preventDefault?.(); onContextMenu?.(ne.clientX, ne.clientY); }
+      }}
+      onPointerDown={(e: ThreeEvent<PointerEvent>) => {
+        e.stopPropagation();
+        const pt = e.point ?? e.intersections?.[0]?.point;
+        if (pt) onPointerDown?.(pt.clone(), e.nativeEvent.clientX);
+      }}
+    />
+  );
+}
+
+/** GLB clone with SH3D image map (Suspense: loads texture). */
+function GLBCloneWithSh3Texture({
+  scene,
+  textureUrl,
+  lightMode,
+  dimmed,
+  ...handlers
+}: {
+  scene: THREE.Object3D;
+  textureUrl: string;
+  lightMode: EditorLightMode;
+  dimmed?: boolean;
+} & GLBPrimitiveHandlers) {
+  const sh3dMap = useTexture(textureUrl);
   const cloned = useMemo(() => {
     const c = scene.clone(true);
+    centerGlbCloneRoot(c);
+    applyDesignMaterialToGlbRoot(c, {
+      materialId: "fabric_cream",
+      lightMode,
+      dimmed: !!dimmed,
+      sh3dColorMap: sh3dMap,
+    });
+    return c;
+  }, [scene, sh3dMap, textureUrl, lightMode, dimmed]);
+  return <GLBPrimitiveWithHandlers cloned={cloned} {...handlers} />;
+}
 
-    // Center the model so its bounding box center matches the local origin.
-    // The parent <group position={g.position}> handles world placement.
-    // glbLoader sets groupPos = bbox center, so we mirror that here.
-    const bbox = new THREE.Box3().setFromObject(c);
-    const center = new THREE.Vector3();
-    bbox.getCenter(center);
-    c.position.set(-center.x, -center.y, -center.z);
+/** GLB clone with palette PBR or original materials when mixed. */
+function GLBClonePlain({
+  scene,
+  glbMatState,
+  lightMode,
+  dimmed,
+  ...handlers
+}: {
+  scene: THREE.Object3D;
+  glbMatState: GlbMatMemoState;
+  lightMode: EditorLightMode;
+  dimmed?: boolean;
+} & GLBPrimitiveHandlers) {
+  const cloned = useMemo(() => {
+    const c = scene.clone(true);
+    centerGlbCloneRoot(c);
 
     if (glbMatState.unified) {
       applyDesignMaterialToGlbRoot(c, {
@@ -1956,24 +2008,81 @@ function GLBModelRenderer({
       });
     }
     return c;
-  }, [scene, dimmed, lightMode, glbMatState.signature, glbMatState.unified, glbMatState.materialId, glbMatState.customColor]);
+  }, [scene, dimmed, lightMode, glbMatState]);
+  return <GLBPrimitiveWithHandlers cloned={cloned} {...handlers} />;
+}
+
+/** Renders an imported GLB model with its original geometry */
+function GLBModelRenderer({
+  url,
+  panels,
+  lightMode,
+  dimmed,
+  onClick,
+  onDoubleClick,
+  onContextMenu,
+  onPointerDown,
+}: {
+  url: string;
+  panels: PanelData[];
+  lightMode: EditorLightMode;
+  dimmed?: boolean;
+  onClick?: (e?: ThreeEvent<MouseEvent>) => void;
+  onDoubleClick?: (e?: ThreeEvent<MouseEvent>) => void;
+  onContextMenu?: (x: number, y: number) => void;
+  onPointerDown?: (point: THREE.Vector3, clientX: number) => void;
+}) {
+  const { scene } = useGLTF(url);
+  const glbMatState = useMemo((): GlbMatMemoState => {
+    const unified = glbPanelsMaterialUnified(panels);
+    const p0 = panels[0];
+    if (unified) {
+      return {
+        unified: true,
+        materialId: p0?.materialId ?? "oak",
+        customColor: p0?.customColor,
+        textureUrl: p0?.textureUrl,
+        signature: `u:${p0?.materialId ?? "oak"}|${p0?.customColor ?? ""}|${p0?.textureUrl ?? ""}`,
+      };
+    }
+    return {
+      unified: false,
+      materialId: "oak",
+      customColor: undefined,
+      signature: `m:${panels.map((p) => `${p.materialId}|${p.customColor ?? ""}|${p.textureUrl ?? ""}`).join(";")}`,
+    };
+  }, [panels]);
+
+  const sh3dTex =
+    glbMatState.unified && glbMatState.textureUrl ? glbMatState.textureUrl : null;
+
+  const handlers: GLBPrimitiveHandlers = {
+    onClick,
+    onDoubleClick,
+    onContextMenu,
+    onPointerDown,
+  };
 
   return (
-    <primitive
-      object={cloned}
-      onClick={(e: ThreeEvent<MouseEvent>) => { e.stopPropagation(); onClick?.(e); }}
-      onDoubleClick={(e: ThreeEvent<MouseEvent>) => { e.stopPropagation(); onDoubleClick?.(e); }}
-      onContextMenu={(e: ThreeEvent<MouseEvent>) => {
-        e.stopPropagation();
-        const ne = e.nativeEvent ?? (e as unknown as { nativeEvent: MouseEvent }).nativeEvent;
-        if (ne) { ne.preventDefault?.(); onContextMenu?.(ne.clientX, ne.clientY); }
-      }}
-      onPointerDown={(e: ThreeEvent<PointerEvent>) => {
-        e.stopPropagation();
-        const pt = e.point ?? e.intersections?.[0]?.point;
-        if (pt) onPointerDown?.(pt.clone(), e.nativeEvent.clientX);
-      }}
-    />
+    <Suspense fallback={null}>
+      {sh3dTex ? (
+        <GLBCloneWithSh3Texture
+          scene={scene}
+          textureUrl={sh3dTex}
+          lightMode={lightMode}
+          dimmed={dimmed}
+          {...handlers}
+        />
+      ) : (
+        <GLBClonePlain
+          scene={scene}
+          glbMatState={glbMatState}
+          lightMode={lightMode}
+          dimmed={dimmed}
+          {...handlers}
+        />
+      )}
+    </Suspense>
   );
 }
 
@@ -2182,6 +2291,7 @@ function FurniturePanel({
           >
             <boxGeometry args={panel.size} />
             <meshStandardMaterial
+              map={sh3dTexture ?? undefined}
               color={shapeMatProps.color} roughness={shapeMatProps.roughness}
               metalness={shapeMatProps.metalness} transparent={shapeMatProps.transparent}
               opacity={shapeMatProps.opacity}
@@ -2220,6 +2330,7 @@ function FurniturePanel({
           >
             <boxGeometry args={panel.size} />
             <meshStandardMaterial
+              map={sh3dTexture ?? undefined}
               color={shapeMatProps.color} roughness={shapeMatProps.roughness}
               metalness={shapeMatProps.metalness} transparent={shapeMatProps.transparent}
               opacity={shapeMatProps.opacity}
@@ -2283,6 +2394,16 @@ function FurniturePanel({
                 ior={1.5}
                 transparent
                 opacity={shapeMatProps.opacity}
+              />
+            ) : sh3dTexture ? (
+              <meshStandardMaterial
+                map={sh3dTexture}
+                color={shapeMatProps.color}
+                roughness={shapeMatProps.roughness}
+                metalness={shapeMatProps.metalness}
+                transparent={shapeMatProps.transparent}
+                opacity={shapeMatProps.opacity}
+                envMapIntensity={isMetal ? envMetal : envDefault}
               />
             ) : textures && isFabric ? (
               <meshPhysicalMaterial
@@ -2352,6 +2473,16 @@ function FurniturePanel({
               transparent
               opacity={shapeMatProps.opacity}
             />
+          ) : sh3dTexture ? (
+            <meshStandardMaterial
+              map={sh3dTexture}
+              color={shapeMatProps.color}
+              roughness={shapeMatProps.roughness}
+              metalness={shapeMatProps.metalness}
+              transparent={shapeMatProps.transparent}
+              opacity={shapeMatProps.opacity}
+              envMapIntensity={isMetal ? envMetal : envDefault}
+            />
           ) : textures && !isFabric ? (
             <meshStandardMaterial
               map={textures.map}
@@ -2363,6 +2494,21 @@ function FurniturePanel({
               transparent={shapeMatProps.transparent}
               opacity={shapeMatProps.opacity}
               envMapIntensity={isMetal ? envMetal : envDefault}
+            />
+          ) : textures && isFabric ? (
+            <meshPhysicalMaterial
+              map={textures.map}
+              normalMap={textures.normalMap}
+              normalScale={normalScale}
+              roughnessMap={textures.roughnessMap}
+              roughness={shapeMatProps.roughness}
+              metalness={0}
+              sheen={mat!.id.includes("velvet") ? 0.5 : mat!.id.includes("leather") ? 0.1 : 0.28}
+              sheenRoughness={mat!.id.includes("velvet") ? 0.72 : 0.9}
+              sheenColor={mat!.color}
+              transparent={shapeMatProps.transparent}
+              opacity={shapeMatProps.opacity}
+              envMapIntensity={mat!.id.includes("velvet") ? 0.5 : 0.36}
             />
           ) : (
             <meshStandardMaterial

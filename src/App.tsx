@@ -41,6 +41,7 @@ import AdminBlogPreviewPage from "./pages/admin/AdminBlogPreviewPage";
 import BlogIndexPage from "./pages/BlogIndexPage";
 import BlogPostPage from "./pages/BlogPostPage";
 import { Loader2 } from "lucide-react";
+import { isSupabaseConfigured } from "@/lib/supabase";
 
 const queryClient = new QueryClient();
 
@@ -77,6 +78,19 @@ function HomeRoute() {
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
+      {import.meta.env.DEV && !isSupabaseConfigured ? (
+        <div
+          role="status"
+          className="border-b border-amber-500/40 bg-amber-500/15 px-4 py-2 text-center text-sm text-amber-950 dark:text-amber-100"
+        >
+          <strong className="font-semibold">Supabase env missing.</strong>{" "}
+          Copy <code className="rounded bg-black/10 px-1 dark:bg-white/10">.env.example</code> to{" "}
+          <code className="rounded bg-black/10 px-1 dark:bg-white/10">.env.local</code> and set{" "}
+          <code className="rounded bg-black/10 px-1 dark:bg-white/10">VITE_SUPABASE_URL</code> and{" "}
+          <code className="rounded bg-black/10 px-1 dark:bg-white/10">VITE_SUPABASE_ANON_KEY</code>, then restart{" "}
+          <code className="rounded bg-black/10 px-1 dark:bg-white/10">npm run dev</code>.
+        </div>
+      ) : null}
       <Toaster />
       <Sonner />
       <BrowserRouter>
