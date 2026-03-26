@@ -554,30 +554,6 @@ export function EditorViewport({
     startRotY: 0,
   });
 
-  const nudge = useCallback((dx: number, dy: number, dz: number) => {
-    if (selectedPanelId) {
-      const panel = allVisiblePanels.find(p => p.id === selectedPanelId);
-      if (panel) {
-        const newPos: [number, number, number] = [
-          panel.position[0] + dx,
-          Math.max(0, panel.position[1] + dy),
-          panel.position[2] + dz,
-        ];
-        onUpdatePanel(selectedPanelId, { position: newPos });
-      }
-    } else if (selectedGroupId) {
-      const group = groups.find(g => g.id === selectedGroupId);
-      if (group) {
-        const newPos: [number, number, number] = [
-          group.position[0] + dx,
-          Math.max(0, group.position[1] + dy),
-          group.position[2] + dz,
-        ];
-        onUpdateGroup(selectedGroupId, { position: newPos });
-      }
-    }
-  }, [selectedPanelId, selectedGroupId, allVisiblePanels, groups, onUpdatePanel, onUpdateGroup]);
-
   const startDrag = useCallback((panelId: string, intersectionPoint: THREE.Vector3, clientX: number) => {
     const panel = allVisiblePanels.find(p => p.id === panelId);
     if (!panel) return;
@@ -1079,64 +1055,6 @@ export function EditorViewport({
         </div>
       )}
 
-      {/* Navigation pad — bottom-left overlay */}
-      {(selectedPanelId || selectedGroupId) && (
-        <div className="absolute bottom-12 left-3 z-20 select-none">
-          <div className="bg-white/90 backdrop-blur-sm rounded-xl shadow-md border border-gray-200 p-1.5">
-            {/* Top: Forward */}
-            <div className="flex justify-center mb-0.5">
-              <button
-                onClick={(e) => { e.preventDefault(); e.stopPropagation(); nudge(0, 0, -0.01); }}
-                className="w-7 h-7 flex items-center justify-center rounded-md hover:bg-gray-100 text-gray-500 hover:text-gray-700 transition-colors"
-                title="Move forward (Z-)"
-              >
-                <svg width="12" height="12" viewBox="0 0 12 12"><path d="M6 1L11 8H1Z" fill="currentColor"/></svg>
-              </button>
-            </div>
-            {/* Middle: Left, Up, Down, Right */}
-            <div className="flex items-center gap-0.5">
-              <button
-                onClick={(e) => { e.preventDefault(); e.stopPropagation(); nudge(-0.01, 0, 0); }}
-                className="w-7 h-7 flex items-center justify-center rounded-md hover:bg-gray-100 text-gray-500 hover:text-gray-700 transition-colors"
-                title="Move left (X-)"
-              >
-                <svg width="12" height="12" viewBox="0 0 12 12"><path d="M1 6L8 1V11Z" fill="currentColor"/></svg>
-              </button>
-              <button
-                onClick={(e) => { e.preventDefault(); e.stopPropagation(); nudge(0, 0.01, 0); }}
-                className="w-7 h-7 flex items-center justify-center rounded-md hover:bg-green-50 text-green-500 hover:text-green-700 transition-colors"
-                title="Move up (Y+)"
-              >
-                <svg width="10" height="10" viewBox="0 0 10 10"><path d="M5 0L10 7H0Z" fill="currentColor"/></svg>
-              </button>
-              <button
-                onClick={(e) => { e.preventDefault(); e.stopPropagation(); nudge(0, -0.01, 0); }}
-                className="w-7 h-7 flex items-center justify-center rounded-md hover:bg-green-50 text-green-500 hover:text-green-700 transition-colors"
-                title="Move down (Y-)"
-              >
-                <svg width="10" height="10" viewBox="0 0 10 10"><path d="M5 10L0 3H10Z" fill="currentColor"/></svg>
-              </button>
-              <button
-                onClick={(e) => { e.preventDefault(); e.stopPropagation(); nudge(0.01, 0, 0); }}
-                className="w-7 h-7 flex items-center justify-center rounded-md hover:bg-gray-100 text-gray-500 hover:text-gray-700 transition-colors"
-                title="Move right (X+)"
-              >
-                <svg width="12" height="12" viewBox="0 0 12 12"><path d="M11 6L4 1V11Z" fill="currentColor"/></svg>
-              </button>
-            </div>
-            {/* Bottom: Backward */}
-            <div className="flex justify-center mt-0.5">
-              <button
-                onClick={(e) => { e.preventDefault(); e.stopPropagation(); nudge(0, 0, 0.01); }}
-                className="w-7 h-7 flex items-center justify-center rounded-md hover:bg-gray-100 text-gray-500 hover:text-gray-700 transition-colors"
-                title="Move backward (Z+)"
-              >
-                <svg width="12" height="12" viewBox="0 0 12 12"><path d="M6 11L1 4H11Z" fill="currentColor"/></svg>
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
@@ -1181,7 +1099,6 @@ function DraggableRotationRing({
   onInteractionChange: (active: boolean) => void;
   onDragInfoChange: (info: DragInfo | null) => void;
 }) {
-  const radius = Math.max(panel.size[0], panel.size[2]) * 0.7 + 0.06;
   const [dragging, setDragging] = useState(false);
   const [hovered, setHovered] = useState(false);
   const dragStart = useRef<{ clientX: number; startRotY: number } | null>(null);
@@ -1224,10 +1141,19 @@ function DraggableRotationRing({
     };
   }, [dragging, panel, gl, onUpdateLive, onCommit, onInteractionChange, onDragInfoChange]);
 
+  const handleY = panel.size[1] / 2 + 0.1;
+
   return (
-    <group position={[panel.position[0], panel.position[1] + panel.size[1] / 2 + 0.04, panel.position[2]]}>
-      {/* Draggable ring above the object */}
+    <group position={panel.position}>
+      {/* Thin vertical stem from object top to handle */}
+      <mesh position={[0, panel.size[1] / 2 + 0.045, 0]}>
+        <cylinderGeometry args={[0.002, 0.002, 0.05, 6]} />
+        <meshStandardMaterial color="#94A3B8" transparent opacity={0.5} depthTest={false} />
+      </mesh>
+
+      {/* Small rotation handle — PowerPoint style circular arrow */}
       <mesh
+        position={[0, handleY, 0]}
         rotation={[Math.PI / 2, 0, 0]}
         onPointerDown={(e) => {
           e.stopPropagation();
@@ -1242,24 +1168,22 @@ function DraggableRotationRing({
         onPointerEnter={() => { setHovered(true); gl.domElement.style.cursor = "ew-resize"; }}
         onPointerLeave={() => { if (!dragging) { setHovered(false); gl.domElement.style.cursor = ""; } }}
       >
-        <torusGeometry args={[radius, 0.012, 8, 48, Math.PI * 1.5]} />
+        <torusGeometry args={[0.025, 0.005, 6, 24, Math.PI * 1.5]} />
         <meshStandardMaterial
-          color={dragging ? "#2563EB" : "#3B82F6"}
-          emissive="#3B82F6"
-          emissiveIntensity={dragging ? 0.8 : hovered ? 0.5 : 0.2}
+          color={dragging ? "#2563EB" : hovered ? "#3B82F6" : "#94A3B8"}
+          emissive={dragging ? "#3B82F6" : hovered ? "#3B82F6" : "#64748B"}
+          emissiveIntensity={dragging ? 0.6 : hovered ? 0.3 : 0.1}
           transparent
-          opacity={dragging || hovered ? 0.9 : 0.6}
+          opacity={dragging || hovered ? 1 : 0.7}
           depthTest={false}
         />
       </mesh>
 
-      {/* Arrow tip at end of arc */}
-      <mesh position={[0, 0, -radius]} rotation={[0, Math.PI / 2, 0]}>
-        <coneGeometry args={[0.02, 0.04, 6]} />
+      {/* Tiny arrow tip on the arc */}
+      <mesh position={[0, handleY, -0.025]} rotation={[0, Math.PI / 2, 0]}>
+        <coneGeometry args={[0.008, 0.016, 4]} />
         <meshStandardMaterial
-          color="#3B82F6"
-          emissive="#3B82F6"
-          emissiveIntensity={0.3}
+          color={dragging ? "#2563EB" : hovered ? "#3B82F6" : "#94A3B8"}
           depthTest={false}
         />
       </mesh>
@@ -1785,7 +1709,6 @@ function GroupRotationRing({
     maxZ = Math.max(maxZ, Math.abs(p.position[2]) + p.size[2] / 2);
     maxY = Math.max(maxY, p.position[1] + p.size[1] / 2);
   }
-  const radius = Math.max(maxX, maxZ) * 0.7 + 0.06;
   const ringY = (maxY === -Infinity ? 0 : maxY) + 0.04;
 
   const [dragging, setDragging] = useState(false);
@@ -1829,10 +1752,19 @@ function GroupRotationRing({
     };
   }, [dragging, group, gl, onUpdateLive, onCommit, onInteractionChange, onDragInfoChange]);
 
+  const handleY = ringY + 0.06;
+
   return (
-    <group position={[group.position[0], group.position[1] + ringY, group.position[2]]}>
-      {/* Draggable ring above the group */}
+    <group position={group.position}>
+      {/* Thin stem from group top to handle */}
+      <mesh position={[0, ringY + 0.025, 0]}>
+        <cylinderGeometry args={[0.002, 0.002, 0.05, 6]} />
+        <meshStandardMaterial color="#94A3B8" transparent opacity={0.5} depthTest={false} />
+      </mesh>
+
+      {/* Small rotation handle — PowerPoint style */}
       <mesh
+        position={[0, handleY, 0]}
         rotation={[Math.PI / 2, 0, 0]}
         onPointerDown={(e) => {
           e.stopPropagation();
@@ -1847,24 +1779,22 @@ function GroupRotationRing({
         onPointerEnter={() => { setHovered(true); gl.domElement.style.cursor = "ew-resize"; }}
         onPointerLeave={() => { if (!dragging) { setHovered(false); gl.domElement.style.cursor = ""; } }}
       >
-        <torusGeometry args={[radius, 0.012, 8, 48, Math.PI * 1.5]} />
+        <torusGeometry args={[0.025, 0.005, 6, 24, Math.PI * 1.5]} />
         <meshStandardMaterial
-          color={dragging ? "#2563EB" : "#3B82F6"}
-          emissive="#3B82F6"
-          emissiveIntensity={dragging ? 0.8 : hovered ? 0.5 : 0.2}
+          color={dragging ? "#2563EB" : hovered ? "#3B82F6" : "#94A3B8"}
+          emissive={dragging ? "#3B82F6" : hovered ? "#3B82F6" : "#64748B"}
+          emissiveIntensity={dragging ? 0.6 : hovered ? 0.3 : 0.1}
           transparent
-          opacity={dragging || hovered ? 0.9 : 0.6}
+          opacity={dragging || hovered ? 1 : 0.7}
           depthTest={false}
         />
       </mesh>
 
-      {/* Arrow tip at end of arc */}
-      <mesh position={[0, 0, -radius]} rotation={[0, Math.PI / 2, 0]}>
-        <coneGeometry args={[0.02, 0.04, 6]} />
+      {/* Tiny arrow tip */}
+      <mesh position={[0, handleY, -0.025]} rotation={[0, Math.PI / 2, 0]}>
+        <coneGeometry args={[0.008, 0.016, 4]} />
         <meshStandardMaterial
-          color="#3B82F6"
-          emissive="#3B82F6"
-          emissiveIntensity={0.3}
+          color={dragging ? "#2563EB" : hovered ? "#3B82F6" : "#94A3B8"}
           depthTest={false}
         />
       </mesh>
