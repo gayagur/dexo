@@ -3,7 +3,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { MATERIALS, type PanelData, type MaterialOption, type GroupData } from "@/lib/furnitureData";
 import { loadSH3DCatalog, getSH3DTextureUrl, type SH3DTexture } from "@/lib/sh3dTextures";
-import { Ruler, Palette, RotateCw, ChevronDown, ChevronRight, Search, MousePointerClick } from "lucide-react";
+import { Ruler, Palette, RotateCw, ChevronDown, ChevronRight, Search, MousePointerClick, ImagePlus } from "lucide-react";
 
 // ─── Helper: adjust hex color brightness ─────────────────
 function adjustBrightness(hex: string, amount: number): string {
@@ -113,6 +113,26 @@ function SH3DTextureSwatch({ texture, selected, onClick }: {
   );
 }
 
+// ─── Recent Colors helpers ────────────────────────────────
+const RECENT_COLORS_KEY = "dexo_recent_colors";
+const MAX_RECENT = 8;
+
+function loadRecentColors(): string[] {
+  try {
+    const stored = localStorage.getItem(RECENT_COLORS_KEY);
+    return stored ? JSON.parse(stored) : [];
+  } catch { return []; }
+}
+
+function saveRecentColor(color: string) {
+  try {
+    const existing = loadRecentColors();
+    const updated = [color, ...existing.filter(c => c !== color)].slice(0, MAX_RECENT);
+    localStorage.setItem(RECENT_COLORS_KEY, JSON.stringify(updated));
+    return updated;
+  } catch { return [color]; }
+}
+
 // ─── Material Picker with search & collapsible categories ──
 const SH3D_CATEGORY_LABELS: Record<string, string> = {
   fabric: "Fabric & Carpet",
@@ -128,6 +148,7 @@ function MaterialPickerSection({
   onSelectSH3DTexture,
   onCustomColor,
   customColor,
+  onUploadTexture,
   label = "Material",
 }: {
   selectedMaterialId: string;
@@ -135,11 +156,16 @@ function MaterialPickerSection({
   onSelectSH3DTexture?: (textureId: string) => void;
   onCustomColor?: (color: string) => void;
   customColor?: string;
+  onUploadTexture?: (textureUrl: string) => void;
   label?: string;
 }) {
   const [search, setSearch] = useState("");
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const [sh3dTextures, setSh3dTextures] = useState<SH3DTexture[]>([]);
+  const [recentColors, setRecentColors] = useState<string[]>(loadRecentColors);
+  const [myTextures, setMyTextures] = useState<string[]>(() => {
+    try { return JSON.parse(localStorage.getItem("dexo_recent_textures") || "[]"); } catch { return []; }
+  });
   const matCategories = [...new Set(MATERIALS.map((m) => m.category))];
 
   // Load SH3D catalog on mount
@@ -177,6 +203,24 @@ function MaterialPickerSection({
 
   return (
     <div>
+      {/* Recent Colors */}
+      {recentColors.length > 0 && (
+        <div className="mb-2">
+          <p className="text-[10px] text-gray-400 uppercase tracking-wider mb-1.5">Recent</p>
+          <div className="flex gap-1.5 flex-wrap">
+            {recentColors.map((color, i) => (
+              <button
+                key={`${color}-${i}`}
+                onClick={() => onCustomColor?.(color)}
+                className="w-6 h-6 rounded-full border-2 border-gray-200 hover:border-[#C87D5A] transition-colors cursor-pointer"
+                style={{ backgroundColor: color }}
+                title={color}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Search */}
       <div className="relative mb-3">
         <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-gray-300" />
@@ -287,11 +331,73 @@ function MaterialPickerSection({
               type="color"
               value={customColor ?? MATERIALS.find((m) => m.id === selectedMaterialId)?.color ?? "#C4A265"}
               onChange={(e) => onCustomColor(e.target.value)}
+              onBlur={(e) => {
+                setRecentColors(saveRecentColor(e.target.value));
+              }}
               className="w-8 h-8 rounded-lg border border-gray-200 cursor-pointer"
               style={{ padding: 0 }}
             />
             <span className="text-[10px] text-gray-400">Pick any color</span>
           </div>
+        </div>
+      )}
+
+      {/* Upload Texture */}
+      {onUploadTexture && (
+        <div className="mt-2 pt-2 border-t border-gray-100">
+          <p className="text-[11px] text-gray-400 uppercase tracking-wider mb-1.5">Upload Texture</p>
+          <label className="flex items-center gap-2 px-3 py-2 rounded-lg border border-dashed border-gray-300 hover:border-[#C87D5A] hover:bg-[#C87D5A]/5 cursor-pointer transition-colors">
+            <ImagePlus className="w-4 h-4 text-gray-400" />
+            <span className="text-xs text-gray-500">Choose image...</span>
+            <input
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={async (e) => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+                try {
+                  const { supabase } = await import("@/lib/supabase");
+                  const ext = file.name.split(".").pop() || "jpg";
+                  const path = `textures/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
+                  const { error } = await supabase.storage.from("project-images").upload(path, file);
+                  if (error) { console.error("Upload failed:", error); return; }
+                  const { data: urlData } = supabase.storage.from("project-images").getPublicUrl(path);
+                  if (urlData?.publicUrl) {
+                    onUploadTexture(urlData.publicUrl);
+                    try {
+                      const key = "dexo_recent_textures";
+                      const existing: string[] = JSON.parse(localStorage.getItem(key) || "[]");
+                      const updated = [urlData.publicUrl, ...existing.filter(u => u !== urlData.publicUrl)].slice(0, 6);
+                      localStorage.setItem(key, JSON.stringify(updated));
+                      setMyTextures(updated);
+                    } catch {}
+                  }
+                } catch (err) {
+                  console.error("Texture upload error:", err);
+                }
+                e.target.value = "";
+              }}
+            />
+          </label>
+          {/* My Textures — previously uploaded */}
+          {myTextures.length > 0 && (
+            <div className="mt-2">
+              <p className="text-[10px] text-gray-400 mb-1">My Textures</p>
+              <div className="flex gap-1.5 flex-wrap">
+                {myTextures.map((url, i) => (
+                  <button
+                    key={i}
+                    onClick={() => onUploadTexture(url)}
+                    className="w-10 h-10 rounded-lg border border-gray-200 hover:border-[#C87D5A] overflow-hidden transition-colors"
+                    title="Apply this texture"
+                  >
+                    <img src={url} alt="texture" className="w-full h-full object-cover" />
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -417,6 +523,7 @@ export function EditorParameters({
             onCustomColor={(color) => onCustomGroupColor(selectedGroup.id, color)}
             customColor={MATERIALS.find((m) => m.id === dominantMaterial)?.color}
             label="Material (All)"
+            onUploadTexture={onUpdateGroupTexture ? (url) => onUpdateGroupTexture(selectedGroup.id, url) : undefined}
           />
         </CollapsibleSection>
 
@@ -495,6 +602,7 @@ export function EditorParameters({
             }}
             onCustomColor={(color) => onUpdatePanel(panel.id, { customColor: color, textureUrl: undefined })}
             customColor={panel.customColor}
+            onUploadTexture={(url) => onUpdatePanel(panel.id, { textureUrl: url })}
           />
         </CollapsibleSection>
 

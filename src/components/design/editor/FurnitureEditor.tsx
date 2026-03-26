@@ -1219,26 +1219,28 @@ export function FurnitureEditor({
           <button
             title="Template Library"
             onClick={() => setShowLibrary((v) => !v)}
-            className={`h-8 w-8 flex items-center justify-center rounded-lg border transition-colors shrink-0 ${
+            className={`h-8 px-2.5 flex items-center gap-1.5 rounded-lg border text-xs font-medium transition-colors shrink-0 ${
               showLibrary
                 ? "border-[#C87D5A]/30 bg-[#C87D5A]/10 text-[#C87D5A]"
-                : "border-gray-200 bg-white text-gray-400 hover:text-gray-600"
+                : "border-gray-200 bg-white text-gray-500 hover:text-gray-700 hover:bg-gray-50"
             }`}
           >
             <BookOpen className="w-3.5 h-3.5" />
+            Library
           </button>
 
           {/* AI Assistant toggle */}
           <button
             title="AI Assistant"
             onClick={() => setChatOpen((v) => !v)}
-            className={`h-8 w-8 flex items-center justify-center rounded-lg border transition-colors shrink-0 ${
+            className={`h-8 px-2.5 flex items-center gap-1.5 rounded-lg border text-xs font-medium transition-colors shrink-0 ${
               chatOpen
                 ? "border-[#C87D5A]/30 bg-[#C87D5A]/10 text-[#C87D5A]"
-                : "border-gray-200 bg-white text-gray-400 hover:text-gray-600"
+                : "border-gray-200 bg-white text-gray-500 hover:text-gray-700 hover:bg-gray-50"
             }`}
           >
             <MessageSquare className="w-3.5 h-3.5" />
+            AI Agent
           </button>
 
           {/* Overflow ⋮ menu */}
