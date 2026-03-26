@@ -1,43 +1,72 @@
-import { useState, useMemo } from "react";
-import { Search, X, ChevronDown, ChevronRight } from "lucide-react";
+import { useState, useMemo, useEffect } from "react";
+import { Search, X } from "lucide-react";
 import {
   LIBRARY_CATEGORIES,
   LIBRARY_TEMPLATES,
   type LibraryTemplate,
 } from "@/lib/libraryData";
+import type { CommunityTemplate } from "@/lib/library-api";
 
 interface LibraryBrowserProps {
   onSelectTemplate: (template: LibraryTemplate) => void;
   onClose: () => void;
+  communityTemplates?: CommunityTemplate[];
 }
 
-export function LibraryBrowser({ onSelectTemplate, onClose }: LibraryBrowserProps) {
+export function LibraryBrowser({ onSelectTemplate, onClose, communityTemplates }: LibraryBrowserProps) {
   const [search, setSearch] = useState("");
-  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+  const [selectedCategory, setSelectedCategory] = useState(LIBRARY_CATEGORIES[0].id);
+
+  // Merge built-in templates with community templates
+  const allTemplates = useMemo(() => {
+    const community = (communityTemplates ?? []).map(
+      (ct): LibraryTemplate & { isCommunity: boolean; authorName: string | null } => ({
+        id: `community-${ct.id}`,
+        name: ct.name,
+        category: ct.category,
+        icon: ct.icon,
+        description: ct.description,
+        dims: ct.dims,
+        isCommunity: true,
+        authorName: ct.author_name,
+        buildPanels: () => ct.group_data.panels,
+      }),
+    );
+    return [...LIBRARY_TEMPLATES, ...community];
+  }, [communityTemplates]);
 
   const categoryCounts = useMemo(() => {
     const counts: Record<string, number> = {};
-    for (const t of LIBRARY_TEMPLATES) {
+    for (const t of allTemplates) {
       counts[t.category] = (counts[t.category] || 0) + 1;
     }
     return counts;
-  }, []);
+  }, [allTemplates]);
 
   const filtered = useMemo(() => {
-    if (!search.trim()) return LIBRARY_TEMPLATES;
+    if (!search.trim()) return allTemplates;
     const q = search.toLowerCase();
-    return LIBRARY_TEMPLATES.filter(
+    return allTemplates.filter(
       (t) =>
         t.name.toLowerCase().includes(q) ||
         t.description.toLowerCase().includes(q) ||
         t.category.toLowerCase().includes(q)
     );
-  }, [search]);
+  }, [search, allTemplates]);
 
-  const filteredCategories = useMemo(() => {
-    const cats = new Set(filtered.map((t) => t.category));
-    return LIBRARY_CATEGORIES.filter((c) => cats.has(c.id));
-  }, [filtered]);
+  // When searching, auto-select the first category that has matches
+  useEffect(() => {
+    if (search && filtered.length > 0) {
+      const firstCat = filtered[0].category;
+      if (!filtered.some((t) => t.category === selectedCategory)) {
+        setSelectedCategory(firstCat);
+      }
+    }
+  }, [search, filtered, selectedCategory]);
+
+  const displayTemplates = useMemo(() => {
+    return filtered.filter((t) => t.category === selectedCategory);
+  }, [filtered, selectedCategory]);
 
   return (
     <div className="w-72 bg-[#1B2432] text-white flex flex-col shrink-0 overflow-hidden">
@@ -49,7 +78,7 @@ export function LibraryBrowser({ onSelectTemplate, onClose }: LibraryBrowserProp
               Library
             </h2>
             <p className="text-[10px] text-white/30 mt-0.5">
-              {LIBRARY_TEMPLATES.length} component templates
+              {allTemplates.length} component templates
             </p>
           </div>
           <button
@@ -73,61 +102,73 @@ export function LibraryBrowser({ onSelectTemplate, onClose }: LibraryBrowserProp
         </div>
       </div>
 
-      {/* Category list with templates */}
-      <div className="flex-1 overflow-y-auto px-3 pb-4">
-        {filteredCategories.map((cat) => {
-          const isCollapsed = collapsed[cat.id] ?? false;
-          const catTemplates = filtered.filter((t) => t.category === cat.id);
-
-          return (
-            <div key={cat.id} className="mb-2">
+      {/* Category tab bar — horizontal scrollable pills */}
+      <div className="px-3 pb-2 shrink-0">
+        <div className="flex gap-1.5 overflow-x-auto pb-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+          {LIBRARY_CATEGORIES.map((cat) => {
+            const count = categoryCounts[cat.id] || 0;
+            const active = selectedCategory === cat.id;
+            return (
               <button
-                onClick={() => setCollapsed((p) => ({ ...p, [cat.id]: !p[cat.id] }))}
-                className="flex items-center gap-2 w-full text-left py-2 px-1 rounded-lg hover:bg-white/5 transition-colors group"
+                key={cat.id}
+                onClick={() => setSelectedCategory(cat.id)}
+                className={`shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-medium transition-colors ${
+                  active
+                    ? "bg-[#C87D5A] text-white"
+                    : "bg-white/5 text-white/50 hover:bg-white/10 hover:text-white/70"
+                }`}
               >
-                {isCollapsed ? (
-                  <ChevronRight className="w-3 h-3 text-white/30" />
-                ) : (
-                  <ChevronDown className="w-3 h-3 text-white/30" />
+                <span className="text-sm">{cat.icon}</span>
+                <span>{cat.label}</span>
+                {count > 0 && (
+                  <span className={`text-[9px] ${active ? "text-white/70" : "text-white/25"}`}>
+                    {count}
+                  </span>
                 )}
-                <span className="text-base">{cat.icon}</span>
-                <span className="text-[11px] font-medium text-white/70 group-hover:text-white transition-colors flex-1">
-                  {cat.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Templates grid */}
+      <div className="flex-1 overflow-y-auto px-3 pb-4">
+        <div className="grid grid-cols-2 gap-2">
+          {displayTemplates.map((template) => {
+            const isCommunity = (template as LibraryTemplate & { isCommunity?: boolean }).isCommunity ?? false;
+            return (
+              <button
+                key={template.id}
+                onClick={() => onSelectTemplate(template)}
+                className="group/card flex flex-col items-start p-2.5 rounded-xl bg-white/[0.03] border border-white/[0.06] hover:bg-white/[0.08] hover:border-white/[0.15] transition-all duration-150 text-left"
+              >
+                <div className="flex items-start justify-between w-full mb-1">
+                  <span className="text-lg">{template.icon}</span>
+                  {isCommunity && (
+                    <span className="text-[8px] font-semibold uppercase tracking-wide text-[#C87D5A] bg-[#C87D5A]/15 px-1.5 py-0.5 rounded-full shrink-0">
+                      Community
+                    </span>
+                  )}
+                </div>
+                <span className="text-[11px] font-medium text-white/80 leading-tight group-hover/card:text-white transition-colors">
+                  {template.name}
                 </span>
-                <span className="text-[10px] text-white/25 bg-white/5 px-1.5 py-0.5 rounded-full">
-                  {categoryCounts[cat.id] || 0}
+                <span className="text-[9px] text-white/30 mt-0.5 leading-snug line-clamp-2">
+                  {template.description}
+                </span>
+                <span className="text-[9px] text-white/20 mt-1 font-mono">
+                  {template.dims.w}×{template.dims.h}×{template.dims.d}
                 </span>
               </button>
+            );
+          })}
+        </div>
 
-              {!isCollapsed && (
-                <div className="grid grid-cols-2 gap-1.5 ml-2 mr-1 mb-2">
-                  {catTemplates.map((template) => (
-                    <button
-                      key={template.id}
-                      onClick={() => onSelectTemplate(template)}
-                      className="group/card flex flex-col items-start p-2.5 rounded-xl bg-white/[0.03] border border-white/[0.06] hover:bg-white/[0.08] hover:border-white/[0.15] transition-all duration-150 text-left"
-                    >
-                      <span className="text-lg mb-1">{template.icon}</span>
-                      <span className="text-[11px] font-medium text-white/80 leading-tight group-hover/card:text-white transition-colors">
-                        {template.name}
-                      </span>
-                      <span className="text-[9px] text-white/30 mt-0.5 leading-snug line-clamp-2">
-                        {template.description}
-                      </span>
-                      <span className="text-[9px] text-white/20 mt-1 font-mono">
-                        {template.dims.w}×{template.dims.h}×{template.dims.d}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          );
-        })}
-
-        {filteredCategories.length === 0 && search && (
+        {displayTemplates.length === 0 && (
           <div className="flex flex-col items-center justify-center py-12 text-white/30">
-            <p className="text-xs">No templates match "{search}"</p>
+            <p className="text-xs">
+              No templates {search ? `match "${search}"` : "in this category"}
+            </p>
           </div>
         )}
       </div>

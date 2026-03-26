@@ -37,6 +37,7 @@ import ManageClients from "./pages/admin/ManageClients";
 import ManageProjects from "./pages/admin/ManageProjects";
 import ManageReviews from "./pages/admin/ManageReviews";
 import AdminBlogListPage from "./pages/admin/AdminBlogListPage";
+import AdminLibraryPage from "./pages/admin/AdminLibraryPage";
 import AdminBlogEditorPage from "./pages/admin/AdminBlogEditorPage";
 import AdminBlogPreviewPage from "./pages/admin/AdminBlogPreviewPage";
 import BlogIndexPage from "./pages/BlogIndexPage";
@@ -250,6 +251,11 @@ const App = () => (
             <Route path="/admin/blog/:id" element={
               <ProtectedRoute requireAdmin>
                 <AdminBlogEditorPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/admin/library" element={
+              <ProtectedRoute requireAdmin>
+                <AdminLibraryPage />
               </ProtectedRoute>
             } />
 

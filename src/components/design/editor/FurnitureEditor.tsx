@@ -5,6 +5,8 @@ import { EditorParameters } from "./EditorParameters";
 import { DesignChatPanel } from "./DesignChatPanel";
 import { AddPartPicker } from "./AddPartPicker";
 import { LibraryBrowser } from "./LibraryBrowser";
+import { SubmitToLibraryDialog } from "./SubmitToLibraryDialog";
+import { fetchCommunityTemplates, type CommunityTemplate } from "@/lib/library-api";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -36,7 +38,7 @@ import {
   findGroupContainingPanel,
 } from "@/lib/groupUtils";
 import type { LibraryTemplate } from "@/lib/libraryData";
-import { ArrowLeft, Save, RotateCcw, MessageSquare, Magnet, HelpCircle, X, Undo2, Redo2, Box, Square, PanelTop, PanelLeft, Loader2, Sun, Moon, Check, LogOut, SendHorizonal, MoreVertical } from "lucide-react";
+import { ArrowLeft, Save, RotateCcw, MessageSquare, Magnet, HelpCircle, X, Undo2, Redo2, Box, Square, PanelTop, PanelLeft, Loader2, Sun, Moon, Check, LogOut, SendHorizonal, MoreVertical, Upload } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import type { ViewMode, EditorLightMode, EditorFloorPreset } from "./EditorViewport";
 import { EDITOR_FLOOR_OPTIONS } from "./EditorViewport";
@@ -176,6 +178,8 @@ export function FurnitureEditor({
   const [floorPreset, setFloorPreset] = useState<EditorFloorPreset>("studio");
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "unsaved">("idle");
   const [showLeaveConfirm, setShowLeaveConfirm] = useState<{ action: () => void } | null>(null);
+  const [submitLibraryGroup, setSubmitLibraryGroup] = useState<GroupData | null>(null);
+  const [communityTemplates, setCommunityTemplates] = useState<CommunityTemplate[]>([]);
   const [contextMenu, setContextMenu] = useState<{
     x: number;
     y: number;
@@ -925,6 +929,11 @@ export function FurnitureEditor({
     }
   }, [editingGroupId, updateScene]);
 
+  // ─── Fetch community templates on mount ───────────────
+  useEffect(() => {
+    fetchCommunityTemplates().then((r) => setCommunityTemplates(r.data));
+  }, []);
+
   // ─── Warn on navigation with unsaved changes ──────────
   useEffect(() => {
     const handler = (e: BeforeUnloadEvent) => {
@@ -1253,6 +1262,18 @@ export function FurnitureEditor({
                 Shortcuts &amp; Help
               </button>
               <div className="h-px bg-gray-100 mx-1" />
+              {/* Submit to Library */}
+              <button
+                onClick={() => {
+                  const targetGroup = selectedGroup || groups[0];
+                  if (targetGroup) setSubmitLibraryGroup(targetGroup);
+                }}
+                className="w-full flex items-center gap-2 px-3 py-2 text-xs text-gray-700 hover:bg-gray-50 transition-colors rounded-lg"
+                disabled={groups.length === 0}
+              >
+                <Upload className="w-3.5 h-3.5 text-gray-400" />
+                Submit to Library
+              </button>
               {/* Save & Exit */}
               <button
                 onClick={() => guardedNavigate(handleSaveAndExit)}
@@ -1329,6 +1350,7 @@ export function FurnitureEditor({
           <LibraryBrowser
             onSelectTemplate={handleLoadTemplate}
             onClose={() => setShowLibrary(false)}
+            communityTemplates={communityTemplates}
           />
         ) : (
           <EditorSidebar
@@ -1528,6 +1550,15 @@ export function FurnitureEditor({
             }
           }}
           onClose={() => setShowAddPicker(false)}
+        />
+      )}
+
+      {/* Submit to Library dialog */}
+      {submitLibraryGroup && (
+        <SubmitToLibraryDialog
+          group={submitLibraryGroup}
+          dims={dims}
+          onClose={() => setSubmitLibraryGroup(null)}
         />
       )}
 

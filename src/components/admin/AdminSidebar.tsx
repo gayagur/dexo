@@ -8,6 +8,7 @@ import {
   Star,
   ArrowLeft,
   BookOpen,
+  Library,
 } from "lucide-react";
 
 interface NavItem {
@@ -32,6 +33,7 @@ export function AdminSidebar({ pendingCount = 0 }: AdminSidebarProps) {
     { to: "/admin/projects", label: "Projects", icon: FolderOpen },
     { to: "/admin/reviews", label: "Reviews", icon: Star },
     { to: "/admin/blog", label: "Blog", icon: BookOpen },
+    { to: "/admin/library", label: "Library", icon: Library },
   ];
 
   const isActive = (path: string) => {
