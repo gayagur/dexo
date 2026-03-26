@@ -162,6 +162,27 @@ const LandingPage = () => {
         <meta property="og:url" content="https://dexo.info/" />
         <meta property="og:title" content="DEXO – AI-Powered Interior Design Marketplace" />
         <meta property="og:description" content="Design your dream space with AI. Connect with skilled interior designers, carpenters, and decorators." />
+        <meta property="og:image" content="https://dexo.info/og-default.png" />
+        <meta name="twitter:image" content="https://dexo.info/og-default.png" />
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify({
+          "@context": "https://schema.org",
+          "@graph": [
+            {
+              "@type": "WebSite",
+              "name": "DEXO",
+              "url": "https://dexo.info",
+              "description": "AI-Powered Interior Design Marketplace"
+            },
+            {
+              "@type": "Organization",
+              "name": "DEXO",
+              "url": "https://dexo.info",
+              "logo": "https://dexo.info/og-default.png",
+              "description": "Design your dream space with AI. Connect with skilled interior designers, carpenters, and decorators.",
+              "sameAs": []
+            }
+          ]
+        }) }} />
       </Helmet>
       {/* Navigation */}
       <nav

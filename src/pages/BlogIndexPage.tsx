@@ -73,12 +73,14 @@ export default function BlogIndexPage() {
           content="Ideas on custom furniture, AI-assisted design, and interiors. Tips, guides, and inspiration from the DEXO team."
         />
         {origin && <meta property="og:url" content={canonical} />}
+        <meta property="og:image" content="https://dexo.info/og-default.png" />
         <meta name="twitter:card" content="summary_large_image" />
         <meta name="twitter:title" content="DEXO Blog - Design & Furniture Ideas" />
         <meta
           name="twitter:description"
           content="Ideas on custom furniture, AI-assisted design, and interiors."
         />
+        <meta name="twitter:image" content="https://dexo.info/og-default.png" />
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(orgJsonLd) }} />
       </Helmet>
 
