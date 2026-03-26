@@ -167,7 +167,7 @@ export function FurnitureEditor({
 
   const [dims, setDims] = useState(() => boot.dims);
   const [style, setStyle] = useState(() => boot.style);
-  const [chatOpen, setChatOpen] = useState(true);
+  const [chatOpen, setChatOpen] = useState(false);
   const [showAddPicker, setShowAddPicker] = useState(false);
   const [showLibrary, setShowLibrary] = useState(false);
   const [snapEnabled, setSnapEnabled] = useState(true);
@@ -1459,36 +1459,24 @@ export function FurnitureEditor({
           multiSelectCount={selectedPanelIds.length}
         />
 
+        {chatOpen && (
+          <DesignChatPanel
+            furnitureType={furnitureType}
+            dims={dims}
+            style={style}
+            panels={flattenScene(groups, ungroupedPanels)}
+            onUpdateDims={handleDimsChange}
+            onUpdateStyle={setStyle}
+            onUpdatePanelMaterial={handleUpdatePanelMaterial}
+            onUpdateAllMaterials={handleUpdateAllMaterials}
+            onRemovePanel={handleChatRemovePanel}
+            onAddPanel={handleChatAddPanel}
+            onBuildFromImage={handleBuildFromImage}
+            onClose={() => setChatOpen(false)}
+          />
+        )}
+
       </div>
-
-      {/* Floating AI Assistant panel — position:fixed, rendered outside layout */}
-      {chatOpen && (
-        <DesignChatPanel
-          furnitureType={furnitureType}
-          dims={dims}
-          style={style}
-          panels={flattenScene(groups, ungroupedPanels)}
-          onUpdateDims={handleDimsChange}
-          onUpdateStyle={setStyle}
-          onUpdatePanelMaterial={handleUpdatePanelMaterial}
-          onUpdateAllMaterials={handleUpdateAllMaterials}
-          onRemovePanel={handleChatRemovePanel}
-          onAddPanel={handleChatAddPanel}
-          onBuildFromImage={handleBuildFromImage}
-          onClose={() => setChatOpen(false)}
-        />
-      )}
-
-      {/* Floating AI chat toggle — bottom-right, only visible when chat is closed */}
-      {!chatOpen && (
-        <button
-          onClick={() => setChatOpen(true)}
-          title="Open AI Assistant"
-          className="fixed bottom-20 right-4 z-30 h-11 w-11 flex items-center justify-center rounded-full shadow-lg bg-[#1B2432] text-white hover:bg-[#2A3544] transition-colors"
-        >
-          <MessageSquare className="w-5 h-5" />
-        </button>
-      )}
 
       {/* Context menu for 3D viewport elements */}
       {contextMenu && (

@@ -554,6 +554,30 @@ export function EditorViewport({
     startRotY: 0,
   });
 
+  const nudge = useCallback((dx: number, dy: number, dz: number) => {
+    if (selectedPanelId) {
+      const panel = allVisiblePanels.find(p => p.id === selectedPanelId);
+      if (panel) {
+        const newPos: [number, number, number] = [
+          panel.position[0] + dx,
+          Math.max(0, panel.position[1] + dy),
+          panel.position[2] + dz,
+        ];
+        onUpdatePanel(selectedPanelId, { position: newPos });
+      }
+    } else if (selectedGroupId) {
+      const group = groups.find(g => g.id === selectedGroupId);
+      if (group) {
+        const newPos: [number, number, number] = [
+          group.position[0] + dx,
+          Math.max(0, group.position[1] + dy),
+          group.position[2] + dz,
+        ];
+        onUpdateGroup(selectedGroupId, { position: newPos });
+      }
+    }
+  }, [selectedPanelId, selectedGroupId, allVisiblePanels, groups, onUpdatePanel, onUpdateGroup]);
+
   const startDrag = useCallback((panelId: string, intersectionPoint: THREE.Vector3, clientX: number) => {
     const panel = allVisiblePanels.find(p => p.id === panelId);
     if (!panel) return;
@@ -763,7 +787,6 @@ export function EditorViewport({
                     onDoubleClick={(e) => { if (e) e.stopPropagation(); if (!isDimmed) onEnterEditMode(g.id); }}
                     onContextMenu={(x, y) => {
                       if (!isDimmed) {
-                        setContextMenu({ panelId: g.panels[0]?.id ?? g.id, label: g.name, x, y, type: "group", groupId: g.id });
                         onContextMenuProp?.(x, y, null, g.id);
                       }
                     }}
@@ -786,7 +809,6 @@ export function EditorViewport({
                     onDoubleClick={(e) => { if (e) e.stopPropagation(); if (!isDimmed) onEnterEditMode(g.id); }}
                     onContextMenu={(x, y) => {
                       if (!isDimmed) {
-                        setContextMenu({ panelId: panel.id, label: g.name, x, y, type: "group", groupId: g.id });
                         onContextMenuProp?.(x, y, null, g.id);
                       } else if (isDoor(panel.label)) {
                         setContextMenu({ panelId: panel.id, label: panel.label, x, y, type: "door" });
@@ -887,9 +909,15 @@ export function EditorViewport({
           );
         })()}
 
-        {/* Rotation ring when in rotation mode (not for group selection) */}
-        {rotationMode && selectedPanel && !selectedGroupId && (
-          <RotationRing panel={selectedPanel} />
+        {/* Draggable rotation ring — always visible when a panel is selected */}
+        {selectedPanel && !selectedGroupId && (
+          <DraggableRotationRing
+            panel={selectedPanel}
+            onUpdateLive={onUpdatePanelLive ?? onUpdatePanel}
+            onCommit={onUpdatePanel}
+            onInteractionChange={setInteractionActive}
+            onDragInfoChange={setDragInfo}
+          />
         )}
 
         {/* Group resize handles (Scene Mode, group selected, not rotation mode) */}
@@ -905,10 +933,56 @@ export function EditorViewport({
           ) : null;
         })()}
 
-        {/* Group rotation ring (Scene Mode, group selected, rotation mode) */}
-        {selectedGroupId && !editingGroupId && rotationMode && (() => {
+        {/* Y-axis handle for group vertical movement */}
+        {selectedGroupId && !editingGroupId && !rotationMode && (() => {
           const group = groups.find(g => g.id === selectedGroupId);
-          return group ? <GroupRotationRing group={group} /> : null;
+          if (!group) return null;
+          // Compute group bounding box height
+          let maxY = -Infinity;
+          for (const p of group.panels) {
+            maxY = Math.max(maxY, p.position[1] + p.size[1] / 2);
+          }
+          const groupHeight = maxY > 0 ? maxY : 0.3;
+          // Create a fake "panel" for YAxisHandle positioning
+          const fakePanel = {
+            id: `__group__${group.id}`,
+            position: group.position as [number, number, number],
+            size: [0.3, groupHeight * 2, 0.3] as [number, number, number],
+            type: "horizontal" as const,
+            label: group.name,
+            materialId: "oak",
+          };
+          return (
+            <YAxisHandle
+              panel={fakePanel}
+              onUpdateLive={(_, updates) => {
+                if (updates.position) {
+                  (onUpdateGroupLive ?? onUpdateGroup)(group.id, { position: updates.position });
+                }
+              }}
+              onCommit={(_, updates) => {
+                if (updates.position) {
+                  onUpdateGroup(group.id, { position: updates.position });
+                }
+              }}
+              onInteractionChange={setInteractionActive}
+              onDragInfoChange={setDragInfo}
+            />
+          );
+        })()}
+
+        {/* Group rotation ring — always visible when a group is selected */}
+        {selectedGroupId && !editingGroupId && (() => {
+          const group = groups.find(g => g.id === selectedGroupId);
+          return group ? (
+            <GroupRotationRing
+              group={group}
+              onUpdateLive={onUpdateGroupLive ?? onUpdateGroup}
+              onCommit={onUpdateGroup}
+              onInteractionChange={setInteractionActive}
+              onDragInfoChange={setDragInfo}
+            />
+          ) : null;
         })()}
 
         {/* Set camera when viewMode changes */}
@@ -980,40 +1054,7 @@ export function EditorViewport({
       {contextMenu && (
         <div className="absolute z-50" style={{ left: contextMenu.x, top: contextMenu.y }}>
           <div className="bg-white rounded-lg shadow-lg border border-gray-200 py-1 min-w-[160px]">
-            {contextMenu.type === "group" && contextMenu.groupId ? (
-              <>
-                <button
-                  onClick={() => { onEnterEditMode(contextMenu.groupId!); closeContextMenu(); }}
-                  className="w-full px-3 py-1.5 text-left text-xs text-gray-700 hover:bg-gray-50 flex items-center gap-2"
-                >
-                  Edit Group
-                </button>
-                <button
-                  onClick={() => {
-                    const name = prompt("Rename group:", contextMenu.label);
-                    if (name) onRenameGroup(contextMenu.groupId!, name);
-                    closeContextMenu();
-                  }}
-                  className="w-full px-3 py-1.5 text-left text-xs text-gray-700 hover:bg-gray-50 flex items-center gap-2"
-                >
-                  Rename
-                </button>
-                <button
-                  onClick={() => { onUngroupGroup(contextMenu.groupId!); closeContextMenu(); }}
-                  className="w-full px-3 py-1.5 text-left text-xs text-gray-700 hover:bg-gray-50 flex items-center gap-2"
-                >
-                  Ungroup
-                </button>
-                <div className="border-t border-gray-100 my-1" />
-                <button
-                  onClick={() => { onDeleteGroup(contextMenu.groupId!); closeContextMenu(); }}
-                  className="w-full px-3 py-1.5 text-left text-xs text-red-500 hover:bg-red-50 flex items-center gap-2"
-                >
-                  Delete Group
-                </button>
-              </>
-            ) : (
-              <>
+            <>
                 <button
                   onClick={() => { togglePanel(contextMenu.panelId); closeContextMenu(); }}
                   className="w-full px-3 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2.5 transition-colors"
@@ -1034,7 +1075,65 @@ export function EditorViewport({
                   Cancel
                 </button>
               </>
-            )}
+          </div>
+        </div>
+      )}
+
+      {/* Navigation pad — bottom-left overlay */}
+      {(selectedPanelId || selectedGroupId) && (
+        <div className="absolute bottom-12 left-3 z-20 select-none">
+          <div className="bg-white/90 backdrop-blur-sm rounded-xl shadow-md border border-gray-200 p-1.5">
+            {/* Top: Forward */}
+            <div className="flex justify-center mb-0.5">
+              <button
+                onPointerDown={() => nudge(0, 0, -0.01)}
+                className="w-7 h-7 flex items-center justify-center rounded-md hover:bg-gray-100 text-gray-500 hover:text-gray-700 transition-colors"
+                title="Move forward (Z-)"
+              >
+                <svg width="12" height="12" viewBox="0 0 12 12"><path d="M6 1L11 8H1Z" fill="currentColor"/></svg>
+              </button>
+            </div>
+            {/* Middle: Left, Up, Down, Right */}
+            <div className="flex items-center gap-0.5">
+              <button
+                onPointerDown={() => nudge(-0.01, 0, 0)}
+                className="w-7 h-7 flex items-center justify-center rounded-md hover:bg-gray-100 text-gray-500 hover:text-gray-700 transition-colors"
+                title="Move left (X-)"
+              >
+                <svg width="12" height="12" viewBox="0 0 12 12"><path d="M1 6L8 1V11Z" fill="currentColor"/></svg>
+              </button>
+              <button
+                onPointerDown={() => nudge(0, 0.01, 0)}
+                className="w-7 h-7 flex items-center justify-center rounded-md hover:bg-green-50 text-green-500 hover:text-green-700 transition-colors"
+                title="Move up (Y+)"
+              >
+                <svg width="10" height="10" viewBox="0 0 10 10"><path d="M5 0L10 7H0Z" fill="currentColor"/></svg>
+              </button>
+              <button
+                onPointerDown={() => nudge(0, -0.01, 0)}
+                className="w-7 h-7 flex items-center justify-center rounded-md hover:bg-green-50 text-green-500 hover:text-green-700 transition-colors"
+                title="Move down (Y-)"
+              >
+                <svg width="10" height="10" viewBox="0 0 10 10"><path d="M5 10L0 3H10Z" fill="currentColor"/></svg>
+              </button>
+              <button
+                onPointerDown={() => nudge(0.01, 0, 0)}
+                className="w-7 h-7 flex items-center justify-center rounded-md hover:bg-gray-100 text-gray-500 hover:text-gray-700 transition-colors"
+                title="Move right (X+)"
+              >
+                <svg width="12" height="12" viewBox="0 0 12 12"><path d="M11 6L4 1V11Z" fill="currentColor"/></svg>
+              </button>
+            </div>
+            {/* Bottom: Backward */}
+            <div className="flex justify-center mt-0.5">
+              <button
+                onPointerDown={() => nudge(0, 0, 0.01)}
+                className="w-7 h-7 flex items-center justify-center rounded-md hover:bg-gray-100 text-gray-500 hover:text-gray-700 transition-colors"
+                title="Move backward (Z+)"
+              >
+                <svg width="12" height="12" viewBox="0 0 12 12"><path d="M6 11L1 4H11Z" fill="currentColor"/></svg>
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -1067,23 +1166,102 @@ function SnapGuideLine({ guide }: { guide: SnapGuide }) {
   );
 }
 
-// ─── Rotation Ring (visual affordance) ──────────────────
+// ─── Draggable Rotation Ring ─────────────────────────────
 
-function RotationRing({ panel }: { panel: PanelData }) {
-  const radius = Math.max(panel.size[0], panel.size[2]) * 0.8 + 0.05;
-  const meshRef = useRef<THREE.Mesh>(null!);
+function DraggableRotationRing({
+  panel,
+  onUpdateLive,
+  onCommit,
+  onInteractionChange,
+  onDragInfoChange,
+}: {
+  panel: PanelData;
+  onUpdateLive: (id: string, updates: Partial<PanelData>) => void;
+  onCommit?: (id: string, updates: Partial<PanelData>) => void;
+  onInteractionChange: (active: boolean) => void;
+  onDragInfoChange: (info: DragInfo | null) => void;
+}) {
+  const radius = Math.max(panel.size[0], panel.size[2]) * 0.7 + 0.06;
+  const [dragging, setDragging] = useState(false);
+  const [hovered, setHovered] = useState(false);
+  const dragStart = useRef<{ clientX: number; startRotY: number } | null>(null);
+  const { gl } = useThree();
 
-  useFrame((_, delta) => {
-    if (meshRef.current) {
-      meshRef.current.rotation.z += delta * 0.3;
-    }
-  });
+  useEffect(() => {
+    if (!dragging) return;
+
+    const onPointerMove = (e: PointerEvent) => {
+      if (!dragStart.current) return;
+      const deltaX = e.clientX - dragStart.current.clientX;
+      // 200px = 90 degrees
+      const deltaRad = (deltaX / 200) * (Math.PI / 2);
+      const newRotY = dragStart.current.startRotY + deltaRad;
+      const rot = [...(panel.rotation ?? [0, 0, 0])] as [number, number, number];
+      rot[1] = newRotY;
+      onUpdateLive(panel.id, { rotation: rot });
+
+      const degrees = Math.round((newRotY * 180) / Math.PI) % 360;
+      const startDeg = Math.round((dragStart.current.startRotY * 180) / Math.PI) % 360;
+      onDragInfoChange({ position: panel.position, resizeLabel: `Y: ${startDeg}° → ${degrees}°` });
+    };
+
+    const onPointerUp = () => {
+      setDragging(false);
+      dragStart.current = null;
+      gl.domElement.style.cursor = "";
+      onInteractionChange(false);
+      onDragInfoChange(null);
+      if (onCommit) {
+        onCommit(panel.id, { rotation: panel.rotation });
+      }
+    };
+
+    gl.domElement.addEventListener("pointermove", onPointerMove);
+    gl.domElement.addEventListener("pointerup", onPointerUp);
+    return () => {
+      gl.domElement.removeEventListener("pointermove", onPointerMove);
+      gl.domElement.removeEventListener("pointerup", onPointerUp);
+    };
+  }, [dragging, panel, gl, onUpdateLive, onCommit, onInteractionChange, onDragInfoChange]);
 
   return (
     <group position={panel.position}>
-      <mesh ref={meshRef} rotation={[Math.PI / 2, 0, 0]}>
-        <ringGeometry args={[radius, radius + 0.008, 64]} />
-        <meshBasicMaterial color="#3B82F6" transparent opacity={0.5} side={THREE.DoubleSide} depthTest={false} />
+      {/* Draggable ring at the base */}
+      <mesh
+        rotation={[Math.PI / 2, 0, 0]}
+        onPointerDown={(e) => {
+          e.stopPropagation();
+          setDragging(true);
+          onInteractionChange(true);
+          dragStart.current = {
+            clientX: (e as any).nativeEvent?.clientX ?? e.clientX,
+            startRotY: (panel.rotation ?? [0, 0, 0])[1],
+          };
+          gl.domElement.style.cursor = "ew-resize";
+        }}
+        onPointerEnter={() => { setHovered(true); gl.domElement.style.cursor = "ew-resize"; }}
+        onPointerLeave={() => { if (!dragging) { setHovered(false); gl.domElement.style.cursor = ""; } }}
+      >
+        <torusGeometry args={[radius, 0.012, 8, 48]} />
+        <meshStandardMaterial
+          color={dragging ? "#2563EB" : "#3B82F6"}
+          emissive="#3B82F6"
+          emissiveIntensity={dragging ? 0.8 : hovered ? 0.5 : 0.2}
+          transparent
+          opacity={dragging || hovered ? 0.9 : 0.6}
+          depthTest={false}
+        />
+      </mesh>
+
+      {/* Small arrow indicator on the ring */}
+      <mesh position={[radius, 0.01, 0]} rotation={[Math.PI / 2, 0, 0]}>
+        <coneGeometry args={[0.02, 0.04, 6]} />
+        <meshStandardMaterial
+          color="#3B82F6"
+          emissive="#3B82F6"
+          emissiveIntensity={0.3}
+          depthTest={false}
+        />
       </mesh>
     </group>
   );
@@ -1585,27 +1763,108 @@ function ResizeHandle({
   );
 }
 
-// ─── Group Rotation Ring ─────────────────────────────────
+// ─── Group Rotation Ring (Draggable) ─────────────────────
 
-function GroupRotationRing({ group }: { group: GroupData }) {
+function GroupRotationRing({
+  group,
+  onUpdateLive,
+  onCommit,
+  onInteractionChange,
+  onDragInfoChange,
+}: {
+  group: GroupData;
+  onUpdateLive: (groupId: string, updates: Partial<GroupData>) => void;
+  onCommit?: (groupId: string, updates: Partial<GroupData>) => void;
+  onInteractionChange: (active: boolean) => void;
+  onDragInfoChange: (info: DragInfo | null) => void;
+}) {
   const panels = group.panels;
   let maxX = -Infinity, maxZ = -Infinity;
   for (const p of panels) {
     maxX = Math.max(maxX, Math.abs(p.position[0]) + p.size[0] / 2);
     maxZ = Math.max(maxZ, Math.abs(p.position[2]) + p.size[2] / 2);
   }
-  const radius = Math.max(maxX, maxZ) * 0.8 + 0.05;
+  const radius = Math.max(maxX, maxZ) * 0.7 + 0.06;
 
-  const meshRef = useRef<THREE.Mesh>(null!);
-  useFrame((_, delta) => {
-    if (meshRef.current) meshRef.current.rotation.z += delta * 0.3;
-  });
+  const [dragging, setDragging] = useState(false);
+  const [hovered, setHovered] = useState(false);
+  const dragStart = useRef<{ clientX: number; startRotY: number } | null>(null);
+  const { gl } = useThree();
+
+  useEffect(() => {
+    if (!dragging) return;
+
+    const onPointerMove = (e: PointerEvent) => {
+      if (!dragStart.current) return;
+      const deltaX = e.clientX - dragStart.current.clientX;
+      const deltaRad = (deltaX / 200) * (Math.PI / 2);
+      const newRotY = dragStart.current.startRotY + deltaRad;
+      const rot = [...group.rotation] as [number, number, number];
+      rot[1] = newRotY;
+      onUpdateLive(group.id, { rotation: rot });
+
+      const degrees = Math.round((newRotY * 180) / Math.PI) % 360;
+      const startDeg = Math.round((dragStart.current.startRotY * 180) / Math.PI) % 360;
+      onDragInfoChange({ position: group.position, resizeLabel: `Y: ${startDeg}° → ${degrees}°` });
+    };
+
+    const onPointerUp = () => {
+      setDragging(false);
+      dragStart.current = null;
+      gl.domElement.style.cursor = "";
+      onInteractionChange(false);
+      onDragInfoChange(null);
+      if (onCommit) {
+        onCommit(group.id, { rotation: group.rotation });
+      }
+    };
+
+    gl.domElement.addEventListener("pointermove", onPointerMove);
+    gl.domElement.addEventListener("pointerup", onPointerUp);
+    return () => {
+      gl.domElement.removeEventListener("pointermove", onPointerMove);
+      gl.domElement.removeEventListener("pointerup", onPointerUp);
+    };
+  }, [dragging, group, gl, onUpdateLive, onCommit, onInteractionChange, onDragInfoChange]);
 
   return (
     <group position={group.position}>
-      <mesh ref={meshRef} rotation={[Math.PI / 2, 0, 0]}>
-        <ringGeometry args={[radius, radius + 0.01, 64]} />
-        <meshBasicMaterial color="#3B82F6" transparent opacity={0.5} side={THREE.DoubleSide} depthTest={false} />
+      {/* Draggable ring */}
+      <mesh
+        rotation={[Math.PI / 2, 0, 0]}
+        onPointerDown={(e) => {
+          e.stopPropagation();
+          setDragging(true);
+          onInteractionChange(true);
+          dragStart.current = {
+            clientX: (e as any).nativeEvent?.clientX ?? e.clientX,
+            startRotY: group.rotation[1],
+          };
+          gl.domElement.style.cursor = "ew-resize";
+        }}
+        onPointerEnter={() => { setHovered(true); gl.domElement.style.cursor = "ew-resize"; }}
+        onPointerLeave={() => { if (!dragging) { setHovered(false); gl.domElement.style.cursor = ""; } }}
+      >
+        <torusGeometry args={[radius, 0.012, 8, 48]} />
+        <meshStandardMaterial
+          color={dragging ? "#2563EB" : "#3B82F6"}
+          emissive="#3B82F6"
+          emissiveIntensity={dragging ? 0.8 : hovered ? 0.5 : 0.2}
+          transparent
+          opacity={dragging || hovered ? 0.9 : 0.6}
+          depthTest={false}
+        />
+      </mesh>
+
+      {/* Small arrow indicator on the ring */}
+      <mesh position={[radius, 0.01, 0]} rotation={[Math.PI / 2, 0, 0]}>
+        <coneGeometry args={[0.02, 0.04, 6]} />
+        <meshStandardMaterial
+          color="#3B82F6"
+          emissive="#3B82F6"
+          emissiveIntensity={0.3}
+          depthTest={false}
+        />
       </mesh>
     </group>
   );

@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { streamChat, type ChatMessage, uploadFurnitureImage, analyzeFurnitureImage, type FurnitureAnalysis } from "@/lib/ai";
 import { MATERIALS, STYLES, type PanelData, type FurnitureOption } from "@/lib/furnitureData";
-import { Sparkles, Send, Loader2, X, ImagePlus, MessageSquare } from "lucide-react";
+import { Sparkles, Send, Loader2, X, ImagePlus } from "lucide-react";
 
 // ─── Types ──────────────────────────────────────────────
 
@@ -107,7 +107,12 @@ export function DesignChatPanel({
   onBuildFromImage,
   onClose,
 }: DesignChatPanelProps) {
-  const [messages, setMessages] = useState<DisplayMessage[]>([]);
+  const [messages, setMessages] = useState<DisplayMessage[]>([
+    {
+      role: "assistant",
+      content: "Hi! I'm your design assistant. I can help you:\n\n**Upload a furniture photo** — I'll analyze it and build a 3D model from it\n\n**Describe changes** — \"make the table wider\" or \"add a shelf\"\n\n**Suggest materials** — \"what wood goes with modern style?\"\n\nTry sending me a photo of furniture you like!",
+    },
+  ]);
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
@@ -345,26 +350,15 @@ export function DesignChatPanel({
   const displayStreamingText = streamingText.replace(CMD_REGEX, "").replace(/\[DESIGN_CMD\][^[]*$/s, "").trim();
 
   return (
-    <div
-      className="fixed z-40 flex flex-col bg-white rounded-2xl shadow-2xl border border-gray-200 overflow-hidden"
-      style={{
-        width: 380,
-        maxHeight: 500,
-        bottom: 80,
-        right: 16,
-      }}
-    >
-      {/* Floating header bar */}
-      <div className="flex items-center justify-between px-4 py-2.5 border-b border-gray-100 bg-gray-50/80 cursor-default select-none shrink-0">
+    <div className="w-80 bg-white border-l border-gray-200 flex flex-col shrink-0 overflow-hidden">
+      {/* Header bar */}
+      <div className="flex items-center justify-between px-4 py-2.5 border-b border-gray-100 shrink-0">
         <div className="flex items-center gap-2">
-          <MessageSquare className="w-3.5 h-3.5 text-[#C87D5A]" />
+          <Sparkles className="w-3.5 h-3.5 text-[#C87D5A]" />
           <span className="text-xs font-semibold text-gray-700">AI Assistant</span>
         </div>
-        <button
-          onClick={onClose}
-          className="w-6 h-6 flex items-center justify-center rounded-md hover:bg-gray-200 transition-colors"
-        >
-          <X className="w-3.5 h-3.5 text-gray-500" />
+        <button onClick={onClose} className="w-6 h-6 flex items-center justify-center rounded-md hover:bg-gray-100 transition-colors">
+          <X className="w-3.5 h-3.5 text-gray-400" />
         </button>
       </div>
 
