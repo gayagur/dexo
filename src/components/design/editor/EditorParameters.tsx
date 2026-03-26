@@ -3,7 +3,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { MATERIALS, type PanelData, type MaterialOption, type GroupData } from "@/lib/furnitureData";
 import { loadSH3DCatalog, getSH3DTextureUrl, type SH3DTexture } from "@/lib/sh3dTextures";
-import { Ruler, Layers, Palette, RotateCw, ChevronDown, ChevronRight, Search } from "lucide-react";
+import { Ruler, Palette, RotateCw, ChevronDown, ChevronRight, Search, MousePointerClick } from "lucide-react";
 
 // ─── Helper: adjust hex color brightness ─────────────────
 function adjustBrightness(hex: string, amount: number): string {
@@ -176,12 +176,7 @@ function MaterialPickerSection({
   const hasResults = filteredCategories.length > 0 || sh3dCategories.length > 0;
 
   return (
-    <div className="p-4">
-      <div className="flex items-center gap-2 mb-2">
-        <Palette className="w-4 h-4 text-gray-500" />
-        <h3 className="text-sm font-semibold text-gray-900">{label}</h3>
-      </div>
-
+    <div>
       {/* Search */}
       <div className="relative mb-3">
         <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-gray-300" />
@@ -303,6 +298,29 @@ function MaterialPickerSection({
   );
 }
 
+// ─── Collapsible Section ──────────────────────────────────
+function CollapsibleSection({ label, icon, defaultOpen = false, children }: {
+  label: string;
+  icon: React.ReactNode;
+  defaultOpen?: boolean;
+  children: React.ReactNode;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <div className="border-b border-gray-100">
+      <button
+        onClick={() => setOpen(v => !v)}
+        className="w-full flex items-center gap-2 px-4 py-2.5 text-xs font-semibold text-gray-600 hover:bg-gray-50 transition-colors"
+      >
+        {icon}
+        <span className="flex-1 text-left">{label}</span>
+        <ChevronDown className={`w-3 h-3 text-gray-400 transition-transform ${open ? '' : '-rotate-90'}`} />
+      </button>
+      {open && <div className="px-4 pb-3">{children}</div>}
+    </div>
+  );
+}
+
 interface EditorParametersProps {
   panel: PanelData | null;
   selectedGroup: GroupData | null;
@@ -320,11 +338,6 @@ interface EditorParametersProps {
   onStyleChange: (style: string) => void;
   multiSelectCount: number;
 }
-
-const STYLES = [
-  "Modern", "Classic", "Industrial", "Minimalist", "Scandinavian", "Rustic",
-  "Mid-Century", "Art Deco", "Japandi", "Farmhouse",
-];
 
 export function EditorParameters({
   panel,
@@ -345,7 +358,7 @@ export function EditorParameters({
 }: EditorParametersProps) {
   // Shared SH3D texture cache for both group and panel material pickers
   const [sh3dTextures, setSh3dTextures] = useState<SH3DTexture[]>([]);
-  const sh3dTexturesRef = { current: sh3dTextures }; // simple ref pattern
+  const sh3dTexturesRef = { current: sh3dTextures };
   useEffect(() => { loadSH3DCatalog().then(setSh3dTextures); }, []);
 
   const renderGroupProperties = () => {
@@ -375,20 +388,45 @@ export function EditorParameters({
 
     return (
       <>
-        <div className="p-4 border-b border-gray-100">
-          <h3 className="text-sm font-semibold text-gray-900 mb-1">
-            {selectedGroup.name}
-          </h3>
-          <p className="text-[10px] text-gray-400 mb-3">
+        {/* Group name header */}
+        <div className="px-4 py-3 border-b border-gray-100">
+          <input
+            type="text"
+            value={selectedGroup.name}
+            onChange={(e) => onUpdateGroup(selectedGroup.id, { name: e.target.value })}
+            className="text-sm font-semibold text-gray-900 w-full bg-transparent border-b border-transparent hover:border-gray-200 focus:border-[#C87D5A] focus:outline-none pb-0.5 transition-colors"
+          />
+          <p className="text-[10px] text-gray-400 mt-1">
             {selectedGroup.panels.length} panels
           </p>
+        </div>
 
-          {/* Group Size (proportional scale) */}
-          <div className="flex items-center gap-2 mb-1.5">
-            <Ruler className="w-3 h-3 text-gray-400" />
-            <p className="text-[11px] text-gray-400">Size (proportional)</p>
-          </div>
-          <div className="grid grid-cols-3 gap-2 mb-3">
+        {/* Material (open by default) */}
+        <CollapsibleSection
+          label="Material"
+          icon={<Palette className="w-3.5 h-3.5 text-gray-400" />}
+          defaultOpen={true}
+        >
+          <MaterialPickerSection
+            selectedMaterialId={dominantMaterial}
+            onSelectMaterial={(id) => onUpdateGroupMaterial(selectedGroup.id, id)}
+            onSelectSH3DTexture={(texId) => {
+              const tex = sh3dTexturesRef.current.find(t => t.id === texId);
+              if (tex && onUpdateGroupTexture) onUpdateGroupTexture(selectedGroup.id, getSH3DTextureUrl(tex.file));
+            }}
+            onCustomColor={(color) => onCustomGroupColor(selectedGroup.id, color)}
+            customColor={MATERIALS.find((m) => m.id === dominantMaterial)?.color}
+            label="Material (All)"
+          />
+        </CollapsibleSection>
+
+        {/* Scale (collapsed by default) */}
+        <CollapsibleSection
+          label="Scale"
+          icon={<Ruler className="w-3.5 h-3.5 text-gray-400" />}
+          defaultOpen={false}
+        >
+          <div className="grid grid-cols-3 gap-2 mt-1">
             {(["W", "H", "D"] as const).map((axis, i) => (
               <div key={axis}>
                 <Label className="text-[11px] text-gray-500">{axis}</Label>
@@ -415,22 +453,71 @@ export function EditorParameters({
               </div>
             ))}
           </div>
+        </CollapsibleSection>
+      </>
+    );
+  };
 
-          {/* Position (in mm) */}
-          <p className="text-[11px] text-gray-400 mb-1.5">Position</p>
-          <div className="grid grid-cols-3 gap-2 mb-3">
-            {(["X", "Y", "Z"] as const).map((axis, i) => (
+  const renderPanelProperties = () => {
+    if (!panel) return null;
+
+    return (
+      <>
+        {/* Element name header */}
+        <div className="px-4 py-3 border-b border-gray-100">
+          <div className="flex items-center gap-2">
+            <input
+              type="text"
+              value={panel.label}
+              onChange={(e) => onUpdatePanel(panel.id, { label: e.target.value })}
+              className="text-sm font-semibold text-gray-900 flex-1 bg-transparent border-b border-transparent hover:border-gray-200 focus:border-[#C87D5A] focus:outline-none pb-0.5 transition-colors"
+            />
+            {panel.shape && panel.shape !== "box" && (
+              <span className="text-[9px] bg-gray-100 text-gray-500 rounded px-1.5 py-0.5 capitalize whitespace-nowrap">
+                {panel.shape.replace(/_/g, " ")}
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* Material (open by default) */}
+        <CollapsibleSection
+          label="Material"
+          icon={<Palette className="w-3.5 h-3.5 text-gray-400" />}
+          defaultOpen={true}
+        >
+          <MaterialPickerSection
+            selectedMaterialId={panel.materialId}
+            onSelectMaterial={(id) => onUpdatePanel(panel.id, { materialId: id, customColor: undefined, textureUrl: undefined })}
+            onSelectSH3DTexture={(texId) => {
+              const tex = sh3dTexturesRef.current.find(t => t.id === texId);
+              if (tex) onUpdatePanel(panel.id, { textureUrl: getSH3DTextureUrl(tex.file), customColor: undefined });
+            }}
+            onCustomColor={(color) => onUpdatePanel(panel.id, { customColor: color, textureUrl: undefined })}
+            customColor={panel.customColor}
+          />
+        </CollapsibleSection>
+
+        {/* Size (collapsed by default) */}
+        <CollapsibleSection
+          label="Size"
+          icon={<Ruler className="w-3.5 h-3.5 text-gray-400" />}
+          defaultOpen={false}
+        >
+          <div className="grid grid-cols-3 gap-2 mt-1">
+            {(["w", "h", "d"] as const).map((axis, i) => (
               <div key={axis}>
-                <Label className="text-[11px] text-gray-500">{axis}</Label>
+                <Label className="text-[11px] text-gray-500 uppercase">
+                  {axis === "w" ? "W" : axis === "h" ? "H" : "D"}
+                </Label>
                 <div className="relative">
                   <Input
                     type="number"
-                    step="10"
-                    value={Math.round(selectedGroup.position[i] * 1000)}
+                    value={Math.round(panel.size[i] * 1000)}
                     onChange={(e) => {
-                      const newPos = [...selectedGroup.position] as [number, number, number];
-                      newPos[i] = (parseInt(e.target.value) || 0) / 1000;
-                      onUpdateGroup(selectedGroup.id, { position: newPos });
+                      const newSize = [...panel.size] as [number, number, number];
+                      newSize[i] = (parseInt(e.target.value) || 0) / 1000;
+                      onUpdatePanel(panel.id, { size: newSize });
                     }}
                     className="h-8 text-xs pr-8"
                   />
@@ -442,201 +529,9 @@ export function EditorParameters({
             ))}
           </div>
 
-          {/* Rotation (in degrees) */}
-          <div className="flex items-center gap-1.5 mb-1.5">
-            <RotateCw className="w-3 h-3 text-gray-400" />
-            <p className="text-[11px] text-gray-400">Rotation</p>
-          </div>
-          <div className="grid grid-cols-3 gap-2">
-            {(["X", "Y", "Z"] as const).map((axis, i) => {
-              const rot = selectedGroup.rotation ?? [0, 0, 0];
-              return (
-                <div key={`rot-${axis}`}>
-                  <Label className="text-[11px] text-gray-500">{axis}</Label>
-                  <div className="relative">
-                    <Input
-                      type="number"
-                      step="15"
-                      value={Math.round((rot[i] * 180) / Math.PI)}
-                      onChange={(e) => {
-                        const newRot = [...rot] as [number, number, number];
-                        newRot[i] = ((parseInt(e.target.value) || 0) * Math.PI) / 180;
-                        onUpdateGroup(selectedGroup.id, { rotation: newRot });
-                      }}
-                      className="h-8 text-xs pr-6"
-                    />
-                    <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-gray-400">
-                      °
-                    </span>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Group Material — apply to all panels */}
-        <MaterialPickerSection
-          selectedMaterialId={dominantMaterial}
-          onSelectMaterial={(id) => onUpdateGroupMaterial(selectedGroup.id, id)}
-          onSelectSH3DTexture={(texId) => {
-            const tex = sh3dTexturesRef.current.find(t => t.id === texId);
-            if (tex && onUpdateGroupTexture) onUpdateGroupTexture(selectedGroup.id, getSH3DTextureUrl(tex.file));
-          }}
-          onCustomColor={(color) => onCustomGroupColor(selectedGroup.id, color)}
-          customColor={MATERIALS.find((m) => m.id === dominantMaterial)?.color}
-          label="Material (All)"
-        />
-      </>
-    );
-  };
-
-  const renderContent = () => {
-    // Priority 1: Multi-select indicator
-    if (multiSelectCount > 0) {
-      return (
-        <div className="flex-1 flex items-center justify-center p-4">
-          <p className="text-xs text-gray-400 text-center">
-            {multiSelectCount} panels selected. Right-click to group.
-          </p>
-        </div>
-      );
-    }
-
-    // Priority 2: Group properties (scene mode with group selected)
-    if (selectedGroup && !editingGroupId) {
-      return renderGroupProperties();
-    }
-
-    // Priority 3: Panel properties
-    if (panel) {
-      return (
-        <>
-          <div className="p-4 border-b border-gray-100">
-            <h3 className="text-sm font-semibold text-gray-900 mb-1">
-              {panel.label}
-            </h3>
-            {panel.shape && panel.shape !== "box" && (
-              <p className="text-[10px] text-gray-400 mb-2 capitalize">
-                {panel.shape.replace(/_/g, " ")}
-              </p>
-            )}
-
-            {/* Panel dimensions (in mm, displayed) */}
-            <div className="grid grid-cols-3 gap-2 mb-3">
-              {(["w", "h", "d"] as const).map((axis, i) => (
-                <div key={axis}>
-                  <Label className="text-[11px] text-gray-500 uppercase">
-                    {axis === "w" ? "W" : axis === "h" ? "H" : "D"}
-                  </Label>
-                  <div className="relative">
-                    <Input
-                      type="number"
-                      value={Math.round(panel.size[i] * 1000)}
-                      onChange={(e) => {
-                        const newSize = [...panel.size] as [number, number, number];
-                        newSize[i] = (parseInt(e.target.value) || 0) / 1000;
-                        onUpdatePanel(panel.id, { size: newSize });
-                      }}
-                      className="h-8 text-xs pr-8"
-                    />
-                    <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-gray-400">
-                      mm
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {/* Position (in mm) */}
-            <p className="text-[11px] text-gray-400 mb-1.5">Position</p>
-            <div className="grid grid-cols-3 gap-2 mb-3">
-              {(["X", "Y", "Z"] as const).map((axis, i) => (
-                <div key={axis}>
-                  <Label className="text-[11px] text-gray-500">{axis}</Label>
-                  <div className="relative">
-                    <Input
-                      type="number"
-                      step="10"
-                      value={Math.round(panel.position[i] * 1000)}
-                      onChange={(e) => {
-                        const newPos = [...panel.position] as [number, number, number];
-                        newPos[i] = (parseInt(e.target.value) || 0) / 1000;
-                        onUpdatePanel(panel.id, { position: newPos });
-                      }}
-                      className="h-8 text-xs pr-8"
-                    />
-                    <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-gray-400">
-                      mm
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {/* Rotation (in degrees) */}
-            <div className="flex items-center gap-1.5 mb-1.5">
-              <RotateCw className="w-3 h-3 text-gray-400" />
-              <p className="text-[11px] text-gray-400">Rotation</p>
-            </div>
-            <div className="grid grid-cols-3 gap-2 mb-2.5">
-              {(["X", "Y", "Z"] as const).map((axis, i) => {
-                const rot = panel.rotation ?? [0, 0, 0];
-                return (
-                  <div key={`rot-${axis}`}>
-                    <Label className="text-[11px] text-gray-500">{axis}</Label>
-                    <div className="relative">
-                      <Input
-                        type="number"
-                        step="15"
-                        value={Math.round((rot[i] * 180) / Math.PI)}
-                        onChange={(e) => {
-                          const newRot = [...rot] as [number, number, number];
-                          newRot[i] = ((parseInt(e.target.value) || 0) * Math.PI) / 180;
-                          onUpdatePanel(panel.id, { rotation: newRot });
-                        }}
-                        className="h-8 text-xs pr-6"
-                      />
-                      <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-gray-400">
-                        °
-                      </span>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-
-            {/* Quick rotate buttons */}
-            <p className="text-[10px] text-gray-400 mb-1.5">Quick Rotate</p>
-            <div className="flex flex-wrap gap-1.5">
-              {(["X", "Y", "Z"] as const).map((axis, i) => (
-                <button
-                  key={`qr-${axis}`}
-                  onClick={() => {
-                    const rot = [...(panel.rotation ?? [0, 0, 0])] as [number, number, number];
-                    rot[i] += Math.PI / 2; // +90°
-                    onUpdatePanel(panel.id, { rotation: rot });
-                  }}
-                  className="h-7 px-2.5 rounded-md bg-gray-100 hover:bg-gray-200 text-[11px] font-medium text-gray-600 transition-colors flex items-center gap-1"
-                >
-                  <RotateCw className="w-3 h-3" />
-                  {axis} +90°
-                </button>
-              ))}
-              <button
-                onClick={() => {
-                  onUpdatePanel(panel.id, { rotation: [0, 0, 0] });
-                }}
-                className="h-7 px-2.5 rounded-md bg-gray-100 hover:bg-red-50 hover:text-red-500 text-[11px] font-medium text-gray-500 transition-colors"
-              >
-                Reset
-              </button>
-            </div>
-          </div>
-
           {/* Corner Radius (for box/rounded_rect shapes) */}
           {(!panel.shape || panel.shape === "box" || panel.shape === "rounded_rect" || panel.shape === "cushion" || panel.shape === "mattress") && (
-            <div className="p-4 border-t border-gray-100">
+            <div className="mt-3 pt-3 border-t border-gray-100">
               <div className="flex items-center justify-between mb-2">
                 <Label className="text-[11px] text-gray-500">Corner Radius</Label>
                 <span className="text-[10px] text-gray-400 font-mono">
@@ -664,7 +559,7 @@ export function EditorParameters({
 
           {/* Shape Parameters (if applicable) */}
           {panel.shapeParams && Object.keys(panel.shapeParams).length > 0 && (
-            <div className="p-4 border-t border-gray-100">
+            <div className="mt-3 pt-3 border-t border-gray-100">
               <p className="text-[11px] text-gray-400 uppercase tracking-wider mb-2">Shape Parameters</p>
               <div className="space-y-2">
                 {Object.entries(panel.shapeParams).map(([key, value]) => {
@@ -698,57 +593,27 @@ export function EditorParameters({
               </div>
             </div>
           )}
+        </CollapsibleSection>
 
-          {/* Material Picker */}
-          <MaterialPickerSection
-            selectedMaterialId={panel.materialId}
-            onSelectMaterial={(id) => onUpdatePanel(panel.id, { materialId: id, customColor: undefined, textureUrl: undefined })}
-            onSelectSH3DTexture={(texId) => {
-              const tex = sh3dTexturesRef.current.find(t => t.id === texId);
-              if (tex) onUpdatePanel(panel.id, { textureUrl: getSH3DTextureUrl(tex.file), customColor: undefined });
-            }}
-            onCustomColor={(color) => onUpdatePanel(panel.id, { customColor: color, textureUrl: undefined })}
-            customColor={panel.customColor}
-          />
-        </>
-      );
-    }
-
-    // Priority 4: Empty state
-    return (
-      <div className="flex-1 flex items-center justify-center p-4">
-        <p className="text-xs text-gray-400 text-center">
-          Select a panel in the viewport or sidebar to edit its properties.
-        </p>
-      </div>
-    );
-  };
-
-  return (
-    <div className="w-72 shrink-0 bg-white border-l border-gray-200 flex flex-col h-full overflow-y-auto">
-      {/* Overall Dimensions */}
-      {showOverallDims && (
-        <div className="p-4 border-b border-gray-100">
-          <div className="flex items-center gap-2 mb-3">
-            <Ruler className="w-4 h-4 text-gray-500" />
-            <h3 className="text-sm font-semibold text-gray-900">Overall Size</h3>
-          </div>
-          <div className="grid grid-cols-3 gap-2">
-            {(["w", "h", "d"] as const).map((axis) => (
+        {/* Position (collapsed by default) */}
+        <CollapsibleSection
+          label="Position"
+          icon={<Ruler className="w-3.5 h-3.5 text-gray-400" />}
+          defaultOpen={false}
+        >
+          <div className="grid grid-cols-3 gap-2 mt-1">
+            {(["X", "Y", "Z"] as const).map((axis, i) => (
               <div key={axis}>
-                <Label className="text-[11px] text-gray-500 uppercase">
-                  {axis === "w" ? "Width" : axis === "h" ? "Height" : "Depth"}
-                </Label>
+                <Label className="text-[11px] text-gray-500">{axis}</Label>
                 <div className="relative">
                   <Input
                     type="number"
-                    min={10}
-                    value={overallDims[axis]}
+                    step="10"
+                    value={Math.round(panel.position[i] * 1000)}
                     onChange={(e) => {
-                      const val = parseInt(e.target.value);
-                      if (!isNaN(val) && val >= 10) {
-                        onUpdateDims({ ...overallDims, [axis]: val });
-                      }
+                      const newPos = [...panel.position] as [number, number, number];
+                      newPos[i] = (parseInt(e.target.value) || 0) / 1000;
+                      onUpdatePanel(panel.id, { position: newPos });
                     }}
                     className="h-8 text-xs pr-8"
                   />
@@ -759,33 +624,110 @@ export function EditorParameters({
               </div>
             ))}
           </div>
-        </div>
-      )}
+        </CollapsibleSection>
 
-      {/* Style */}
-      <div className="p-4 border-b border-gray-100">
-        <div className="flex items-center gap-2 mb-3">
-          <Layers className="w-4 h-4 text-gray-500" />
-          <h3 className="text-sm font-semibold text-gray-900">Style</h3>
-        </div>
-        <div className="flex flex-wrap gap-1.5">
-          {STYLES.map((s) => (
+        {/* Rotation (collapsed by default) */}
+        <CollapsibleSection
+          label="Rotation"
+          icon={<RotateCw className="w-3.5 h-3.5 text-gray-400" />}
+          defaultOpen={false}
+        >
+          <div className="grid grid-cols-3 gap-2 mt-1 mb-3">
+            {(["X", "Y", "Z"] as const).map((axis, i) => {
+              const rot = panel.rotation ?? [0, 0, 0];
+              return (
+                <div key={`rot-${axis}`}>
+                  <Label className="text-[11px] text-gray-500">{axis}</Label>
+                  <div className="relative">
+                    <Input
+                      type="number"
+                      step="15"
+                      value={Math.round((rot[i] * 180) / Math.PI)}
+                      onChange={(e) => {
+                        const newRot = [...rot] as [number, number, number];
+                        newRot[i] = ((parseInt(e.target.value) || 0) * Math.PI) / 180;
+                        onUpdatePanel(panel.id, { rotation: newRot });
+                      }}
+                      className="h-8 text-xs pr-6"
+                    />
+                    <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-gray-400">
+                      °
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Quick rotate buttons */}
+          <p className="text-[10px] text-gray-400 mb-1.5">Quick Rotate</p>
+          <div className="flex flex-wrap gap-1.5">
+            {(["X", "Y", "Z"] as const).map((axis, i) => (
+              <button
+                key={`qr-${axis}`}
+                onClick={() => {
+                  const rot = [...(panel.rotation ?? [0, 0, 0])] as [number, number, number];
+                  rot[i] += Math.PI / 2; // +90°
+                  onUpdatePanel(panel.id, { rotation: rot });
+                }}
+                className="h-7 px-2.5 rounded-md bg-gray-100 hover:bg-gray-200 text-[11px] font-medium text-gray-600 transition-colors flex items-center gap-1"
+              >
+                <RotateCw className="w-3 h-3" />
+                {axis} +90°
+              </button>
+            ))}
             <button
-              key={s}
-              onClick={() => onStyleChange(s)}
-              className={`px-2.5 py-1 rounded-full text-xs transition-colors ${
-                s === style
-                  ? "bg-[#C87D5A] text-white"
-                  : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-              }`}
+              onClick={() => {
+                onUpdatePanel(panel.id, { rotation: [0, 0, 0] });
+              }}
+              className="h-7 px-2.5 rounded-md bg-gray-100 hover:bg-red-50 hover:text-red-500 text-[11px] font-medium text-gray-500 transition-colors"
             >
-              {s}
+              Reset
             </button>
-          ))}
-        </div>
-      </div>
+          </div>
+        </CollapsibleSection>
+      </>
+    );
+  };
 
-      {/* Content area (priority-based rendering) */}
+  const renderContent = () => {
+    // Priority 1: Multi-select indicator
+    if (multiSelectCount > 0) {
+      return (
+        <div className="flex-1 flex items-center justify-center p-4">
+          <p className="text-xs text-gray-400 text-center">
+            {multiSelectCount} panels selected. Right-click to group.
+          </p>
+        </div>
+      );
+    }
+
+    // Priority 2: Group properties (scene mode with group selected)
+    if (selectedGroup && !editingGroupId) {
+      return renderGroupProperties();
+    }
+
+    // Priority 3: Panel properties
+    if (panel) {
+      return renderPanelProperties();
+    }
+
+    // Priority 4: Empty state
+    return (
+      <div className="flex-1 flex flex-col items-center justify-center text-center px-6 py-12">
+        <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center mb-3">
+          <MousePointerClick className="w-5 h-5 text-gray-400" />
+        </div>
+        <p className="text-sm font-medium text-gray-700 mb-1">Click an object to edit</p>
+        <p className="text-xs text-gray-400 leading-relaxed">
+          Select any element in the viewport or sidebar to change its material, size, and position.
+        </p>
+      </div>
+    );
+  };
+
+  return (
+    <div className="w-72 shrink-0 bg-white border-l border-gray-200 flex flex-col h-full overflow-y-auto">
       {renderContent()}
     </div>
   );

@@ -14,6 +14,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
   getDefaultTemplate,
   type PanelData,
   type PanelShape,
@@ -31,7 +36,7 @@ import {
   findGroupContainingPanel,
 } from "@/lib/groupUtils";
 import type { LibraryTemplate } from "@/lib/libraryData";
-import { ArrowLeft, Save, RotateCcw, RotateCw, MessageSquare, Magnet, HelpCircle, X, BookOpen, Undo2, Redo2, Box, Square, PanelTop, PanelLeft, ImagePlus, Loader2, Home, Sun, Moon, Check, LogOut, SendHorizonal } from "lucide-react";
+import { ArrowLeft, Save, RotateCcw, MessageSquare, Magnet, HelpCircle, X, Undo2, Redo2, Box, Square, PanelTop, PanelLeft, Loader2, Sun, Moon, Check, LogOut, SendHorizonal, MoreVertical } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import type { ViewMode, EditorLightMode, EditorFloorPreset } from "./EditorViewport";
 import { EDITOR_FLOOR_OPTIONS } from "./EditorViewport";
@@ -92,6 +97,58 @@ function buildEditorBootstrap(
 
 let nextPanelId = 100;
 
+// ─── Context Menu Component ──────────────────────────────
+
+function EditorContextMenu({
+  x, y, panelId, groupId, onDuplicate, onDelete, onEditParts, onGroup, onUngroup, hasGroup, onClose,
+}: {
+  x: number; y: number; panelId: string | null; groupId: string | null;
+  onDuplicate: () => void; onDelete: () => void; onEditParts: () => void;
+  onGroup: () => void; onUngroup: () => void; hasGroup: boolean; onClose: () => void;
+}) {
+  useEffect(() => {
+    const handle = (_e: MouseEvent) => onClose();
+    const handleKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    // Delay to avoid closing immediately from the right-click event
+    const timer = setTimeout(() => {
+      document.addEventListener("click", handle);
+      document.addEventListener("contextmenu", handle);
+    }, 10);
+    document.addEventListener("keydown", handleKey);
+    return () => {
+      clearTimeout(timer);
+      document.removeEventListener("click", handle);
+      document.removeEventListener("contextmenu", handle);
+      document.removeEventListener("keydown", handleKey);
+    };
+  }, [onClose]);
+
+  const items: { label: string; shortcut: string; action: () => void; show: boolean }[] = [
+    { label: "Duplicate", shortcut: "Ctrl+D", action: onDuplicate, show: true },
+    { label: "Delete", shortcut: "Del", action: onDelete, show: true },
+    { label: "Edit Parts", shortcut: "Double-click", action: onEditParts, show: hasGroup },
+    { label: "Ungroup", shortcut: "Ctrl+Shift+G", action: onUngroup, show: hasGroup },
+  ];
+
+  return (
+    <div
+      className="fixed z-50 bg-white rounded-xl shadow-xl border border-gray-200 py-1 min-w-[180px] animate-in fade-in zoom-in-95 duration-100"
+      style={{ left: x, top: y }}
+    >
+      {items.filter(i => i.show).map((item) => (
+        <button
+          key={item.label}
+          onClick={item.action}
+          className="w-full flex items-center justify-between px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50 hover:text-gray-900 transition-colors"
+        >
+          <span>{item.label}</span>
+          <span className="text-[10px] text-gray-400 ml-4">{item.shortcut}</span>
+        </button>
+      ))}
+    </div>
+  );
+}
+
 export function FurnitureEditor({
   furnitureType,
   roomLabel,
@@ -119,9 +176,24 @@ export function FurnitureEditor({
   const [floorPreset, setFloorPreset] = useState<EditorFloorPreset>("studio");
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "unsaved">("idle");
   const [showLeaveConfirm, setShowLeaveConfirm] = useState<{ action: () => void } | null>(null);
+  const [contextMenu, setContextMenu] = useState<{
+    x: number;
+    y: number;
+    panelId: string | null;
+    groupId: string | null;
+  } | null>(null);
   const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastSavedHistoryIndex = useRef(0);
   const editorNavigate = useNavigate();
+
+  const [hintsVisible, setHintsVisible] = useState(() => {
+    try { return !localStorage.getItem("dexo_editor_hints_seen"); } catch { return false; }
+  });
+
+  const dismissHints = useCallback(() => {
+    setHintsVisible(false);
+    try { localStorage.setItem("dexo_editor_hints_seen", "1"); } catch {}
+  }, []);
 
   // ─── Group / Edit mode state ─────────────────────────
   const [groups, setGroups] = useState<GroupData[]>(() => boot.scene.groups);
@@ -259,6 +331,34 @@ export function FurnitureEditor({
     }
   }, [editingGroupId, updateScene]);
 
+  /** Update a panel AND record undo history. Use on mouse-up or sidebar value changes. */
+  const handleUpdatePanelCommit = handleUpdatePanel;
+
+  /** Update a panel visually during drag/resize WITHOUT recording undo history. */
+  const handleUpdatePanelLive = useCallback((id: string, updates: Partial<PanelData>) => {
+    if (editingGroupId && editModePanels) {
+      setEditModePanels((prev) =>
+        prev!.map((p) => (p.id === id ? { ...p, ...updates } : p))
+      );
+    } else {
+      setGroups((prev) =>
+        prev.map((g) => ({
+          ...g,
+          panels: g.panels.map((p) => (p.id === id ? { ...p, ...updates } : p)),
+        }))
+      );
+      setUngroupedPanels((prev) =>
+        prev.map((p) => (p.id === id ? { ...p, ...updates } : p))
+      );
+    }
+  }, [editingGroupId, editModePanels]);
+
+  const handleUpdateGroupLive = useCallback((groupId: string, updates: Partial<GroupData>) => {
+    setGroups((prev) =>
+      prev.map((g) => (g.id === groupId ? { ...g, ...updates } : g))
+    );
+  }, []);
+
   const handleAddPart = useCallback((preset: {
     shape: PanelShape;
     type: PanelData["type"];
@@ -267,6 +367,7 @@ export function FurnitureEditor({
     materialId: string;
     shapeParams?: Record<string, number>;
     placeOnSelected?: boolean;
+    placeOnFloor?: boolean;
   }) => {
     const id = `p${++nextPanelId}`;
     const currentPanels = editingGroupId ? (editModePanels ?? []) : flattenScene(groupsRef.current, ungroupedRef.current);
@@ -310,7 +411,7 @@ export function FurnitureEditor({
       return false;
     };
 
-    if (preset.placeOnSelected) {
+    if (!preset.placeOnFloor && preset.placeOnSelected) {
       if (!tryPlaceOnSelection()) {
         const horizontalSurfaces = currentPanels.filter((p) => p.type === "horizontal");
         if (horizontalSurfaces.length > 0) {
@@ -330,7 +431,7 @@ export function FurnitureEditor({
           startY = bestWy + preset.size[1] / 2;
         }
       }
-    } else {
+    } else if (!preset.placeOnFloor) {
       const horizontalSurfaces = currentPanels.filter((p) => p.type === "horizontal");
       if (horizontalSurfaces.length > 0) {
         const highestSurfaceTop = Math.max(
@@ -470,6 +571,10 @@ export function FurnitureEditor({
       prev.map((g) => (g.id === groupId ? { ...g, name } : g))
     );
   }, [updateScene]);
+
+  const handleContextMenu = useCallback((x: number, y: number, panelId: string | null, groupId: string | null) => {
+    setContextMenu({ x, y, panelId, groupId });
+  }, []);
 
   // ─── Build from image analysis ────────────────────────
   const handleBuildFromImage = useCallback((analysis: FurnitureAnalysis, mode: "replace" | "add") => {
@@ -968,29 +1073,37 @@ export function FurnitureEditor({
     return () => window.removeEventListener("keydown", handleKey);
   }, [selectedPanelId, selectedGroupId, selectedPanelIds, editingGroupId, editModePanels, rotationMode, handleUpdatePanel, handleDuplicatePanel, handleDuplicateGroup, handleDeletePanel, handleDeleteGroup, handleGroupPanels, handleUngroupGroup, handleUpdateGroup, exitEditMode, undo, redo, handleSave]);
 
+  const statusText = (() => {
+    if (editingGroupId) {
+      return "Editing group parts — Esc to exit | Drag: move | Handles: resize | + Add to insert parts";
+    }
+    if (selectedPanelId) {
+      return "Drag: move X/Z | Green arrow: height | Handles: resize | R: rotate | Del: delete | Right-click: options";
+    }
+    if (selectedGroupId) {
+      return "Drag: move group | Handles: scale | Double-click: edit parts | Right-click: options";
+    }
+    return "Click to select | Right-click for options | ?: shortcuts";
+  })();
+
   return (
     <div className="h-screen flex flex-col bg-[#FAFAFA] overflow-hidden min-h-0">
-      {/* Top bar — wrap / scroll so controls stay reachable on narrow viewports */}
+      {/* Top toolbar */}
       <div className="shrink-0 bg-white border-b border-gray-200 px-3 sm:px-4 py-2 min-w-0">
-        <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between lg:gap-3 min-w-0">
-        <div className="flex items-center gap-2 min-w-0">
+        <div className="flex items-center gap-2 min-w-0 overflow-x-auto [scrollbar-width:none]">
+
+          {/* Back + Breadcrumb */}
           <Button variant="ghost" size="icon" onClick={onBack} className="h-8 w-8 shrink-0" title="Back to selection">
             <ArrowLeft className="w-4 h-4" />
           </Button>
-          <nav className="flex items-center gap-1 text-xs min-w-0 overflow-x-auto whitespace-nowrap [scrollbar-width:thin]">
+          <nav className="flex items-center gap-1 text-xs shrink-0 whitespace-nowrap">
             <button onClick={() => editorNavigate("/dashboard")} className="text-gray-400 hover:text-[#C87D5A] transition-colors font-medium" title="Home">
               DEXO
             </button>
             <span className="text-gray-300">/</span>
             <button onClick={() => editorNavigate("/new-project")} className="text-gray-400 hover:text-[#C87D5A] transition-colors">
-              Design Studio
+              Studio
             </button>
-            {spaceType && (
-              <>
-                <span className="text-gray-300">/</span>
-                <span className="text-gray-400">{spaceType === "home" ? "Home" : "Commercial"}</span>
-              </>
-            )}
             {roomLabel && (
               <>
                 <span className="text-gray-300">/</span>
@@ -1002,13 +1115,38 @@ export function FurnitureEditor({
             <span className="text-gray-300">/</span>
             <span className="text-gray-900 font-semibold">{furnitureType.label}</span>
           </nav>
-        </div>
-        <div className="flex flex-wrap items-center gap-x-2 gap-y-2 lg:flex-1 lg:min-w-0 lg:justify-end">
+
+          <div className="w-px h-5 bg-gray-200 mx-1 shrink-0" />
+
+          {/* Undo / Redo */}
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={undo}
+            disabled={historyIndexRef.current <= 0}
+            className="h-8 w-8 shrink-0"
+            title="Undo (Ctrl+Z)"
+          >
+            <Undo2 className="w-3.5 h-3.5" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={redo}
+            disabled={historyIndexRef.current >= historyRef.current.length - 1}
+            className="h-8 w-8 shrink-0"
+            title="Redo (Ctrl+Shift+Z)"
+          >
+            <Redo2 className="w-3.5 h-3.5" />
+          </Button>
+
+          <div className="w-px h-5 bg-gray-200 mx-1 shrink-0" />
+
           {/* Snap toggle */}
           <button
             title={snapEnabled ? "Snap ON (10mm grid)" : "Snap OFF"}
             onClick={() => setSnapEnabled((v) => !v)}
-            className={`h-8 w-8 flex items-center justify-center rounded-lg border transition-colors ${
+            className={`h-8 w-8 flex items-center justify-center rounded-lg border transition-colors shrink-0 ${
               snapEnabled
                 ? "border-[#C87D5A]/30 bg-[#C87D5A]/10 text-[#C87D5A]"
                 : "border-gray-200 bg-white text-gray-400"
@@ -1017,21 +1155,10 @@ export function FurnitureEditor({
             <Magnet className="w-3.5 h-3.5" />
           </button>
 
-          {/* Rotation mode toggle */}
-          <button
-            title={rotationMode ? "Rotation Mode ON (R)" : "Rotation Mode OFF (R)"}
-            onClick={() => setRotationMode((v) => !v)}
-            className={`h-8 w-8 flex items-center justify-center rounded-lg border transition-colors ${
-              rotationMode
-                ? "border-blue-500/30 bg-blue-500/10 text-blue-600"
-                : "border-gray-200 bg-white text-gray-400"
-            }`}
-          >
-            <RotateCw className="w-3.5 h-3.5" />
-          </button>
+          <div className="w-px h-5 bg-gray-200 mx-1 shrink-0" />
 
           {/* View mode selector */}
-          <div className="flex items-center h-8 rounded-lg border border-gray-200 overflow-hidden">
+          <div className="flex items-center h-8 rounded-lg border border-gray-200 overflow-hidden shrink-0">
             {([
               { mode: "3d" as ViewMode, label: "3D", icon: Box },
               { mode: "front" as ViewMode, label: "Front", icon: Square },
@@ -1054,197 +1181,145 @@ export function FurnitureEditor({
             ))}
           </div>
 
-          {/* Scene lighting — day vs dim night */}
-          <div className="flex items-center h-8 rounded-lg border border-gray-200 overflow-hidden">
+          <div className="w-px h-5 bg-gray-200 mx-1 shrink-0" />
+
+          {/* Day / Night lighting */}
+          <div className="flex items-center h-8 rounded-lg border border-gray-200 overflow-hidden shrink-0">
             {([
-              { mode: "day" as const, label: "Day", icon: Sun },
-              { mode: "night" as const, label: "Night", icon: Moon },
-            ]).map(({ mode, label, icon: Icon }) => (
+              { mode: "day" as const, icon: Sun, title: "Day lighting (L)" },
+              { mode: "night" as const, icon: Moon, title: "Night lighting (L)" },
+            ]).map(({ mode, icon: Icon, title }) => (
               <button
                 key={mode}
                 type="button"
-                title={`${label} lighting (L)`}
+                title={title}
                 onClick={() => setLightMode(mode)}
-                className={`h-full px-2 flex items-center gap-1 text-[11px] font-medium transition-colors ${
+                className={`h-full px-2.5 flex items-center justify-center transition-colors ${
                   lightMode === mode
                     ? "bg-[#1B2432] text-white"
                     : "bg-white text-gray-500 hover:bg-gray-50 hover:text-gray-700"
                 }`}
               >
-                <Icon className="w-3 h-3" />
-                {label}
+                <Icon className="w-3.5 h-3.5" />
               </button>
             ))}
           </div>
 
-          <Select
-            value={floorPreset}
-            onValueChange={(v) => setFloorPreset(v as EditorFloorPreset)}
-          >
-            <SelectTrigger
-              className="h-8 w-[132px] shrink-0 text-xs border-gray-200 bg-white"
-              title="Floor & backdrop style"
-            >
-              <SelectValue placeholder="Floor" />
-            </SelectTrigger>
-            <SelectContent>
-              {EDITOR_FLOOR_OPTIONS.map((o) => (
-                <SelectItem key={o.value} value={o.value} className="text-xs">
-                  {o.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          {/* Overflow ⋮ menu */}
+          <Popover>
+            <PopoverTrigger asChild>
+              <button
+                title="More options"
+                className="h-8 w-8 flex items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-500 hover:text-gray-700 hover:bg-gray-50 transition-colors shrink-0"
+              >
+                <MoreVertical className="w-4 h-4" />
+              </button>
+            </PopoverTrigger>
+            <PopoverContent align="end" className="w-56 p-1.5 space-y-0.5">
+              {/* Floor preset */}
+              <div className="px-2 py-1.5">
+                <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1.5">Floor Style</p>
+                <Select
+                  value={floorPreset}
+                  onValueChange={(v) => setFloorPreset(v as EditorFloorPreset)}
+                >
+                  <SelectTrigger className="h-7 w-full text-xs border-gray-200 bg-white">
+                    <SelectValue placeholder="Floor" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {EDITOR_FLOOR_OPTIONS.map((o) => (
+                      <SelectItem key={o.value} value={o.value} className="text-xs">
+                        {o.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="h-px bg-gray-100 mx-1" />
+              {/* Reset */}
+              <button
+                onClick={handleReset}
+                className="w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-xs text-gray-700 hover:bg-gray-100 transition-colors"
+              >
+                <RotateCcw className="w-3.5 h-3.5 text-gray-400" />
+                Reset to default
+              </button>
+              {/* Help */}
+              <button
+                onClick={() => setShowHelp((v) => !v)}
+                className="w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-xs text-gray-700 hover:bg-gray-100 transition-colors"
+              >
+                <HelpCircle className="w-3.5 h-3.5 text-gray-400" />
+                Shortcuts &amp; Help
+              </button>
+              <div className="h-px bg-gray-100 mx-1" />
+              {/* Save & Exit */}
+              <button
+                onClick={() => guardedNavigate(handleSaveAndExit)}
+                className="w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-xs text-gray-700 hover:bg-gray-100 transition-colors"
+              >
+                <LogOut className="w-3.5 h-3.5 text-gray-400" />
+                Save &amp; Exit
+              </button>
+            </PopoverContent>
+          </Popover>
 
-          {/* Help button */}
-          <button
-            title="Shortcuts & Help (?)"
-            onClick={() => setShowHelp((v) => !v)}
-            className={`h-8 w-8 flex items-center justify-center rounded-lg border transition-colors ${
-              showHelp
-                ? "border-[#C87D5A]/30 bg-[#C87D5A]/10 text-[#C87D5A]"
-                : "border-gray-200 bg-white text-gray-400 hover:text-gray-600"
-            }`}
-          >
-            <HelpCircle className="w-3.5 h-3.5" />
-          </button>
+          {/* Spacer */}
+          <div className="flex-1" />
 
-          {/* Mode indicator badge */}
-          {editingGroupId ? (
-            <div className="flex items-center gap-2">
-              <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-orange-100 text-orange-700 border border-orange-200">
+          {/* Editing badge (only when inside a group) */}
+          {editingGroupId && (
+            <div className="flex items-center gap-1.5 shrink-0">
+              <span className="text-xs text-orange-600 font-medium">
                 Editing: {groups.find((g) => g.id === editingGroupId)?.name ?? "Group"}
               </span>
-              <Button variant="outline" size="sm" onClick={exitEditMode} className="h-7 text-xs">Done</Button>
+              <button
+                onClick={exitEditMode}
+                className="text-xs text-gray-400 hover:text-gray-700 underline underline-offset-2 transition-colors"
+              >
+                Done
+              </button>
             </div>
-          ) : (
-            <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-blue-50 text-blue-600 border border-blue-200">Scene Mode</span>
           )}
 
-          <Button
-            variant={showLibrary ? "default" : "outline"}
-            size="sm"
-            onClick={() => setShowLibrary((v) => !v)}
-            className={`h-8 ${showLibrary ? "bg-[#1B2432] hover:bg-[#2A3544] text-white" : ""}`}
-          >
-            <BookOpen className="w-3.5 h-3.5 mr-1.5" />
-            Library
-          </Button>
-
-          {/* Import from Image */}
-          <input
-            ref={toolbarFileRef}
-            type="file"
-            accept="image/*"
-            onChange={(e) => {
-              const file = e.target.files?.[0];
-              if (file) handleToolbarImageImport(file);
-              e.target.value = "";
-            }}
-            className="hidden"
-          />
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => toolbarFileRef.current?.click()}
-            disabled={isToolbarAnalyzing}
-            className="h-8"
-          >
-            {isToolbarAnalyzing ? (
-              <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
-            ) : (
-              <ImagePlus className="w-3.5 h-3.5 mr-1.5" />
-            )}
-            {isToolbarAnalyzing ? "Analyzing..." : "From Image"}
-          </Button>
-
-          <div className="w-px h-6 bg-gray-200 mx-1" />
-
-          <Button
-            variant={chatOpen ? "default" : "outline"}
-            size="sm"
-            onClick={() => setChatOpen((v) => !v)}
-            className={`h-8 ${
-              chatOpen
-                ? "bg-[#1B2432] hover:bg-[#2A3544] text-white"
-                : ""
-            }`}
-          >
-            <MessageSquare className="w-3.5 h-3.5 mr-1.5" />
-            AI Assistant
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={undo}
-            disabled={historyIndexRef.current <= 0}
-            className="h-8 px-2"
-            title="Undo (Ctrl+Z)"
-          >
-            <Undo2 className="w-3.5 h-3.5" />
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={redo}
-            disabled={historyIndexRef.current >= historyRef.current.length - 1}
-            className="h-8 px-2"
-            title="Redo (Ctrl+Shift+Z)"
-          >
-            <Redo2 className="w-3.5 h-3.5" />
-          </Button>
-          <Button variant="outline" size="sm" onClick={handleReset} className="h-8">
-            <RotateCcw className="w-3.5 h-3.5 mr-1.5" />
-            Reset
-          </Button>
-
-          {/* Save status indicator */}
+          {/* Save status dot */}
           {saveStatus === "saving" && (
-            <span className="flex items-center gap-1.5 text-[11px] text-gray-400 animate-pulse">
+            <span className="flex items-center gap-1.5 text-[11px] text-gray-400 animate-pulse shrink-0">
               <Loader2 className="w-3 h-3 animate-spin" /> Saving...
             </span>
           )}
           {saveStatus === "saved" && (
-            <span className="flex items-center gap-1.5 text-[11px] text-green-600">
+            <span className="flex items-center gap-1.5 text-[11px] text-green-600 shrink-0">
               <Check className="w-3 h-3" /> Saved
             </span>
           )}
           {saveStatus === "unsaved" && (
-            <span className="flex items-center gap-1 text-[11px] text-amber-500 font-medium">
-              ● Unsaved
-            </span>
+            <span className="text-[11px] text-amber-500 font-medium shrink-0">● Unsaved</span>
           )}
 
+          {/* Save */}
           <Button
             size="sm"
             onClick={handleSave}
             disabled={saveStatus === "saving"}
-            className="h-8 bg-[#C87D5A] hover:bg-[#B06B4A] text-white"
+            className="h-8 bg-[#C87D5A] hover:bg-[#B06B4A] text-white shrink-0"
             title="Save (Ctrl+S)"
           >
             {saveStatus === "saving" ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <Save className="w-3.5 h-3.5 mr-1.5" />}
             Save
           </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => guardedNavigate(handleSaveAndExit)}
-            className="h-8"
-            title="Save and return to dashboard"
-          >
-            <LogOut className="w-3.5 h-3.5 mr-1.5" />
-            Save & Exit
-          </Button>
+
+          {/* Finish & Submit */}
           <Button
             size="sm"
             onClick={() => guardedNavigate(handleFinishSubmit)}
-            className="h-8 bg-[#1B2432] hover:bg-[#2A3544] text-white"
+            className="h-8 bg-[#1B2432] hover:bg-[#2A3544] text-white shrink-0"
             title="Save and submit to creators"
           >
             <SendHorizonal className="w-3.5 h-3.5 mr-1.5" />
-            Finish & Submit
+            Finish
           </Button>
-        </div>
+
         </div>
       </div>
 
@@ -1279,7 +1354,7 @@ export function FurnitureEditor({
         )}
 
         <div className="flex-1 min-w-0 min-h-0 p-3 flex flex-col">
-          <div className="flex-1 min-h-0 min-w-0">
+          <div className="flex-1 min-h-0 min-w-0 relative">
             <EditorViewport
               panels={activePanels}
               selectedPanelId={selectedPanelId}
@@ -1287,7 +1362,8 @@ export function FurnitureEditor({
               rotationMode={rotationMode}
               viewMode={viewMode}
               onSelectPanel={setSelectedPanelId}
-              onUpdatePanel={handleUpdatePanel}
+              onUpdatePanel={handleUpdatePanelCommit}
+              onUpdatePanelLive={handleUpdatePanelLive}
               groups={groups}
               ungroupedPanels={ungroupedPanels}
               editingGroupId={editingGroupId}
@@ -1295,17 +1371,51 @@ export function FurnitureEditor({
               selectedGroupId={selectedGroupId}
               onSelectGroup={setSelectedGroupId}
               onUpdateGroup={handleUpdateGroup}
+              onUpdateGroupLive={handleUpdateGroupLive}
               onEnterEditMode={enterEditMode}
               onExitEditMode={exitEditMode}
               onRenameGroup={handleRenameGroup}
               onUngroupGroup={handleUngroupGroup}
               onDeleteGroup={handleDeleteGroup}
               onScaleGroup={handleScaleGroup}
+              onContextMenu={handleContextMenu}
               lightMode={lightMode}
               floorPreset={floorPreset}
               initialCameraPosition={boot.cameraPosition}
               onCameraMove={(pos) => { cameraPositionRef.current = pos; }}
             />
+            {hintsVisible && (
+              <div className="absolute inset-0 z-20 pointer-events-none">
+                {/* Center hint */}
+                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/4 pointer-events-auto">
+                  <div className="bg-white rounded-xl shadow-lg border border-gray-200 px-4 py-3 max-w-[220px] text-center">
+                    <p className="text-xs font-medium text-gray-700 mb-1">Drag to move</p>
+                    <p className="text-[10px] text-gray-400">Click any object, then drag to reposition it</p>
+                  </div>
+                </div>
+
+                {/* Right hint */}
+                <div className="absolute top-1/3 right-4 pointer-events-auto">
+                  <div className="bg-white rounded-xl shadow-lg border border-gray-200 px-4 py-3 max-w-[200px] text-center">
+                    <p className="text-xs font-medium text-gray-700 mb-1">Edit in sidebar</p>
+                    <p className="text-[10px] text-gray-400">Change materials, size, and position</p>
+                  </div>
+                </div>
+
+                {/* Bottom dismiss */}
+                <div className="absolute bottom-12 left-1/2 -translate-x-1/2 pointer-events-auto">
+                  <button
+                    onClick={dismissHints}
+                    className="px-4 py-1.5 bg-[#1B2432] text-white text-xs rounded-full shadow-lg hover:bg-[#2A3544] transition-colors"
+                  >
+                    Got it
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+          <div className="shrink-0 px-3 py-1 bg-white/80 backdrop-blur-sm border-t border-gray-100 flex items-center text-[10px] text-gray-400 select-none">
+            {statusText}
           </div>
         </div>
 
@@ -1327,23 +1437,70 @@ export function FurnitureEditor({
           multiSelectCount={selectedPanelIds.length}
         />
 
-        {chatOpen && (
-          <DesignChatPanel
-            furnitureType={furnitureType}
-            dims={dims}
-            style={style}
-            panels={flattenScene(groups, ungroupedPanels)}
-            onUpdateDims={handleDimsChange}
-            onUpdateStyle={setStyle}
-            onUpdatePanelMaterial={handleUpdatePanelMaterial}
-            onUpdateAllMaterials={handleUpdateAllMaterials}
-            onRemovePanel={handleChatRemovePanel}
-            onAddPanel={handleChatAddPanel}
-            onBuildFromImage={handleBuildFromImage}
-            onClose={() => setChatOpen(false)}
-          />
-        )}
       </div>
+
+      {/* Floating AI Assistant panel — position:fixed, rendered outside layout */}
+      {chatOpen && (
+        <DesignChatPanel
+          furnitureType={furnitureType}
+          dims={dims}
+          style={style}
+          panels={flattenScene(groups, ungroupedPanels)}
+          onUpdateDims={handleDimsChange}
+          onUpdateStyle={setStyle}
+          onUpdatePanelMaterial={handleUpdatePanelMaterial}
+          onUpdateAllMaterials={handleUpdateAllMaterials}
+          onRemovePanel={handleChatRemovePanel}
+          onAddPanel={handleChatAddPanel}
+          onBuildFromImage={handleBuildFromImage}
+          onClose={() => setChatOpen(false)}
+        />
+      )}
+
+      {/* Floating AI chat toggle — bottom-right, only visible when chat is closed */}
+      {!chatOpen && (
+        <button
+          onClick={() => setChatOpen(true)}
+          title="Open AI Assistant"
+          className="fixed bottom-20 right-4 z-30 h-11 w-11 flex items-center justify-center rounded-full shadow-lg bg-[#1B2432] text-white hover:bg-[#2A3544] transition-colors"
+        >
+          <MessageSquare className="w-5 h-5" />
+        </button>
+      )}
+
+      {/* Context menu for 3D viewport elements */}
+      {contextMenu && (
+        <EditorContextMenu
+          x={contextMenu.x}
+          y={contextMenu.y}
+          panelId={contextMenu.panelId}
+          groupId={contextMenu.groupId}
+          onDuplicate={() => {
+            if (contextMenu.panelId) handleDuplicatePanel(contextMenu.panelId);
+            else if (contextMenu.groupId) handleDuplicateGroup(contextMenu.groupId);
+            setContextMenu(null);
+          }}
+          onDelete={() => {
+            if (contextMenu.panelId) handleDeletePanel(contextMenu.panelId);
+            else if (contextMenu.groupId) handleDeleteGroup(contextMenu.groupId);
+            setContextMenu(null);
+          }}
+          onEditParts={() => {
+            if (contextMenu.groupId) enterEditMode(contextMenu.groupId);
+            setContextMenu(null);
+          }}
+          onGroup={() => {
+            if (contextMenu.panelId) handleGroupPanels([contextMenu.panelId]);
+            setContextMenu(null);
+          }}
+          onUngroup={() => {
+            if (contextMenu.groupId) handleUngroupGroup(contextMenu.groupId);
+            setContextMenu(null);
+          }}
+          hasGroup={!!contextMenu.groupId}
+          onClose={() => setContextMenu(null)}
+        />
+      )}
 
       {/* Add Part Picker modal */}
       {showAddPicker && (
@@ -1376,162 +1533,96 @@ export function FurnitureEditor({
 
       {/* Help / Shortcuts overlay */}
       {showHelp && (
-        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl shadow-2xl w-[480px] max-h-[80vh] overflow-y-auto border border-gray-200">
-            <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between sticky top-0 bg-white rounded-t-2xl">
-              <div>
-                <h3 className="text-base font-serif font-semibold text-gray-900">Shortcuts & Instructions</h3>
-                <p className="text-xs text-gray-400 mt-0.5">Keyboard shortcuts and how to use the editor</p>
-              </div>
-              <button onClick={() => setShowHelp(false)} className="w-8 h-8 rounded-lg hover:bg-gray-100 flex items-center justify-center">
-                <X className="w-4 h-4 text-gray-500" />
+        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm" onClick={() => setShowHelp(false)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-[520px] max-h-[75vh] overflow-y-auto border border-gray-200" onClick={(e) => e.stopPropagation()}>
+            <div className="px-5 py-3 border-b border-gray-100 flex items-center justify-between sticky top-0 bg-white rounded-t-2xl z-10">
+              <h3 className="text-sm font-semibold text-gray-900">Keyboard Shortcuts</h3>
+              <button onClick={() => setShowHelp(false)} className="w-7 h-7 rounded-lg hover:bg-gray-100 flex items-center justify-center">
+                <X className="w-4 h-4 text-gray-400" />
               </button>
             </div>
 
-            <div className="p-6 space-y-5 text-sm">
-              {/* Transform */}
-              <div>
-                <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Move & Resize</h4>
+            <div className="p-5 grid grid-cols-2 gap-x-8 gap-y-4 text-xs">
+              {/* Column 1: Transform */}
+              <div className="space-y-3">
+                <h4 className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Transform</h4>
                 <div className="space-y-1.5">
                   {[
-                    ["Drag panel", "Move on ground plane (X/Z)"],
-                    ["Shift + Drag", "Move on Y axis (up/down)"],
-                    ["Drag handle", "Resize from edge or corner"],
-                    ["R", "Toggle rotation mode"],
-                    ["R + Drag", "Rotate selected panel (drag horizontally)"],
-                    ["Esc", "Exit rotation mode / edit mode"],
+                    ["Drag", "Move on ground (X/Z)"],
+                    ["Green arrow", "Move up/down (Y)"],
+                    ["Handles", "Resize from edge/corner"],
+                    ["R + Drag", "Rotate selected"],
+                    ["Shift + Drag", "Move vertically (alt)"],
+                    ["Arrow keys", "Nudge 10mm"],
+                    ["Shift + Arrow", "Nudge 1mm"],
                   ].map(([key, desc]) => (
-                    <div key={key} className="flex items-center gap-3">
-                      <kbd className="min-w-[56px] px-2 py-1 bg-gray-100 rounded-md text-xs font-mono text-gray-600 text-center">{key}</kbd>
-                      <span className="text-gray-600">{desc}</span>
+                    <div key={key} className="flex items-center gap-2">
+                      <kbd className="min-w-[72px] px-1.5 py-0.5 bg-gray-100 rounded text-[10px] font-mono text-gray-600 text-center">{key}</kbd>
+                      <span className="text-gray-500">{desc}</span>
                     </div>
                   ))}
                 </div>
               </div>
 
-              {/* Actions */}
-              <div>
-                <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Actions</h4>
+              {/* Column 2: Actions */}
+              <div className="space-y-3">
+                <h4 className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Actions</h4>
                 <div className="space-y-1.5">
                   {[
-                    ["Ctrl + Z", "Undo last action"],
-                    ["Ctrl + Shift + Z", "Redo last action"],
-                    ["Ctrl + D", "Duplicate selected element"],
-                    ["Delete", "Delete selected element"],
-                    ["Click", "Select an element"],
-                    ["Click empty", "Deselect all"],
-                    ["Arrow keys", "Nudge selected element (10mm)"],
-                    ["Shift + Arrow", "Fine nudge (1mm)"],
+                    ["Ctrl+Z", "Undo"],
+                    ["Ctrl+Shift+Z", "Redo"],
+                    ["Ctrl+D", "Duplicate"],
+                    ["Delete", "Delete selected"],
+                    ["Ctrl+G", "Group panels"],
+                    ["Ctrl+Shift+G", "Ungroup"],
+                    ["Right-click", "Context menu"],
+                    ["?", "Toggle this overlay"],
                   ].map(([key, desc]) => (
-                    <div key={key} className="flex items-center gap-3">
-                      <kbd className="min-w-[56px] px-2 py-1 bg-gray-100 rounded-md text-xs font-mono text-gray-600 text-center">{key}</kbd>
-                      <span className="text-gray-600">{desc}</span>
+                    <div key={key} className="flex items-center gap-2">
+                      <kbd className="min-w-[72px] px-1.5 py-0.5 bg-gray-100 rounded text-[10px] font-mono text-gray-600 text-center">{key}</kbd>
+                      <span className="text-gray-500">{desc}</span>
                     </div>
                   ))}
                 </div>
               </div>
 
-              {/* Groups & Edit Mode */}
-              <div>
-                <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Groups & Edit Mode</h4>
+              {/* Column 1: Navigation */}
+              <div className="space-y-3">
+                <h4 className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Navigation</h4>
                 <div className="space-y-1.5">
                   {[
-                    ["Double-click", "Enter edit mode (edit parts inside a group)"],
-                    ["Escape", "Exit edit mode (back to scene)"],
-                    ["Ctrl + G", "Group selected panels"],
-                    ["Ctrl + Shift + G", "Ungroup selected group"],
-                  ].map(([key, desc]) => (
-                    <div key={key} className="flex items-center gap-3">
-                      <kbd className="min-w-[56px] px-2 py-1 bg-gray-100 rounded-md text-xs font-mono text-gray-600 text-center">{key}</kbd>
-                      <span className="text-gray-600">{desc}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Views */}
-              <div>
-                <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">View Modes</h4>
-                <div className="space-y-1.5">
-                  {[
-                    ["1", "3D view (default perspective)"],
-                    ["2", "Front view (XY)"],
-                    ["3", "Top view (XZ)"],
-                    ["4", "Side view (YZ)"],
-                  ].map(([key, desc]) => (
-                    <div key={key} className="flex items-center gap-3">
-                      <kbd className="min-w-[56px] px-2 py-1 bg-gray-100 rounded-md text-xs font-mono text-gray-600 text-center">{key}</kbd>
-                      <span className="text-gray-600">{desc}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Lighting */}
-              <div>
-                <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Canvas lighting</h4>
-                <div className="space-y-1.5">
-                  {[
-                    ["Floor (dropdown)", "Bright studio, parquet, tile, or grass — backdrop matches preset"],
-                    ["Day / Night (toolbar)", "Day is bright; Night dims the scene and backdrop"],
-                    ["L", "Toggle day ↔ night lighting"],
-                  ].map(([key, desc]) => (
-                    <div key={key} className="flex items-center gap-3">
-                      <kbd className="min-w-[56px] px-2 py-1 bg-gray-100 rounded-md text-xs font-mono text-gray-600 text-center">{key}</kbd>
-                      <span className="text-gray-600">{desc}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Doors & Drawers */}
-              <div>
-                <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Doors & Drawers</h4>
-                <div className="space-y-1.5">
-                  {[
-                    ["Double-click", "Toggle door/drawer (in edit mode)"],
-                    ["Right-click", "Context menu with Open/Close option"],
-                  ].map(([key, desc]) => (
-                    <div key={key} className="flex items-center gap-3">
-                      <kbd className="min-w-[56px] px-2 py-1 bg-gray-100 rounded-md text-xs font-mono text-gray-600 text-center">{key}</kbd>
-                      <span className="text-gray-600">{desc}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Navigation */}
-              <div>
-                <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">3D Navigation</h4>
-                <div className="space-y-1.5">
-                  {[
-                    ["Left drag", "Orbit / rotate camera"],
+                    ["Left drag", "Orbit camera"],
                     ["Right drag", "Pan camera"],
-                    ["Scroll", "Zoom in/out"],
+                    ["Scroll", "Zoom"],
+                    ["Double-click", "Edit group parts"],
+                    ["Escape", "Exit edit mode"],
                   ].map(([key, desc]) => (
-                    <div key={key} className="flex items-center gap-3">
-                      <kbd className="min-w-[56px] px-2 py-1 bg-gray-100 rounded-md text-xs font-mono text-gray-600 text-center">{key}</kbd>
-                      <span className="text-gray-600">{desc}</span>
+                    <div key={key} className="flex items-center gap-2">
+                      <kbd className="min-w-[72px] px-1.5 py-0.5 bg-gray-100 rounded text-[10px] font-mono text-gray-600 text-center">{key}</kbd>
+                      <span className="text-gray-500">{desc}</span>
                     </div>
                   ))}
                 </div>
               </div>
 
-              {/* Tips */}
-              <div className="bg-[#FDF8F4] rounded-xl p-4 border border-[#C87D5A]/10">
-                <h4 className="text-xs font-semibold text-[#C87D5A] uppercase tracking-wider mb-2">Tips</h4>
-                <ul className="space-y-1.5 text-xs text-gray-600 leading-relaxed">
-                  <li>• Use the <strong>Parameters panel</strong> (right side) to type exact dimensions, position, and rotation values</li>
-                  <li>• <strong>Quick Rotate</strong> buttons let you rotate 90° on any axis with one click</li>
-                  <li>• The <strong>magnet icon</strong> toggles snap-to-grid (10mm increments)</li>
-                  <li>• <strong>+ Add</strong> — use <strong>On selected surface</strong> to drop pillows, cushions, vases, etc. on whatever you clicked; other parts stack on the highest surface by default</li>
-                  <li>• Hover over any panel in the sidebar to see <strong>duplicate</strong> and <strong>delete</strong> buttons</li>
-                  <li>• <strong>Objects snap</strong> to each other when edges are close — blue guide lines appear when aligned</li>
-                  <li>• Press <strong>R</strong> to enter rotation mode, then drag an object to rotate it. Angle display shown while dragging</li>
-                  <li>• Use the <strong>AI Assistant</strong> to change materials or dimensions by chatting</li>
-                  <li>• <strong>Ctrl+G</strong> groups selected panels; <strong>Ctrl+Shift+G</strong> ungroups</li>
-                  <li>• <strong>Double-click</strong> a group to enter edit mode; press <strong>Esc</strong> or click <strong>Done</strong> to exit</li>
-                </ul>
+              {/* Column 2: Views */}
+              <div className="space-y-3">
+                <h4 className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Views</h4>
+                <div className="space-y-1.5">
+                  {[
+                    ["1", "3D perspective"],
+                    ["2", "Front view"],
+                    ["3", "Top view"],
+                    ["4", "Side view"],
+                    ["L", "Toggle day/night"],
+                    ["Ctrl+S", "Save"],
+                  ].map(([key, desc]) => (
+                    <div key={key} className="flex items-center gap-2">
+                      <kbd className="min-w-[72px] px-1.5 py-0.5 bg-gray-100 rounded text-[10px] font-mono text-gray-600 text-center">{key}</kbd>
+                      <span className="text-gray-500">{desc}</span>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
           </div>

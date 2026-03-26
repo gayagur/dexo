@@ -15,7 +15,13 @@ import * as THREE from "three";
 function isDoor(label: string) { return /\bdoor\b/i.test(label); }
 function isLeftDoor(label: string) { return /left\s*door/i.test(label); }
 function isRightDoor(label: string) { return /right\s*door/i.test(label); }
-function isDrawer(label: string) { return /drawer/i.test(label); }
+/** Only true for operable drawer fronts — not "Drawer Left Wall" or similar internals */
+function isDrawer(label: string) {
+  const s = label.trim();
+  if (/^drawer$/i.test(s)) return true;
+  if (/^drawer\s+\d+$/i.test(s)) return true;
+  return /\bdrawer\s+front\b/i.test(label);
+}
 function isInteractive(label: string) { return isDoor(label) || isDrawer(label); }
 
 function snapToGrid(value: number, gridSize: number): number {
@@ -452,13 +458,16 @@ export interface EditorViewportProps {
   onSelectPanel: (id: string | null) => void;
   onSelectGroup: (id: string | null) => void;
   onUpdatePanel: (id: string, updates: Partial<PanelData>) => void;
+  onUpdatePanelLive?: (id: string, updates: Partial<PanelData>) => void;
   onUpdateGroup: (groupId: string, updates: Partial<GroupData>) => void;
+  onUpdateGroupLive?: (groupId: string, updates: Partial<GroupData>) => void;
   onEnterEditMode: (groupId: string) => void;
   onExitEditMode: () => void;
   onRenameGroup: (groupId: string, name: string) => void;
   onUngroupGroup: (groupId: string) => void;
   onDeleteGroup: (groupId: string) => void;
   onScaleGroup: (groupId: string, scaleX: number, scaleY: number, scaleZ: number) => void;
+  onContextMenu?: (x: number, y: number, panelId: string | null, groupId: string | null) => void;
   lightMode: EditorLightMode;
   floorPreset: EditorFloorPreset;
   /** Initial 3D orbit camera position (e.g. when resuming a saved design). */
@@ -481,13 +490,16 @@ export function EditorViewport({
   onSelectPanel,
   onSelectGroup,
   onUpdatePanel,
+  onUpdatePanelLive,
   onUpdateGroup,
+  onUpdateGroupLive,
   onEnterEditMode,
   onExitEditMode,
   onRenameGroup,
   onUngroupGroup,
   onDeleteGroup,
   onScaleGroup,
+  onContextMenu: onContextMenuProp,
   lightMode,
   floorPreset,
   initialCameraPosition,
@@ -725,6 +737,8 @@ export function EditorViewport({
                         setContextMenu({ panelId: panel.id, label: panel.label, x, y, type: "door" });
                       } else if (isDrawer(panel.label)) {
                         setContextMenu({ panelId: panel.id, label: panel.label, x, y, type: "drawer" });
+                      } else {
+                        onContextMenuProp?.(x, y, panel.id, null);
                       }
                     }}
                     onDragStart={(intersectionPoint, clientX) => startDrag(panel.id, intersectionPoint, clientX)}
@@ -750,6 +764,7 @@ export function EditorViewport({
                     onContextMenu={(x, y) => {
                       if (!isDimmed) {
                         setContextMenu({ panelId: g.panels[0]?.id ?? g.id, label: g.name, x, y, type: "group", groupId: g.id });
+                        onContextMenuProp?.(x, y, null, g.id);
                       }
                     }}
                     onPointerDown={(pt, clientX) => { if (!isDimmed) startGroupDrag(g.id, pt, clientX); }}
@@ -772,6 +787,7 @@ export function EditorViewport({
                     onContextMenu={(x, y) => {
                       if (!isDimmed) {
                         setContextMenu({ panelId: panel.id, label: g.name, x, y, type: "group", groupId: g.id });
+                        onContextMenuProp?.(x, y, null, g.id);
                       } else if (isDoor(panel.label)) {
                         setContextMenu({ panelId: panel.id, label: panel.label, x, y, type: "door" });
                       } else if (isDrawer(panel.label)) {
@@ -803,10 +819,14 @@ export function EditorViewport({
               onClick={() => { if (!isDimmed) { onSelectPanel(panel.id); onSelectGroup(null); closeContextMenu(); } }}
               onDoubleClick={() => { if (!isDimmed && isInteractive(panel.label)) togglePanel(panel.id); }}
               onContextMenu={(x, y) => {
-                if (isDoor(panel.label)) {
-                  setContextMenu({ panelId: panel.id, label: panel.label, x, y, type: "door" });
-                } else if (isDrawer(panel.label)) {
-                  setContextMenu({ panelId: panel.id, label: panel.label, x, y, type: "drawer" });
+                if (!isDimmed) {
+                  if (isDoor(panel.label)) {
+                    setContextMenu({ panelId: panel.id, label: panel.label, x, y, type: "door" });
+                  } else if (isDrawer(panel.label)) {
+                    setContextMenu({ panelId: panel.id, label: panel.label, x, y, type: "drawer" });
+                  } else {
+                    onContextMenuProp?.(x, y, panel.id, null);
+                  }
                 }
               }}
               onDragStart={(intersectionPoint, clientX) => { if (!isDimmed) startDrag(panel.id, intersectionPoint, clientX); }}
@@ -827,7 +847,9 @@ export function EditorViewport({
           panels={snapPanels}
           groups={groups}
           onUpdatePanel={onUpdatePanel}
+          onUpdatePanelLive={onUpdatePanelLive}
           onUpdateGroup={onUpdateGroup}
+          onUpdateGroupLive={onUpdateGroupLive}
           onSnapGuidesChange={setSnapGuides}
           onDragInfoChange={setDragInfo}
           onInteractionEnd={() => setInteractionActive(false)}
@@ -843,11 +865,27 @@ export function EditorViewport({
           <SelectionHandles
             panel={selectedPanel}
             onUpdate={onUpdatePanel}
+            onUpdateLive={onUpdatePanelLive}
             snapEnabled={snapEnabled}
             onInteractionChange={setInteractionActive}
             onDragInfoChange={setDragInfo}
           />
         )}
+
+        {/* Y-axis vertical move handle */}
+        {selectedPanel && !selectedGroupId && !rotationMode && (() => {
+          const panel = selectedPanel;
+          if (!panel) return null;
+          return (
+            <YAxisHandle
+              panel={panel}
+              onUpdateLive={onUpdatePanelLive ?? onUpdatePanel}
+              onCommit={onUpdatePanel}
+              onInteractionChange={setInteractionActive}
+              onDragInfoChange={setDragInfo}
+            />
+          );
+        })()}
 
         {/* Rotation ring when in rotation mode (not for group selection) */}
         {rotationMode && selectedPanel && !selectedGroupId && (
@@ -1094,7 +1132,9 @@ function DragController({
   panels,
   groups,
   onUpdatePanel,
+  onUpdatePanelLive,
   onUpdateGroup,
+  onUpdateGroupLive,
   onSnapGuidesChange,
   onDragInfoChange,
   onInteractionEnd,
@@ -1105,13 +1145,18 @@ function DragController({
   panels: PanelData[];
   groups: GroupData[];
   onUpdatePanel: (id: string, updates: Partial<PanelData>) => void;
+  onUpdatePanelLive?: (id: string, updates: Partial<PanelData>) => void;
   onUpdateGroup: (groupId: string, updates: Partial<GroupData>) => void;
+  onUpdateGroupLive?: (groupId: string, updates: Partial<GroupData>) => void;
   onSnapGuidesChange: (guides: SnapGuide[]) => void;
   onDragInfoChange: (info: DragInfo | null) => void;
   onInteractionEnd: () => void;
 }) {
   const { camera, gl, raycaster } = useThree();
   const shiftHeld = useRef(false);
+  // Track the last committed update so we can write history once on pointerup
+  const lastPanelUpdate = useRef<{ id: string; updates: Partial<PanelData> } | null>(null);
+  const lastGroupUpdate = useRef<{ groupId: string; updates: Partial<GroupData> } | null>(null);
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => { if (e.key === "Shift") shiftHeld.current = true; };
@@ -1148,6 +1193,10 @@ function DragController({
       }
     };
 
+    // Helper aliases: use live (no-history) path during drag, fall back to commit path if live not provided
+    const livePanel = onUpdatePanelLive ?? onUpdatePanel;
+    const liveGroup = onUpdateGroupLive ?? onUpdateGroup;
+
     const onPointerMove = (e: PointerEvent) => {
       const ds = dragStateRef.current;
       if (!ds || !ds.isDragging || !ds.panelId) return;
@@ -1172,7 +1221,8 @@ function DragController({
           if (group) {
             const rot = [...group.rotation] as [number, number, number];
             rot[1] = newRotY;
-            onUpdateGroup(groupId, { rotation: rot });
+            liveGroup(groupId, { rotation: rot });
+            lastGroupUpdate.current = { groupId, updates: { rotation: rot } };
 
             let degDisplay = ((newRotY * 180 / Math.PI) % 360 + 360) % 360;
             if (degDisplay > 180) degDisplay -= 360;
@@ -1183,7 +1233,8 @@ function DragController({
           if (panel) {
             const rot = [...(panel.rotation ?? [0, 0, 0])] as [number, number, number];
             rot[1] = newRotY;
-            onUpdatePanel(ds.panelId, { rotation: rot });
+            livePanel(ds.panelId, { rotation: rot });
+            lastPanelUpdate.current = { id: ds.panelId, updates: { rotation: rot } };
 
             let degDisplay = ((newRotY * 180 / Math.PI) % 360 + 360) % 360;
             if (degDisplay > 180) degDisplay -= 360;
@@ -1216,7 +1267,8 @@ function DragController({
 
       if (isGroupDrag && groupId) {
         // Group position drag — no object-to-object snap for groups for now
-        onUpdateGroup(groupId, { position: newPos });
+        liveGroup(groupId, { position: newPos });
+        lastGroupUpdate.current = { groupId, updates: { position: newPos } };
         onDragInfoChange({ position: newPos });
       } else {
         // Object-to-object snap
@@ -1227,7 +1279,8 @@ function DragController({
           onSnapGuidesChange(guides);
         }
 
-        onUpdatePanel(ds.panelId, { position: newPos });
+        livePanel(ds.panelId, { position: newPos });
+        lastPanelUpdate.current = { id: ds.panelId, updates: { position: newPos } };
         onDragInfoChange({ position: newPos });
       }
     };
@@ -1235,6 +1288,15 @@ function DragController({
     const onPointerUp = () => {
       const ds = dragStateRef.current;
       if (ds) {
+        // Commit the final position/rotation to history (one entry for the whole drag)
+        if (lastPanelUpdate.current) {
+          onUpdatePanel(lastPanelUpdate.current.id, lastPanelUpdate.current.updates);
+          lastPanelUpdate.current = null;
+        }
+        if (lastGroupUpdate.current) {
+          onUpdateGroup(lastGroupUpdate.current.groupId, lastGroupUpdate.current.updates);
+          lastGroupUpdate.current = null;
+        }
         ds.isDragging = false;
         ds.panelId = null;
         ds.startPoint = null;
@@ -1254,7 +1316,7 @@ function DragController({
       canvas.removeEventListener("pointermove", onPointerMove);
       canvas.removeEventListener("pointerup", onPointerUp);
     };
-  }, [camera, gl, raycaster, snapEnabled, rotationMode, panels, groups, onUpdatePanel, onUpdateGroup, onSnapGuidesChange, onDragInfoChange, onInteractionEnd, dragStateRef]);
+  }, [camera, gl, raycaster, snapEnabled, rotationMode, panels, groups, onUpdatePanel, onUpdatePanelLive, onUpdateGroup, onUpdateGroupLive, onSnapGuidesChange, onDragInfoChange, onInteractionEnd, dragStateRef]);
 
   return null;
 }
@@ -1264,19 +1326,18 @@ function DragController({
 function SelectionHandles({
   panel,
   onUpdate,
+  onUpdateLive,
   snapEnabled,
   onInteractionChange,
   onDragInfoChange,
 }: {
   panel: PanelData;
   onUpdate: (id: string, updates: Partial<PanelData>) => void;
+  onUpdateLive?: (id: string, updates: Partial<PanelData>) => void;
   snapEnabled: boolean;
   onInteractionChange: (active: boolean) => void;
   onDragInfoChange: (info: DragInfo | null) => void;
 }) {
-  const shape = panel.shape ?? "box";
-  if (shape !== "box") return null;
-
   const [w, h, d] = panel.size;
 
   const handles: { id: string; label: string; offset: [number, number, number]; axis: 0 | 1 | 2; dir: 1 | -1 }[] = [
@@ -1319,6 +1380,7 @@ function SelectionHandles({
           offset={handle.offset}
           axes={[{ axis: handle.axis, dir: handle.dir }]}
           onUpdate={onUpdate}
+          onUpdateLive={onUpdateLive}
           snapEnabled={snapEnabled}
           onInteractionChange={onInteractionChange}
           onDragInfoChange={onDragInfoChange}
@@ -1339,6 +1401,7 @@ function SelectionHandles({
             { axis: cornerAxes[i][2], dir: cornerAxes[i][3] },
           ]}
           onUpdate={onUpdate}
+          onUpdateLive={onUpdateLive}
           snapEnabled={snapEnabled}
           onInteractionChange={onInteractionChange}
           onDragInfoChange={onDragInfoChange}
@@ -1358,6 +1421,7 @@ function ResizeHandle({
   offset,
   axes,
   onUpdate,
+  onUpdateLive,
   snapEnabled,
   onInteractionChange,
   onDragInfoChange,
@@ -1369,6 +1433,7 @@ function ResizeHandle({
   offset: [number, number, number];
   axes: { axis: 0 | 1 | 2; dir: 1 | -1 }[];
   onUpdate: (id: string, updates: Partial<PanelData>) => void;
+  onUpdateLive?: (id: string, updates: Partial<PanelData>) => void;
   snapEnabled: boolean;
   onInteractionChange: (active: boolean) => void;
   onDragInfoChange: (info: DragInfo | null) => void;
@@ -1377,8 +1442,10 @@ function ResizeHandle({
   const [dragging, setDragging] = useState(false);
   const [hovered, setHovered] = useState(false);
   const dragStart = useRef<{ point: THREE.Vector3; size: [number, number, number]; pos: [number, number, number] } | null>(null);
+  const lastResizeUpdate = useRef<{ size: [number, number, number]; pos: [number, number, number] } | null>(null);
   const shiftHeld = useRef(false);
   const { camera, raycaster, gl } = useThree();
+  const liveUpdate = onUpdateLive ?? onUpdate;
 
   // Determine color from primary axis
   const primaryAxis = axes[0].axis;
@@ -1437,7 +1504,7 @@ function ResizeHandle({
 
       for (const { axis, dir } of axes) {
         const axisDelta = [delta.x, delta.y, delta.z][axis] * dir;
-        newSize[axis] = Math.max(0.005, dragStart.current.size[axis] + axisDelta);
+        newSize[axis] = Math.max(0.01, dragStart.current.size[axis] + axisDelta);
         newPos[axis] = dragStart.current.pos[axis] + (axisDelta / 2) * dir;
       }
 
@@ -1450,7 +1517,8 @@ function ResizeHandle({
         }
       }
 
-      onUpdate(panelId, { size: newSize, position: newPos });
+      liveUpdate(panelId, { size: newSize, position: newPos });
+      lastResizeUpdate.current = { size: newSize, pos: newPos };
 
       // Build resize label: "Width: 600mm → 750mm"
       const dimNames = ["Width", "Height", "Depth"];
@@ -1463,6 +1531,11 @@ function ResizeHandle({
     };
 
     const onPointerUp = () => {
+      // Commit the final size/position to history once
+      if (lastResizeUpdate.current) {
+        onUpdate(panelId, { size: lastResizeUpdate.current.size, position: lastResizeUpdate.current.pos });
+        lastResizeUpdate.current = null;
+      }
       setDragging(false);
       dragStart.current = null;
       gl.domElement.style.cursor = "";
@@ -1476,7 +1549,7 @@ function ResizeHandle({
       gl.domElement.removeEventListener("pointermove", onPointerMove);
       gl.domElement.removeEventListener("pointerup", onPointerUp);
     };
-  }, [dragging, axes, panelId, panelPos, panelSize, offset, camera, raycaster, gl, onUpdate, snapEnabled, onInteractionChange, onDragInfoChange, primaryAxis]);
+  }, [dragging, axes, panelId, panelPos, panelSize, offset, camera, raycaster, gl, onUpdate, liveUpdate, snapEnabled, onInteractionChange, onDragInfoChange, primaryAxis]);
 
   return (
     <mesh
@@ -1498,15 +1571,15 @@ function ResizeHandle({
       onPointerEnter={() => { setHovered(true); gl.domElement.style.cursor = cursorStyle; }}
       onPointerLeave={() => { if (!dragging) { setHovered(false); gl.domElement.style.cursor = ""; } }}
     >
-      <boxGeometry args={[0.025, 0.025, 0.025]} />
+      <boxGeometry args={[0.04, 0.04, 0.04]} />
       <meshStandardMaterial
-        color={dragging ? "#ffffff" : hovered ? axisColor : axisColor}
-        emissive={dragging ? axisColor : hovered ? axisColor : axisColor}
-        emissiveIntensity={dragging ? 0.8 : hovered ? 0.5 : 0.2}
-        roughness={0.3}
-        metalness={0.3}
+        color={dragging ? "#3B82F6" : hovered ? "#ffffff" : "#ffffff"}
+        emissive={dragging ? "#3B82F6" : hovered ? "#3B82F6" : "#93C5FD"}
+        emissiveIntensity={dragging ? 0.8 : hovered ? 0.6 : 0.3}
+        roughness={0.2}
+        metalness={0.1}
         transparent={!hovered && !dragging}
-        opacity={hovered || dragging ? 1 : 0.7}
+        opacity={hovered || dragging ? 1 : 0.85}
       />
     </mesh>
   );
@@ -1556,6 +1629,114 @@ function computeGroupBbox(panels: PanelData[]) {
   const cx = (minX + maxX) / 2, cy = (minY + maxY) / 2, cz = (minZ + maxZ) / 2;
   const sx = maxX - minX, sy = maxY - minY, sz = maxZ - minZ;
   return { center: [cx, cy, cz] as [number, number, number], size: [sx, sy, sz] as [number, number, number] };
+}
+
+// ─── Y-Axis Handle (vertical elevation drag) ─────────────
+
+function YAxisHandle({
+  panel,
+  onUpdateLive,
+  onCommit,
+  onInteractionChange,
+  onDragInfoChange,
+}: {
+  panel: PanelData;
+  onUpdateLive: (id: string, updates: Partial<PanelData>) => void;
+  onCommit?: (id: string, updates: Partial<PanelData>) => void;
+  onInteractionChange: (active: boolean) => void;
+  onDragInfoChange: (info: DragInfo | null) => void;
+}) {
+  const [dragging, setDragging] = useState(false);
+  const [hovered, setHovered] = useState(false);
+  const dragStart = useRef<{ clientY: number; startPosY: number } | null>(null);
+  const { camera, gl } = useThree();
+
+  const [w, h, d] = panel.size;
+  const handleY = h / 2 + 0.07; // Above the top face
+
+  useEffect(() => {
+    if (!dragging) return;
+
+    const onPointerMove = (e: PointerEvent) => {
+      if (!dragStart.current) return;
+
+      // Convert screen Y delta to world Y delta
+      // Use a simple scale factor based on camera distance
+      const cameraDistance = camera.position.length();
+      const sensitivity = cameraDistance * 0.002;
+      const deltaScreen = dragStart.current.clientY - e.clientY; // inverted: up on screen = positive Y
+      const newPosY = Math.max(0, dragStart.current.startPosY + deltaScreen * sensitivity);
+
+      const newPos: [number, number, number] = [panel.position[0], newPosY, panel.position[2]];
+      onUpdateLive(panel.id, { position: newPos });
+
+      const mm = Math.round(newPosY * 1000);
+      onDragInfoChange({ position: newPos, resizeLabel: `Elevation: ${mm}mm` });
+    };
+
+    const onPointerUp = () => {
+      setDragging(false);
+      dragStart.current = null;
+      gl.domElement.style.cursor = "";
+      onInteractionChange(false);
+      onDragInfoChange(null);
+      // Commit final position for undo history
+      if (onCommit) onCommit(panel.id, { position: panel.position });
+    };
+
+    gl.domElement.addEventListener("pointermove", onPointerMove);
+    gl.domElement.addEventListener("pointerup", onPointerUp);
+    return () => {
+      gl.domElement.removeEventListener("pointermove", onPointerMove);
+      gl.domElement.removeEventListener("pointerup", onPointerUp);
+    };
+  }, [dragging, panel, camera, gl, onUpdateLive, onCommit, onInteractionChange, onDragInfoChange]);
+
+  return (
+    <group position={panel.position}>
+      {/* Vertical connecting line */}
+      <mesh position={[0, h / 2 + 0.035, 0]}>
+        <cylinderGeometry args={[0.003, 0.003, 0.07, 8]} />
+        <meshStandardMaterial color="#22C55E" transparent opacity={hovered || dragging ? 0.9 : 0.5} />
+      </mesh>
+
+      {/* Draggable green sphere */}
+      <mesh
+        position={[0, handleY, 0]}
+        onPointerDown={(e) => {
+          e.stopPropagation();
+          setDragging(true);
+          onInteractionChange(true);
+          dragStart.current = {
+            clientY: e.clientY,
+            startPosY: panel.position[1],
+          };
+          gl.domElement.style.cursor = "ns-resize";
+        }}
+        onPointerEnter={() => { setHovered(true); gl.domElement.style.cursor = "ns-resize"; }}
+        onPointerLeave={() => { if (!dragging) { setHovered(false); gl.domElement.style.cursor = ""; } }}
+      >
+        <sphereGeometry args={[0.025, 16, 16]} />
+        <meshStandardMaterial
+          color={dragging ? "#16A34A" : "#22C55E"}
+          emissive="#22C55E"
+          emissiveIntensity={dragging ? 0.8 : hovered ? 0.5 : 0.2}
+          roughness={0.3}
+          metalness={0.1}
+        />
+      </mesh>
+
+      {/* Up arrow indicator (small cone on top of sphere) */}
+      <mesh position={[0, handleY + 0.035, 0]} rotation={[0, 0, 0]}>
+        <coneGeometry args={[0.012, 0.025, 8]} />
+        <meshStandardMaterial
+          color={dragging ? "#16A34A" : "#22C55E"}
+          emissive="#22C55E"
+          emissiveIntensity={dragging ? 0.8 : hovered ? 0.5 : 0.2}
+        />
+      </mesh>
+    </group>
+  );
 }
 
 function GroupSelectionHandles({
@@ -2204,6 +2385,23 @@ function FurniturePanel({
   const shape = panel.shape ?? "box";
   const panelRotation = panel.rotation ?? [0, 0, 0];
 
+  /** Softer edges on wood / melamine (catalog-style); metals stay crisp */
+  const boxBevelRadius =
+    panel.cornerRadius ??
+    (shape === "box" && mat
+      ? mat.category === "Metal"
+        ? 0.001
+        : mat.category === "Glass"
+          ? 0.002
+          : mat.category === "Fabric"
+            ? 0.002
+            : mat.category === "Wood" || mat.category === "Engineered"
+              ? 0.0048
+              : mat.category === "Stone"
+                ? 0.0032
+                : 0.0035
+      : 0.002);
+
   // SH3D external texture (loaded from URL)
   const sh3dTexture = useMemo(() => {
     if (!panel.textureUrl) return null;
@@ -2498,8 +2696,8 @@ function FurniturePanel({
         <group position={panel.position} rotation={panelRotation as any}>
           <RoundedBox
             args={[w, h, d]}
-            radius={panel.cornerRadius ?? 0.002}
-            smoothness={panel.cornerRadius && panel.cornerRadius > 0.005 ? 6 : 4}
+            radius={boxBevelRadius}
+            smoothness={boxBevelRadius > 0.004 ? 5 : boxBevelRadius > 0.0025 ? 4 : 3}
             onClick={handleClick}
             onPointerDown={handlePointerDown}
             onPointerEnter={() => { document.body.style.cursor = cursorStyle; }}

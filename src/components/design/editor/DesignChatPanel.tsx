@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { streamChat, type ChatMessage, uploadFurnitureImage, analyzeFurnitureImage, type FurnitureAnalysis } from "@/lib/ai";
 import { MATERIALS, STYLES, type PanelData, type FurnitureOption } from "@/lib/furnitureData";
-import { Sparkles, Send, Loader2, X, ImagePlus } from "lucide-react";
+import { Sparkles, Send, Loader2, X, ImagePlus, MessageSquare } from "lucide-react";
 
 // ─── Types ──────────────────────────────────────────────
 
@@ -345,51 +345,52 @@ export function DesignChatPanel({
   const displayStreamingText = streamingText.replace(CMD_REGEX, "").replace(/\[DESIGN_CMD\][^[]*$/s, "").trim();
 
   return (
-    <div className="w-80 bg-[#1B2432] flex flex-col border-l border-[#2A3544] shrink-0 h-full">
-      {/* Header */}
-      <div className="px-4 py-3 border-b border-[#2A3544] shrink-0">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-[#C87D5A] to-[#B06B4A] flex items-center justify-center">
-              <Sparkles className="w-3.5 h-3.5 text-white" />
-            </div>
-            <div>
-              <h3 className="text-sm font-semibold text-gray-100">Design Assistant</h3>
-              <p className="text-[10px] text-gray-500">AI-powered editor</p>
-            </div>
-          </div>
-          <button
-            onClick={onClose}
-            className="w-6 h-6 rounded-md flex items-center justify-center text-gray-500 hover:text-gray-300 hover:bg-[#2A3544] transition-colors"
-          >
-            <X className="w-3.5 h-3.5" />
-          </button>
+    <div
+      className="fixed z-40 flex flex-col bg-white rounded-2xl shadow-2xl border border-gray-200 overflow-hidden"
+      style={{
+        width: 380,
+        maxHeight: 500,
+        bottom: 80,
+        right: 16,
+      }}
+    >
+      {/* Floating header bar */}
+      <div className="flex items-center justify-between px-4 py-2.5 border-b border-gray-100 bg-gray-50/80 cursor-default select-none shrink-0">
+        <div className="flex items-center gap-2">
+          <MessageSquare className="w-3.5 h-3.5 text-[#C87D5A]" />
+          <span className="text-xs font-semibold text-gray-700">AI Assistant</span>
         </div>
+        <button
+          onClick={onClose}
+          className="w-6 h-6 flex items-center justify-center rounded-md hover:bg-gray-200 transition-colors"
+        >
+          <X className="w-3.5 h-3.5 text-gray-500" />
+        </button>
+      </div>
 
-        {/* Context badge */}
-        <div className="mt-2.5 flex items-center gap-1.5">
-          <div className="px-2 py-0.5 rounded-full bg-[#2A3544] text-[10px] text-gray-400 font-medium">
-            {furnitureType.label}
-          </div>
-          <div className="px-2 py-0.5 rounded-full bg-[#2A3544] text-[10px] text-gray-400 font-medium">
-            {dims.w} x {dims.h} x {dims.d}mm
-          </div>
-          <div className="px-2 py-0.5 rounded-full bg-[#2A3544] text-[10px] text-gray-400 font-medium">
-            {style}
-          </div>
+      {/* Context badges */}
+      <div className="px-3 py-1.5 flex items-center gap-1.5 border-b border-gray-100 bg-gray-50/50 shrink-0">
+        <div className="px-2 py-0.5 rounded-full bg-gray-100 text-[10px] text-gray-500 font-medium">
+          {furnitureType.label}
+        </div>
+        <div className="px-2 py-0.5 rounded-full bg-gray-100 text-[10px] text-gray-500 font-medium">
+          {dims.w} x {dims.h} x {dims.d}mm
+        </div>
+        <div className="px-2 py-0.5 rounded-full bg-gray-100 text-[10px] text-gray-500 font-medium">
+          {style}
         </div>
       </div>
 
       {/* Messages area */}
-      <div ref={scrollRef} className="flex-1 overflow-y-auto px-3 py-3 space-y-3 scrollbar-thin scrollbar-thumb-[#2A3544]">
+      <div ref={scrollRef} className="flex-1 overflow-y-auto px-3 py-3 space-y-3 scrollbar-thin scrollbar-thumb-gray-200">
         {/* Welcome message */}
         {messages.length === 0 && !isStreaming && (
-          <div className="text-center py-8 px-2">
+          <div className="text-center py-6 px-2">
             <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#C87D5A]/20 to-[#B06B4A]/20 flex items-center justify-center mx-auto mb-3">
               <Sparkles className="w-5 h-5 text-[#C87D5A]" />
             </div>
-            <p className="text-sm text-gray-400 mb-1">How can I help?</p>
-            <p className="text-xs text-gray-600 leading-relaxed">
+            <p className="text-sm text-gray-600 mb-1">How can I help?</p>
+            <p className="text-xs text-gray-400 leading-relaxed">
               Ask me to change dimensions, materials, style, or get design advice for your {furnitureType.label.toLowerCase()}.
             </p>
             {/* Quick suggestions */}
@@ -405,7 +406,7 @@ export function DesignChatPanel({
                     setInput(suggestion);
                     inputRef.current?.focus();
                   }}
-                  className="block w-full text-left px-3 py-2 rounded-lg bg-[#2A3544]/50 text-xs text-gray-400 hover:bg-[#2A3544] hover:text-gray-300 transition-colors"
+                  className="block w-full text-left px-3 py-2 rounded-lg bg-gray-100 text-xs text-gray-500 hover:bg-gray-200 hover:text-gray-700 transition-colors"
                 >
                   {suggestion}
                 </button>
@@ -424,7 +425,7 @@ export function DesignChatPanel({
               className={`max-w-[85%] px-3 py-2 rounded-2xl text-[13px] leading-relaxed whitespace-pre-wrap ${
                 msg.role === "user"
                   ? "bg-[#C87D5A] text-white rounded-br-md"
-                  : "bg-[#2A3544] text-gray-200 rounded-bl-md"
+                  : "bg-gray-100 text-gray-700 rounded-bl-md"
               }`}
             >
               {msg.content}
@@ -435,9 +436,9 @@ export function DesignChatPanel({
         {/* Streaming indicator */}
         {isStreaming && (
           <div className="flex justify-start">
-            <div className="max-w-[85%] px-3 py-2 rounded-2xl rounded-bl-md bg-[#2A3544] text-gray-200 text-[13px] leading-relaxed">
+            <div className="max-w-[85%] px-3 py-2 rounded-2xl rounded-bl-md bg-gray-100 text-gray-700 text-[13px] leading-relaxed">
               {displayStreamingText || (
-                <span className="flex items-center gap-1.5 text-gray-500">
+                <span className="flex items-center gap-1.5 text-gray-400">
                   <Loader2 className="w-3 h-3 animate-spin" />
                   Thinking...
                 </span>
@@ -452,7 +453,7 @@ export function DesignChatPanel({
         {/* Analyzing indicator */}
         {isAnalyzing && (
           <div className="flex justify-start">
-            <div className="max-w-[85%] px-3 py-2 rounded-2xl rounded-bl-md bg-[#2A3544] text-gray-400 text-[13px]">
+            <div className="max-w-[85%] px-3 py-2 rounded-2xl rounded-bl-md bg-gray-100 text-gray-500 text-[13px]">
               <span className="flex items-center gap-1.5">
                 <Loader2 className="w-3 h-3 animate-spin" />
                 Analyzing furniture in image...
@@ -472,7 +473,7 @@ export function DesignChatPanel({
             </button>
             <button
               onClick={() => handleAnalysisAction("add")}
-              className="flex-1 py-2 rounded-lg bg-[#2A3544] hover:bg-[#344050] text-gray-300 text-xs font-medium border border-[#3A4555] transition-colors"
+              className="flex-1 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-medium border border-gray-200 transition-colors"
             >
               Add to scene
             </button>
@@ -481,18 +482,27 @@ export function DesignChatPanel({
 
         {/* Error */}
         {error && (
-          <div className="px-3 py-2 rounded-lg bg-red-900/30 border border-red-800/40 text-red-300 text-xs">
+          <div className="px-3 py-2 rounded-lg bg-red-50 border border-red-200 text-red-600 text-xs">
             {error}
           </div>
         )}
       </div>
 
+      {/* Upload photo row */}
+      <div className="flex items-center gap-2 px-3 py-1.5 border-t border-gray-100 bg-gray-50/50 shrink-0">
+        <label className="flex items-center gap-1.5 px-2 py-1 text-[10px] text-gray-500 hover:text-[#C87D5A] hover:bg-[#C87D5A]/5 rounded cursor-pointer transition-colors">
+          <ImagePlus className="w-3 h-3" />
+          Upload photo
+          <input type="file" accept="image/*" className="hidden" onChange={handleFileChange} />
+        </label>
+      </div>
+
       {/* Input area */}
-      <div className="px-3 pb-3 pt-1 border-t border-[#2A3544] shrink-0">
+      <div className="px-3 pb-3 pt-1 border-t border-gray-100 shrink-0">
         {isStreaming && (
           <button
             onClick={handleCancel}
-            className="w-full mb-2 py-1.5 rounded-lg bg-[#2A3544] text-gray-400 text-xs hover:bg-[#344050] transition-colors"
+            className="w-full mb-2 py-1.5 rounded-lg bg-gray-100 text-gray-500 text-xs hover:bg-gray-200 transition-colors"
           >
             Stop generating
           </button>
@@ -507,16 +517,7 @@ export function DesignChatPanel({
           className="hidden"
         />
 
-        <div className="flex items-end gap-2 bg-[#2A3544] rounded-xl px-3 py-2">
-          {/* Image upload button */}
-          <button
-            onClick={() => fileInputRef.current?.click()}
-            disabled={isStreaming || isAnalyzing}
-            title="Upload furniture image for AI analysis"
-            className="w-8 h-8 rounded-lg hover:bg-[#3A4555] disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center transition-colors shrink-0 text-gray-500 hover:text-gray-300"
-          >
-            <ImagePlus className="w-4 h-4" />
-          </button>
+        <div className="flex items-end gap-2 bg-gray-100 rounded-xl px-3 py-2">
           <textarea
             ref={inputRef}
             value={input}
@@ -525,18 +526,18 @@ export function DesignChatPanel({
             placeholder="Ask about your design..."
             rows={1}
             disabled={isStreaming || isAnalyzing}
-            className="flex-1 bg-transparent text-sm text-gray-200 placeholder-gray-600 resize-none outline-none max-h-24 leading-relaxed disabled:opacity-50"
+            className="flex-1 bg-transparent text-sm text-gray-700 placeholder-gray-400 resize-none outline-none max-h-24 leading-relaxed disabled:opacity-50"
             style={{ minHeight: "20px" }}
           />
           <button
             onClick={handleSend}
             disabled={!input.trim() || isStreaming || isAnalyzing}
-            className="w-8 h-8 rounded-lg bg-[#C87D5A] hover:bg-[#B06B4A] disabled:bg-[#3A4555] disabled:cursor-not-allowed flex items-center justify-center transition-colors shrink-0"
+            className="w-8 h-8 rounded-lg bg-[#C87D5A] hover:bg-[#B06B4A] disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center justify-center transition-colors shrink-0"
           >
             <Send className="w-3.5 h-3.5 text-white" />
           </button>
         </div>
-        <p className="text-[10px] text-gray-600 text-center mt-1.5">
+        <p className="text-[10px] text-gray-400 text-center mt-1.5">
           AI can modify your design directly
         </p>
       </div>

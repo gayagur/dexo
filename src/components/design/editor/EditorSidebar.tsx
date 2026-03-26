@@ -9,8 +9,8 @@ import {
   ArrowLeft,
   Pencil,
   Unlink,
+  Search,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import type { PanelData, GroupData } from "@/lib/furnitureData";
 
 interface EditorSidebarProps {
@@ -285,8 +285,53 @@ export function EditorSidebar({
     ? groups.find((g) => g.id === editingGroupId)
     : null;
 
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const filteredGroups = groups.filter(
+    (g) =>
+      !searchQuery ||
+      g.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      g.panels.some((p) => p.label.toLowerCase().includes(searchQuery.toLowerCase()))
+  );
+  const filteredUngrouped = ungroupedPanels.filter(
+    (p) => !searchQuery || p.label.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  /* ── Search input (shared) ──────────────────────────────────────────── */
+  const searchInput = (
+    <div className="px-3 py-2 border-b border-gray-100">
+      <div className="relative">
+        <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
+        <input
+          type="text"
+          placeholder="Search objects..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="w-full pl-7 pr-3 py-1.5 text-xs bg-gray-50 border border-gray-200 rounded-lg outline-none focus:border-[#C87D5A]/40 focus:bg-white transition-colors"
+        />
+      </div>
+    </div>
+  );
+
+  /* ── Add button (shared, sticky bottom) ────────────────────────────── */
+  const addButton = (
+    <div className="sticky bottom-0 px-3 py-2 border-t border-gray-100 bg-white">
+      <button
+        onClick={onAddPanel}
+        className="w-full flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-medium text-[#C87D5A] bg-[#C87D5A]/5 hover:bg-[#C87D5A]/10 border border-[#C87D5A]/20 rounded-lg transition-colors"
+      >
+        <Plus className="w-3.5 h-3.5" />
+        Add Part
+      </button>
+    </div>
+  );
+
   /* ── Edit Mode ─────────────────────────────────────────────────────── */
   if (editingGroupId && editingPanels) {
+    const filteredEditingPanels = editingPanels.filter(
+      (p) => !searchQuery || p.label.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+
     return (
       <div className="w-64 shrink-0 bg-white border-r border-gray-200 flex flex-col h-full">
         {/* Header */}
@@ -301,15 +346,14 @@ export function EditorSidebar({
           <h3 className="text-sm font-semibold text-gray-900 flex-1 truncate">
             {editingGroup?.name ?? "Group"}
           </h3>
-          <Button variant="ghost" size="sm" onClick={onAddPanel} className="h-7 px-2">
-            <Plus className="w-3.5 h-3.5 mr-1" />
-            Add
-          </Button>
         </div>
+
+        {/* Search */}
+        {searchInput}
 
         {/* Panel list (flat, no type grouping) */}
         <div className="flex-1 overflow-y-auto p-2 space-y-0.5">
-          {editingPanels.map((panel) => (
+          {filteredEditingPanels.map((panel) => (
             <PanelRow
               key={panel.id}
               panel={panel}
@@ -319,17 +363,15 @@ export function EditorSidebar({
               onDelete={() => onDeletePanel(panel.id)}
             />
           ))}
-          {editingPanels.length === 0 && (
+          {filteredEditingPanels.length === 0 && (
             <div className="text-center py-8 text-xs text-gray-400">
-              No panels in this group. Click Add to create one.
+              {searchQuery ? "No matching panels." : "No panels in this group. Click Add to create one."}
             </div>
           )}
         </div>
 
-        {/* Footer */}
-        <div className="px-4 py-2.5 border-t border-gray-100 text-[11px] text-gray-400">
-          {editingPanels.length} panel{editingPanels.length !== 1 ? "s" : ""} in group
-        </div>
+        {/* Sticky Add button */}
+        {addButton}
       </div>
     );
   }
@@ -337,19 +379,18 @@ export function EditorSidebar({
   /* ── Scene Mode ────────────────────────────────────────────────────── */
   return (
     <div className="w-64 shrink-0 bg-white border-r border-gray-200 flex flex-col h-full">
-      {/* Header */}
-      <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-gray-900">Objects</h3>
-        <Button variant="ghost" size="sm" onClick={onAddPanel} className="h-7 px-2">
-          <Plus className="w-3.5 h-3.5 mr-1" />
-          Add
-        </Button>
+      {/* Slim section label */}
+      <div className="px-3 pt-2 pb-1">
+        <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Scene</span>
       </div>
+
+      {/* Search */}
+      {searchInput}
 
       {/* Object list */}
       <div className="flex-1 overflow-y-auto p-2 space-y-1">
         {/* Groups */}
-        {groups.map((group) => (
+        {filteredGroups.map((group) => (
           <GroupRow
             key={group.id}
             group={group}
@@ -363,13 +404,13 @@ export function EditorSidebar({
         ))}
 
         {/* Ungrouped panels */}
-        {ungroupedPanels.length > 0 && (
+        {filteredUngrouped.length > 0 && (
           <div>
             <p className="text-[11px] font-medium text-gray-400 uppercase tracking-wider px-2 mb-1.5 mt-3">
               Ungrouped
             </p>
             <div className="space-y-0.5">
-              {ungroupedPanels.map((panel) => (
+              {filteredUngrouped.map((panel) => (
                 <PanelRow
                   key={panel.id}
                   panel={panel}
@@ -383,20 +424,15 @@ export function EditorSidebar({
           </div>
         )}
 
-        {groups.length === 0 && ungroupedPanels.length === 0 && (
+        {filteredGroups.length === 0 && filteredUngrouped.length === 0 && (
           <div className="text-center py-8 text-xs text-gray-400">
-            No objects yet. Click Add to start building.
+            {searchQuery ? "No matching objects." : "No objects yet. Click Add to start building."}
           </div>
         )}
       </div>
 
-      {/* Footer */}
-      <div className="px-4 py-2.5 border-t border-gray-100 text-[11px] text-gray-400">
-        {groups.length} group{groups.length !== 1 ? "s" : ""}
-        {ungroupedPanels.length > 0 && (
-          <>, {ungroupedPanels.length} ungrouped</>
-        )}
-      </div>
+      {/* Sticky Add button */}
+      {addButton}
     </div>
   );
 }
