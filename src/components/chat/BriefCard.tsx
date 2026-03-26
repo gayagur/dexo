@@ -185,7 +185,7 @@ export function BriefCard({
                 <div key={i} className="relative group">
                   <img
                     src={url}
-                    alt=""
+                    alt={`Design brief image ${i + 1}`}
                     className="rounded-xl w-full h-24 object-cover"
                   />
                   <button

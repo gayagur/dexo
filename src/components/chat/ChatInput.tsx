@@ -69,7 +69,7 @@ export function ChatInput({
             <div key={i} className="relative">
               <img
                 src={url}
-                alt=""
+                alt={`Upload preview ${i + 1}`}
                 className="w-16 h-16 rounded-lg object-cover border border-[#C05621]/10"
               />
               {onRemovePreview && (

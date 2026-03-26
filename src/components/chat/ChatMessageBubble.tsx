@@ -44,7 +44,7 @@ export const ChatMessageBubble = memo(function ChatMessageBubble({
               <img
                 key={imgIdx}
                 src={url}
-                alt=""
+                alt={`Message image ${imgIdx + 1}`}
                 loading="lazy"
                 className="rounded-lg w-full h-24 object-cover"
               />
