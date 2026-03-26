@@ -43,17 +43,30 @@ export const FURNITURE_BY_SPACE: Record<string, FurnitureOption[]> = {
   // Home
   living_room: [
     { id: "sofa", label: "Sofa", icon: "🛋️", defaultDims: { w: 2000, h: 850, d: 900 } },
+    { id: "sectional_sofa", label: "Sectional Sofa", icon: "🛋️", defaultDims: { w: 2800, h: 850, d: 950 } },
     { id: "armchair", label: "Armchair", icon: "💺", defaultDims: { w: 800, h: 850, d: 800 } },
+    { id: "ottoman", label: "Ottoman", icon: "🪑", defaultDims: { w: 900, h: 450, d: 600 } },
     { id: "coffee_table", label: "Coffee Table", icon: "☕", defaultDims: { w: 1200, h: 450, d: 600 } },
     { id: "tv_unit", label: "TV Unit", icon: "📺", defaultDims: { w: 1800, h: 500, d: 400 } },
+    { id: "sideboard", label: "Sideboard", icon: "🗄️", defaultDims: { w: 1600, h: 850, d: 450 } },
+    { id: "hallway_console", label: "Console Table", icon: "🪑", defaultDims: { w: 1200, h: 800, d: 350 } },
+    { id: "fireplace_mantel", label: "Fireplace Mantel", icon: "🔥", defaultDims: { w: 1400, h: 1100, d: 450 } },
     { id: "bookshelf", label: "Bookshelf", icon: "📚", defaultDims: { w: 800, h: 1800, d: 300 } },
+    { id: "bookshelf_tall", label: "Tall Bookcase", icon: "📚", defaultDims: { w: 900, h: 2400, d: 320 } },
     { id: "side_table", label: "Side Table", icon: "🪑", defaultDims: { w: 500, h: 550, d: 500 } },
     { id: "display_cabinet", label: "Display Cabinet", icon: "🗄️", defaultDims: { w: 900, h: 1600, d: 400 } },
+    { id: "shoe_cabinet", label: "Shoe Cabinet", icon: "👟", defaultDims: { w: 800, h: 2000, d: 380 } },
+    { id: "coat_stand", label: "Coat Stand", icon: "🧥", defaultDims: { w: 400, h: 1800, d: 400 } },
   ],
   kitchen: [
     { id: "dining_table", label: "Dining Table", icon: "🍽️", defaultDims: { w: 1600, h: 750, d: 900 } },
+    { id: "round_dining_table", label: "Round Dining Table", icon: "⭕", defaultDims: { w: 1200, h: 750, d: 1200 } },
     { id: "dining_chair", label: "Dining Chairs", icon: "🪑", defaultDims: { w: 450, h: 900, d: 500 } },
+    { id: "dining_bench", label: "Dining Bench", icon: "🪑", defaultDims: { w: 1400, h: 480, d: 400 } },
     { id: "kitchen_island", label: "Kitchen Island", icon: "🏝️", defaultDims: { w: 1400, h: 900, d: 700 } },
+    { id: "kitchen_base", label: "Base Cabinet", icon: "🗄️", defaultDims: { w: 600, h: 870, d: 600 } },
+    { id: "wall_cabinet", label: "Wall Cabinet", icon: "🗄️", defaultDims: { w: 800, h: 720, d: 350 } },
+    { id: "kitchen_cart", label: "Kitchen Cart", icon: "🛒", defaultDims: { w: 600, h: 900, d: 450 } },
     { id: "bar_stool", label: "Bar Stools", icon: "🍸", defaultDims: { w: 400, h: 750, d: 400 } },
     { id: "pantry_cabinet", label: "Pantry Cabinet", icon: "🗄️", defaultDims: { w: 800, h: 2000, d: 600 } },
   ],
@@ -61,12 +74,16 @@ export const FURNITURE_BY_SPACE: Record<string, FurnitureOption[]> = {
     { id: "bed", label: "Bed", icon: "🛏️", defaultDims: { w: 1600, h: 1100, d: 2100 } },
     { id: "nightstand", label: "Nightstand", icon: "🛏️", defaultDims: { w: 500, h: 550, d: 400 } },
     { id: "dresser", label: "Dresser", icon: "🗄️", defaultDims: { w: 1200, h: 800, d: 500 } },
+    { id: "tall_dresser", label: "Tall Chest of Drawers", icon: "🗄️", defaultDims: { w: 800, h: 1300, d: 500 } },
     { id: "wardrobe", label: "Wardrobe", icon: "👔", defaultDims: { w: 1800, h: 2200, d: 600 } },
     { id: "vanity_table", label: "Vanity Table", icon: "💄", defaultDims: { w: 1000, h: 750, d: 450 } },
     { id: "bench", label: "Bench", icon: "🪑", defaultDims: { w: 1200, h: 450, d: 400 } },
+    { id: "blanket_chest", label: "Blanket Chest", icon: "📦", defaultDims: { w: 1100, h: 500, d: 500 } },
   ],
   bathroom: [
     { id: "vanity_cabinet", label: "Vanity Cabinet", icon: "🚿", defaultDims: { w: 900, h: 850, d: 500 } },
+    { id: "linen_tower", label: "Linen Tower", icon: "🗄️", defaultDims: { w: 450, h: 2000, d: 400 } },
+    { id: "over_toilet_cabinet", label: "Over-Toilet Cabinet", icon: "🗄️", defaultDims: { w: 650, h: 750, d: 220 } },
     { id: "storage_shelf", label: "Storage Shelf", icon: "📦", defaultDims: { w: 600, h: 1800, d: 300 } },
     { id: "mirror_cabinet", label: "Mirror Cabinet", icon: "🪞", defaultDims: { w: 700, h: 800, d: 150 } },
     { id: "laundry_hamper", label: "Laundry Hamper", icon: "🧺", defaultDims: { w: 450, h: 600, d: 350 } },
@@ -76,6 +93,7 @@ export const FURNITURE_BY_SPACE: Record<string, FurnitureOption[]> = {
     { id: "bunk_bed", label: "Bunk Bed", icon: "🛏️", defaultDims: { w: 1000, h: 1700, d: 2000 } },
     { id: "study_desk", label: "Study Desk", icon: "📝", defaultDims: { w: 1000, h: 750, d: 600 } },
     { id: "toy_storage", label: "Toy Storage", icon: "🧸", defaultDims: { w: 800, h: 1000, d: 400 } },
+    { id: "toy_chest", label: "Toy Chest", icon: "📦", defaultDims: { w: 900, h: 500, d: 450 } },
     { id: "kids_bookshelf", label: "Bookshelf", icon: "📚", defaultDims: { w: 600, h: 1200, d: 300 } },
   ],
   office: [
@@ -83,6 +101,8 @@ export const FURNITURE_BY_SPACE: Record<string, FurnitureOption[]> = {
     { id: "office_chair", label: "Office Chair", icon: "💺", defaultDims: { w: 650, h: 1100, d: 650 } },
     { id: "filing_cabinet", label: "Filing Cabinet", icon: "🗄️", defaultDims: { w: 400, h: 1300, d: 600 } },
     { id: "office_bookshelf", label: "Bookshelf", icon: "📚", defaultDims: { w: 800, h: 1800, d: 300 } },
+    { id: "office_storage_cabinet", label: "Storage Cabinet", icon: "🗄️", defaultDims: { w: 900, h: 1200, d: 450 } },
+    { id: "printer_cart", label: "Printer / Utility Cart", icon: "🖨️", defaultDims: { w: 550, h: 750, d: 450 } },
     { id: "standing_desk", label: "Standing Desk", icon: "🧍", defaultDims: { w: 1200, h: 1100, d: 600 } },
   ],
   workshop: [
@@ -253,6 +273,8 @@ export interface PanelData {
   customColor?: string; // If set, overrides material color
   /** SH3D texture URL — when set, loaded as color map on MeshStandardMaterial */
   textureUrl?: string;
+  /** Surface type for custom texture PBR behavior: 'matte' | 'wood' | 'metal' | 'fabric' | 'glass' | 'stone' */
+  surfaceType?: string;
   /** Corner radius in meters for RoundedBox shapes (default 0.002 for wood, 0.02 for cushions) */
   cornerRadius?: number;
 }
@@ -334,6 +356,43 @@ function cushion(
   };
 }
 
+/** Shaker-style framed door + pull knob (catalog / SH3D-like) */
+function shakerDoor(
+  label: string,
+  pos: [number, number, number],
+  size: [number, number, number],
+  mat = "melamine_white",
+  opts?: { rightHinge?: boolean }
+): PanelData {
+  return {
+    id: `p${++panelCounter}`,
+    type: "vertical",
+    shape: "shaker_door",
+    label,
+    position: pos,
+    size,
+    materialId: mat,
+    ...(opts?.rightHinge ? { shapeParams: { knobSign: -1 } } : {}),
+  };
+}
+
+function glassFrontDoor(
+  label: string,
+  pos: [number, number, number],
+  size: [number, number, number],
+  frameMat = "melamine_cream"
+): PanelData {
+  return {
+    id: `p${++panelCounter}`,
+    type: "vertical",
+    shape: "glass_insert_door",
+    label,
+    position: pos,
+    size,
+    materialId: frameMat,
+  };
+}
+
 // Helper: 4 cylindrical legs inset from corners
 function fourLegs(w: number, h: number, d: number, legH: number, dia = 0.05, inset = 0.05, mat = "black_metal"): PanelData[] {
   const y = legH / 2;
@@ -357,6 +416,28 @@ export function getDefaultTemplate(furnitureId: string, dims: { w: number; h: nu
 
   switch (furnitureId) {
     // ── TABLES ─────────────────────────────────────────
+    case "round_dining_table": {
+      const topT = 0.034;
+      const legH = h - topT;
+      const dm = Math.min(w, d);
+      return {
+        panels: [
+          {
+            id: `p${++panelCounter}`,
+            type: "horizontal",
+            shape: "cylinder",
+            label: "Tabletop",
+            position: [0, h - topT / 2, 0],
+            rotation: [Math.PI / 2, 0, 0],
+            size: [dm * 0.992, topT, dm * 0.992],
+            materialId: "laminate_oak",
+          },
+          cyl("Pedestal", [0, legH * 0.48, 0], dm * 0.13, legH * 0.94, "black_metal"),
+          cyl("Base Ring", [0, 0.022, 0], dm * 0.44, 0.044, "black_metal"),
+        ],
+      };
+    }
+
     case "dining_table":
     case "cafe_table":
     case "outdoor_table":
@@ -368,7 +449,7 @@ export function getDefaultTemplate(furnitureId: string, dims: { w: number; h: nu
       const legH = h - topT;
       return {
         panels: [
-          panel("horizontal", "Tabletop", [0, h - topT / 2, 0], [w, topT, d]),
+          panel("horizontal", "Tabletop", [0, h - topT / 2, 0], [w, topT, d], "laminate_oak"),
           ...fourLegs(w, h, d, legH, 0.05, 0.06),
           // Side stretcher rails
           panel("horizontal", "Front Rail", [0, 0.12, -d / 2 + 0.06], [w - 0.18, 0.04, 0.03], "black_metal"),
@@ -404,7 +485,7 @@ export function getDefaultTemplate(furnitureId: string, dims: { w: number; h: nu
       return {
         panels: [
           // Seat
-          panel("horizontal", "Seat", [0, seatH, 0], [w, seatT, d]),
+          cushion("Seat", [0, seatH, 0], [w * 0.96, seatT, d * 0.96], "fabric_gray"),
           // 4 legs under seat
           cyl("Front Left Leg", [-w / 2 + 0.04, seatH / 2, -d / 2 + 0.04], legDia, seatH, "black_metal"),
           cyl("Front Right Leg", [w / 2 - 0.04, seatH / 2, -d / 2 + 0.04], legDia, seatH, "black_metal"),
@@ -452,6 +533,7 @@ export function getDefaultTemplate(furnitureId: string, dims: { w: number; h: nu
 
     // ── SOFAS ──────────────────────────────────────────
     case "sofa":
+    case "sectional_sofa":
     case "lobby_sofa":
     case "booth_seating": {
       // Sofa with upholstered look: everything fabric-wrapped, no plywood visible
@@ -549,8 +631,25 @@ export function getDefaultTemplate(furnitureId: string, dims: { w: number; h: nu
       };
     }
 
+    case "ottoman": {
+      const legH = 0.045;
+      const fab = "fabric_beige";
+      const bodyH = Math.max(0.12, h - legH);
+      return {
+        panels: [
+          cushion("Base", [0, legH + bodyH * 0.32, 0], [w * 0.98, bodyH * 0.62, d * 0.98], fab),
+          cushion("Top", [0, legH + bodyH * 0.78, 0], [w * 0.96, bodyH * 0.36, d * 0.96], fab),
+          cyl("Leg FL", [-w / 2 + 0.07, legH / 2, -d / 2 + 0.07], 0.028, legH, "black_metal"),
+          cyl("Leg FR", [w / 2 - 0.07, legH / 2, -d / 2 + 0.07], 0.028, legH, "black_metal"),
+          cyl("Leg BL", [-w / 2 + 0.07, legH / 2, d / 2 - 0.07], 0.028, legH, "black_metal"),
+          cyl("Leg BR", [w / 2 - 0.07, legH / 2, d / 2 - 0.07], 0.028, legH, "black_metal"),
+        ],
+      };
+    }
+
     // ── BOOKSHELVES ────────────────────────────────────
     case "bookshelf":
+    case "bookshelf_tall":
     case "kids_bookshelf":
     case "office_bookshelf":
     case "display_shelf":
@@ -591,13 +690,16 @@ export function getDefaultTemplate(furnitureId: string, dims: { w: number; h: nu
           // Lower shelf
           panel("horizontal", "Lower Shelf", [0, h * 0.15, 0], [innerW, t, d]),
           // Two doors (facade panels, slightly in front)
-          panel("vertical", "Left Door", [-innerW / 4, h / 2, -d / 2 - 0.005], [innerW / 2 - 0.002, h - t * 2, t], "melamine_white"),
-          panel("vertical", "Right Door", [innerW / 4, h / 2, -d / 2 - 0.005], [innerW / 2 - 0.002, h - t * 2, t], "melamine_white"),
+          shakerDoor("Left Door", [-innerW / 4, h / 2, -d / 2 - 0.005], [innerW / 2 - 0.002, h - t * 2, t]),
+          shakerDoor("Right Door", [innerW / 4, h / 2, -d / 2 - 0.005], [innerW / 2 - 0.002, h - t * 2, t], "melamine_white", {
+            rightHinge: true,
+          }),
         ],
       };
     }
 
     case "pantry_cabinet":
+    case "linen_tower":
     case "tool_cabinet":
     case "medical_cabinet": {
       const innerW = w - t * 2;
@@ -611,8 +713,10 @@ export function getDefaultTemplate(furnitureId: string, dims: { w: number; h: nu
           panel("horizontal", "Shelf 1", [0, h * 0.25, 0], [innerW, t, d]),
           panel("horizontal", "Shelf 2", [0, h * 0.50, 0], [innerW, t, d]),
           panel("horizontal", "Shelf 3", [0, h * 0.75, 0], [innerW, t, d]),
-          panel("vertical", "Left Door", [-innerW / 4, h / 2, -d / 2 - 0.005], [innerW / 2 - 0.002, h - t * 2, t], "melamine_white"),
-          panel("vertical", "Right Door", [innerW / 4, h / 2, -d / 2 - 0.005], [innerW / 2 - 0.002, h - t * 2, t], "melamine_white"),
+          shakerDoor("Left Door", [-innerW / 4, h / 2, -d / 2 - 0.005], [innerW / 2 - 0.002, h - t * 2, t]),
+          shakerDoor("Right Door", [innerW / 4, h / 2, -d / 2 - 0.005], [innerW / 2 - 0.002, h - t * 2, t], "melamine_white", {
+            rightHinge: true,
+          }),
         ],
       };
     }
@@ -666,7 +770,7 @@ export function getDefaultTemplate(furnitureId: string, dims: { w: number; h: nu
           panel("vertical", "Drawer Left Wall", [-w / 2 + 0.05, drawerY, 0], [t, drawerH, d - 0.04]),
           panel("vertical", "Drawer Right Wall", [-w / 2 + 0.05 + drawerW, drawerY, 0], [t, drawerH, d - 0.04]),
           panel("horizontal", "Drawer Bottom", [-w / 2 + 0.05 + drawerW / 2, h - topT - drawerH, 0], [drawerW, t, d - 0.04]),
-          panel("vertical", "Drawer Front", [-w / 2 + 0.05 + drawerW / 2, drawerY, -d / 2 + 0.01], [drawerW + 0.02, drawerH, t], "melamine_white"),
+          shakerDoor("Drawer Front", [-w / 2 + 0.05 + drawerW / 2, drawerY, -d / 2 + 0.01], [drawerW + 0.02, drawerH, t]),
         ],
       };
     }
@@ -747,7 +851,7 @@ export function getDefaultTemplate(furnitureId: string, dims: { w: number; h: nu
           // Shelf divider
           panel("horizontal", "Shelf", [0, h * 0.5, 0], [innerW, t, d]),
           // Drawer front (upper compartment)
-          panel("vertical", "Drawer Front", [0, h * 0.75, -d / 2 - 0.003], [innerW - 0.004, h * 0.22, t], "melamine_white"),
+          shakerDoor("Drawer Front", [0, h * 0.75, -d / 2 - 0.003], [innerW - 0.004, h * 0.22, t]),
           // 4 short legs
           cyl("Leg FL", [-w / 2 + 0.04, legH / 2, -d / 2 + 0.04], 0.03, legH, "black_metal"),
           cyl("Leg FR", [w / 2 - 0.04, legH / 2, -d / 2 + 0.04], 0.03, legH, "black_metal"),
@@ -759,8 +863,11 @@ export function getDefaultTemplate(furnitureId: string, dims: { w: number; h: nu
 
     // ── DRESSER / CREDENZA ─────────────────────────────
     case "dresser":
+    case "tall_dresser":
+    case "sideboard":
     case "credenza":
-    case "console_table": {
+    case "console_table":
+    case "hallway_console": {
       // Cabinet body with multiple drawer fronts
       const innerW = w - t * 2;
       const legH = 0.10;
@@ -781,7 +888,7 @@ export function getDefaultTemplate(furnitureId: string, dims: { w: number; h: nu
           panels_.push(panel("horizontal", `Divider ${i}`, [0, divY, 0], [innerW, t, d]));
         }
         const frontY = legH + t + (drawerH + t) * (i - 1) + drawerH / 2 + t / 2;
-        panels_.push(panel("vertical", `Drawer ${i}`, [0, frontY, -d / 2 - 0.003], [innerW - 0.004, drawerH - 0.004, t], "melamine_white"));
+        panels_.push(shakerDoor(`Drawer ${i}`, [0, frontY, -d / 2 - 0.003], [innerW - 0.004, drawerH - 0.004, t]));
       }
       // Legs
       panels_.push(
@@ -810,8 +917,10 @@ export function getDefaultTemplate(furnitureId: string, dims: { w: number; h: nu
           panel("horizontal", "Left Shelf", [-innerW / 4, h * 0.45, 0], [innerW / 2 - t, t, d]),
           panel("horizontal", "Right Shelf", [innerW / 4, h * 0.45, 0], [innerW / 2 - t, t, d]),
           // Two doors
-          panel("vertical", "Left Door", [-innerW / 4, h / 2, -d / 2 - 0.003], [innerW / 2 - t - 0.004, h - t * 2 - 0.004, t], "melamine_white"),
-          panel("vertical", "Right Door", [innerW / 4, h / 2, -d / 2 - 0.003], [innerW / 2 - t - 0.004, h - t * 2 - 0.004, t], "melamine_white"),
+          shakerDoor("Left Door", [-innerW / 4, h / 2, -d / 2 - 0.003], [innerW / 2 - t - 0.004, h - t * 2 - 0.004, t]),
+          shakerDoor("Right Door", [innerW / 4, h / 2, -d / 2 - 0.003], [innerW / 2 - t - 0.004, h - t * 2 - 0.004, t], "melamine_white", {
+            rightHinge: true,
+          }),
         ],
       };
     }
@@ -877,7 +986,7 @@ export function getDefaultTemplate(furnitureId: string, dims: { w: number; h: nu
           panel("horizontal", "Shelf 1", [0, h * 0.33, 0], [innerW, t, d]),
           panel("horizontal", "Shelf 2", [0, h * 0.66, 0], [innerW, t, d]),
           // Glass door
-          panel("vertical", "Glass Door", [0, h / 2, -d / 2 - 0.003], [innerW - 0.004, h - t * 2 - 0.004, 0.006], "glass"),
+          glassFrontDoor("Glass Door", [0, h / 2, -d / 2 - 0.003], [innerW - 0.004, h - t * 2 - 0.004, 0.018]),
         ],
       };
     }
@@ -897,8 +1006,10 @@ export function getDefaultTemplate(furnitureId: string, dims: { w: number; h: nu
           // Shelf
           panel("horizontal", "Shelf", [0, h * 0.4, 0], [innerW, t, d]),
           // Two doors
-          panel("vertical", "Left Door", [-innerW / 4, (h - topT) / 2, -d / 2 - 0.003], [innerW / 2 - 0.004, h - topT - t * 2, t], "melamine_white"),
-          panel("vertical", "Right Door", [innerW / 4, (h - topT) / 2, -d / 2 - 0.003], [innerW / 2 - 0.004, h - topT - t * 2, t], "melamine_white"),
+          shakerDoor("Left Door", [-innerW / 4, (h - topT) / 2, -d / 2 - 0.003], [innerW / 2 - 0.004, h - topT - t * 2, t]),
+          shakerDoor("Right Door", [innerW / 4, (h - topT) / 2, -d / 2 - 0.003], [innerW / 2 - 0.004, h - topT - t * 2, t], "melamine_white", {
+            rightHinge: true,
+          }),
         ],
       };
     }
@@ -932,7 +1043,7 @@ export function getDefaultTemplate(furnitureId: string, dims: { w: number; h: nu
       ];
       for (let i = 0; i < drawerCount; i++) {
         const frontY = t + (drawerH + t) * i + drawerH / 2;
-        panels_.push(panel("vertical", `Drawer ${i + 1}`, [0, frontY, -d / 2 - 0.003], [innerW - 0.004, drawerH - 0.004, t], "melamine_white"));
+        panels_.push(shakerDoor(`Drawer ${i + 1}`, [0, frontY, -d / 2 - 0.003], [innerW - 0.004, drawerH - 0.004, t]));
         if (i < drawerCount - 1) {
           panels_.push(panel("horizontal", `Divider ${i + 1}`, [0, t + (drawerH + t) * (i + 1) - t / 2, 0], [innerW, t, d]));
         }
@@ -978,7 +1089,10 @@ export function getDefaultTemplate(furnitureId: string, dims: { w: number; h: nu
 
     // ── STORAGE BENCH ──────────────────────────────────
     case "storage_bench":
-    case "bench": {
+    case "bench":
+    case "dining_bench":
+    case "blanket_chest":
+    case "toy_chest": {
       const seatT = 0.030;
       return {
         panels: [
@@ -1046,7 +1160,7 @@ export function getDefaultTemplate(furnitureId: string, dims: { w: number; h: nu
           // Mirror (tall back panel)
           panel("back", "Mirror", [0, counterH + (h - counterH) / 2, d / 2 - 0.01], [w * 0.85, h - counterH - 0.05, 0.008], "glass"),
           // Drawer
-          panel("vertical", "Drawer", [0, counterH / 2, -d / 2 - 0.003], [innerW - 0.004, counterH - t * 2, t], "melamine_white"),
+          shakerDoor("Drawer", [0, counterH / 2, -d / 2 - 0.003], [innerW - 0.004, counterH - t * 2, t]),
         ],
       };
     }
@@ -1067,6 +1181,103 @@ export function getDefaultTemplate(furnitureId: string, dims: { w: number; h: nu
       };
     }
 
+    // ── Wall / upper cabinets (kitchen, bath) ──────────
+    case "wall_cabinet":
+    case "over_toilet_cabinet": {
+      const innerW = w - t * 2;
+      return {
+        panels: [
+          panel("vertical", "Left Side", [-w / 2 + t / 2, h / 2, 0], [t, h, d]),
+          panel("vertical", "Right Side", [w / 2 - t / 2, h / 2, 0], [t, h, d]),
+          panel("horizontal", "Top", [0, h - t / 2, 0], [innerW, t, d]),
+          panel("horizontal", "Bottom", [0, t / 2, 0], [innerW, t, d]),
+          panel("back", "Back Panel", [0, h / 2, d / 2 - tb / 2], [w, h, tb]),
+          panel("horizontal", "Shelf", [0, h * 0.48, 0], [innerW, t, d]),
+          shakerDoor("Door", [0, h / 2, -d / 2 - 0.003], [innerW - 0.004, h - t * 2 - 0.004, t]),
+        ],
+      };
+    }
+
+    // ── Shoe cabinet (tilted shelves approximated as flat) ─
+    case "shoe_cabinet": {
+      const innerW = w - t * 2;
+      return {
+        panels: [
+          panel("vertical", "Left Side", [-w / 2 + t / 2, h / 2, 0], [t, h, d]),
+          panel("vertical", "Right Side", [w / 2 - t / 2, h / 2, 0], [t, h, d]),
+          panel("horizontal", "Top", [0, h - t / 2, 0], [innerW, t, d]),
+          panel("horizontal", "Bottom", [0, t / 2, 0], [innerW, t, d]),
+          panel("back", "Back Panel", [0, h / 2, d / 2 - tb / 2], [w, h, tb]),
+          panel("horizontal", "Shelf 1", [0, h * 0.22, 0], [innerW, t, d]),
+          panel("horizontal", "Shelf 2", [0, h * 0.40, 0], [innerW, t, d]),
+          panel("horizontal", "Shelf 3", [0, h * 0.58, 0], [innerW, t, d]),
+          panel("horizontal", "Shelf 4", [0, h * 0.76, 0], [innerW, t, d]),
+          shakerDoor("Door", [0, h / 2, -d / 2 - 0.003], [innerW - 0.004, h - t * 2 - 0.004, t]),
+        ],
+      };
+    }
+
+    // ── Kitchen / office rolling cart ──────────────────
+    case "kitchen_cart":
+    case "printer_cart": {
+      const innerW = w - t * 2;
+      const topT = 0.028;
+      const legH = h - topT;
+      return {
+        panels: [
+          panel("horizontal", "Top", [0, h - topT / 2, 0], [w, topT, d]),
+          ...fourLegs(w, h, d, legH, 0.035, 0.045, "black_metal"),
+          panel("horizontal", "Shelf Mid", [0, h * 0.52, 0], [innerW, t, d - 0.02]),
+          panel("horizontal", "Shelf Low", [0, h * 0.26, 0], [innerW, t, d - 0.02]),
+        ],
+      };
+    }
+
+    // ── Coat stand (pole + base + hook bar) ────────────
+    case "coat_stand": {
+      const poleR = Math.min(0.022, w * 0.04);
+      const baseR = Math.min(w, d) * 0.38;
+      return {
+        panels: [
+          cyl("Base", [0, 0.02, 0], baseR, 0.04, "black_metal"),
+          cyl("Pole", [0, h * 0.48, 0], poleR, h * 0.92, "black_metal"),
+          panel("horizontal", "Hook Bar", [0, h * 0.88, 0], [w * 0.65, 0.018, 0.018], "black_metal"),
+        ],
+      };
+    }
+
+    // ── Fireplace surround (simplified mantel) ───────────
+    case "fireplace_mantel": {
+      const pierW = Math.max(0.18, w * 0.2);
+      const pierH = h * 0.62;
+      const pierY = pierH / 2 + 0.04;
+      const mantelT = 0.07;
+      return {
+        panels: [
+          panel("vertical", "Left Pier", [-w / 2 + pierW / 2, pierY, d * 0.08], [pierW, pierH, d * 0.55], "marble_white"),
+          panel("vertical", "Right Pier", [w / 2 - pierW / 2, pierY, d * 0.08], [pierW, pierH, d * 0.55], "marble_white"),
+          panel("horizontal", "Mantel", [0, h - mantelT / 2, d * 0.12], [w + 0.04, mantelT, d * 0.55], "marble_white"),
+          panel("horizontal", "Hearth", [0, 0.045, d * 0.12], [w * 0.62, 0.09, d * 0.5], "granite"),
+        ],
+      };
+    }
+
+    case "kitchen_base":
+    case "office_storage_cabinet": {
+      const innerW = w - t * 2;
+      return {
+        panels: [
+          panel("vertical", "Left Side", [-w / 2 + t / 2, h / 2, 0], [t, h, d]),
+          panel("vertical", "Right Side", [w / 2 - t / 2, h / 2, 0], [t, h, d]),
+          panel("horizontal", "Top", [0, h - t / 2, 0], [innerW, t, d]),
+          panel("horizontal", "Bottom", [0, t / 2, 0], [innerW, t, d]),
+          panel("back", "Back Panel", [0, h / 2, d / 2 - tb / 2], [w, h, tb]),
+          panel("horizontal", "Shelf", [0, h * 0.5, 0], [innerW, t, d]),
+          shakerDoor("Door", [0, h / 2, -d / 2 - 0.003], [innerW - 0.004, h - t * 2 - 0.004, t]),
+        ],
+      };
+    }
+
     default: {
       // Generic cabinet — recognizable as a cabinet with door
       const innerW = w - t * 2;
@@ -1078,7 +1289,7 @@ export function getDefaultTemplate(furnitureId: string, dims: { w: number; h: nu
           panel("horizontal", "Bottom", [0, t / 2, 0], [innerW, t, d]),
           panel("back", "Back Panel", [0, h / 2, d / 2 - tb / 2], [w, h, tb]),
           panel("horizontal", "Shelf", [0, h * 0.5, 0], [innerW, t, d]),
-          panel("vertical", "Door", [0, h / 2, -d / 2 - 0.003], [innerW - 0.004, h - t * 2 - 0.004, t], "melamine_white"),
+          shakerDoor("Door", [0, h / 2, -d / 2 - 0.003], [innerW - 0.004, h - t * 2 - 0.004, t]),
         ],
       };
     }

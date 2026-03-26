@@ -133,6 +133,38 @@ function saveRecentColor(color: string) {
   } catch { return [color]; }
 }
 
+// ─── Recent Materials helpers ─────────────────────────────
+const RECENT_MATERIALS_KEY = "dexo_recent_materials";
+const MAX_RECENT_MATERIALS = 8;
+
+function loadRecentMaterials(): string[] {
+  try {
+    const stored = localStorage.getItem(RECENT_MATERIALS_KEY);
+    return stored ? JSON.parse(stored) : [];
+  } catch { return []; }
+}
+
+function saveRecentMaterial(materialId: string) {
+  try {
+    const existing = loadRecentMaterials();
+    const updated = [materialId, ...existing.filter(m => m !== materialId)].slice(0, MAX_RECENT_MATERIALS);
+    localStorage.setItem(RECENT_MATERIALS_KEY, JSON.stringify(updated));
+    return updated;
+  } catch { return [materialId]; }
+}
+
+// ─── Surface Types ────────────────────────────────────────
+const SURFACE_TYPES = [
+  { id: "matte", label: "Flat/Matte", icon: "🎨", roughness: 1.0, metalness: 0 },
+  { id: "wood", label: "Wood", icon: "🪵", roughness: 0.7, metalness: 0 },
+  { id: "metal", label: "Metal", icon: "🔩", roughness: 0.2, metalness: 1.0 },
+  { id: "fabric", label: "Fabric", icon: "🧵", roughness: 0.9, metalness: 0 },
+  { id: "glass", label: "Glass", icon: "🪟", roughness: 0.05, metalness: 0.1 },
+  { id: "stone", label: "Stone", icon: "🪨", roughness: 0.8, metalness: 0 },
+] as const;
+
+type SurfaceTypeId = typeof SURFACE_TYPES[number]["id"];
+
 // ─── Material Picker with search & collapsible categories ──
 const SH3D_CATEGORY_LABELS: Record<string, string> = {
   fabric: "Fabric & Carpet",
@@ -149,6 +181,8 @@ function MaterialPickerSection({
   onCustomColor,
   customColor,
   onUploadTexture,
+  onSurfaceType,
+  currentSurfaceType,
   label = "Material",
 }: {
   selectedMaterialId: string;
@@ -157,12 +191,15 @@ function MaterialPickerSection({
   onCustomColor?: (color: string) => void;
   customColor?: string;
   onUploadTexture?: (textureUrl: string) => void;
+  onSurfaceType?: (surfaceType: string) => void;
+  currentSurfaceType?: string;
   label?: string;
 }) {
   const [search, setSearch] = useState("");
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const [sh3dTextures, setSh3dTextures] = useState<SH3DTexture[]>([]);
   const [recentColors, setRecentColors] = useState<string[]>(loadRecentColors);
+  const [recentMaterialIds, setRecentMaterialIds] = useState<string[]>(loadRecentMaterials);
   const [myTextures, setMyTextures] = useState<string[]>(() => {
     try { return JSON.parse(localStorage.getItem("dexo_recent_textures") || "[]"); } catch { return []; }
   });
@@ -201,6 +238,11 @@ function MaterialPickerSection({
 
   const hasResults = filteredCategories.length > 0 || sh3dCategories.length > 0;
 
+  const handleSelectMaterial = (id: string) => {
+    onSelectMaterial(id);
+    setRecentMaterialIds(saveRecentMaterial(id));
+  };
+
   return (
     <div>
       {/* Recent Colors */}
@@ -217,6 +259,27 @@ function MaterialPickerSection({
                 title={color}
               />
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* Recent Materials */}
+      {recentMaterialIds.length > 0 && (
+        <div className="mb-2">
+          <p className="text-[10px] text-gray-400 uppercase tracking-wider mb-1.5">Recent Materials</p>
+          <div className="flex gap-1.5 flex-wrap">
+            {recentMaterialIds.map((id) => {
+              const m = MATERIALS.find(mat => mat.id === id);
+              if (!m) return null;
+              return (
+                <MaterialSwatch
+                  key={`recent-${m.id}`}
+                  material={m}
+                  selected={m.id === selectedMaterialId}
+                  onClick={() => handleSelectMaterial(m.id)}
+                />
+              );
+            })}
           </div>
         </div>
       )}
@@ -266,7 +329,7 @@ function MaterialPickerSection({
                     key={m.id}
                     material={m}
                     selected={m.id === selectedMaterialId}
-                    onClick={() => onSelectMaterial(m.id)}
+                    onClick={() => handleSelectMaterial(m.id)}
                   />
                 ))}
               </div>
@@ -330,9 +393,13 @@ function MaterialPickerSection({
             <input
               type="color"
               value={customColor ?? MATERIALS.find((m) => m.id === selectedMaterialId)?.color ?? "#C4A265"}
-              onChange={(e) => onCustomColor(e.target.value)}
-              onBlur={(e) => {
-                setRecentColors(saveRecentColor(e.target.value));
+              onChange={(e) => {
+                onCustomColor(e.target.value);
+                // Save to recent with debounce (color pickers fire many events)
+                clearTimeout((window as any).__recentColorTimer);
+                (window as any).__recentColorTimer = setTimeout(() => {
+                  setRecentColors(saveRecentColor(e.target.value));
+                }, 300);
               }}
               className="w-8 h-8 rounded-lg border border-gray-200 cursor-pointer"
               style={{ padding: 0 }}
@@ -380,6 +447,28 @@ function MaterialPickerSection({
               }}
             />
           </label>
+          {/* Surface Type selector */}
+          {onSurfaceType && (
+            <div className="mt-2">
+              <p className="text-[10px] text-gray-400 mb-1.5">Surface Type</p>
+              <div className="flex flex-wrap gap-1">
+                {SURFACE_TYPES.map((st) => (
+                  <button
+                    key={st.id}
+                    onClick={() => onSurfaceType(st.id)}
+                    className={`px-2 py-1 rounded-md text-[10px] font-medium transition-colors ${
+                      (currentSurfaceType ?? "matte") === st.id
+                        ? "bg-[#C87D5A]/10 text-[#C87D5A] border border-[#C87D5A]/30"
+                        : "bg-gray-50 text-gray-500 border border-gray-200 hover:bg-gray-100"
+                    }`}
+                    title={`Roughness: ${st.roughness}, Metalness: ${st.metalness}`}
+                  >
+                    {st.icon} {st.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
           {/* My Textures — previously uploaded */}
           {myTextures.length > 0 && (
             <div className="mt-2">
@@ -603,6 +692,8 @@ export function EditorParameters({
             onCustomColor={(color) => onUpdatePanel(panel.id, { customColor: color, textureUrl: undefined })}
             customColor={panel.customColor}
             onUploadTexture={(url) => onUpdatePanel(panel.id, { textureUrl: url })}
+            onSurfaceType={(type) => onUpdatePanel(panel.id, { surfaceType: type } as any)}
+            currentSurfaceType={(panel as any).surfaceType}
           />
         </CollapsibleSection>
 

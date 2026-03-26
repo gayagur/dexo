@@ -85,6 +85,16 @@ const AXIS_LABELS: Record<number, string> = { 0: "Width (X)", 1: "Height (Y)", 2
 
 const OBJECT_SNAP_THRESHOLD = 0.03; // 30mm
 
+// Surface type PBR overrides (for uploaded textures)
+const SURFACE_PBR: Record<string, { roughness: number; metalness: number }> = {
+  matte: { roughness: 1.0, metalness: 0 },
+  wood: { roughness: 0.7, metalness: 0 },
+  metal: { roughness: 0.2, metalness: 1.0 },
+  fabric: { roughness: 0.9, metalness: 0 },
+  glass: { roughness: 0.05, metalness: 0.1 },
+  stone: { roughness: 0.8, metalness: 0 },
+};
+
 function computeObjectSnap(
   pos: [number, number, number],
   size: [number, number, number],
@@ -2564,8 +2574,9 @@ function FurniturePanel({
 }) {
   const mat = MATERIALS.find((m) => m.id === panel.materialId);
   const color = panel.customColor ?? mat?.color ?? "#C4A265";
-  const roughness = mat?.roughness ?? 0.7;
-  const metalness = mat?.metalness ?? 0.05;
+  const surfacePbr = panel.surfaceType && panel.textureUrl ? SURFACE_PBR[panel.surfaceType] : null;
+  const roughness = surfacePbr?.roughness ?? mat?.roughness ?? 0.7;
+  const metalness = surfacePbr?.metalness ?? mat?.metalness ?? 0.05;
   const isGlass = mat?.id === "glass";
   const isMetal = mat?.category === "Metal";
   const isFabric = mat?.category === "Fabric";
