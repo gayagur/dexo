@@ -38,7 +38,7 @@ import {
   findGroupContainingPanel,
 } from "@/lib/groupUtils";
 import type { LibraryTemplate } from "@/lib/libraryData";
-import { ArrowLeft, Save, RotateCcw, MessageSquare, Magnet, HelpCircle, X, Undo2, Redo2, Box, Square, PanelTop, PanelLeft, Loader2, Sun, Moon, Check, LogOut, SendHorizonal, MoreVertical, Upload } from "lucide-react";
+import { ArrowLeft, Save, RotateCcw, MessageSquare, Magnet, HelpCircle, X, Undo2, Redo2, Box, Square, PanelTop, PanelLeft, Loader2, Sun, Moon, Check, LogOut, SendHorizonal, MoreVertical, Upload, BookOpen } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import type { ViewMode, EditorLightMode, EditorFloorPreset } from "./EditorViewport";
 import { EDITOR_FLOOR_OPTIONS } from "./EditorViewport";
@@ -109,17 +109,16 @@ function EditorContextMenu({
   onGroup: () => void; onUngroup: () => void; hasGroup: boolean; onClose: () => void;
 }) {
   useEffect(() => {
-    const handle = (_e: MouseEvent) => onClose();
+    const handle = () => onClose();
     const handleKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
-    // Delay to avoid closing immediately from the right-click event
     const timer = setTimeout(() => {
-      document.addEventListener("click", handle);
+      document.addEventListener("mousedown", handle);
       document.addEventListener("contextmenu", handle);
-    }, 10);
+    }, 150);
     document.addEventListener("keydown", handleKey);
     return () => {
       clearTimeout(timer);
-      document.removeEventListener("click", handle);
+      document.removeEventListener("mousedown", handle);
       document.removeEventListener("contextmenu", handle);
       document.removeEventListener("keydown", handleKey);
     };
@@ -136,6 +135,8 @@ function EditorContextMenu({
     <div
       className="fixed z-50 bg-white rounded-xl shadow-xl border border-gray-200 py-1 min-w-[180px] animate-in fade-in zoom-in-95 duration-100"
       style={{ left: x, top: y }}
+      onMouseDown={(e) => e.stopPropagation()}
+      onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); }}
     >
       {items.filter(i => i.show).map((item) => (
         <button
@@ -1213,6 +1214,32 @@ export function FurnitureEditor({
               </button>
             ))}
           </div>
+
+          {/* Library toggle */}
+          <button
+            title="Template Library"
+            onClick={() => setShowLibrary((v) => !v)}
+            className={`h-8 w-8 flex items-center justify-center rounded-lg border transition-colors shrink-0 ${
+              showLibrary
+                ? "border-[#C87D5A]/30 bg-[#C87D5A]/10 text-[#C87D5A]"
+                : "border-gray-200 bg-white text-gray-400 hover:text-gray-600"
+            }`}
+          >
+            <BookOpen className="w-3.5 h-3.5" />
+          </button>
+
+          {/* AI Assistant toggle */}
+          <button
+            title="AI Assistant"
+            onClick={() => setChatOpen((v) => !v)}
+            className={`h-8 w-8 flex items-center justify-center rounded-lg border transition-colors shrink-0 ${
+              chatOpen
+                ? "border-[#C87D5A]/30 bg-[#C87D5A]/10 text-[#C87D5A]"
+                : "border-gray-200 bg-white text-gray-400 hover:text-gray-600"
+            }`}
+          >
+            <MessageSquare className="w-3.5 h-3.5" />
+          </button>
 
           {/* Overflow ⋮ menu */}
           <Popover>

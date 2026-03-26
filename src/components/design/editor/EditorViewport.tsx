@@ -1086,7 +1086,7 @@ export function EditorViewport({
             {/* Top: Forward */}
             <div className="flex justify-center mb-0.5">
               <button
-                onPointerDown={() => nudge(0, 0, -0.01)}
+                onClick={(e) => { e.preventDefault(); e.stopPropagation(); nudge(0, 0, -0.01); }}
                 className="w-7 h-7 flex items-center justify-center rounded-md hover:bg-gray-100 text-gray-500 hover:text-gray-700 transition-colors"
                 title="Move forward (Z-)"
               >
@@ -1096,28 +1096,28 @@ export function EditorViewport({
             {/* Middle: Left, Up, Down, Right */}
             <div className="flex items-center gap-0.5">
               <button
-                onPointerDown={() => nudge(-0.01, 0, 0)}
+                onClick={(e) => { e.preventDefault(); e.stopPropagation(); nudge(-0.01, 0, 0); }}
                 className="w-7 h-7 flex items-center justify-center rounded-md hover:bg-gray-100 text-gray-500 hover:text-gray-700 transition-colors"
                 title="Move left (X-)"
               >
                 <svg width="12" height="12" viewBox="0 0 12 12"><path d="M1 6L8 1V11Z" fill="currentColor"/></svg>
               </button>
               <button
-                onPointerDown={() => nudge(0, 0.01, 0)}
+                onClick={(e) => { e.preventDefault(); e.stopPropagation(); nudge(0, 0.01, 0); }}
                 className="w-7 h-7 flex items-center justify-center rounded-md hover:bg-green-50 text-green-500 hover:text-green-700 transition-colors"
                 title="Move up (Y+)"
               >
                 <svg width="10" height="10" viewBox="0 0 10 10"><path d="M5 0L10 7H0Z" fill="currentColor"/></svg>
               </button>
               <button
-                onPointerDown={() => nudge(0, -0.01, 0)}
+                onClick={(e) => { e.preventDefault(); e.stopPropagation(); nudge(0, -0.01, 0); }}
                 className="w-7 h-7 flex items-center justify-center rounded-md hover:bg-green-50 text-green-500 hover:text-green-700 transition-colors"
                 title="Move down (Y-)"
               >
                 <svg width="10" height="10" viewBox="0 0 10 10"><path d="M5 10L0 3H10Z" fill="currentColor"/></svg>
               </button>
               <button
-                onPointerDown={() => nudge(0.01, 0, 0)}
+                onClick={(e) => { e.preventDefault(); e.stopPropagation(); nudge(0.01, 0, 0); }}
                 className="w-7 h-7 flex items-center justify-center rounded-md hover:bg-gray-100 text-gray-500 hover:text-gray-700 transition-colors"
                 title="Move right (X+)"
               >
@@ -1127,7 +1127,7 @@ export function EditorViewport({
             {/* Bottom: Backward */}
             <div className="flex justify-center mt-0.5">
               <button
-                onPointerDown={() => nudge(0, 0, 0.01)}
+                onClick={(e) => { e.preventDefault(); e.stopPropagation(); nudge(0, 0, 0.01); }}
                 className="w-7 h-7 flex items-center justify-center rounded-md hover:bg-gray-100 text-gray-500 hover:text-gray-700 transition-colors"
                 title="Move backward (Z+)"
               >
@@ -1225,8 +1225,8 @@ function DraggableRotationRing({
   }, [dragging, panel, gl, onUpdateLive, onCommit, onInteractionChange, onDragInfoChange]);
 
   return (
-    <group position={panel.position}>
-      {/* Draggable ring at the base */}
+    <group position={[panel.position[0], panel.position[1] + panel.size[1] / 2 + 0.04, panel.position[2]]}>
+      {/* Draggable ring above the object */}
       <mesh
         rotation={[Math.PI / 2, 0, 0]}
         onPointerDown={(e) => {
@@ -1242,7 +1242,7 @@ function DraggableRotationRing({
         onPointerEnter={() => { setHovered(true); gl.domElement.style.cursor = "ew-resize"; }}
         onPointerLeave={() => { if (!dragging) { setHovered(false); gl.domElement.style.cursor = ""; } }}
       >
-        <torusGeometry args={[radius, 0.012, 8, 48]} />
+        <torusGeometry args={[radius, 0.012, 8, 48, Math.PI * 1.5]} />
         <meshStandardMaterial
           color={dragging ? "#2563EB" : "#3B82F6"}
           emissive="#3B82F6"
@@ -1253,8 +1253,8 @@ function DraggableRotationRing({
         />
       </mesh>
 
-      {/* Small arrow indicator on the ring */}
-      <mesh position={[radius, 0.01, 0]} rotation={[Math.PI / 2, 0, 0]}>
+      {/* Arrow tip at end of arc */}
+      <mesh position={[0, 0, -radius]} rotation={[0, Math.PI / 2, 0]}>
         <coneGeometry args={[0.02, 0.04, 6]} />
         <meshStandardMaterial
           color="#3B82F6"
@@ -1779,12 +1779,14 @@ function GroupRotationRing({
   onDragInfoChange: (info: DragInfo | null) => void;
 }) {
   const panels = group.panels;
-  let maxX = -Infinity, maxZ = -Infinity;
+  let maxX = -Infinity, maxZ = -Infinity, maxY = -Infinity;
   for (const p of panels) {
     maxX = Math.max(maxX, Math.abs(p.position[0]) + p.size[0] / 2);
     maxZ = Math.max(maxZ, Math.abs(p.position[2]) + p.size[2] / 2);
+    maxY = Math.max(maxY, p.position[1] + p.size[1] / 2);
   }
   const radius = Math.max(maxX, maxZ) * 0.7 + 0.06;
+  const ringY = (maxY === -Infinity ? 0 : maxY) + 0.04;
 
   const [dragging, setDragging] = useState(false);
   const [hovered, setHovered] = useState(false);
@@ -1828,8 +1830,8 @@ function GroupRotationRing({
   }, [dragging, group, gl, onUpdateLive, onCommit, onInteractionChange, onDragInfoChange]);
 
   return (
-    <group position={group.position}>
-      {/* Draggable ring */}
+    <group position={[group.position[0], group.position[1] + ringY, group.position[2]]}>
+      {/* Draggable ring above the group */}
       <mesh
         rotation={[Math.PI / 2, 0, 0]}
         onPointerDown={(e) => {
@@ -1845,7 +1847,7 @@ function GroupRotationRing({
         onPointerEnter={() => { setHovered(true); gl.domElement.style.cursor = "ew-resize"; }}
         onPointerLeave={() => { if (!dragging) { setHovered(false); gl.domElement.style.cursor = ""; } }}
       >
-        <torusGeometry args={[radius, 0.012, 8, 48]} />
+        <torusGeometry args={[radius, 0.012, 8, 48, Math.PI * 1.5]} />
         <meshStandardMaterial
           color={dragging ? "#2563EB" : "#3B82F6"}
           emissive="#3B82F6"
@@ -1856,8 +1858,8 @@ function GroupRotationRing({
         />
       </mesh>
 
-      {/* Small arrow indicator on the ring */}
-      <mesh position={[radius, 0.01, 0]} rotation={[Math.PI / 2, 0, 0]}>
+      {/* Arrow tip at end of arc */}
+      <mesh position={[0, 0, -radius]} rotation={[0, Math.PI / 2, 0]}>
         <coneGeometry args={[0.02, 0.04, 6]} />
         <meshStandardMaterial
           color="#3B82F6"
