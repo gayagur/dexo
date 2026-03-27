@@ -7,6 +7,7 @@ import { MATERIALS } from "@/lib/furnitureData";
 import { ShapeRenderer, isCompositeShape } from "./ShapeRenderer";
 import { getMaterialTextures } from "@/lib/materialTextures";
 import { applyDesignMaterialToGlbRoot } from "@/lib/glbMaterialOverride";
+import { useMobileInfo } from "@/hooks/use-mobile";
 import * as THREE from "three";
 
 // ─── Helpers ───────────────────────────────────────────
@@ -527,6 +528,53 @@ export function EditorViewport({
   const [dragInfo, setDragInfo] = useState<DragInfo | null>(null);
   const [interactionActive, setInteractionActive] = useState(false);
 
+  // ─── Touch enhancements ───────────────────────────────
+  const { isTouchDevice } = useMobileInfo();
+  const lastTapRef = useRef<{ time: number; groupId: string | null }>({ time: 0, groupId: null });
+
+  const handleGroupTap = useCallback((groupId: string) => {
+    if (!isTouchDevice) return;
+    const now = Date.now();
+    if (lastTapRef.current.groupId === groupId && now - lastTapRef.current.time < 450) {
+      onEnterEditMode(groupId);
+      lastTapRef.current = { time: 0, groupId: null };
+    } else {
+      lastTapRef.current = { time: now, groupId };
+    }
+  }, [isTouchDevice, onEnterEditMode]);
+
+  // Long-press for context menu on touch devices
+  const longPressRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const longPressStartRef = useRef<{ x: number; y: number } | null>(null);
+
+  const handlePointerDownForLongPress = useCallback((e: React.PointerEvent, panelId: string | null, groupId: string | null) => {
+    if (!isTouchDevice) return;
+    longPressStartRef.current = { x: e.clientX, y: e.clientY };
+    longPressRef.current = setTimeout(() => {
+      if (onContextMenuProp) {
+        onContextMenuProp(e.clientX, Math.max(e.clientY - 60, 10), panelId, groupId);
+      }
+      longPressRef.current = null;
+    }, 500);
+  }, [isTouchDevice, onContextMenuProp]);
+
+  const handlePointerMoveForLongPress = useCallback((e: React.PointerEvent) => {
+    if (!longPressRef.current || !longPressStartRef.current) return;
+    const dx = e.clientX - longPressStartRef.current.x;
+    const dy = e.clientY - longPressStartRef.current.y;
+    if (Math.sqrt(dx * dx + dy * dy) > 10) {
+      clearTimeout(longPressRef.current);
+      longPressRef.current = null;
+    }
+  }, []);
+
+  const handlePointerUpForLongPress = useCallback(() => {
+    if (longPressRef.current) {
+      clearTimeout(longPressRef.current);
+      longPressRef.current = null;
+    }
+  }, []);
+
   const togglePanel = useCallback((id: string) => {
     setOpenPanels((prev) => ({ ...prev, [id]: !prev[id] }));
   }, []);
@@ -630,6 +678,7 @@ export function EditorViewport({
       className={`w-full h-full rounded-xl overflow-hidden border relative ${
         lightMode === "night" ? "bg-[#0f0f16] border-gray-700" : "bg-[#eceff4] border-gray-200"
       }`}
+      style={{ touchAction: "none" }}
       onContextMenu={(e) => e.preventDefault()}
     >
       <Canvas
@@ -775,7 +824,7 @@ export function EditorViewport({
                     preserveGlbDiffuseMaps={g.preserveGlbDiffuseMaps}
                     lightMode={lightMode}
                     dimmed={isDimmed}
-                    onClick={(e) => { if (e) e.stopPropagation(); if (!isDimmed) { onSelectGroup(g.id); onSelectPanel(null); closeContextMenu(); } }}
+                    onClick={(e) => { if (e) e.stopPropagation(); if (!isDimmed) { onSelectGroup(g.id); onSelectPanel(null); closeContextMenu(); handleGroupTap(g.id); } }}
                     onDoubleClick={(e) => { if (e) e.stopPropagation(); if (!isDimmed) onEnterEditMode(g.id); }}
                     onContextMenu={(x, y) => {
                       if (!isDimmed) {
@@ -797,7 +846,7 @@ export function EditorViewport({
                     opacity={isDimmed ? 0.3 : 1}
                     isOpen={!!openPanels[panel.id]}
                     rotationMode={rotationMode}
-                    onClick={(e) => { if (e) e.stopPropagation(); if (!isDimmed) { onSelectGroup(g.id); onSelectPanel(null); closeContextMenu(); } }}
+                    onClick={(e) => { if (e) e.stopPropagation(); if (!isDimmed) { onSelectGroup(g.id); onSelectPanel(null); closeContextMenu(); handleGroupTap(g.id); } }}
                     onDoubleClick={(e) => { if (e) e.stopPropagation(); if (!isDimmed) onEnterEditMode(g.id); }}
                     onContextMenu={(x, y) => {
                       if (!isDimmed) {
