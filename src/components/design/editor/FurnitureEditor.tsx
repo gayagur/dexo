@@ -47,6 +47,7 @@ import { MobileEditorBar } from "./MobileEditorBar";
 import type { ViewMode, EditorLightMode, EditorFloorPreset } from "./EditorViewport";
 import { EDITOR_FLOOR_OPTIONS } from "./EditorViewport";
 import { uploadFurnitureImage, analyzeFurnitureImage, type FurnitureAnalysis } from "@/lib/ai";
+import { panelsFromFurnitureAnalysis } from "@/lib/furnitureImageAnalysis";
 
 interface FurnitureEditorProps {
   furnitureType: FurnitureOption;
@@ -624,15 +625,7 @@ export function FurnitureEditor({
 
   // ─── Build from image analysis ────────────────────────
   const handleBuildFromImage = useCallback((analysis: FurnitureAnalysis, mode: "replace" | "add") => {
-    const newPanels: PanelData[] = analysis.panels.map((p) => ({
-      id: `p${++nextPanelId}`,
-      type: p.type,
-      shape: p.shape === "box" ? undefined : (p.shape as PanelShape),
-      label: p.label,
-      position: p.position,
-      size: p.size,
-      materialId: p.materialId,
-    }));
+    const newPanels = panelsFromFurnitureAnalysis(analysis, () => `p${++nextPanelId}`);
 
     const newGroup = createGroupFromPanels(analysis.name ?? "Imported", newPanels);
 

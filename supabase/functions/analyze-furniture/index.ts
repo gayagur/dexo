@@ -1,6 +1,7 @@
 import { corsHeaders } from "../_shared/cors.ts";
 import { verifyAuth } from "../_shared/auth.ts";
 import { logUsage, getDailyUsageCount } from "../_shared/usage.ts";
+import { FURNITURE_ANALYSIS_PROMPT } from "../_shared/furnitureAnalysisPrompt.ts";
 
 // Try multiple vision models in order of preference
 const VISION_MODELS = [
@@ -9,37 +10,6 @@ const VISION_MODELS = [
   "Qwen/Qwen3-VL-8B-Instruct",
 ];
 const DAILY_LIMIT = 20;
-
-const ANALYSIS_PROMPT = `You are a furniture analysis AI. Analyze this image of a furniture piece and break it down into simple 3D components that can be recreated in a furniture editor.
-
-For each component, output a JSON object with:
-- label: descriptive name (e.g. "Tabletop", "Left Leg", "Back Panel", "Shelf 1")
-- type: "horizontal" (shelves, seats, tops), "vertical" (sides, backs, legs), or "back" (back panels)
-- shape: "box" for rectangular parts, "cylinder" for round legs/rods
-- position: [x, y, z] in meters, centered at origin. Y=0 is the floor. Positive Y is up.
-- size: [width, height, depth] in meters
-- materialId: best match from: oak, walnut, pine, cherry, maple, birch, plywood, mdf, melamine_white, melamine_black, black_metal, steel, brass, chrome, glass
-
-CRITICAL RULES:
-- Estimate realistic dimensions based on the furniture type (e.g. dining table ~0.75m tall, chair seat ~0.45m)
-- Position components relative to each other so they form the complete piece
-- Use "cylinder" shape for round legs, rods, and tubes
-- All positions are in meters from the center. The furniture should be centered at X=0, Z=0
-- Y position is the CENTER of each component, not the bottom
-- Include ALL visible components: top, sides, shelves, legs, backs, doors, drawers, handles
-- Output 5-20 components typically
-
-Respond with ONLY a JSON object in this exact format, no other text:
-{
-  "name": "Furniture Name",
-  "estimatedDims": { "w": 1200, "h": 750, "d": 600 },
-  "panels": [
-    { "label": "...", "type": "...", "shape": "box", "position": [0, 0, 0], "size": [0, 0, 0], "materialId": "..." },
-    ...
-  ]
-}
-
-estimatedDims are in millimeters. positions and sizes in the panels array are in meters.`;
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -96,13 +66,13 @@ Deno.serve(async (req) => {
               {
                 role: "user",
                 content: [
-                  { type: "text", text: ANALYSIS_PROMPT },
+                  { type: "text", text: FURNITURE_ANALYSIS_PROMPT },
                   { type: "image_url", image_url: { url: imageUrl } },
                 ],
               },
             ],
-            max_tokens: 4096,
-            temperature: 0.3,
+            max_tokens: 8192,
+            temperature: 0.2,
           }),
         });
 

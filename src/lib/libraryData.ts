@@ -1402,6 +1402,7 @@ export const LIBRARY_TEMPLATES: LibraryTemplate[] = [
           shapeParams: { arcAngle: 168 },
           label: "Back Crest",
           position: [0, crestY, backZ],
+          rotation: [0, 0, Math.PI / 2],
           size: [Math.min(0.4, w - 0.06), 0.34, 0.022],
           materialId: wood,
         },
@@ -1986,25 +1987,29 @@ export const LIBRARY_TEMPLATES: LibraryTemplate[] = [
       _pid = 0;
       const w = dims.w / 1000, h = dims.h / 1000, d = dims.d / 1000;
       const legH = 0.10;
-      const seatH = 0.42;
+      const seatH = 0.42; // deck top (sitting surface), not cushion center
       const armW = 0.10, armH = 0.58;
       const backT = 0.12;
       const cushW = (w - armW * 2) / 2;
       const cushD = d - backT - 0.05;
+      const seatCushH = 0.12;
+      const backCushH = 0.32;
+      const seatCushionY = seatH + seatCushH / 2;
+      const backCushionY = seatH + seatCushH - 0.018 + backCushH / 2;
       return [
-        // Base frame
-        box("Base", "horizontal", [0, legH + 0.04, 0.03], [w - armW * 2, 0.08, cushD], "fabric_gray"),
+        // Base fills from leg top to seat deck (no air gap under cushions)
+        box("Base", "horizontal", [0, (legH + seatH) / 2, 0.03], [w - armW * 2, seatH - legH, cushD], "fabric_gray"),
         // Back
         box("Back", "vertical", [0, (seatH + h) / 2, -d / 2 + backT / 2], [w - armW * 2, h - seatH, backT], "fabric_gray"),
         // Arms
         box("Left Arm", "vertical", [-w / 2 + armW / 2, (legH + armH) / 2 + legH / 2, 0], [armW, armH, d], "fabric_gray"),
         box("Right Arm", "vertical", [w / 2 - armW / 2, (legH + armH) / 2 + legH / 2, 0], [armW, armH, d], "fabric_gray"),
-        // Seat cushions
-        { id: pid(), type: "horizontal" as const, shape: "cushion" as PanelShape, label: "Seat Cushion L", position: [-cushW / 2, seatH, 0.03] as [number, number, number], size: [cushW - 0.02, 0.12, cushD] as [number, number, number], materialId: "fabric_gray" },
-        { id: pid(), type: "horizontal" as const, shape: "cushion" as PanelShape, label: "Seat Cushion R", position: [cushW / 2, seatH, 0.03] as [number, number, number], size: [cushW - 0.02, 0.12, cushD] as [number, number, number], materialId: "fabric_gray" },
-        // Back cushions
-        { id: pid(), type: "vertical" as const, shape: "cushion" as PanelShape, label: "Back Cushion L", position: [-cushW / 2, seatH + 0.28, -d / 2 + backT + 0.06] as [number, number, number], size: [cushW - 0.02, 0.32, 0.12] as [number, number, number], materialId: "fabric_gray" },
-        { id: pid(), type: "vertical" as const, shape: "cushion" as PanelShape, label: "Back Cushion R", position: [cushW / 2, seatH + 0.28, -d / 2 + backT + 0.06] as [number, number, number], size: [cushW - 0.02, 0.32, 0.12] as [number, number, number], materialId: "fabric_gray" },
+        // Seat cushions (centered above deck)
+        { id: pid(), type: "horizontal" as const, shape: "cushion" as PanelShape, label: "Seat Cushion L", position: [-cushW / 2, seatCushionY, 0.03] as [number, number, number], size: [cushW - 0.02, seatCushH, cushD] as [number, number, number], materialId: "fabric_gray" },
+        { id: pid(), type: "horizontal" as const, shape: "cushion" as PanelShape, label: "Seat Cushion R", position: [cushW / 2, seatCushionY, 0.03] as [number, number, number], size: [cushW - 0.02, seatCushH, cushD] as [number, number, number], materialId: "fabric_gray" },
+        // Back cushions (rest on seat cushions)
+        { id: pid(), type: "vertical" as const, shape: "cushion" as PanelShape, label: "Back Cushion L", position: [-cushW / 2, backCushionY, -d / 2 + backT + 0.06] as [number, number, number], size: [cushW - 0.02, backCushH, 0.12] as [number, number, number], materialId: "fabric_gray" },
+        { id: pid(), type: "vertical" as const, shape: "cushion" as PanelShape, label: "Back Cushion R", position: [cushW / 2, backCushionY, -d / 2 + backT + 0.06] as [number, number, number], size: [cushW - 0.02, backCushH, 0.12] as [number, number, number], materialId: "fabric_gray" },
         // Legs
         cyl("Leg FL", [-w / 2 + 0.08, legH / 2, d / 2 - 0.08], 0.035, legH),
         cyl("Leg FR", [w / 2 - 0.08, legH / 2, d / 2 - 0.08], 0.035, legH),
@@ -2063,7 +2068,7 @@ export const LIBRARY_TEMPLATES: LibraryTemplate[] = [
       const wingD = 0.25;
       return [
         // Seat cushion
-        { id: pid(), type: "horizontal" as const, shape: "cushion" as PanelShape, label: "Seat Cushion", position: [0, seatH + 0.04, 0.03] as [number, number, number], size: [w - armW * 2 - 0.04, 0.10, d - backT - 0.08] as [number, number, number], materialId: "fabric_gray" },
+        { id: pid(), type: "horizontal" as const, shape: "cushion" as PanelShape, label: "Seat Cushion", position: [0, seatH + 0.05, 0.03] as [number, number, number], size: [w - armW * 2 - 0.04, 0.10, d - backT - 0.08] as [number, number, number], materialId: "fabric_gray" },
         // Seat frame
         box("Seat Frame", "horizontal", [0, seatH / 2 + legH, 0.02], [w - armW * 2, seatH - legH, d - backT - 0.05], "fabric_gray"),
         // Tall back
@@ -2163,26 +2168,28 @@ export const LIBRARY_TEMPLATES: LibraryTemplate[] = [
       const sideW = 0.90, sideD = dp;
       const cushW = (mainW - armW - sideW) / 3;
       const cushWs = (sideD - armW - mainD) / 2;
+      const seatCushH = 0.12;
+      const seatCushionY = seatH + seatCushH / 2;
       return [
-        // Main section base
-        box("Main Base", "horizontal", [-(w - sideW) / 2, legH + 0.04, -dp / 2 + mainD / 2], [mainW - sideW, 0.08, mainD - backT], "fabric_gray"),
+        // Main section base (to seat deck)
+        box("Main Base", "horizontal", [-(w - sideW) / 2, (legH + seatH) / 2, -dp / 2 + mainD / 2], [mainW - sideW, seatH - legH, mainD - backT], "fabric_gray"),
         // Main back
         box("Main Back", "vertical", [-(w - sideW) / 2, (seatH + h) / 2, -dp / 2 + backT / 2], [mainW - sideW, h - seatH, backT], "fabric_gray"),
         // Main left arm
         box("Left Arm", "vertical", [-w / 2 + armW / 2, (legH + armH) / 2 + legH / 2, -dp / 2 + mainD / 2], [armW, armH, mainD], "fabric_gray"),
         // Corner section base
-        box("Corner Base", "horizontal", [w / 2 - sideW / 2, legH + 0.04, 0], [sideW, 0.08, sideD - backT], "fabric_gray"),
+        box("Corner Base", "horizontal", [w / 2 - sideW / 2, (legH + seatH) / 2, 0], [sideW, seatH - legH, sideD - backT], "fabric_gray"),
         // Corner back (along the right side)
         box("Corner Back", "vertical", [w / 2 - backT / 2, (seatH + h) / 2, 0], [backT, h - seatH, sideD], "fabric_gray"),
         // Corner front arm
         box("Front Arm", "vertical", [w / 2 - sideW / 2, (legH + armH) / 2 + legH / 2, dp / 2 - armW / 2], [sideW, armH, armW], "fabric_gray"),
         // Main seat cushions (3)
-        { id: pid(), type: "horizontal" as const, shape: "cushion" as PanelShape, label: "Seat Cushion 1", position: [-w / 2 + armW + cushW * 0.5, seatH, -dp / 2 + mainD / 2] as [number, number, number], size: [cushW - 0.02, 0.12, mainD - backT - 0.04] as [number, number, number], materialId: "fabric_gray" },
-        { id: pid(), type: "horizontal" as const, shape: "cushion" as PanelShape, label: "Seat Cushion 2", position: [-w / 2 + armW + cushW * 1.5, seatH, -dp / 2 + mainD / 2] as [number, number, number], size: [cushW - 0.02, 0.12, mainD - backT - 0.04] as [number, number, number], materialId: "fabric_gray" },
-        { id: pid(), type: "horizontal" as const, shape: "cushion" as PanelShape, label: "Seat Cushion 3", position: [-w / 2 + armW + cushW * 2.5, seatH, -dp / 2 + mainD / 2] as [number, number, number], size: [cushW - 0.02, 0.12, mainD - backT - 0.04] as [number, number, number], materialId: "fabric_gray" },
+        { id: pid(), type: "horizontal" as const, shape: "cushion" as PanelShape, label: "Seat Cushion 1", position: [-w / 2 + armW + cushW * 0.5, seatCushionY, -dp / 2 + mainD / 2] as [number, number, number], size: [cushW - 0.02, seatCushH, mainD - backT - 0.04] as [number, number, number], materialId: "fabric_gray" },
+        { id: pid(), type: "horizontal" as const, shape: "cushion" as PanelShape, label: "Seat Cushion 2", position: [-w / 2 + armW + cushW * 1.5, seatCushionY, -dp / 2 + mainD / 2] as [number, number, number], size: [cushW - 0.02, seatCushH, mainD - backT - 0.04] as [number, number, number], materialId: "fabric_gray" },
+        { id: pid(), type: "horizontal" as const, shape: "cushion" as PanelShape, label: "Seat Cushion 3", position: [-w / 2 + armW + cushW * 2.5, seatCushionY, -dp / 2 + mainD / 2] as [number, number, number], size: [cushW - 0.02, seatCushH, mainD - backT - 0.04] as [number, number, number], materialId: "fabric_gray" },
         // Corner seat cushions (2)
-        { id: pid(), type: "horizontal" as const, shape: "cushion" as PanelShape, label: "Corner Cushion 1", position: [w / 2 - sideW / 2, seatH, -dp / 2 + mainD + cushWs * 0.5] as [number, number, number], size: [sideW - backT - 0.04, 0.12, cushWs - 0.02] as [number, number, number], materialId: "fabric_gray" },
-        { id: pid(), type: "horizontal" as const, shape: "cushion" as PanelShape, label: "Corner Cushion 2", position: [w / 2 - sideW / 2, seatH, -dp / 2 + mainD + cushWs * 1.5] as [number, number, number], size: [sideW - backT - 0.04, 0.12, cushWs - 0.02] as [number, number, number], materialId: "fabric_gray" },
+        { id: pid(), type: "horizontal" as const, shape: "cushion" as PanelShape, label: "Corner Cushion 1", position: [w / 2 - sideW / 2, seatCushionY, -dp / 2 + mainD + cushWs * 0.5] as [number, number, number], size: [sideW - backT - 0.04, seatCushH, cushWs - 0.02] as [number, number, number], materialId: "fabric_gray" },
+        { id: pid(), type: "horizontal" as const, shape: "cushion" as PanelShape, label: "Corner Cushion 2", position: [w / 2 - sideW / 2, seatCushionY, -dp / 2 + mainD + cushWs * 1.5] as [number, number, number], size: [sideW - backT - 0.04, seatCushH, cushWs - 0.02] as [number, number, number], materialId: "fabric_gray" },
         // 8 legs
         cyl("Leg 1", [-w / 2 + 0.06, legH / 2, -dp / 2 + 0.06], 0.035, legH),
         cyl("Leg 2", [-w / 2 + 0.06, legH / 2, -dp / 2 + mainD - 0.06], 0.035, legH),
@@ -2211,18 +2218,20 @@ export const LIBRARY_TEMPLATES: LibraryTemplate[] = [
       const backT = 0.06, backH = h - seatH;
       const cushW = (w - armW * 2) / 3;
       const cushD = dp - backT - 0.06;
+      const seatCushH = 0.1;
+      const seatCushionY = seatH + seatCushH / 2;
       return [
-        // Thin frame
-        box("Frame", "horizontal", [0, legH + 0.02, 0.02], [w - armW * 2, 0.04, cushD], "oak"),
+        // Seat deck to cushion bottom (was thin strip with large air gap)
+        box("Frame", "horizontal", [0, (legH + seatH) / 2, 0.02], [w - armW * 2, seatH - legH, cushD], "oak"),
         // Low back
         box("Back", "vertical", [0, seatH + backH / 2, -dp / 2 + backT / 2], [w - armW * 2, backH, backT], "fabric_gray"),
         // Thin arms
         box("Left Arm", "vertical", [-w / 2 + armW / 2, legH + armH / 2, 0], [armW, armH, dp * 0.8], "fabric_gray"),
         box("Right Arm", "vertical", [w / 2 - armW / 2, legH + armH / 2, 0], [armW, armH, dp * 0.8], "fabric_gray"),
         // 3 seat cushions
-        { id: pid(), type: "horizontal" as const, shape: "cushion" as PanelShape, label: "Seat Cushion 1", position: [-cushW, seatH, 0.02] as [number, number, number], size: [cushW - 0.02, 0.10, cushD] as [number, number, number], materialId: "fabric_gray" },
-        { id: pid(), type: "horizontal" as const, shape: "cushion" as PanelShape, label: "Seat Cushion 2", position: [0, seatH, 0.02] as [number, number, number], size: [cushW - 0.02, 0.10, cushD] as [number, number, number], materialId: "fabric_gray" },
-        { id: pid(), type: "horizontal" as const, shape: "cushion" as PanelShape, label: "Seat Cushion 3", position: [cushW, seatH, 0.02] as [number, number, number], size: [cushW - 0.02, 0.10, cushD] as [number, number, number], materialId: "fabric_gray" },
+        { id: pid(), type: "horizontal" as const, shape: "cushion" as PanelShape, label: "Seat Cushion 1", position: [-cushW, seatCushionY, 0.02] as [number, number, number], size: [cushW - 0.02, seatCushH, cushD] as [number, number, number], materialId: "fabric_gray" },
+        { id: pid(), type: "horizontal" as const, shape: "cushion" as PanelShape, label: "Seat Cushion 2", position: [0, seatCushionY, 0.02] as [number, number, number], size: [cushW - 0.02, seatCushH, cushD] as [number, number, number], materialId: "fabric_gray" },
+        { id: pid(), type: "horizontal" as const, shape: "cushion" as PanelShape, label: "Seat Cushion 3", position: [cushW, seatCushionY, 0.02] as [number, number, number], size: [cushW - 0.02, seatCushH, cushD] as [number, number, number], materialId: "fabric_gray" },
         // 4 tapered metal legs
         cone("Leg FL", [-w / 2 + 0.10, legH / 2, dp / 2 - 0.10], 0.03, legH, "black_metal"),
         cone("Leg FR", [w / 2 - 0.10, legH / 2, dp / 2 - 0.10], 0.03, legH, "black_metal"),
@@ -2246,24 +2255,26 @@ export const LIBRARY_TEMPLATES: LibraryTemplate[] = [
       const armW = 0.05, armH = 0.40;
       const backT = 0.06, backH = h - seatH;
       const mainD = 0.85, sideW = 0.85;
+      const seatCushH = 0.1;
+      const seatCushionY = seatH + seatCushH / 2;
       return [
-        // Main section frame
-        box("Main Frame", "horizontal", [-(w - sideW) / 2, legH + 0.02, -dp / 2 + mainD / 2], [w - sideW, 0.04, mainD - backT], "oak"),
+        // Main section frame (full deck height)
+        box("Main Frame", "horizontal", [-(w - sideW) / 2, (legH + seatH) / 2, -dp / 2 + mainD / 2], [w - sideW, seatH - legH, mainD - backT], "oak"),
         // Main back
         box("Main Back", "vertical", [-(w - sideW) / 2, seatH + backH / 2, -dp / 2 + backT / 2], [w - sideW, backH, backT], "fabric_gray"),
         // Left arm
         box("Left Arm", "vertical", [-w / 2 + armW / 2, legH + armH / 2, -dp / 2 + mainD / 2], [armW, armH, mainD * 0.8], "fabric_gray"),
         // Corner section frame
-        box("Corner Frame", "horizontal", [w / 2 - sideW / 2, legH + 0.02, 0], [sideW, 0.04, dp - backT], "oak"),
+        box("Corner Frame", "horizontal", [w / 2 - sideW / 2, (legH + seatH) / 2, 0], [sideW, seatH - legH, dp - backT], "oak"),
         // Corner back (right side)
         box("Corner Back", "vertical", [w / 2 - backT / 2, seatH + backH / 2, 0], [backT, backH, dp], "fabric_gray"),
         // Front arm
         box("Front Arm", "vertical", [w / 2 - sideW / 2, legH + armH / 2, dp / 2 - armW / 2], [sideW * 0.8, armH, armW], "fabric_gray"),
         // Main cushions
-        { id: pid(), type: "horizontal" as const, shape: "cushion" as PanelShape, label: "Main Cushion 1", position: [-(w - sideW) / 2 - 0.30, seatH, -dp / 2 + mainD / 2] as [number, number, number], size: [0.58, 0.10, mainD - backT - 0.06] as [number, number, number], materialId: "fabric_gray" },
-        { id: pid(), type: "horizontal" as const, shape: "cushion" as PanelShape, label: "Main Cushion 2", position: [-(w - sideW) / 2 + 0.30, seatH, -dp / 2 + mainD / 2] as [number, number, number], size: [0.58, 0.10, mainD - backT - 0.06] as [number, number, number], materialId: "fabric_gray" },
+        { id: pid(), type: "horizontal" as const, shape: "cushion" as PanelShape, label: "Main Cushion 1", position: [-(w - sideW) / 2 - 0.30, seatCushionY, -dp / 2 + mainD / 2] as [number, number, number], size: [0.58, seatCushH, mainD - backT - 0.06] as [number, number, number], materialId: "fabric_gray" },
+        { id: pid(), type: "horizontal" as const, shape: "cushion" as PanelShape, label: "Main Cushion 2", position: [-(w - sideW) / 2 + 0.30, seatCushionY, -dp / 2 + mainD / 2] as [number, number, number], size: [0.58, seatCushH, mainD - backT - 0.06] as [number, number, number], materialId: "fabric_gray" },
         // Corner cushion
-        { id: pid(), type: "horizontal" as const, shape: "cushion" as PanelShape, label: "Corner Cushion", position: [w / 2 - sideW / 2, seatH, 0] as [number, number, number], size: [sideW - backT - 0.04, 0.10, dp - mainD - armW] as [number, number, number], materialId: "fabric_gray" },
+        { id: pid(), type: "horizontal" as const, shape: "cushion" as PanelShape, label: "Corner Cushion", position: [w / 2 - sideW / 2, seatCushionY, 0] as [number, number, number], size: [sideW - backT - 0.04, seatCushH, dp - mainD - armW] as [number, number, number], materialId: "fabric_gray" },
         // 6 tapered metal legs
         cone("Leg 1", [-w / 2 + 0.10, legH / 2, -dp / 2 + 0.10], 0.03, legH, "black_metal"),
         cone("Leg 2", [-w / 2 + 0.10, legH / 2, -dp / 2 + mainD - 0.10], 0.03, legH, "black_metal"),
@@ -2290,24 +2301,27 @@ export const LIBRARY_TEMPLATES: LibraryTemplate[] = [
       const backT = 0.12;
       const cushW = (w - armW * 2) / 4;
       const cushD = dp - backT - 0.05;
+      const seatCushH = 0.12;
+      const backCushH = 0.32;
+      const seatCushionY = seatH + seatCushH / 2;
+      const backCushionY = seatH + seatCushH - 0.018 + backCushH / 2;
       return [
-        // Base frame
-        box("Base", "horizontal", [0, legH + 0.04, 0.03], [w - armW * 2, 0.08, cushD], "fabric_gray"),
+        box("Base", "horizontal", [0, (legH + seatH) / 2, 0.03], [w - armW * 2, seatH - legH, cushD], "fabric_gray"),
         // Back
         box("Back", "vertical", [0, (seatH + h) / 2, -dp / 2 + backT / 2], [w - armW * 2, h - seatH, backT], "fabric_gray"),
         // Arms
         box("Left Arm", "vertical", [-w / 2 + armW / 2, (legH + armH) / 2 + legH / 2, 0], [armW, armH, dp], "fabric_gray"),
         box("Right Arm", "vertical", [w / 2 - armW / 2, (legH + armH) / 2 + legH / 2, 0], [armW, armH, dp], "fabric_gray"),
         // 4 seat cushions
-        { id: pid(), type: "horizontal" as const, shape: "cushion" as PanelShape, label: "Seat Cushion 1", position: [-w / 2 + armW + cushW * 0.5, seatH, 0.03] as [number, number, number], size: [cushW - 0.02, 0.12, cushD] as [number, number, number], materialId: "fabric_gray" },
-        { id: pid(), type: "horizontal" as const, shape: "cushion" as PanelShape, label: "Seat Cushion 2", position: [-w / 2 + armW + cushW * 1.5, seatH, 0.03] as [number, number, number], size: [cushW - 0.02, 0.12, cushD] as [number, number, number], materialId: "fabric_gray" },
-        { id: pid(), type: "horizontal" as const, shape: "cushion" as PanelShape, label: "Seat Cushion 3", position: [-w / 2 + armW + cushW * 2.5, seatH, 0.03] as [number, number, number], size: [cushW - 0.02, 0.12, cushD] as [number, number, number], materialId: "fabric_gray" },
-        { id: pid(), type: "horizontal" as const, shape: "cushion" as PanelShape, label: "Seat Cushion 4", position: [-w / 2 + armW + cushW * 3.5, seatH, 0.03] as [number, number, number], size: [cushW - 0.02, 0.12, cushD] as [number, number, number], materialId: "fabric_gray" },
+        { id: pid(), type: "horizontal" as const, shape: "cushion" as PanelShape, label: "Seat Cushion 1", position: [-w / 2 + armW + cushW * 0.5, seatCushionY, 0.03] as [number, number, number], size: [cushW - 0.02, seatCushH, cushD] as [number, number, number], materialId: "fabric_gray" },
+        { id: pid(), type: "horizontal" as const, shape: "cushion" as PanelShape, label: "Seat Cushion 2", position: [-w / 2 + armW + cushW * 1.5, seatCushionY, 0.03] as [number, number, number], size: [cushW - 0.02, seatCushH, cushD] as [number, number, number], materialId: "fabric_gray" },
+        { id: pid(), type: "horizontal" as const, shape: "cushion" as PanelShape, label: "Seat Cushion 3", position: [-w / 2 + armW + cushW * 2.5, seatCushionY, 0.03] as [number, number, number], size: [cushW - 0.02, seatCushH, cushD] as [number, number, number], materialId: "fabric_gray" },
+        { id: pid(), type: "horizontal" as const, shape: "cushion" as PanelShape, label: "Seat Cushion 4", position: [-w / 2 + armW + cushW * 3.5, seatCushionY, 0.03] as [number, number, number], size: [cushW - 0.02, seatCushH, cushD] as [number, number, number], materialId: "fabric_gray" },
         // 4 back cushions
-        { id: pid(), type: "vertical" as const, shape: "cushion" as PanelShape, label: "Back Cushion 1", position: [-w / 2 + armW + cushW * 0.5, seatH + 0.28, -dp / 2 + backT + 0.06] as [number, number, number], size: [cushW - 0.02, 0.32, 0.12] as [number, number, number], materialId: "fabric_gray" },
-        { id: pid(), type: "vertical" as const, shape: "cushion" as PanelShape, label: "Back Cushion 2", position: [-w / 2 + armW + cushW * 1.5, seatH + 0.28, -dp / 2 + backT + 0.06] as [number, number, number], size: [cushW - 0.02, 0.32, 0.12] as [number, number, number], materialId: "fabric_gray" },
-        { id: pid(), type: "vertical" as const, shape: "cushion" as PanelShape, label: "Back Cushion 3", position: [-w / 2 + armW + cushW * 2.5, seatH + 0.28, -dp / 2 + backT + 0.06] as [number, number, number], size: [cushW - 0.02, 0.32, 0.12] as [number, number, number], materialId: "fabric_gray" },
-        { id: pid(), type: "vertical" as const, shape: "cushion" as PanelShape, label: "Back Cushion 4", position: [-w / 2 + armW + cushW * 3.5, seatH + 0.28, -dp / 2 + backT + 0.06] as [number, number, number], size: [cushW - 0.02, 0.32, 0.12] as [number, number, number], materialId: "fabric_gray" },
+        { id: pid(), type: "vertical" as const, shape: "cushion" as PanelShape, label: "Back Cushion 1", position: [-w / 2 + armW + cushW * 0.5, backCushionY, -dp / 2 + backT + 0.06] as [number, number, number], size: [cushW - 0.02, backCushH, 0.12] as [number, number, number], materialId: "fabric_gray" },
+        { id: pid(), type: "vertical" as const, shape: "cushion" as PanelShape, label: "Back Cushion 2", position: [-w / 2 + armW + cushW * 1.5, backCushionY, -dp / 2 + backT + 0.06] as [number, number, number], size: [cushW - 0.02, backCushH, 0.12] as [number, number, number], materialId: "fabric_gray" },
+        { id: pid(), type: "vertical" as const, shape: "cushion" as PanelShape, label: "Back Cushion 3", position: [-w / 2 + armW + cushW * 2.5, backCushionY, -dp / 2 + backT + 0.06] as [number, number, number], size: [cushW - 0.02, backCushH, 0.12] as [number, number, number], materialId: "fabric_gray" },
+        { id: pid(), type: "vertical" as const, shape: "cushion" as PanelShape, label: "Back Cushion 4", position: [-w / 2 + armW + cushW * 3.5, backCushionY, -dp / 2 + backT + 0.06] as [number, number, number], size: [cushW - 0.02, backCushH, 0.12] as [number, number, number], materialId: "fabric_gray" },
         // Legs
         cyl("Leg FL", [-w / 2 + 0.08, legH / 2, dp / 2 - 0.08], 0.035, legH),
         cyl("Leg FR", [w / 2 - 0.08, legH / 2, dp / 2 - 0.08], 0.035, legH),
@@ -2363,8 +2377,8 @@ export const LIBRARY_TEMPLATES: LibraryTemplate[] = [
         // Arms
         box("Left Arm", "vertical", [-w / 2 + armW / 2, (legH + armH) / 2 + legH / 2, 0.02], [armW, armH, dp * 0.85], "fabric_gray"),
         box("Right Arm", "vertical", [w / 2 - armW / 2, (legH + armH) / 2 + legH / 2, 0.02], [armW, armH, dp * 0.85], "fabric_gray"),
-        // Seat cushion
-        { id: pid(), type: "horizontal" as const, shape: "cushion" as PanelShape, label: "Seat Cushion", position: [0, seatH + 0.04, 0.04] as [number, number, number], size: [w - armW * 2 - 0.04, 0.10, dp - backT - 0.10] as [number, number, number], materialId: "fabric_gray" },
+        // Seat cushion (deck = seatH)
+        { id: pid(), type: "horizontal" as const, shape: "cushion" as PanelShape, label: "Seat Cushion", position: [0, seatH + 0.05, 0.04] as [number, number, number], size: [w - armW * 2 - 0.04, 0.10, dp - backT - 0.10] as [number, number, number], materialId: "fabric_gray" },
         // Legs
         cyl("Leg FL", [-w / 2 + 0.08, legH / 2, dp / 2 - 0.08], 0.035, legH),
         cyl("Leg FR", [w / 2 - 0.08, legH / 2, dp / 2 - 0.08], 0.035, legH),
@@ -2397,10 +2411,10 @@ export const LIBRARY_TEMPLATES: LibraryTemplate[] = [
         box("Left Arm", "vertical", [-w / 2 + armW / 2, (legH + armH) / 2 + legH / 2, -dp / 2 + chairD / 2], [armW, armH, chairD], "fabric_gray"),
         box("Right Arm", "vertical", [w / 2 - armW / 2, (legH + armH) / 2 + legH / 2, -dp / 2 + chairD / 2], [armW, armH, chairD], "fabric_gray"),
         // Seat cushion
-        { id: pid(), type: "horizontal" as const, shape: "cushion" as PanelShape, label: "Seat Cushion", position: [0, seatH + 0.04, -dp / 2 + chairD / 2] as [number, number, number], size: [w - armW * 2 - 0.04, 0.10, chairD - backT - 0.06] as [number, number, number], materialId: "fabric_gray" },
+        { id: pid(), type: "horizontal" as const, shape: "cushion" as PanelShape, label: "Seat Cushion", position: [0, seatH + 0.05, -dp / 2 + chairD / 2] as [number, number, number], size: [w - armW * 2 - 0.04, 0.10, chairD - backT - 0.06] as [number, number, number], materialId: "fabric_gray" },
         // Ottoman section
         box("Ottoman Base", "horizontal", [0, seatH / 2 + legH, dp / 2 - ottomanD / 2], [w - armW * 2, seatH - legH, ottomanD], "fabric_gray"),
-        { id: pid(), type: "horizontal" as const, shape: "cushion" as PanelShape, label: "Ottoman Cushion", position: [0, seatH + 0.04, dp / 2 - ottomanD / 2] as [number, number, number], size: [w - armW * 2 - 0.04, 0.10, ottomanD - 0.04] as [number, number, number], materialId: "fabric_gray" },
+        { id: pid(), type: "horizontal" as const, shape: "cushion" as PanelShape, label: "Ottoman Cushion", position: [0, seatH + 0.05, dp / 2 - ottomanD / 2] as [number, number, number], size: [w - armW * 2 - 0.04, 0.10, ottomanD - 0.04] as [number, number, number], materialId: "fabric_gray" },
         // Legs
         cyl("Leg FL", [-w / 2 + 0.08, legH / 2, dp / 2 - 0.08], 0.035, legH),
         cyl("Leg FR", [w / 2 - 0.08, legH / 2, dp / 2 - 0.08], 0.035, legH),
@@ -2423,12 +2437,12 @@ export const LIBRARY_TEMPLATES: LibraryTemplate[] = [
       const legH = 0.38, seatH = 0.40;
       const backT = 0.04, backH = h - seatH;
       return [
-        // Thin seat
-        box("Seat", "horizontal", [0, seatH, 0.03], [w * 0.85, 0.05, dp - 0.12], "fabric_gray"),
+        // Thin seat (top ≈ seatH)
+        box("Seat", "horizontal", [0, seatH - 0.025, 0.03], [w * 0.85, 0.05, dp - 0.12], "fabric_gray"),
         // Thin back
         box("Back", "vertical", [0, seatH + backH / 2, -dp / 2 + backT / 2], [w * 0.85, backH, backT], "fabric_gray"),
-        // Seat cushion
-        { id: pid(), type: "horizontal" as const, shape: "cushion" as PanelShape, label: "Seat Cushion", position: [0, seatH + 0.05, 0.03] as [number, number, number], size: [w * 0.80, 0.08, dp - 0.16] as [number, number, number], materialId: "fabric_gray" },
+        // Seat cushion on deck
+        { id: pid(), type: "horizontal" as const, shape: "cushion" as PanelShape, label: "Seat Cushion", position: [0, seatH + 0.04, 0.03] as [number, number, number], size: [w * 0.80, 0.08, dp - 0.16] as [number, number, number], materialId: "fabric_gray" },
         // 4 visible tapered legs
         cone("Leg FL", [-w / 2 + 0.08, legH / 2, dp / 2 - 0.08], 0.025, legH, "black_metal"),
         cone("Leg FR", [w / 2 - 0.08, legH / 2, dp / 2 - 0.08], 0.025, legH, "black_metal"),
@@ -2511,7 +2525,7 @@ export const LIBRARY_TEMPLATES: LibraryTemplate[] = [
         box("Frame Left", "horizontal", [-w / 2 + 0.02, seatH, 0], [tubeD, tubeD, dp], "black_metal"),
         box("Frame Right", "horizontal", [w / 2 - 0.02, seatH, 0], [tubeD, tubeD, dp], "black_metal"),
         // Seat cushion
-        { id: pid(), type: "horizontal" as const, shape: "cushion" as PanelShape, label: "Seat Cushion", position: [0, seatH + 0.04, 0] as [number, number, number], size: [w - 0.08, 0.08, dp - 0.08] as [number, number, number], materialId: "fabric_gray" },
+        { id: pid(), type: "horizontal" as const, shape: "cushion" as PanelShape, label: "Seat Cushion", position: [0, seatH + 0.05, 0] as [number, number, number], size: [w - 0.08, 0.08, dp - 0.08] as [number, number, number], materialId: "fabric_gray" },
         // Back frame
         box("Back Frame L", "vertical", [-w / 2 + 0.02, (seatH + h) / 2, -dp / 2 + 0.02], [tubeD, h - seatH, tubeD], "black_metal"),
         box("Back Frame R", "vertical", [w / 2 - 0.02, (seatH + h) / 2, -dp / 2 + 0.02], [tubeD, h - seatH, tubeD], "black_metal"),
@@ -2864,8 +2878,8 @@ export const LIBRARY_TEMPLATES: LibraryTemplate[] = [
       const w = d.w/1000, h = d.h/1000, dp = d.d/1000;
       const seatH = 0.48;
       return [
-        { id: pid(), type: "horizontal" as const, shape: "cushion" as PanelShape, label: "Seat", position: [0, seatH, 0] as [number,number,number], size: [w, 0.06, dp] as [number,number,number], materialId: "fabric_gray" },
-        { id: pid(), type: "vertical" as const, shape: "cushion" as PanelShape, label: "Backrest", position: [0, seatH + (h-seatH)/2, dp/2 - 0.04] as [number,number,number], size: [w*0.85, h - seatH - 0.06, 0.05] as [number,number,number], materialId: "fabric_gray" },
+        { id: pid(), type: "horizontal" as const, shape: "cushion" as PanelShape, label: "Seat", position: [0, seatH + 0.03, 0] as [number,number,number], size: [w, 0.06, dp] as [number,number,number], materialId: "fabric_gray" },
+        { id: pid(), type: "vertical" as const, shape: "cushion" as PanelShape, label: "Backrest", position: [0, (seatH + 0.06) + (h - seatH - 0.06) / 2, dp/2 - 0.04] as [number,number,number], size: [w*0.85, h - seatH - 0.06, 0.05] as [number,number,number], materialId: "fabric_gray" },
         cyl("Pedestal", [0, seatH/2, 0], 0.06, seatH - 0.03, "chrome"),
         cyl("Base", [0, 0.015, 0], 0.50, 0.03, "black_metal"),
         box("Armrest L", "horizontal", [-w/2 + 0.04, seatH + 0.10, 0], [0.04, 0.02, dp*0.5], "black_metal"),

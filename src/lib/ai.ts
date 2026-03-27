@@ -314,17 +314,26 @@ export async function generateAltText(
 
 // ─── Furniture Image Analysis ─────────────────────────────
 
+/** One component from vision JSON (optional fields normalized client-side). */
+export interface FurnitureAnalysisPanel {
+  label: string;
+  type: "horizontal" | "vertical" | "back";
+  shape: string;
+  position: [number, number, number];
+  size: [number, number, number];
+  materialId: string;
+  /** Arc angle (degrees), corner radius (m), trapezoid topRatio, torus tubeRadius, L/U thickness, etc. */
+  shapeParams?: Record<string, number>;
+  /** Local Euler rotation in radians [rx, ry, rz] when the part is tilted or wrongly oriented as a box. */
+  rotation?: [number, number, number];
+  /** Soft edges for box panels only (meters). */
+  cornerRadius?: number;
+}
+
 export interface FurnitureAnalysis {
   name: string;
   estimatedDims: { w: number; h: number; d: number };
-  panels: {
-    label: string;
-    type: "horizontal" | "vertical" | "back";
-    shape: string;
-    position: [number, number, number];
-    size: [number, number, number];
-    materialId: string;
-  }[];
+  panels: FurnitureAnalysisPanel[];
 }
 
 /**
