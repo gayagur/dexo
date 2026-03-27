@@ -69,7 +69,7 @@ export function LibraryBrowser({ onSelectTemplate, onClose, communityTemplates }
   }, [filtered, selectedCategory]);
 
   return (
-    <div className="w-full lg:w-72 bg-[#1B2432] text-white flex flex-col shrink-0 overflow-hidden">
+    <div className="w-full lg:w-72 min-w-0 max-w-full bg-[#1B2432] text-white flex flex-col shrink-0 overflow-hidden">
       {/* Header */}
       <div className="px-4 pt-4 pb-3 shrink-0">
         <div className="flex items-center justify-between mb-3">
@@ -102,15 +102,22 @@ export function LibraryBrowser({ onSelectTemplate, onClose, communityTemplates }
         </div>
       </div>
 
-      {/* Category tab bar — horizontal scrollable pills */}
-      <div className="px-3 pb-2 shrink-0">
-        <div className="flex gap-1.5 overflow-x-auto pb-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+      {/* Category tab bar — needs min-w-0 so flex parent doesn’t expand to fit all pills (then scroll never activates) */}
+      <div className="px-3 pb-2 shrink-0 min-w-0">
+        <div
+          className="flex w-full min-w-0 gap-1.5 overflow-x-auto overflow-y-hidden pb-1 touch-pan-x overscroll-x-contain [scrollbar-width:thin] [scrollbar-color:rgba(255,255,255,0.28)_transparent] [&::-webkit-scrollbar]:h-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-white/25 hover:[&::-webkit-scrollbar-thumb]:bg-white/40"
+          role="tablist"
+          aria-label="Template categories"
+        >
           {LIBRARY_CATEGORIES.map((cat) => {
             const count = categoryCounts[cat.id] || 0;
             const active = selectedCategory === cat.id;
             return (
               <button
                 key={cat.id}
+                type="button"
+                role="tab"
+                aria-selected={active}
                 onClick={() => setSelectedCategory(cat.id)}
                 className={`shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-medium transition-colors ${
                   active
