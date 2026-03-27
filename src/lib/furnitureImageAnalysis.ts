@@ -210,10 +210,21 @@ function looksLikeBackCushionBlock(panel: PanelData): boolean {
   return h >= 0.28 && h >= w * 0.85 && d >= 0.04 && d <= 0.35 && w >= 0.12;
 }
 
-/** Turn obvious upholstery boxes into cushion meshes after AI import (sofas etc.). */
+/**
+ * Turn obvious upholstery boxes into cushion meshes after AI import.
+ * ONLY applies to sofas/couches/upholstered furniture — NOT dining chairs,
+ * wood chairs, or other seating where the AI deliberately chose "box".
+ * The AI prompt already instructs to use "cushion" for padded parts,
+ * so this is a safety net for older/weaker models that ignore that instruction.
+ */
+const UPHOLSTERED_SEATING_RE =
+  /\b(sofa|couch|sectional|loveseat|divan|settee|chesterfield|recliner|armchair|ottoman|ספה|כורסא)\b/i;
+
 function refineSeatingImportPanels(panels: PanelData[], furnitureName: string): PanelData[] {
   const name = furnitureName.trim();
-  if (!name || !SEATING_NAME_RE.test(name)) return panels;
+  // Only auto-convert for explicitly upholstered furniture types
+  // Dining chairs, office chairs, accent chairs etc. keep what the AI returned
+  if (!name || !UPHOLSTERED_SEATING_RE.test(name)) return panels;
 
   return panels.map((panel) => {
     const shape = panel.shape ?? "box";
