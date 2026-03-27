@@ -447,28 +447,6 @@ function MaterialPickerSection({
               }}
             />
           </label>
-          {/* Surface Type selector */}
-          {onSurfaceType && (
-            <div className="mt-2">
-              <p className="text-[10px] text-gray-400 mb-1.5">Surface Type</p>
-              <div className="flex flex-wrap gap-1">
-                {SURFACE_TYPES.map((st) => (
-                  <button
-                    key={st.id}
-                    onClick={() => onSurfaceType(st.id)}
-                    className={`px-2 py-1 rounded-md text-[10px] font-medium transition-colors ${
-                      (currentSurfaceType ?? "matte") === st.id
-                        ? "bg-[#C87D5A]/10 text-[#C87D5A] border border-[#C87D5A]/30"
-                        : "bg-gray-50 text-gray-500 border border-gray-200 hover:bg-gray-100"
-                    }`}
-                    title={`Roughness: ${st.roughness}, Metalness: ${st.metalness}`}
-                  >
-                    {st.icon} {st.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
           {/* My Textures — previously uploaded */}
           {myTextures.length > 0 && (
             <div className="mt-2">
@@ -487,6 +465,29 @@ function MaterialPickerSection({
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Surface Type selector — always visible when prop provided */}
+      {onSurfaceType && (
+        <div className="mt-2 pt-2 border-t border-gray-100">
+          <p className="text-[11px] text-gray-400 uppercase tracking-wider mb-1.5">Surface Type</p>
+          <div className="flex flex-wrap gap-1">
+            {SURFACE_TYPES.map((st) => (
+              <button
+                key={st.id}
+                onClick={() => onSurfaceType(st.id)}
+                className={`px-2 py-1 rounded-md text-[10px] font-medium transition-colors ${
+                  (currentSurfaceType ?? "matte") === st.id
+                    ? "bg-[#C87D5A]/10 text-[#C87D5A] border border-[#C87D5A]/30"
+                    : "bg-gray-50 text-gray-500 border border-gray-200 hover:bg-gray-100"
+                }`}
+                title={`Roughness: ${st.roughness}, Metalness: ${st.metalness}`}
+              >
+                {st.icon} {st.label}
+              </button>
+            ))}
+          </div>
         </div>
       )}
     </div>

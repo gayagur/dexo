@@ -1712,6 +1712,7 @@ export function FurnitureEditor({
             onUpdateGroupMaterial={handleUpdateGroupMaterial}
             onCustomGroupColor={handleCustomGroupColor}
             onUpdateGroupTexture={handleUpdateGroupTexture}
+            onUpdateGroupSurfaceType={handleUpdateGroupSurfaceType}
             multiSelectCount={selectedPanelIds.length}
           />
         </MobileDrawer>
