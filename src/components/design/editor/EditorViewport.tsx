@@ -632,7 +632,7 @@ export function EditorViewport({
   const [interactionActive, setInteractionActive] = useState(false);
 
   // ─── Touch enhancements ───────────────────────────────
-  const { isTouchDevice } = useMobileInfo();
+  const { isTouchDevice, isMobileLayout } = useMobileInfo();
   const lastTapRef = useRef<{ time: number; groupId: string | null }>({ time: 0, groupId: null });
 
   const handleGroupTap = useCallback((groupId: string) => {
