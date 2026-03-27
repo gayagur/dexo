@@ -69,7 +69,7 @@ export function LibraryBrowser({ onSelectTemplate, onClose, communityTemplates }
   }, [filtered, selectedCategory]);
 
   return (
-    <div className="w-72 bg-[#1B2432] text-white flex flex-col shrink-0 overflow-hidden">
+    <div className="w-full lg:w-72 bg-[#1B2432] text-white flex flex-col shrink-0 overflow-hidden">
       {/* Header */}
       <div className="px-4 pt-4 pb-3 shrink-0">
         <div className="flex items-center justify-between mb-3">
@@ -140,7 +140,7 @@ export function LibraryBrowser({ onSelectTemplate, onClose, communityTemplates }
               <button
                 key={template.id}
                 onClick={() => onSelectTemplate(template)}
-                className="group/card flex flex-col items-start p-2.5 rounded-xl bg-white/[0.03] border border-white/[0.06] hover:bg-white/[0.08] hover:border-white/[0.15] transition-all duration-150 text-left"
+                className="group/card flex flex-col items-start p-2.5 rounded-xl bg-white/[0.03] border border-white/[0.06] hover:bg-white/[0.08] hover:border-white/[0.15] transition-all duration-150 text-left min-h-[100px]"
               >
                 <div className="flex items-start justify-between w-full mb-1">
                   <span className="text-lg">{template.icon}</span>

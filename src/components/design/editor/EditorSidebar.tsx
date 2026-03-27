@@ -93,7 +93,7 @@ function PanelRow({
   return (
     <button
       onClick={onSelect}
-      className={`w-full flex items-center gap-1.5 px-2.5 py-2 rounded-lg text-left text-sm transition-colors group ${
+      className={`w-full flex items-center gap-1.5 px-2.5 py-2 rounded-lg text-left text-sm transition-colors group min-h-[44px] ${
         selected
           ? "bg-[#C87D5A]/10 text-[#C87D5A]"
           : readOnly
@@ -116,7 +116,7 @@ function PanelRow({
             onDuplicate();
           }}
           title="Duplicate (Ctrl+D)"
-          className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-[#C87D5A] transition-all"
+          className="flex items-center justify-center min-h-[44px] min-w-[44px] opacity-0 group-hover:opacity-100 text-gray-400 hover:text-[#C87D5A] transition-all"
         >
           <Copy className="w-3.5 h-3.5" />
         </button>
@@ -128,7 +128,7 @@ function PanelRow({
             onDelete();
           }}
           title="Delete (Del)"
-          className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-500 transition-all"
+          className="flex items-center justify-center min-h-[44px] min-w-[44px] opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-500 transition-all"
         >
           <Trash2 className="w-3.5 h-3.5" />
         </button>
@@ -165,7 +165,7 @@ function GroupRow({
       <div
         onClick={onSelect}
         onDoubleClick={onEnterEdit}
-        className={`w-full flex items-center gap-1.5 px-2 py-2 rounded-lg text-left text-sm transition-colors cursor-pointer group ${
+        className={`w-full flex items-center gap-1.5 px-2 py-2 rounded-lg text-left text-sm transition-colors cursor-pointer group min-h-[44px] ${
           selected ? "bg-blue-50 text-blue-600" : "text-gray-700 hover:bg-gray-50"
         }`}
       >
@@ -217,7 +217,7 @@ function GroupRow({
                 onEnterEdit();
               }}
               title="Edit group"
-              className="text-gray-400 hover:text-blue-500"
+              className="flex items-center justify-center min-h-[44px] min-w-[44px] text-gray-400 hover:text-blue-500"
             >
               <Pencil className="w-3.5 h-3.5" />
             </button>
@@ -227,7 +227,7 @@ function GroupRow({
                 onUngroup();
               }}
               title="Ungroup"
-              className="text-gray-400 hover:text-orange-500"
+              className="flex items-center justify-center min-h-[44px] min-w-[44px] text-gray-400 hover:text-orange-500"
             >
               <Unlink className="w-3.5 h-3.5" />
             </button>
@@ -237,7 +237,7 @@ function GroupRow({
                 onDelete();
               }}
               title="Delete group"
-              className="text-gray-400 hover:text-red-500"
+              className="flex items-center justify-center min-h-[44px] min-w-[44px] text-gray-400 hover:text-red-500"
             >
               <Trash2 className="w-3.5 h-3.5" />
             </button>
@@ -333,7 +333,7 @@ export function EditorSidebar({
     );
 
     return (
-      <div className="w-64 shrink-0 bg-white border-r border-gray-200 flex flex-col h-full">
+      <div className="w-full lg:w-64 shrink-0 bg-white border-r border-gray-200 flex flex-col h-full">
         {/* Header */}
         <div className="px-4 py-3 border-b border-gray-100 flex items-center gap-2">
           <button
@@ -378,7 +378,7 @@ export function EditorSidebar({
 
   /* ── Scene Mode ────────────────────────────────────────────────────── */
   return (
-    <div className="w-64 shrink-0 bg-white border-r border-gray-200 flex flex-col h-full">
+    <div className="w-full lg:w-64 shrink-0 bg-white border-r border-gray-200 flex flex-col h-full">
       {/* Slim section label */}
       <div className="px-3 pt-2 pb-1">
         <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Scene</span>
