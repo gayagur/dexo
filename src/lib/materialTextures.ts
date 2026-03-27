@@ -664,6 +664,8 @@ export function getFabricRenderingParams(
   const night = lightMode === "night";
   const velvet = materialId.includes("velvet");
   const leather = materialId.includes("leather");
+  const cane = materialId.includes("cane") || materialId.includes("rattan");
+  const plaid = materialId.includes("plaid");
   let sheen: number;
   let sheenRoughness: number;
   let envMapIntensity: number;
@@ -675,6 +677,14 @@ export function getFabricRenderingParams(
     sheen = night ? 0.034 : 0.048;
     sheenRoughness = 0.9;
     envMapIntensity = night ? 0.22 : 0.34;
+  } else if (cane) {
+    sheen = night ? 0.018 : 0.026;
+    sheenRoughness = 0.92;
+    envMapIntensity = night ? 0.14 : 0.22;
+  } else if (plaid) {
+    sheen = night ? 0.032 : 0.046;
+    sheenRoughness = 0.87;
+    envMapIntensity = night ? 0.18 : 0.28;
   } else {
     // Plain weave / cord — matte, soft grazing only (like cream upholstery ref)
     sheen = night ? 0.038 : 0.052;
@@ -682,7 +692,7 @@ export function getFabricRenderingParams(
     envMapIntensity = night ? 0.19 : 0.3;
   }
   const c = new THREE.Color(albedoHex);
-  c.lerp(new THREE.Color(0xffffff), velvet ? 0.2 : leather ? 0.18 : 0.34);
+  c.lerp(new THREE.Color(0xffffff), velvet ? 0.2 : leather ? 0.18 : cane ? 0.12 : plaid ? 0.22 : 0.34);
   return {
     sheen,
     sheenRoughness,
@@ -698,6 +708,8 @@ function generateFabricTextures(baseColor: string, materialId: string) {
   const rand = seededRandom(seed);
   const isLeather = materialId.includes("leather");
   const isVelvet = materialId.includes("velvet");
+  const isCane = materialId.includes("cane") || materialId.includes("rattan");
+  const isPlaid = materialId.includes("plaid");
 
   // ── Style: soft, plush, cozy — like premium boucle / woven upholstery.
   // No visible individual threads. Broad gentle tonal variation.
@@ -750,6 +762,77 @@ function generateFabricTextures(baseColor: string, materialId: string) {
         px[i + 3] = 255;
 
         heightMap[py * TEX_SIZE + px_] = pile * 0.17 + micro * 0.075 + pileStrand * 0.055;
+      }
+    }
+  } else if (isCane) {
+    // ── Woven cane / caning: hex-style grid, light strands, darker “holes”, dark knot dots ──
+    const cell = 38;
+    const clamp = (x: number) => Math.max(0, Math.min(255, Math.round(x)));
+    for (let py = 0; py < TEX_SIZE; py++) {
+      for (let px_ = 0; px_ < TEX_SIZE; px_++) {
+        const i = (py * TEX_SIZE + px_) * 4;
+        const u = px_ / TEX_SIZE;
+        const v = py / TEX_SIZE;
+        const nu = u * cell;
+        const nv = v * cell * 1.08;
+        const ox = (Math.floor(nv) % 2) * 0.5;
+        const fu = (nu + ox) % 1;
+        const fv = nv % 1;
+        const du = Math.min(fu, 1 - fu);
+        const dv = Math.min(fv, 1 - fv);
+        const hor = Math.exp(-((du / 0.062) ** 2));
+        const ver = Math.exp(-((dv / 0.062) ** 2));
+        const diag = Math.exp(-((Math.hypot(du, dv) / 0.044) ** 2));
+        const strand = Math.min(1, hor * 0.92 + ver * 0.92 + diag * 0.5);
+        const hole = 1 - strand;
+        const knot = strand * strand * strand;
+        const mod = 0.5 + hole * 0.42 + strand * 0.28 + knot * 0.12;
+        const shade = hole * 0.11 - knot * 0.06;
+        px[i] = clamp(r * mod * (1 - shade * 0.35) - knot * 18);
+        px[i + 1] = clamp(g * mod * (1 - shade * 0.28) - knot * 14);
+        px[i + 2] = clamp(b * mod * (1 - shade * 0.32) - knot * 16);
+        px[i + 3] = 255;
+        heightMap[py * TEX_SIZE + px_] = strand * 0.2 + knot * 0.14 + diag * 0.06;
+      }
+    }
+  } else if (isPlaid) {
+    // ── Check / plaid: two-tone checker with soft weave warp (retro office upholstery) ──
+    const isOlive = materialId.includes("olive");
+    const pr = isOlive ? 95 : 78;
+    const pg = isOlive ? 102 : 90;
+    const pb = isOlive ? 58 : 115;
+    const sr = isOlive ? 232 : 242;
+    const sg = isOlive ? 222 : 234;
+    const sb = isOlive ? 192 : 216;
+    const cells = 15;
+    const clamp = (x: number) => Math.max(0, Math.min(255, Math.round(x)));
+    for (let py = 0; py < TEX_SIZE; py++) {
+      for (let px_ = 0; px_ < TEX_SIZE; px_++) {
+        const i = (py * TEX_SIZE + px_) * 4;
+        const u = px_ / TEX_SIZE;
+        const v = py / TEX_SIZE;
+        const warpU = fbm(u * 3.2, v * 3.2, seed + 40, 2, 2.0, 0.5) * 0.045;
+        const warpV = fbm(u * 3.5, v * 3.1, seed + 41, 2, 2.0, 0.5) * 0.045;
+        const gu = (u + warpU) * cells;
+        const gv = (v + warpV) * cells;
+        const ku = Math.floor(gu);
+        const kv = Math.floor(gv);
+        const checker = (ku + kv) & 1;
+        const edgeU = Math.min(gu - ku, 1 - (gu - ku));
+        const edgeV = Math.min(gv - kv, 1 - (gv - kv));
+        const edge = Math.min(edgeU, edgeV);
+        const seam = Math.exp(-((edge / 0.14) ** 2)) * 0.085;
+        const micro = fbm(u * 55, v * 55, seed + 90, 2, 2.0, 0.45);
+        let rr = checker ? pr : sr;
+        let gg = checker ? pg : sg;
+        let bb = checker ? pb : sb;
+        const shade = (micro - 0.5) * 18 - seam * 22;
+        px[i] = clamp(rr + shade);
+        px[i + 1] = clamp(gg + shade * 0.95);
+        px[i + 2] = clamp(bb + shade * 0.9);
+        px[i + 3] = 255;
+        const hBase = checker ? 0.11 : 0.09;
+        heightMap[py * TEX_SIZE + px_] = hBase + seam * 0.14 + (micro - 0.5) * 0.04;
       }
     }
   } else {
@@ -833,7 +916,7 @@ function generateFabricTextures(baseColor: string, materialId: string) {
   // ── Normal map — seamless Sobel over height (tileable UVs, no dead edges) ──
   const [normalCanvas, normalCtx] = createCanvas();
   const nd = normalCtx.createImageData(TEX_SIZE, TEX_SIZE);
-  const nStr = isLeather ? 3.35 : isVelvet ? 2.65 : 2.75;
+  const nStr = isLeather ? 3.35 : isVelvet ? 2.65 : isCane ? 4.6 : isPlaid ? 2.9 : 2.75;
   const hm = heightMap;
   for (let py = 0; py < TEX_SIZE; py++) {
     for (let px_ = 0; px_ < TEX_SIZE; px_++) {
@@ -876,6 +959,12 @@ function generateFabricTextures(baseColor: string, materialId: string) {
       } else if (isVelvet) {
         rough = 170 + (1 - hn) * 36;
         rough += (vnoise(u * 14, v * 14, seed + 500) - 0.5) * 13;
+      } else if (isCane) {
+        rough = 158 + (1 - hn) * 42;
+        rough += (vnoise(u * 90, v * 90, seed + 520) - 0.5) * 18;
+      } else if (isPlaid) {
+        rough = 180 + (1 - hn) * 34;
+        rough += (fbm(u * 22, v * 22, seed + 530, 2) - 0.5) * 14;
       } else {
         rough = 186 + (1 - hn) * 30;
         rough += (fbm(u * 6, v * 6, seed + 500, 2) - 0.5) * 12;

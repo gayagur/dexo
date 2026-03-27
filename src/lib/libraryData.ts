@@ -110,6 +110,83 @@ function fourLegsInset(w: number, h: number, d: number, legH: number, dia = 0.04
   ];
 }
 
+/** Plush retro office swivel chair: plaid cushions, 5-star base, gas column, arm tubes + bamboo pads. Caller must set `_pid = 0`. */
+function buildOfficePlaidRetroChair(
+  dims: { w: number; h: number; d: number },
+  variant: "blue" | "olive",
+): PanelData[] {
+  const w = dims.w / 1000;
+  const h = dims.h / 1000;
+  const d = dims.d / 1000;
+  const fabric = variant === "blue" ? "fabric_plaid_blue" : "fabric_plaid_olive";
+  const frame = variant === "blue" ? "paint_slate_blue" : "paint_olive_metal";
+  const seatPanY = 0.488;
+  const cushionT = 0.098;
+  const seatCY = seatPanY + cushionT / 2;
+  const sw = Math.min(w * 0.8, 0.56);
+  const sd = Math.min(d * 0.74, 0.52);
+  const backH = Math.max(0.38, Math.min(0.54, h - seatPanY - cushionT - 0.09));
+  const backD = 0.092;
+  const backZ = -sd / 2 + backD / 2 + 0.016;
+  const backY = seatPanY + cushionT + backH / 2;
+  const hubH = 0.1;
+  const hubY = hubH / 2;
+  const liftBot = hubH + 0.025;
+  const liftTop = seatPanY - 0.058;
+  const liftH = Math.max(0.24, liftTop - liftBot);
+  const liftCy = liftBot + liftH / 2;
+  const mechY = seatPanY - 0.034;
+  const R = Math.min(0.3, Math.min(w, d) * 0.44);
+  const armRestY = seatCY + 0.042;
+  const armUprightH = armRestY - seatPanY + 0.055;
+  const armUprightCY = seatPanY + armUprightH / 2 - 0.02;
+  const ax = sw / 2 + 0.024;
+
+  const out: PanelData[] = [
+    cyl("Base Hub", [0, hubY, 0], 0.076, hubH, frame),
+    cyl("Gas Lift", [0, liftCy, 0], 0.05, liftH, frame),
+    cyl("Seat Mechanism", [0, mechY, 0], 0.142, 0.036, frame),
+  ];
+
+  for (let i = 0; i < 5; i++) {
+    const a = (i / 5) * Math.PI * 2 - Math.PI / 2;
+    const x = Math.cos(a) * R;
+    const z = Math.sin(a) * R;
+    out.push(cyl(`Star Leg ${i + 1}`, [x, 0.056, z], 0.024, 0.098, frame));
+    out.push(cyl(`Caster ${i + 1}`, [x, 0.011, z], 0.034, 0.018, "black_metal"));
+  }
+
+  out.push(
+    box("Arm Upright L", "vertical", [-ax, armUprightCY, 0.055], [0.022, armUprightH, 0.022], frame),
+    box("Arm Upright R", "vertical", [ax, armUprightCY, 0.055], [0.022, armUprightH, 0.022], frame),
+    box("Arm Bar L", "horizontal", [-ax + 0.072, armRestY - 0.008, 0.125], [0.13, 0.02, 0.02], frame),
+    box("Arm Bar R", "horizontal", [ax - 0.072, armRestY - 0.008, 0.125], [0.13, 0.02, 0.02], frame),
+    box("Arm Pad L", "horizontal", [-ax, armRestY, 0.125], [0.05, 0.015, 0.068], "bamboo"),
+    box("Arm Pad R", "horizontal", [ax, armRestY, 0.125], [0.05, 0.015, 0.068], "bamboo"),
+    box("Tilt Lever", "horizontal", [0.055, seatPanY - 0.018, sd / 2 - 0.028], [0.065, 0.011, 0.014], "black_metal"),
+    {
+      id: pid(),
+      type: "horizontal",
+      shape: "cushion" as PanelShape,
+      label: "Seat Cushion",
+      position: [0, seatCY, 0.028],
+      size: [sw, cushionT, sd],
+      materialId: fabric,
+    },
+    {
+      id: pid(),
+      type: "vertical",
+      shape: "cushion" as PanelShape,
+      label: "Seat Back",
+      position: [0, backY, backZ],
+      size: [sw - 0.024, backH, backD],
+      materialId: fabric,
+    },
+  );
+
+  return out;
+}
+
 // ─── Templates ──────────────────────────────────────────
 
 export const LIBRARY_TEMPLATES: LibraryTemplate[] = [
@@ -1155,6 +1232,87 @@ export const LIBRARY_TEMPLATES: LibraryTemplate[] = [
   },
 
   {
+    id: "armchair_bamboo_lounge",
+    name: "Bamboo Frame Lounge Chair",
+    category: "chairs",
+    icon: "🪑",
+    description:
+      "Round bamboo-style wood frame with dowel legs, low perimeter rails, arm poles, back crossbar, and thick tufted seat + back cushions",
+    dims: { w: 720, h: 820, d: 700 },
+    buildPanels: (dims) => {
+      _pid = 0;
+      const w = dims.w / 1000;
+      const h = dims.h / 1000;
+      const d = dims.d / 1000;
+      const wood = "bamboo";
+      const fab = "fabric_cream";
+      const poleD = 0.036;
+      const railT = 0.028;
+      const inset = 0.056;
+      const xw = w / 2 - inset;
+      const zF = d / 2 - inset;
+      const zB = -d / 2 + inset;
+      const seatFrameY = 0.328;
+      const seatCushionT = 0.105;
+      const seatY = seatFrameY + seatCushionT / 2;
+      const armY = 0.535;
+      const innerW = Math.max(0.34, w - inset * 2 - poleD * 2 - 0.02);
+      const innerD = Math.max(0.38, d - inset * 2 - poleD * 2 - 0.12);
+      const seatZ = 0.035;
+      const backDepth = 0.082;
+      const backH = Math.max(0.28, h - seatFrameY - seatCushionT - 0.07);
+      const backY = seatFrameY + seatCushionT + backH / 2;
+      const backZ = zB + backDepth / 2 + 0.012;
+      const postH = h - poleD * 1.15;
+      const postCy = h / 2;
+      const railLenX = w - inset * 2;
+      const railLenZ = d - inset * 2;
+
+      return [
+        // ── Corner posts (continuous dowels, floor → top) ──
+        cyl("Post FL", [-xw, postCy, zF], poleD, postH, wood),
+        cyl("Post FR", [xw, postCy, zF], poleD, postH, wood),
+        cyl("Post BL", [-xw, postCy, zB], poleD, postH, wood),
+        cyl("Post BR", [xw, postCy, zB], poleD, postH, wood),
+        // ── Low perimeter frame (near floor) ──
+        box("Base Rail Front", "horizontal", [0, railT * 1.1, zF], [railLenX, railT, railT], wood),
+        box("Base Rail Back", "horizontal", [0, railT * 1.1, zB], [railLenX, railT, railT], wood),
+        box("Base Rail Left", "horizontal", [-xw, railT * 1.1, 0], [railT, railT, railLenZ], wood),
+        box("Base Rail Right", "horizontal", [xw, railT * 1.1, 0], [railT, railT, railLenZ], wood),
+        // ── Seat support ring ──
+        box("Seat Rail Front", "horizontal", [0, seatFrameY - railT * 0.35, zF], [railLenX, railT, railT], wood),
+        box("Seat Rail Back", "horizontal", [0, seatFrameY - railT * 0.35, zB], [railLenX, railT, railT], wood),
+        box("Seat Rail Left", "horizontal", [-xw, seatFrameY - railT * 0.35, 0], [railT, railT, railLenZ], wood),
+        box("Seat Rail Right", "horizontal", [xw, seatFrameY - railT * 0.35, 0], [railT, railT, railLenZ], wood),
+        // ── Arm rails (side dowels, lounge height) ──
+        box("Arm Rail Left", "horizontal", [-xw, armY, 0], [poleD, poleD, railLenZ - poleD], wood),
+        box("Arm Rail Right", "horizontal", [xw, armY, 0], [poleD, poleD, railLenZ - poleD], wood),
+        // ── Back top crossbar ──
+        box("Back Top Rail", "horizontal", [0, h - railT * 1.35, zB], [railLenX, railT, railT], wood),
+        // ── Cushions (biscuit tufting via labels + shape) ──
+        {
+          id: pid(),
+          type: "horizontal",
+          shape: "cushion" as PanelShape,
+          label: "Seat Cushion",
+          position: [0, seatY, seatZ],
+          size: [innerW, seatCushionT, innerD],
+          materialId: fab,
+        },
+        {
+          id: pid(),
+          type: "vertical",
+          shape: "cushion" as PanelShape,
+          label: "Seat Back",
+          position: [0, backY, backZ],
+          size: [innerW - 0.02, backH, backDepth],
+          materialId: fab,
+        },
+      ];
+    },
+  },
+
+  {
     id: "chair_dining",
     name: "Dining Chair",
     category: "seating",
@@ -1173,6 +1331,94 @@ export const LIBRARY_TEMPLATES: LibraryTemplate[] = [
         cyl("Leg FR", [w / 2 - 0.04, seatH / 2, d / 2 - 0.04], legD, seatH),
         cyl("Leg BL", [-w / 2 + 0.04, seatH / 2, -d / 2 + 0.04], legD, seatH),
         cyl("Leg BR", [w / 2 - 0.04, seatH / 2, -d / 2 + 0.04], legD, seatH),
+      ];
+    },
+  },
+
+  {
+    id: "chair_bistro_cane",
+    name: "Bistro Chair (Cane Back)",
+    category: "chairs",
+    icon: "🪑",
+    description:
+      "Bentwood-style side chair: light wood frame, arched crest, woven cane insert, inset upholstered seat (no tufting)",
+    dims: { w: 440, h: 900, d: 470 },
+    buildPanels: (dims) => {
+      _pid = 0;
+      const w = dims.w / 1000;
+      const h = dims.h / 1000;
+      const d = dims.d / 1000;
+      const wood = "birch";
+      const cane = "cane_natural";
+      const seatFab = "fabric_ivory";
+      const legD = 0.024;
+      const inset = 0.042;
+      const xLegF = w / 2 - inset;
+      const zF = d / 2 - inset;
+      const xLegB = w / 2 - inset + 0.006;
+      const zB = -d / 2 + inset;
+      const seatH = 0.468;
+      const cushionT = 0.034;
+      const cushionY = seatH + cushionT / 2 - 0.006;
+      const backZ = -d / 2 + 0.018;
+      const stileW = 0.022;
+      const stileH = 0.395;
+      const stileY = seatH - 0.02 + stileH / 2;
+      const crestY = stileY + stileH / 2 + 0.055;
+      const caneW = Math.min(0.36, w - 0.1);
+      const caneH = 0.31;
+      const caneY = seatH + 0.04 + caneH / 2;
+      const stretchY = 0.198;
+      const railT = 0.018;
+      const legLen = seatH - legD * 0.35;
+      const legCy = legLen / 2 + legD * 0.2;
+
+      return [
+        cyl("Leg FL", [-xLegF, legCy, zF], legD, legLen, wood),
+        cyl("Leg FR", [xLegF, legCy, zF], legD, legLen, wood),
+        cyl("Leg BL", [-xLegB, legCy, zB], legD, legLen, wood),
+        cyl("Leg BR", [xLegB, legCy, zB], legD, legLen, wood),
+        box("Stretcher Front", "horizontal", [0, stretchY, zF], [w - inset * 2, railT, railT], wood),
+        box("Stretcher Back", "horizontal", [0, stretchY, zB], [w - inset * 2 + 0.012, railT, railT], wood),
+        box("Stretcher Left", "horizontal", [-xLegF, stretchY, 0], [railT, railT, d - inset * 2], wood),
+        box("Stretcher Right", "horizontal", [xLegF, stretchY, 0], [railT, railT, d - inset * 2], wood),
+        box("Stretcher H Front", "horizontal", [0, stretchY + 0.052, (zF + zB) * 0.5], [w * 0.38, railT * 0.9, railT], wood),
+        box("Back Stile Left", "vertical", [-w / 2 + stileW * 0.65, stileY, backZ], [stileW, stileH, stileW * 1.1], wood),
+        box("Back Stile Right", "vertical", [w / 2 - stileW * 0.65, stileY, backZ], [stileW, stileH, stileW * 1.1], wood),
+        {
+          id: pid(),
+          type: "vertical",
+          shape: "rounded_rect" as PanelShape,
+          shapeParams: { cornerRadius: 0.042 },
+          label: "Cane Insert",
+          position: [0, caneY, backZ],
+          size: [caneW, caneH, 0.014],
+          materialId: cane,
+        },
+        {
+          id: pid(),
+          type: "vertical",
+          shape: "arc" as PanelShape,
+          shapeParams: { arcAngle: 168 },
+          label: "Back Crest",
+          position: [0, crestY, backZ],
+          size: [Math.min(0.4, w - 0.06), 0.34, 0.022],
+          materialId: wood,
+        },
+        box("Back Lower Rail", "horizontal", [0, seatH + 0.028, backZ], [w - 0.08, railT, stileW * 1.05], wood),
+        box("Seat Frame Front", "horizontal", [0, seatH - railT * 0.4, zF - railT * 0.35], [w - 0.02, railT, railT], wood),
+        box("Seat Frame Back", "horizontal", [0, seatH - railT * 0.4, zB + railT * 1.2], [w - 0.02, railT, railT], wood),
+        box("Seat Frame Left", "horizontal", [-w / 2 + railT * 0.9, seatH - railT * 0.4, 0], [railT, railT, d - 0.06], wood),
+        box("Seat Frame Right", "horizontal", [w / 2 - railT * 0.9, seatH - railT * 0.4, 0], [railT, railT, d - 0.06], wood),
+        {
+          id: pid(),
+          type: "horizontal",
+          shape: "cushion" as PanelShape,
+          label: "Bistro inset seat",
+          position: [0, cushionY, 0.02],
+          size: [w - 0.055, cushionT, d - 0.085],
+          materialId: seatFab,
+        },
       ];
     },
   },
@@ -1222,6 +1468,34 @@ export const LIBRARY_TEMPLATES: LibraryTemplate[] = [
         box("Base Arm 1", "horizontal", [0, 0.03, 0], [w, 0.03, 0.04], "black_metal"),
         box("Base Arm 2", "horizontal", [0, 0.03, 0], [0.04, 0.03, d], "black_metal"),
       ];
+    },
+  },
+
+  {
+    id: "chair_office_plaid_blue",
+    name: "Office Chair (Plaid Blue)",
+    category: "chairs",
+    icon: "💺",
+    description:
+      "Retro plush task chair: blue & cream check fabric, slate painted frame, 5-star base with casters, bamboo arm pads",
+    dims: { w: 640, h: 1040, d: 640 },
+    buildPanels: (dims) => {
+      _pid = 0;
+      return buildOfficePlaidRetroChair(dims, "blue");
+    },
+  },
+
+  {
+    id: "chair_office_plaid_olive",
+    name: "Office Chair (Plaid Olive)",
+    category: "chairs",
+    icon: "💺",
+    description:
+      "Retro plush task chair: olive & beige check fabric, olive painted frame, 5-star base with casters, bamboo arm pads",
+    dims: { w: 640, h: 1040, d: 640 },
+    buildPanels: (dims) => {
+      _pid = 0;
+      return buildOfficePlaidRetroChair(dims, "olive");
     },
   },
 

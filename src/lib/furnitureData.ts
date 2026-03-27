@@ -198,6 +198,8 @@ export const MATERIALS: MaterialOption[] = [
   { id: "gold", label: "Gold", color: "#D4AF37", category: "Metal", roughness: 0.2, metalness: 0.9 },
   { id: "copper", label: "Copper", color: "#B87333", category: "Metal", roughness: 0.25, metalness: 0.9 },
   { id: "bronze", label: "Bronze", color: "#8C7853", category: "Metal", roughness: 0.3, metalness: 0.85 },
+  { id: "paint_slate_blue", label: "Painted steel · כחול אפרפר", color: "#4A5568", category: "Metal", roughness: 0.62, metalness: 0.28 },
+  { id: "paint_olive_metal", label: "Painted steel · זית", color: "#5A6240", category: "Metal", roughness: 0.6, metalness: 0.3 },
   { id: "rose_gold", label: "Rose Gold", color: "#B76E79", category: "Metal", roughness: 0.2, metalness: 0.9 },
   // Stone & Ceramic
   { id: "marble_white", label: "White Marble", color: "#F0EDE8", category: "Stone", roughness: 0.6, metalness: 0.1 },
@@ -220,6 +222,9 @@ export const MATERIALS: MaterialOption[] = [
   { id: "fabric_blue", label: "Blue Fabric", color: "#4A6FA5", category: "Fabric", roughness: 0.95, metalness: 0.0 },
   { id: "fabric_green", label: "Green Fabric", color: "#5B7B5E", category: "Fabric", roughness: 0.95, metalness: 0.0 },
   { id: "fabric_bamboo", label: "Bamboo fabric · במבוק", color: "#B8A878", category: "Fabric", roughness: 0.95, metalness: 0.0 },
+  { id: "cane_natural", label: "Cane weave · קש", color: "#D4C4A0", category: "Fabric", roughness: 0.92, metalness: 0.0 },
+  { id: "fabric_plaid_blue", label: "Plaid blue & cream · משבץ כחול", color: "#5A6B88", category: "Fabric", roughness: 0.94, metalness: 0.0 },
+  { id: "fabric_plaid_olive", label: "Plaid olive & beige · משבץ זית", color: "#6B7348", category: "Fabric", roughness: 0.94, metalness: 0.0 },
   { id: "velvet_navy", label: "Navy Velvet", color: "#1B3A5C", category: "Fabric", roughness: 0.95, metalness: 0.0 },
   // Glass & Acrylic
   { id: "glass", label: "Clear Glass", color: "#E0F0FF", category: "Glass", roughness: 0.1, metalness: 0.1 },

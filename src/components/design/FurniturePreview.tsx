@@ -5,6 +5,11 @@ import type { PanelData, GroupData, EditorSceneData } from "@/lib/furnitureData"
 import { panelsToWorldSpace } from "@/lib/groupUtils";
 import { MATERIALS } from "@/lib/furnitureData";
 import { getFabricRenderingParams, getMaterialTextures } from "@/lib/materialTextures";
+import {
+  cloneFabricTexturesWithTufting,
+  fabricRepeatSpans,
+  panelShouldHaveFabricTufting,
+} from "@/lib/fabricTufting";
 import * as THREE from "three";
 
 // ─── Auto-fit camera to bounding box ────────────────────
@@ -69,16 +74,32 @@ function PreviewPanel({ panel }: { panel: PanelData }) {
   // PBR textures (skip for custom colors and glass)
   const textures = useMemo(() => {
     if (panel.customColor || !mat) return null;
-    return getMaterialTextures(mat.id, mat.color, mat.category);
-  }, [panel.customColor, mat?.id, mat?.color, mat?.category]);
+    const base = getMaterialTextures(mat.id, mat.color, mat.category);
+    if (!base) return null;
+    if (mat.category === "Fabric" && panelShouldHaveFabricTufting(panel, mat.id)) {
+      return cloneFabricTexturesWithTufting(base, panel);
+    }
+    return base;
+  }, [
+    panel.customColor,
+    mat?.id,
+    mat?.color,
+    mat?.category,
+    panel.id,
+    panel.label,
+    panel.shape,
+    panel.type,
+    panel.size,
+  ]);
 
   useMemo(() => {
     if (!textures) return;
-    const [w, h, d] = panel.size;
-    const edge = Math.max(w, h, d);
+    const [w, , d] = panel.size;
     let repX: number;
     let repY: number;
     if (isFabric) {
+      const { su, sv } = fabricRepeatSpans(panel);
+      const edge = Math.max(su, sv);
       const rep = Math.max(12, edge * 17);
       repX = repY = rep;
     } else {
@@ -88,7 +109,7 @@ function PreviewPanel({ panel }: { panel: PanelData }) {
     [textures.map, textures.normalMap, textures.roughnessMap].forEach(t => {
       t.repeat.set(repX, repY);
     });
-  }, [textures, panel.size, isFabric]);
+  }, [textures, panel.size, panel.label, panel.shape, isFabric]);
 
   const normalScale = useMemo(() => {
     if (!mat) return new THREE.Vector2(0.3, 0.3);
@@ -134,7 +155,7 @@ function PreviewPanel({ panel }: { panel: PanelData }) {
           transparent
           opacity={0.3}
         />
-      ) : textures && shape === "box" && isFabric && fabricParams ? (
+      ) : textures && (shape === "box" || shape === "cushion" || shape === "mattress") && isFabric && fabricParams ? (
         <meshPhysicalMaterial
           map={textures.map}
           normalMap={textures.normalMap}

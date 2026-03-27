@@ -6,6 +6,12 @@ import type { PanelData, GroupData } from "@/lib/furnitureData";
 import { MATERIALS } from "@/lib/furnitureData";
 import { ShapeRenderer, isCompositeShape } from "./ShapeRenderer";
 import { getFabricRenderingParams, getMaterialTextures } from "@/lib/materialTextures";
+import {
+  cloneFabricTexturesWithTufting,
+  fabricRepeatSpans,
+  panelShouldHaveFabricTufting,
+  tuftStyleForPanel,
+} from "@/lib/fabricTufting";
 import { applyDesignMaterialToGlbRoot } from "@/lib/glbMaterialOverride";
 import { useMobileInfo } from "@/hooks/use-mobile";
 import * as THREE from "three";
@@ -2771,8 +2777,24 @@ function FurniturePanel({
   // PBR textures (skip for custom colors, glass, and SH3D textures)
   const textures = useMemo(() => {
     if (panel.customColor || panel.textureUrl || !mat) return null;
-    return getMaterialTextures(mat.id, mat.color, mat.category);
-  }, [panel.customColor, panel.textureUrl, mat?.id, mat?.color, mat?.category]);
+    const base = getMaterialTextures(mat.id, mat.color, mat.category);
+    if (!base) return null;
+    if (mat.category === "Fabric" && panelShouldHaveFabricTufting(panel, mat.id)) {
+      return cloneFabricTexturesWithTufting(base, panel);
+    }
+    return base;
+  }, [
+    panel.customColor,
+    panel.textureUrl,
+    mat?.id,
+    mat?.color,
+    mat?.category,
+    panel.id,
+    panel.label,
+    panel.shape,
+    panel.type,
+    panel.size,
+  ]);
 
   // Configure texture tiling — proportional to panel size for natural scale.
   // Wood/stone/engineered: 1 repeat per 0.5m (500mm) so grain scale looks realistic.
@@ -2784,7 +2806,8 @@ function FurniturePanel({
     let repX: number;
     let repY: number;
     if (isFabric) {
-      const edge = Math.max(w, d);
+      const { su, sv } = fabricRepeatSpans(panel);
+      const edge = Math.max(su, sv);
       const rep = Math.max(12, edge * 17);
       repX = rep;
       repY = rep;
@@ -2799,7 +2822,7 @@ function FurniturePanel({
     [textures.map, textures.normalMap, textures.roughnessMap].forEach(t => {
       t.repeat.set(repX, repY);
     });
-  }, [textures, panel.size, isFabric, isMetal]);
+  }, [textures, panel.size, panel.label, panel.shape, isFabric, isMetal]);
 
   const normalScale = useMemo(() => {
     if (!mat) return new THREE.Vector2(0.3, 0.3);
@@ -2807,12 +2830,26 @@ function FurniturePanel({
     if (mat.category === "Engineered") return new THREE.Vector2(0.2, 0.2);
     if (mat.category === "Stone") return new THREE.Vector2(0.4, 0.4);
     if (mat.category === "Fabric") {
-      if (mat.id.includes("velvet")) return new THREE.Vector2(0.52, 0.62);
+      const tuftBoost =
+        panelShouldHaveFabricTufting(panel, mat.id) && !panel.customColor && !panel.textureUrl
+          ? tuftStyleForPanel(panel) === "channel_v"
+            ? 0.15
+            : 0.09
+          : 0;
+      if (mat.id.includes("velvet")) return new THREE.Vector2(0.52 + tuftBoost, 0.62 + tuftBoost);
       if (mat.id.includes("leather")) return new THREE.Vector2(0.42, 0.42);
-      return new THREE.Vector2(0.52, 0.52);
+      return new THREE.Vector2(0.52 + tuftBoost, 0.52 + tuftBoost);
     }
     return new THREE.Vector2(0.3, 0.3);
-  }, [mat]);
+  }, [
+    mat,
+    panel.id,
+    panel.label,
+    panel.shape,
+    panel.materialId,
+    panel.customColor,
+    panel.textureUrl,
+  ]);
 
   const panelIsDoor = isDoor(panel.label);
   const panelIsDrawer = isDrawer(panel.label);

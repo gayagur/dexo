@@ -200,15 +200,15 @@ function SingleGeometry({
 
     // ── Decorative ───────────────────────────────────
     case "cushion": {
-      // Generous rounding for sofas / pillows / seat pads; caps keep thin cushions from turning into tubes
+      // Generous rounding — plush sectional look; caps keep thin cushions from turning into tubes
       const plan = Math.min(w, d);
-      const cr = Math.min(0.095, plan * 0.24, h * 0.58, w / 2, h / 2, d / 2);
+      const cr = Math.min(0.118, plan * 0.30, h * 0.64, w / 2, h / 2, d / 2);
       return <RoundedRectGeometry w={w + pad * 2} h={h + pad * 2} depth={d + pad * 2} cornerRadius={cr} />;
     }
 
     case "mattress": {
       const plan = Math.min(w, d);
-      const cr = Math.min(0.088, plan * 0.22, h * 0.62, w / 2, h / 2, d / 2);
+      const cr = Math.min(0.102, plan * 0.26, h * 0.65, w / 2, h / 2, d / 2);
       return <RoundedRectGeometry w={w + pad * 2} h={h + pad * 2} depth={d + pad * 2} cornerRadius={cr} />;
     }
 
