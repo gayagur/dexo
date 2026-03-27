@@ -3,7 +3,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { MATERIALS, type PanelData, type MaterialOption, type GroupData } from "@/lib/furnitureData";
 import { loadSH3DCatalog, getSH3DTextureUrl, type SH3DTexture } from "@/lib/sh3dTextures";
-import { Ruler, Palette, RotateCw, ChevronDown, ChevronRight, Search, MousePointerClick, ImagePlus } from "lucide-react";
+import { Ruler, Palette, RotateCw, ChevronDown, ChevronRight, Search, MousePointerClick, ImagePlus, Circle } from "lucide-react";
 
 // ─── Helper: adjust hex color brightness ─────────────────
 function adjustBrightness(hex: string, amount: number): string {
@@ -658,6 +658,13 @@ export function EditorParameters({
   const renderPanelProperties = () => {
     if (!panel) return null;
 
+    const showCornerRadius =
+      !panel.shape ||
+      panel.shape === "box" ||
+      panel.shape === "rounded_rect" ||
+      panel.shape === "cushion" ||
+      panel.shape === "mattress";
+
     return (
       <>
         {/* Element name header */}
@@ -698,6 +705,48 @@ export function EditorParameters({
           />
         </CollapsibleSection>
 
+        {/* Corner radius — own section, open by default (was hidden inside closed Size) */}
+        {showCornerRadius && (
+          <CollapsibleSection
+            label="Corner radius"
+            icon={<Circle className="w-3.5 h-3.5 text-gray-400" />}
+            defaultOpen={true}
+          >
+            <div className="mt-1">
+              <div className="flex items-center justify-between mb-2">
+                <Label className="text-[11px] text-gray-500">Roundness</Label>
+                <span className="text-[10px] text-gray-400 font-mono">
+                  {Math.round((panel.cornerRadius ?? 0.002) * 1000)} mm
+                </span>
+              </div>
+              <input
+                type="range"
+                min={0}
+                max={50}
+                step={1}
+                value={Math.round((panel.cornerRadius ?? 0.002) * 1000)}
+                onChange={(e) => {
+                  const mm = parseInt(e.target.value, 10);
+                  const r = mm / 1000;
+                  if (panel.shape === "rounded_rect") {
+                    onUpdatePanel(panel.id, {
+                      cornerRadius: r,
+                      shapeParams: { ...(panel.shapeParams ?? {}), cornerRadius: r },
+                    });
+                  } else {
+                    onUpdatePanel(panel.id, { cornerRadius: r });
+                  }
+                }}
+                className="w-full h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-[#C87D5A]"
+              />
+              <div className="flex justify-between text-[9px] text-gray-300 mt-0.5">
+                <span>Sharp</span>
+                <span>Round</span>
+              </div>
+            </div>
+          </CollapsibleSection>
+        )}
+
         {/* Size (collapsed by default) */}
         <CollapsibleSection
           label="Size"
@@ -729,34 +778,6 @@ export function EditorParameters({
               </div>
             ))}
           </div>
-
-          {/* Corner Radius (for box/rounded_rect shapes) */}
-          {(!panel.shape || panel.shape === "box" || panel.shape === "rounded_rect" || panel.shape === "cushion" || panel.shape === "mattress") && (
-            <div className="mt-3 pt-3 border-t border-gray-100">
-              <div className="flex items-center justify-between mb-2">
-                <Label className="text-[11px] text-gray-500">Corner Radius</Label>
-                <span className="text-[10px] text-gray-400 font-mono">
-                  {Math.round((panel.cornerRadius ?? 0.002) * 1000)}mm
-                </span>
-              </div>
-              <input
-                type="range"
-                min={0}
-                max={50}
-                step={1}
-                value={Math.round((panel.cornerRadius ?? 0.002) * 1000)}
-                onChange={(e) => {
-                  const mm = parseInt(e.target.value);
-                  onUpdatePanel(panel.id, { cornerRadius: mm / 1000 });
-                }}
-                className="w-full h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-[#C87D5A]"
-              />
-              <div className="flex justify-between text-[9px] text-gray-300 mt-0.5">
-                <span>0mm (sharp)</span>
-                <span>50mm (round)</span>
-              </div>
-            </div>
-          )}
 
           {/* Shape Parameters (if applicable) */}
           {panel.shapeParams && Object.keys(panel.shapeParams).length > 0 && (

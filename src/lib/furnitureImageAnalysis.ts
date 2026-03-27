@@ -173,9 +173,79 @@ export function normalizeAnalysisPanel(raw: RawAnalysisPanel, id: string): Panel
   return panel;
 }
 
+const SEATING_NAME_RE =
+  /\b(sofa|couch|sectional|loveseat|divan|settee|chesterfield|recliner|armchair|chaise|ottoman|ספה|כורסא)\b/i;
+
+const UPHOLSTERY_MAT_RE = /^(fabric_|leather_|velvet_)/;
+
+function isExcludedFromCushionLabel(label: string): boolean {
+  return /\b(leg|legs|feet|foot|plinth|skirt|rail|stretcher|mechanism|spring|slat|hardware|knob|handle|caster|wheel|base\s*frame|frame\s*only)\b/i.test(
+    label
+  );
+}
+
+function isCushionLikeLabel(label: string): boolean {
+  if (isExcludedFromCushionLabel(label)) return false;
+  return /\b(cushion|seat|back|rest|headrest|pillow|bolster|pad|upholster|padding|foam|loft|arm\s*rest|armrest)\b/i.test(
+    label
+  );
+}
+
+/** AI often labels slabs "Panel 3" — infer seat cushion from proportions */
+function looksLikeSeatCushionBlock(panel: PanelData): boolean {
+  if ((panel.shape ?? "box") !== "box" || panel.type !== "horizontal") return false;
+  if (!UPHOLSTERY_MAT_RE.test(panel.materialId)) return false;
+  if (isExcludedFromCushionLabel(panel.label)) return false;
+  const [w, h, d] = panel.size;
+  const plan = Math.max(w, d);
+  const thick = h;
+  return thick >= 0.06 && thick <= 0.28 && plan >= 0.28 && Math.min(w, d) >= 0.18;
+}
+
+function looksLikeBackCushionBlock(panel: PanelData): boolean {
+  if ((panel.shape ?? "box") !== "box" || panel.type !== "vertical") return false;
+  if (!UPHOLSTERY_MAT_RE.test(panel.materialId)) return false;
+  if (isExcludedFromCushionLabel(panel.label)) return false;
+  const [w, h, d] = panel.size;
+  return h >= 0.28 && h >= w * 0.85 && d >= 0.04 && d <= 0.35 && w >= 0.12;
+}
+
+/** Turn obvious upholstery boxes into cushion meshes after AI import (sofas etc.). */
+function refineSeatingImportPanels(panels: PanelData[], furnitureName: string): PanelData[] {
+  const name = furnitureName.trim();
+  if (!name || !SEATING_NAME_RE.test(name)) return panels;
+
+  return panels.map((panel) => {
+    const shape = panel.shape ?? "box";
+    if (shape !== "box") return panel;
+    if (!UPHOLSTERY_MAT_RE.test(panel.materialId)) return panel;
+
+    const labelHit = isCushionLikeLabel(panel.label);
+    const geomSeat = looksLikeSeatCushionBlock(panel);
+    const geomBack = looksLikeBackCushionBlock(panel);
+    if (!labelHit && !geomSeat && !geomBack) return panel;
+
+    const [w, h, d] = panel.size;
+    if (Math.min(w, h, d) < 0.018) return panel;
+
+    let type = panel.type;
+    if (geomBack) type = "vertical";
+    else if (geomSeat) type = "horizontal";
+    else {
+      const backish =
+        /\b(back|rest|headrest|pillow|bolster)\b/i.test(panel.label) && !/\bseat\b/i.test(panel.label);
+      if (backish && h >= Math.max(w, d) * 0.55) type = "vertical";
+    }
+
+    const { cornerRadius: _omit, ...base } = panel;
+    return { ...base, type, shape: "cushion" };
+  });
+}
+
 export function panelsFromFurnitureAnalysis(
   analysis: FurnitureAnalysis,
   nextId: () => string
 ): PanelData[] {
-  return analysis.panels.map((p) => normalizeAnalysisPanel(p as RawAnalysisPanel, nextId()));
+  const panels = analysis.panels.map((p) => normalizeAnalysisPanel(p as RawAnalysisPanel, nextId()));
+  return refineSeatingImportPanels(panels, analysis.name ?? "");
 }
