@@ -443,3 +443,31 @@
   font-weight: 600;
   color: hsl(var(--foreground));
 }
+
+/* ─── Mobile touch utilities ─── */
+button,
+a,
+[role="button"] {
+  -webkit-tap-highlight-color: transparent;
+}
+
+@media (pointer: coarse) {
+  button,
+  a,
+  [role="button"] {
+    touch-action: manipulation;
+  }
+}
+
+html,
+body {
+  overflow-x: hidden;
+}
+
+.safe-area-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.safe-area-top {
+  padding-top: env(safe-area-inset-top, 0px);
+}
