@@ -1189,7 +1189,7 @@ export function EditorViewport({
           Rotation Mode &mdash; drag object to rotate &middot; Press R or Esc to exit
         </div>
       ) : (
-        <div className="absolute bottom-3 left-3 text-[10px] text-gray-400 z-40 pointer-events-none flex gap-3">
+        !isMobileLayout && <div className="absolute bottom-3 left-3 text-[10px] text-gray-400 z-40 pointer-events-none flex gap-3">
           <span>Drag: move X/Z</span>
           <span>Shift+Drag: move Y</span>
           <span>Right-click drag: pan camera</span>

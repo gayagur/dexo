@@ -10,15 +10,11 @@ interface MobileDrawerProps {
   height?: "half" | "full" | number;
 }
 
-const snapMap = {
-  half: ["0.5", "1"] as string[],
-  full: ["1"] as string[],
-};
-
 export function MobileDrawer({ isOpen, onClose, title, children, height = "half" }: MobileDrawerProps) {
+  // vaul treats numbers as fractions of container height, strings as pixel values
   const snaps = typeof height === "number"
-    ? [`${Math.min(height / window.innerHeight, 1)}`]
-    : snapMap[height];
+    ? [Math.min(height / window.innerHeight, 1), 1]
+    : height === "full" ? [1] : [0.5, 1];
 
   return (
     <DrawerPrimitive.Root
@@ -30,11 +26,7 @@ export function MobileDrawer({ isOpen, onClose, title, children, height = "half"
       <DrawerPrimitive.Portal>
         <DrawerPrimitive.Overlay className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm" />
         <DrawerPrimitive.Content
-          className={cn(
-            "fixed inset-x-0 bottom-0 z-50 flex flex-col rounded-t-2xl border-t bg-white",
-            "overflow-hidden",
-            height === "full" ? "h-[96dvh]" : "max-h-[96dvh]",
-          )}
+          className="fixed inset-x-0 bottom-0 z-50 flex h-[96dvh] flex-col rounded-t-2xl border-t bg-white overflow-hidden"
           style={{ touchAction: "auto" }}
         >
           {/* Drag handle */}
