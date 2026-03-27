@@ -40,6 +40,10 @@ import {
 import type { LibraryTemplate } from "@/lib/libraryData";
 import { ArrowLeft, Save, RotateCcw, MessageSquare, Magnet, HelpCircle, X, Undo2, Redo2, Box, Square, PanelTop, PanelLeft, Loader2, Sun, Moon, Check, LogOut, SendHorizonal, MoreVertical, Upload, BookOpen } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { useMobileInfo } from "@/hooks/use-mobile";
+import { MobileDrawer } from "@/components/ui/MobileDrawer";
+import { MobileEditorToolbar } from "./MobileEditorToolbar";
+import { MobileEditorBar } from "./MobileEditorBar";
 import type { ViewMode, EditorLightMode, EditorFloorPreset } from "./EditorViewport";
 import { EDITOR_FLOOR_OPTIONS } from "./EditorViewport";
 import { uploadFurnitureImage, analyzeFurnitureImage, type FurnitureAnalysis } from "@/lib/ai";
@@ -114,12 +118,14 @@ function EditorContextMenu({
     const timer = setTimeout(() => {
       document.addEventListener("mousedown", handle);
       document.addEventListener("contextmenu", handle);
+      document.addEventListener("touchstart", handle);
     }, 150);
     document.addEventListener("keydown", handleKey);
     return () => {
       clearTimeout(timer);
       document.removeEventListener("mousedown", handle);
       document.removeEventListener("contextmenu", handle);
+      document.removeEventListener("touchstart", handle);
       document.removeEventListener("keydown", handleKey);
     };
   }, [onClose]);
@@ -190,6 +196,27 @@ export function FurnitureEditor({
   const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastSavedHistoryIndex = useRef(0);
   const editorNavigate = useNavigate();
+
+  const { isMobileLayout, isDesktop } = useMobileInfo();
+  const [mobileLibraryOpen, setMobileLibraryOpen] = useState(false);
+  const [mobilePropsOpen, setMobilePropsOpen] = useState(false);
+  const [mobileChatOpen, setMobileChatOpen] = useState(false);
+
+  const mobileActiveSheet = mobileLibraryOpen ? "library" as const
+    : mobilePropsOpen ? "properties" as const
+    : mobileChatOpen ? "chat" as const
+    : null;
+
+  const openMobileSheet = (sheet: "library" | "properties" | "chat") => {
+    setMobileLibraryOpen(sheet === "library");
+    setMobilePropsOpen(sheet === "properties");
+    setMobileChatOpen(sheet === "chat");
+  };
+  const closeMobileSheets = () => {
+    setMobileLibraryOpen(false);
+    setMobilePropsOpen(false);
+    setMobileChatOpen(false);
+  };
 
   const [hintsVisible, setHintsVisible] = useState(() => {
     try { return !localStorage.getItem("dexo_editor_hints_seen"); } catch { return false; }
@@ -1111,8 +1138,9 @@ export function FurnitureEditor({
   })();
 
   return (
-    <div className="h-screen flex flex-col bg-[#FAFAFA] overflow-hidden min-h-0">
+    <div className="h-dvh flex flex-col bg-[#FAFAFA] overflow-hidden min-h-0">
       {/* Top toolbar */}
+      {isDesktop ? (
       <div className="shrink-0 bg-white border-b border-gray-200 px-3 sm:px-4 py-2 min-w-0">
         <div className="flex items-center gap-2 min-w-0 overflow-x-auto [scrollbar-width:none]">
 
@@ -1386,8 +1414,51 @@ export function FurnitureEditor({
 
         </div>
       </div>
+      ) : (
+      <>
+        <MobileEditorToolbar
+          furnitureLabel={furnitureType.label}
+          onBack={onBack}
+          canUndo={historyIndexRef.current > 0}
+          canRedo={historyIndexRef.current < historyRef.current.length - 1}
+          onUndo={undo}
+          onRedo={redo}
+          snapEnabled={snapEnabled}
+          onToggleSnap={() => setSnapEnabled(v => !v)}
+          viewMode={viewMode}
+          onViewModeChange={setViewMode}
+          lightMode={lightMode}
+          onLightModeChange={setLightMode}
+          floorPreset={floorPreset}
+          onFloorPresetChange={setFloorPreset}
+          saveStatus={saveStatus}
+          onSave={handleSave}
+          onReset={handleReset}
+          onToggleHelp={() => setShowHelp(v => !v)}
+          onSubmitLibrary={() => {
+            const targetGroup = selectedGroup || groups[0];
+            if (targetGroup) setSubmitLibraryGroup(targetGroup);
+          }}
+          onSaveAndExit={() => guardedNavigate(handleSaveAndExit)}
+        />
+        {editingGroupId && (
+          <div className="shrink-0 h-9 bg-orange-50 border-b border-orange-200 px-4 flex items-center justify-between">
+            <span className="text-xs text-orange-700 font-medium">
+              Editing: {groups.find(g => g.id === editingGroupId)?.name ?? "Group"}
+            </span>
+            <button
+              onClick={exitEditMode}
+              className="text-xs text-orange-600 font-semibold px-3 py-1 rounded-full bg-orange-100 active:bg-orange-200"
+            >
+              Exit
+            </button>
+          </div>
+        )}
+      </>
+      )}
 
       {/* Four-panel layout */}
+      {isDesktop ? (
       <div className="flex-1 flex min-h-0 min-w-0 overflow-hidden">
         {showLibrary ? (
           <LibraryBrowser
@@ -1520,6 +1591,141 @@ export function FurnitureEditor({
         )}
 
       </div>
+      ) : (
+      <>
+        {/* Full viewport */}
+        <div className="flex-1 min-h-0 min-w-0 relative">
+          <EditorViewport
+            panels={activePanels}
+            selectedPanelId={selectedPanelId}
+            snapEnabled={snapEnabled}
+            rotationMode={rotationMode}
+            viewMode={viewMode}
+            onSelectPanel={setSelectedPanelId}
+            onUpdatePanel={handleUpdatePanelCommit}
+            onUpdatePanelLive={handleUpdatePanelLive}
+            groups={groups}
+            ungroupedPanels={ungroupedPanels}
+            editingGroupId={editingGroupId}
+            editingPanels={editModePanels}
+            selectedGroupId={selectedGroupId}
+            onSelectGroup={setSelectedGroupId}
+            onUpdateGroup={handleUpdateGroup}
+            onUpdateGroupLive={handleUpdateGroupLive}
+            onEnterEditMode={enterEditMode}
+            onExitEditMode={exitEditMode}
+            onRenameGroup={handleRenameGroup}
+            onUngroupGroup={handleUngroupGroup}
+            onDeleteGroup={handleDeleteGroup}
+            onScaleGroup={handleScaleGroup}
+            onContextMenu={handleContextMenu}
+            lightMode={lightMode}
+            floorPreset={floorPreset}
+            initialCameraPosition={boot.cameraPosition}
+            onCameraMove={(pos) => { cameraPositionRef.current = pos; }}
+          />
+          {/* Mobile hints */}
+          {hintsVisible && (
+            <div className="absolute inset-0 z-20 pointer-events-none">
+              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/4 pointer-events-auto">
+                <div className="bg-white rounded-xl shadow-lg border border-gray-200 px-4 py-3 max-w-[220px] text-center">
+                  <p className="text-xs font-medium text-gray-700 mb-1">Tap to select</p>
+                  <p className="text-[10px] text-gray-400">Pinch to zoom, drag to orbit</p>
+                </div>
+              </div>
+              <div className="absolute bottom-20 left-1/2 -translate-x-1/2 pointer-events-auto">
+                <button onClick={dismissHints} className="px-4 py-1.5 bg-[#1B2432] text-white text-xs rounded-full shadow-lg">
+                  Got it
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Bottom action bar */}
+        <MobileEditorBar
+          onOpenLibrary={() => openMobileSheet("library")}
+          onOpenProperties={() => openMobileSheet("properties")}
+          onOpenChat={() => openMobileSheet("chat")}
+          editingGroupId={editingGroupId}
+          selectedGroupId={selectedGroupId}
+          onEnterEditMode={enterEditMode}
+          onExitEditMode={exitEditMode}
+          activeSheet={mobileActiveSheet}
+        />
+
+        {/* Library bottom sheet */}
+        <MobileDrawer isOpen={mobileLibraryOpen} onClose={closeMobileSheets} title="Library" height="half">
+          {showLibrary ? (
+            <LibraryBrowser
+              onSelectTemplate={(t) => { handleLoadTemplate(t); closeMobileSheets(); }}
+              onClose={() => setShowLibrary(false)}
+              communityTemplates={communityTemplates}
+            />
+          ) : (
+            <EditorSidebar
+              panels={activePanels}
+              selectedPanelId={selectedPanelId}
+              onSelectPanel={(id) => { setSelectedPanelId(id); closeMobileSheets(); }}
+              onAddPanel={() => setShowAddPicker(true)}
+              onDuplicatePanel={handleDuplicatePanel}
+              onDeletePanel={handleDeletePanel}
+              groups={groups}
+              ungroupedPanels={ungroupedPanels}
+              editingGroupId={editingGroupId}
+              editingPanels={editModePanels}
+              selectedGroupId={selectedGroupId}
+              onSelectGroup={(id) => { setSelectedGroupId(id); closeMobileSheets(); }}
+              onDeleteGroup={handleDeleteGroup}
+              onEnterEditMode={enterEditMode}
+              onExitEditMode={exitEditMode}
+              onRenameGroup={handleRenameGroup}
+              onGroupPanels={handleGroupPanels}
+              onUngroupGroup={handleUngroupGroup}
+            />
+          )}
+        </MobileDrawer>
+
+        {/* Properties bottom sheet */}
+        <MobileDrawer isOpen={mobilePropsOpen} onClose={closeMobileSheets} title="Properties" height="half">
+          <EditorParameters
+            panel={selectedPanel}
+            overallDims={dims}
+            onUpdatePanel={handleUpdatePanel}
+            onUpdateDims={handleDimsChange}
+            style={style}
+            onStyleChange={setStyle}
+            selectedGroup={selectedGroup}
+            showOverallDims={!editingGroupId}
+            editingGroupId={editingGroupId}
+            onUpdateGroup={handleUpdateGroup}
+            onScaleGroup={handleScaleGroup}
+            onUpdateGroupMaterial={handleUpdateGroupMaterial}
+            onCustomGroupColor={handleCustomGroupColor}
+            onUpdateGroupTexture={handleUpdateGroupTexture}
+            multiSelectCount={selectedPanelIds.length}
+          />
+        </MobileDrawer>
+
+        {/* AI Chat bottom sheet */}
+        <MobileDrawer isOpen={mobileChatOpen} onClose={closeMobileSheets} title="AI Assistant" height="full">
+          <DesignChatPanel
+            furnitureType={furnitureType}
+            dims={dims}
+            style={style}
+            panels={flattenScene(groups, ungroupedPanels)}
+            onUpdateDims={handleDimsChange}
+            onUpdateStyle={setStyle}
+            onUpdatePanelMaterial={handleUpdatePanelMaterial}
+            onUpdateAllMaterials={handleUpdateAllMaterials}
+            onRemovePanel={handleChatRemovePanel}
+            onAddPanel={handleChatAddPanel}
+            onBuildFromImage={handleBuildFromImage}
+            onClose={closeMobileSheets}
+          />
+        </MobileDrawer>
+      </>
+      )}
 
       {/* Context menu for 3D viewport elements */}
       {contextMenu && (
