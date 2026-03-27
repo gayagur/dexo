@@ -28,7 +28,9 @@ import {
 } from "@/lib/furnitureData";
 import type { GroupData, EditorSceneData } from "@/lib/furnitureData";
 import {
+  alignPanelsBottomToWorldY,
   createGroupFromPanels,
+  EDITOR_LIBRARY_FLOOR_Y,
   panelsToWorldSpace,
   panelsToRelative,
   computeBoundingBoxCenter,
@@ -719,10 +721,11 @@ export function FurnitureEditor({
 
   const handleLoadTemplate = useCallback((template: LibraryTemplate) => {
     const newDims = template.dims;
-    const newPanels = template.buildPanels(newDims).map((p) => ({
+    const rawPanels = template.buildPanels(newDims).map((p) => ({
       ...p,
       id: `p${++nextPanelId}`,
     }));
+    const newPanels = alignPanelsBottomToWorldY(rawPanels, EDITOR_LIBRARY_FLOOR_Y);
     const newGroup = createGroupFromPanels(template.name ?? "Template", newPanels);
     const offset = computeGroupXOffset(groupsRef.current);
     const offsetGroup: GroupData = {

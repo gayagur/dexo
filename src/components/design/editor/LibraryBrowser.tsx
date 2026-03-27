@@ -6,6 +6,7 @@ import {
   type LibraryTemplate,
 } from "@/lib/libraryData";
 import type { CommunityTemplate } from "@/lib/library-api";
+import { panelsToWorldSpace } from "@/lib/groupUtils";
 
 interface LibraryBrowserProps {
   onSelectTemplate: (template: LibraryTemplate) => void;
@@ -29,7 +30,13 @@ export function LibraryBrowser({ onSelectTemplate, onClose, communityTemplates }
         dims: ct.dims,
         isCommunity: true,
         authorName: ct.author_name,
-        buildPanels: () => ct.group_data.panels,
+        buildPanels: () =>
+          panelsToWorldSpace(
+            ct.group_data.panels,
+            ct.group_data.position,
+            ct.group_data.rotation ?? [0, 0, 0],
+            ct.group_data.scale ?? [1, 1, 1],
+          ),
       }),
     );
     return [...LIBRARY_TEMPLATES, ...community];

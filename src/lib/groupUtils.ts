@@ -1,6 +1,35 @@
 import type { PanelData, GroupData } from "./furnitureData";
 import * as THREE from "three";
 
+/**
+ * World Y (meters) for the bottom of library-inserted furniture AABB.
+ * Matches ~27 mm — typical editor floor contact above the grid plane.
+ */
+export const EDITOR_LIBRARY_FLOOR_Y = 0.027;
+
+/** Lowest axis-aligned bottom Y among panels (world space); ignores panel rotation. */
+export function computePanelsAxisAlignedMinY(panels: PanelData[]): number {
+  if (panels.length === 0) return 0;
+  let minY = Infinity;
+  for (const p of panels) {
+    const [, py] = p.position;
+    const [, sy] = p.size;
+    minY = Math.min(minY, py - sy / 2);
+  }
+  return Number.isFinite(minY) ? minY : 0;
+}
+
+/** Shift all panels along Y so the AABB bottom sits at `floorY`. */
+export function alignPanelsBottomToWorldY(panels: PanelData[], floorY: number): PanelData[] {
+  const minY = computePanelsAxisAlignedMinY(panels);
+  const dy = floorY - minY;
+  if (dy === 0) return panels;
+  return panels.map((p) => ({
+    ...p,
+    position: [p.position[0], p.position[1] + dy, p.position[2]] as [number, number, number],
+  }));
+}
+
 /** Compute axis-aligned bounding box center of a set of panels (world-space positions) */
 export function computeBoundingBoxCenter(panels: PanelData[]): [number, number, number] {
   if (panels.length === 0) return [0, 0, 0];
