@@ -97,7 +97,7 @@ const SURFACE_PBR: Record<string, {
   matte: { roughness: 1.0, metalness: 0 },
   wood: { roughness: 0.7, metalness: 0, clearcoat: 0.2, clearcoatRoughness: 0.4 },
   metal: { roughness: 0.2, metalness: 1.0 },
-  fabric: { roughness: 0.9, metalness: 0, sheen: 0.085, sheenRoughness: 0.82, sheenColor: "#f4f3f1" },
+  fabric: { roughness: 0.92, metalness: 0, sheen: 0.055, sheenRoughness: 0.88, sheenColor: "#f6f5f3" },
   glass: { roughness: 0.05, metalness: 0.1, transmission: 0.8, ior: 1.5, thickness: 0.5 },
   stone: { roughness: 0.8, metalness: 0 },
 };
@@ -2785,7 +2785,7 @@ function FurniturePanel({
     let repY: number;
     if (isFabric) {
       const edge = Math.max(w, d);
-      const rep = Math.max(10, edge * 16);
+      const rep = Math.max(12, edge * 17);
       repX = rep;
       repY = rep;
     } else if (isMetal) {
@@ -2809,7 +2809,7 @@ function FurniturePanel({
     if (mat.category === "Fabric") {
       if (mat.id.includes("velvet")) return new THREE.Vector2(0.52, 0.62);
       if (mat.id.includes("leather")) return new THREE.Vector2(0.42, 0.42);
-      return new THREE.Vector2(0.64, 0.64);
+      return new THREE.Vector2(0.52, 0.52);
     }
     return new THREE.Vector2(0.3, 0.3);
   }, [mat]);

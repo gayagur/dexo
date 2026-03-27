@@ -79,7 +79,7 @@ function PreviewPanel({ panel }: { panel: PanelData }) {
     let repX: number;
     let repY: number;
     if (isFabric) {
-      const rep = Math.max(10, edge * 16);
+      const rep = Math.max(12, edge * 17);
       repX = repY = rep;
     } else {
       repX = Math.max(0.5, w * 2);
@@ -95,7 +95,7 @@ function PreviewPanel({ panel }: { panel: PanelData }) {
     if (mat.category === "Fabric") {
       if (mat.id.includes("velvet")) return new THREE.Vector2(0.52, 0.62);
       if (mat.id.includes("leather")) return new THREE.Vector2(0.42, 0.42);
-      return new THREE.Vector2(0.64, 0.64);
+      return new THREE.Vector2(0.52, 0.52);
     }
     return new THREE.Vector2(0.3, 0.3);
   }, [mat]);

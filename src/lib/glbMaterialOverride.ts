@@ -17,7 +17,7 @@ function normalScaleForMaterial(mat: MaterialOption | undefined): THREE.Vector2 
   if (mat.category === "Fabric") {
     if (mat.id.includes("velvet")) return new THREE.Vector2(0.52, 0.62);
     if (mat.id.includes("leather")) return new THREE.Vector2(0.42, 0.42);
-    return new THREE.Vector2(0.64, 0.64);
+    return new THREE.Vector2(0.52, 0.52);
   }
   return new THREE.Vector2(0.3, 0.3);
 }
@@ -170,7 +170,7 @@ export function applyDesignMaterialToGlbRoot(
     let repX: number;
     let repY: number;
     if (isFabric) {
-      const rep = Math.max(10, edge * 16);
+      const rep = Math.max(12, edge * 17);
       repX = rep;
       repY = rep;
     } else {

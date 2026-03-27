@@ -14,7 +14,7 @@ export function getMaterialTextures(materialId: string, baseColor: string, categ
   // Skip textures for glass — it uses transmission
   if (category === "Glass") return null;
 
-  const cacheKey = `v9_${materialId}_${baseColor}`;
+  const cacheKey = `v10_${materialId}_${baseColor}`;
   if (textureCache.has(cacheKey)) return textureCache.get(cacheKey)!;
 
   let result;
@@ -570,12 +570,13 @@ export function getFabricRenderingParams(
     sheenRoughness = 0.9;
     envMapIntensity = night ? 0.22 : 0.34;
   } else {
-    sheen = night ? 0.052 : 0.072;
-    sheenRoughness = 0.8;
-    envMapIntensity = night ? 0.22 : 0.36;
+    // Plain weave / cord — matte, soft grazing only (like cream upholstery ref)
+    sheen = night ? 0.038 : 0.052;
+    sheenRoughness = 0.86;
+    envMapIntensity = night ? 0.19 : 0.3;
   }
   const c = new THREE.Color(albedoHex);
-  c.lerp(new THREE.Color(0xffffff), velvet ? 0.2 : leather ? 0.18 : 0.26);
+  c.lerp(new THREE.Color(0xffffff), velvet ? 0.2 : leather ? 0.18 : 0.34);
   return {
     sheen,
     sheenRoughness,
@@ -646,84 +647,69 @@ function generateFabricTextures(baseColor: string, materialId: string) {
       }
     }
   } else {
-    // ── Woven upholstery: ribbed wool/sisal weave with visible yarn structure ──
-    // Vertical ribs (cords) with individual yarn bumps inside each rib.
+    // ── Woven upholstery: fine cord / cotton-linen (reference: soft vertical grain, low contrast, fuzzy matte)
+    // Avoid deep “gutter” dark bands — those read as cardboard corrugation, not textile.
 
-    // Rib parameters — how many vertical cords across the texture
-    const ribCount = 28 + Math.floor(rand() * 12); // 28-40 ribs
+    const ribCount = 68 + Math.floor(rand() * 28); // many fine cords across the tile
     const ribWidth = TEX_SIZE / ribCount;
-    // Yarn row parameters — horizontal yarn loops within each rib
-    const yarnRowHeight = ribWidth * (0.7 + rand() * 0.3);
+    const yarnRowHeight = ribWidth * (0.82 + rand() * 0.22);
 
-    // Per-rib tone variation (some ribs slightly lighter/darker)
     const ribTones: number[] = [];
     for (let i = 0; i < ribCount + 1; i++) {
-      ribTones.push((rand() - 0.5) * 0.08);
+      ribTones.push((rand() - 0.5) * 0.018);
     }
 
     for (let py = 0; py < TEX_SIZE; py++) {
       for (let px_ = 0; px_ < TEX_SIZE; px_++) {
         const i = (py * TEX_SIZE + px_) * 4;
-        const u = px_ / TEX_SIZE, v = py / TEX_SIZE;
+        const u = px_ / TEX_SIZE;
+        const v = py / TEX_SIZE;
 
-        // === 1. Vertical rib structure ===
-        // Slight horizontal warp so ribs aren't perfectly straight
-        const ribWarp = fbm(u * 1.5, v * 3, seed + 200, 2, 2.0, 0.4) * 0.008;
+        const ribWarp = fbm(u * 2.2, v * 4.5, seed + 200, 2, 2.0, 0.42) * 0.0045;
         const ribPhase = ((px_ / ribWidth) + ribWarp * ribCount) % 1.0;
-        // Smooth rib profile: rounded column shape (cosine bump)
-        const ribProfile = Math.cos(ribPhase * Math.PI * 2) * 0.5 + 0.5; // 0=gap, 1=center
-        // Gap darkening between ribs
-        const ribGap = ribProfile < 0.15 ? (0.15 - ribProfile) * 0.4 : 0;
+        let ribProfile = Math.cos(ribPhase * Math.PI * 2) * 0.5 + 0.5;
+        ribProfile = Math.pow(ribProfile, 0.52);
 
-        // Which rib index for tone lookup
         const ribIdx = Math.floor(px_ / ribWidth);
 
-        // === 2. Yarn bumps within each rib ===
-        // Slight vertical warp for organic feel
-        const yarnWarp = fbm(u * 4 + 3.7, v * 1.5, seed + 300, 2, 2.0, 0.35) * 0.006;
-        const yarnPhase = ((py / yarnRowHeight) + yarnWarp * (TEX_SIZE / yarnRowHeight)) % 1.0;
-        // Each yarn loop is a rounded bump
-        const yarnBump = Math.cos(yarnPhase * Math.PI * 2) * 0.5 + 0.5;
-        // Stagger alternate ribs by half a yarn (like real weaving)
-        const stagger = (ribIdx % 2 === 0) ? 0 : 0.5;
-        const yarnPhaseStag = ((py / yarnRowHeight) + stagger + yarnWarp * (TEX_SIZE / yarnRowHeight)) % 1.0;
+        const yarnWarp = fbm(u * 5.2, v * 2.1, seed + 300, 2, 2.0, 0.36) * 0.004;
+        const stagger = ribIdx % 2 === 0 ? 0 : 0.5;
+        const yarnPhaseStag =
+          ((py / yarnRowHeight) + stagger + yarnWarp * (TEX_SIZE / yarnRowHeight)) % 1.0;
         const yarnBumpStag = Math.cos(yarnPhaseStag * Math.PI * 2) * 0.5 + 0.5;
-        // Use staggered version
-        const yarn = yarnBumpStag;
 
-        // === 3. Fine fiber fuzz (individual fiber-scale noise) ===
-        const fuzz = fbm(u * 72, v * 72, seed + 500, 3, 2.0, 0.42);
-        const fuzzMod = (fuzz - 0.5) * 0.032;
+        const fuzzFine = fbm(u * 150, v * 150, seed + 500, 2, 2.0, 0.48);
+        const fuzzMed = fbm(u * 52, v * 52, seed + 501, 3, 2.0, 0.44);
+        const fuzzCoarse = fbm(u * 18, v * 18, seed + 502, 2, 2.0, 0.42);
+        const fuzzMod =
+          (fuzzFine - 0.5) * 0.042 + (fuzzMed - 0.5) * 0.02 + (fuzzCoarse - 0.5) * 0.014;
 
-        // Shuttle / weft undulation + faint twill so the weave isn’t only vertical cords
         const weftUndul =
-          Math.sin(v * Math.PI * ribCount * 1.78 + fbm(u * 2.8, v * 5, seed + 802, 2) * 1.15) * 0.041;
-        const twillBias = Math.sin((u + v * 0.24) * Math.PI * ribCount * 2.05 + seed * 0.017) * 0.021;
+          Math.sin(v * Math.PI * ribCount * 1.15 + fbm(u * 3.2, v * 6.5, seed + 802, 2) * 0.85) * 0.016;
+        const twillBias = Math.sin((u + v * 0.16) * Math.PI * ribCount * 1.35 + seed * 0.014) * 0.007;
 
-        // === 4. Broad tonal variation (cushion-scale warm/cool shifts) ===
-        const broad = fbm(u * 1.5, v * 1.5, seed + 600, 2, 2.0, 0.45);
-        const broadMod = (broad - 0.5) * 0.04;
+        const broad = fbm(u * 1.1, v * 1.1, seed + 600, 2, 2.0, 0.45);
+        const broadMod = (broad - 0.5) * 0.032;
 
-        // === Combine color ===
         const ribTone = ribTones[Math.min(ribIdx, ribTones.length - 1)];
-        const yarnDark = (1.0 - yarn) * 0.05; // yarn valleys slightly darker
-        const mod = 1.0 + ribTone + broadMod + fuzzMod - ribGap - yarnDark + weftUndul * 0.08;
+        const cordShade = (ribProfile - 0.5) * 0.038;
+        const yarnLift = (yarnBumpStag - 0.5) * 0.022;
+        const mod = 1.0 + ribTone + broadMod + fuzzMod + cordShade + yarnLift + weftUndul * 0.035 + twillBias * 0.025;
 
-        // Slight warm shift in darker areas
-        const warmth = (ribGap + yarnDark) * 12;
+        const warmth = Math.max(0, -(cordShade + yarnLift * 0.5)) * 6;
         const clamp = (x: number) => Math.max(0, Math.min(255, Math.round(x)));
-        px[i]     = clamp(r * mod + warmth * 0.3);
+        px[i] = clamp(r * mod + warmth * 0.25);
         px[i + 1] = clamp(g * mod);
-        px[i + 2] = clamp(b * mod - warmth * 0.15);
+        px[i + 2] = clamp(b * mod - warmth * 0.1);
         px[i + 3] = 255;
 
-        // Height map — ribs + yarn + micro-fiber + cross-weft (tileable)
         heightMap[py * TEX_SIZE + px_] =
-          ribProfile * 0.44 +
-          yarn * 0.19 +
-          fuzz * 0.075 +
-          weftUndul * (0.32 + ribProfile * 0.68) +
-          twillBias * ribProfile;
+          ribProfile * 0.13 +
+          yarnBumpStag * 0.09 +
+          fuzzFine * 0.065 +
+          fuzzMed * 0.038 +
+          weftUndul * 0.06 +
+          twillBias * ribProfile * 0.03;
       }
     }
   }
@@ -731,7 +717,7 @@ function generateFabricTextures(baseColor: string, materialId: string) {
   // Very minimal pixel noise
   const noiseRand = seededRandom(seed + 777);
   for (let i = 0; i < px.length; i += 4) {
-    const n = (noiseRand() - 0.5) * 2;
+    const n = (noiseRand() - 0.5) * (isLeather || isVelvet ? 2 : 1.15);
     px[i] = Math.max(0, Math.min(255, px[i] + n));
     px[i + 1] = Math.max(0, Math.min(255, px[i + 1] + n));
     px[i + 2] = Math.max(0, Math.min(255, px[i + 2] + n));
@@ -741,7 +727,7 @@ function generateFabricTextures(baseColor: string, materialId: string) {
   // ── Normal map — seamless Sobel over height (tileable UVs, no dead edges) ──
   const [normalCanvas, normalCtx] = createCanvas();
   const nd = normalCtx.createImageData(TEX_SIZE, TEX_SIZE);
-  const nStr = isLeather ? 3.35 : isVelvet ? 2.65 : 4.75;
+  const nStr = isLeather ? 3.35 : isVelvet ? 2.65 : 2.75;
   const hm = heightMap;
   for (let py = 0; py < TEX_SIZE; py++) {
     for (let px_ = 0; px_ < TEX_SIZE; px_++) {
@@ -785,8 +771,8 @@ function generateFabricTextures(baseColor: string, materialId: string) {
         rough = 170 + (1 - hn) * 36;
         rough += (vnoise(u * 14, v * 14, seed + 500) - 0.5) * 13;
       } else {
-        rough = 176 + (1 - hn) * 44;
-        rough += (fbm(u * 4, v * 4, seed + 500, 2) - 0.5) * 17;
+        rough = 186 + (1 - hn) * 30;
+        rough += (fbm(u * 6, v * 6, seed + 500, 2) - 0.5) * 12;
       }
       rd.data[i] = rd.data[i + 1] = rd.data[i + 2] = Math.max(148, Math.min(238, Math.round(rough)));
       rd.data[i + 3] = 255;
