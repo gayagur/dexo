@@ -270,6 +270,89 @@ function fixHorizontalRoundDisk(panel: PanelData): PanelData {
   return p;
 }
 
+/**
+ * Post-analysis validation & repair for upholstered seating.
+ * Fixes common AI vision mistakes: floating parts, missing base, legs off floor.
+ */
+function repairSeatingGeometry(panels: PanelData[], name: string, nextId: () => string): PanelData[] {
+  if (!SEATING_NAME_RE.test(name)) return panels;
+
+  const result = [...panels];
+
+  // Collect semantic groups
+  const seatCushions = result.filter(p => (p.shape ?? "box") === "cushion" && p.type === "horizontal" && /seat|cushion/i.test(p.label) && !/back|pillow|throw/i.test(p.label));
+  const backCushions = result.filter(p => (p.shape ?? "box") === "cushion" && p.type === "vertical" && /back|rest/i.test(p.label));
+  const legs = result.filter(p => /leg|foot|feet/i.test(p.label));
+  const plinths = result.filter(p => (p.shape ?? "box") === "plinth" || /plinth|base\b/i.test(p.label));
+
+  // === Fix 1: Ensure legs touch floor ===
+  for (const leg of legs) {
+    const legH = leg.size[1];
+    const expectedY = legH / 2;
+    if (Math.abs(leg.position[1] - expectedY) > 0.03) {
+      leg.position = [leg.position[0], expectedY, leg.position[2]];
+    }
+  }
+
+  // === Fix 2: Add missing plinth/base for sofas ===
+  if (seatCushions.length > 0 && plinths.length === 0) {
+    // Find the lowest seat cushion bottom
+    const seatBottoms = seatCushions.map(p => p.position[1] - p.size[1] / 2);
+    const lowestSeatBottom = Math.min(...seatBottoms);
+
+    // Find furniture footprint
+    const allX = result.map(p => [p.position[0] - p.size[0] / 2, p.position[0] + p.size[0] / 2]).flat();
+    const allZ = result.map(p => [p.position[2] - p.size[2] / 2, p.position[2] + p.size[2] / 2]).flat();
+    const minX = Math.min(...allX), maxX = Math.max(...allX);
+    const minZ = Math.min(...allZ), maxZ = Math.max(...allZ);
+    const footW = maxX - minX;
+    const footD = maxZ - minZ;
+
+    // Determine plinth height — fill the gap between floor and seat cushion bottom
+    const legTopY = legs.length > 0 ? Math.max(...legs.map(l => l.position[1] + l.size[1] / 2)) : 0;
+    const plinthH = Math.max(0.06, lowestSeatBottom - legTopY);
+    const plinthY = legTopY + plinthH / 2;
+
+    // Only add if there's a meaningful gap
+    if (plinthH > 0.04 && plinthH < 0.5) {
+      // Match material to seat cushions
+      const seatMat = seatCushions[0]?.materialId ?? "melamine_black";
+      const plinthMat = UPHOLSTERY_MAT_RE.test(seatMat) ? seatMat : "melamine_black";
+
+      result.push({
+        id: nextId(),
+        type: "horizontal",
+        label: "Base",
+        position: [(minX + maxX) / 2, plinthY, (minZ + maxZ) / 2],
+        size: [footW * 0.95, plinthH, footD * 0.95],
+        materialId: plinthMat,
+        shape: "rounded_rect",
+        shapeParams: { cornerRadius: 0.02 },
+      });
+    }
+  }
+
+  // === Fix 3: Validate seat cushion vertical stacking ===
+  // Ensure back cushions sit above/behind seat cushions, not overlapping
+  if (seatCushions.length > 0 && backCushions.length > 0) {
+    const seatTopY = Math.max(...seatCushions.map(p => p.position[1] + p.size[1] / 2));
+    const seatBackZ = Math.min(...seatCushions.map(p => p.position[2] - p.size[2] / 2));
+
+    for (const bc of backCushions) {
+      // Back cushion center should be above seat top
+      if (bc.position[1] < seatTopY) {
+        bc.position = [bc.position[0], seatTopY + bc.size[1] / 2, bc.position[2]];
+      }
+      // Back cushion should be behind seats (smaller Z or at seat back edge)
+      if (bc.position[2] > seatBackZ + 0.05) {
+        bc.position = [bc.position[0], bc.position[1], seatBackZ - bc.size[2] / 2 + 0.02];
+      }
+    }
+  }
+
+  return result;
+}
+
 export function panelsFromFurnitureAnalysis(
   analysis: FurnitureAnalysis,
   nextId: () => string
@@ -277,5 +360,6 @@ export function panelsFromFurnitureAnalysis(
   const panels = analysis.panels
     .map((p) => normalizeAnalysisPanel(p as RawAnalysisPanel, nextId()))
     .map(fixHorizontalRoundDisk);
-  return refineSeatingImportPanels(panels, analysis.name ?? "");
+  const refined = refineSeatingImportPanels(panels, analysis.name ?? "");
+  return repairSeatingGeometry(refined, analysis.name ?? "", nextId);
 }

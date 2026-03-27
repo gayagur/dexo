@@ -199,18 +199,11 @@ function SingleGeometry({
       return <CasterGeometry radius={radius + pad} />;
 
     // ── Decorative ───────────────────────────────────
-    case "cushion": {
-      // Generous rounding — plush sectional look; caps keep thin cushions from turning into tubes
-      const plan = Math.min(w, d);
-      const cr = Math.min(0.118, plan * 0.30, h * 0.64, w / 2, h / 2, d / 2);
-      return <RoundedRectGeometry w={w + pad * 2} h={h + pad * 2} depth={d + pad * 2} cornerRadius={cr} />;
-    }
+    case "cushion":
+      return <CushionGeometry w={w + pad * 2} h={h + pad * 2} depth={d + pad * 2} puff={0.35} />;
 
-    case "mattress": {
-      const plan = Math.min(w, d);
-      const cr = Math.min(0.102, plan * 0.26, h * 0.65, w / 2, h / 2, d / 2);
-      return <RoundedRectGeometry w={w + pad * 2} h={h + pad * 2} depth={d + pad * 2} cornerRadius={cr} />;
-    }
+    case "mattress":
+      return <CushionGeometry w={w + pad * 2} h={h + pad * 2} depth={d + pad * 2} puff={0.18} />;
 
     case "vase":
       return <VaseGeometry radius={radius + pad} height={h + pad * 2} />;
@@ -302,6 +295,94 @@ function RoundedRectGeometry({ w, h, depth, cornerRadius }: { w: number; h: numb
     g.translate(0, 0, -depth / 2);
     return g;
   }, [w, h, depth, cornerRadius]);
+
+  return <primitive object={geo} attach="geometry" />;
+}
+
+// ─── Cushion (subdivided box with vertex deformation) ───
+// Creates a soft, puffy shape with crowned top and beveled edges.
+// puff: 0 = flat box, 1 = maximum inflation. 0.3-0.4 is good for sofa cushions.
+
+function CushionGeometry({ w, h, depth, puff }: { w: number; h: number; depth: number; puff: number }) {
+  const geo = useMemo(() => {
+    // Subdivisions for smooth deformation — more on larger faces
+    const segsW = Math.max(6, Math.round(w * 18));
+    const segsH = Math.max(4, Math.round(h * 14));
+    const segsD = Math.max(6, Math.round(depth * 18));
+    const g = new THREE.BoxGeometry(w, h, depth, segsW, segsH, segsD);
+
+    const pos = g.attributes.position;
+    const hw = w / 2, hh = h / 2, hd = depth / 2;
+
+    // Corner radius — generous for soft look
+    const minPlan = Math.min(w, depth);
+    const cr = Math.min(minPlan * 0.28, h * 0.48, hw, hh, hd);
+    // Crown height — how much the top center rises above the edges
+    const crownH = h * puff * 0.12;
+    // Edge softness — how much edges pull inward
+    const edgeSoft = cr * puff;
+
+    for (let i = 0; i < pos.count; i++) {
+      let x = pos.getX(i);
+      let y = pos.getY(i);
+      let z = pos.getZ(i);
+
+      // Normalized position in box (0..1 from edge to center)
+      const nx = 1.0 - Math.abs(x) / hw; // 0 at edge, 1 at center
+      const ny = 1.0 - Math.abs(y) / hh;
+      const nz = 1.0 - Math.abs(z) / hd;
+
+      // === Edge rounding (pull corners inward) ===
+      // Distance from each edge, clamped to corner radius zone
+      const ex = Math.max(0, Math.abs(x) - (hw - cr)) / cr; // 0 inside, 0..1 in corner zone
+      const ey = Math.max(0, Math.abs(y) - (hh - cr)) / cr;
+      const ez = Math.max(0, Math.abs(z) - (hd - cr)) / cr;
+
+      // Spherical rounding at corners/edges
+      const cornerDist = Math.sqrt(ex * ex + ey * ey + ez * ez);
+      if (cornerDist > 1.0) {
+        // Pull vertex inward along each axis proportionally
+        const scale = 1.0 / cornerDist;
+        const pullX = ex > 0 ? (1.0 - scale) * ex * cr * Math.sign(x) : 0;
+        const pullY = ey > 0 ? (1.0 - scale) * ey * cr * Math.sign(y) : 0;
+        const pullZ = ez > 0 ? (1.0 - scale) * ez * cr * Math.sign(z) : 0;
+        x -= pullX;
+        y -= pullY;
+        z -= pullZ;
+      }
+
+      // === Crown/dome on top surface ===
+      // Only push upward on the top half, strongest at center
+      if (y > 0) {
+        const topFactor = y / hh; // 0 at middle, 1 at top
+        // Smooth falloff from center to edges (bell curve shape)
+        const bellX = Math.cos((1.0 - nx) * Math.PI * 0.5);
+        const bellZ = Math.cos((1.0 - nz) * Math.PI * 0.5);
+        const crown = bellX * bellZ * crownH * topFactor;
+        y += crown;
+      }
+
+      // === Slight bottom indent (cushion compression) ===
+      if (y < 0) {
+        const bottomFactor = Math.abs(y) / hh;
+        const bellX = Math.cos((1.0 - nx) * Math.PI * 0.5);
+        const bellZ = Math.cos((1.0 - nz) * Math.PI * 0.5);
+        y += bellX * bellZ * crownH * 0.3 * bottomFactor; // push up = indent
+      }
+
+      // === Slight edge inflation (puffiness) ===
+      // Sides bulge outward slightly — the soft cushion look
+      const sideInflateX = edgeSoft * 0.15 * Math.sin(ny * Math.PI) * Math.sin(nz * Math.PI);
+      const sideInflateZ = edgeSoft * 0.15 * Math.sin(ny * Math.PI) * Math.sin(nx * Math.PI);
+      x += sideInflateX * Math.sign(x);
+      z += sideInflateZ * Math.sign(z);
+
+      pos.setXYZ(i, x, y, z);
+    }
+
+    g.computeVertexNormals();
+    return g;
+  }, [w, h, depth, puff]);
 
   return <primitive object={geo} attach="geometry" />;
 }

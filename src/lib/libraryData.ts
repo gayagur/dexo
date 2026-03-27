@@ -41,6 +41,25 @@ function box(
   return { id: pid(), type, label, position: pos, size, materialId: mat };
 }
 
+function cushion(
+  label: string,
+  type: PanelData["type"],
+  pos: [number, number, number],
+  size: [number, number, number],
+  mat = "fabric_gray",
+): PanelData {
+  return { id: pid(), type, shape: "cushion" as PanelShape, label, position: pos, size, materialId: mat };
+}
+
+function plinth(
+  label: string,
+  pos: [number, number, number],
+  size: [number, number, number],
+  mat = "melamine_black",
+): PanelData {
+  return { id: pid(), type: "horizontal", shape: "rounded_rect" as PanelShape, label, position: pos, size, materialId: mat, shapeParams: { cornerRadius: 0.02 } };
+}
+
 function cyl(
   label: string,
   pos: [number, number, number],
@@ -1082,22 +1101,32 @@ export const LIBRARY_TEMPLATES: LibraryTemplate[] = [
     name: "2-Seater Sofa",
     category: "seating",
     icon: "🛋️",
-    description: "2-seater sofa with base, back, and 2 arms",
+    description: "2-seater sofa with cushions, arms, and plinth base",
     dims: { w: 1600, h: 850, d: 900 },
     buildPanels: (dims) => {
       _pid = 0;
       const w = dims.w / 1000, h = dims.h / 1000, d = dims.d / 1000;
-      const seatH = 0.42, seatD = d - 0.10;
-      const armW = 0.10, armH = 0.60;
-      const backT = 0.12;
+      const plinthH = 0.10, seatTopY = 0.45, cushT = 0.14;
+      const armW = 0.14, armH = 0.54;
+      const backT = 0.16, backH = h - seatTopY;
+      const innerW = w - armW * 2;
+      const cushW = innerW / 2 - 0.01; // 2 seat cushions with small gap
+      const seatD = d - 0.18; // leave room for back cushion depth
+      const seatY = seatTopY - cushT / 2;
+      const backY = seatTopY + backH / 2;
+      const backZ = -d / 2 + backT / 2 + 0.02;
       return [
-        // Seat base
-        box("Seat", "horizontal", [0, seatH / 2, 0.05], [w - armW * 2, seatH, seatD], "fabric_gray"),
-        // Back
-        box("Back", "vertical", [0, (seatH + h) / 2, -d / 2 + backT / 2], [w - armW * 2, h - seatH, backT], "fabric_gray"),
-        // Arms
-        box("Left Arm", "vertical", [-w / 2 + armW / 2, armH / 2, 0], [armW, armH, d], "fabric_gray"),
-        box("Right Arm", "vertical", [w / 2 - armW / 2, armH / 2, 0], [armW, armH, d], "fabric_gray"),
+        plinth("Base", [0, plinthH / 2, 0], [w - 0.04, plinthH, d - 0.04]),
+        cushion("Seat cushion L", "horizontal", [-cushW / 2 - 0.005, seatY, 0.04], [cushW, cushT, seatD], "fabric_gray"),
+        cushion("Seat cushion R", "horizontal", [cushW / 2 + 0.005, seatY, 0.04], [cushW, cushT, seatD], "fabric_gray"),
+        cushion("Back cushion L", "vertical", [-cushW / 2 - 0.005, backY, backZ], [cushW - 0.02, backH - 0.04, backT], "fabric_gray"),
+        cushion("Back cushion R", "vertical", [cushW / 2 + 0.005, backY, backZ], [cushW - 0.02, backH - 0.04, backT], "fabric_gray"),
+        cushion("Left Arm", "vertical", [-w / 2 + armW / 2, plinthH + armH / 2, 0], [armW, armH, d - 0.02], "fabric_gray"),
+        cushion("Right Arm", "vertical", [w / 2 - armW / 2, plinthH + armH / 2, 0], [armW, armH, d - 0.02], "fabric_gray"),
+        cyl("Leg FL", [-w / 2 + 0.08, 0.025, d / 2 - 0.08], 0.035, 0.05),
+        cyl("Leg FR", [w / 2 - 0.08, 0.025, d / 2 - 0.08], 0.035, 0.05),
+        cyl("Leg BL", [-w / 2 + 0.08, 0.025, -d / 2 + 0.08], 0.035, 0.05),
+        cyl("Leg BR", [w / 2 - 0.08, 0.025, -d / 2 + 0.08], 0.035, 0.05),
       ];
     },
   },
@@ -1107,19 +1136,31 @@ export const LIBRARY_TEMPLATES: LibraryTemplate[] = [
     name: "3-Seater Sofa",
     category: "seating",
     icon: "🛋️",
-    description: "Wide 3-seater sofa with base, back, and 2 arms",
+    description: "Wide 3-seater sofa with 3 seat/back cushions, arms, and plinth",
     dims: { w: 2200, h: 850, d: 900 },
     buildPanels: (dims) => {
       _pid = 0;
       const w = dims.w / 1000, h = dims.h / 1000, d = dims.d / 1000;
-      const seatH = 0.42, seatD = d - 0.10;
-      const armW = 0.10, armH = 0.60;
-      const backT = 0.12;
+      const plinthH = 0.10, seatTopY = 0.45, cushT = 0.14;
+      const armW = 0.14, armH = 0.54;
+      const backT = 0.16, backH = h - seatTopY;
+      const innerW = w - armW * 2;
+      const cushW = innerW / 3 - 0.01;
+      const seatD = d - 0.18;
+      const seatY = seatTopY - cushT / 2;
+      const backY = seatTopY + backH / 2;
+      const backZ = -d / 2 + backT / 2 + 0.02;
+      const cx = [-cushW - 0.01, 0, cushW + 0.01]; // 3 cushion X positions
       return [
-        box("Seat", "horizontal", [0, seatH / 2, 0.05], [w - armW * 2, seatH, seatD], "fabric_gray"),
-        box("Back", "vertical", [0, (seatH + h) / 2, -d / 2 + backT / 2], [w - armW * 2, h - seatH, backT], "fabric_gray"),
-        box("Left Arm", "vertical", [-w / 2 + armW / 2, armH / 2, 0], [armW, armH, d], "fabric_gray"),
-        box("Right Arm", "vertical", [w / 2 - armW / 2, armH / 2, 0], [armW, armH, d], "fabric_gray"),
+        plinth("Base", [0, plinthH / 2, 0], [w - 0.04, plinthH, d - 0.04]),
+        ...cx.map((x, i) => cushion(`Seat cushion ${["L","C","R"][i]}`, "horizontal", [x, seatY, 0.04], [cushW, cushT, seatD], "fabric_gray")),
+        ...cx.map((x, i) => cushion(`Back cushion ${["L","C","R"][i]}`, "vertical", [x, backY, backZ], [cushW - 0.02, backH - 0.04, backT], "fabric_gray")),
+        cushion("Left Arm", "vertical", [-w / 2 + armW / 2, plinthH + armH / 2, 0], [armW, armH, d - 0.02], "fabric_gray"),
+        cushion("Right Arm", "vertical", [w / 2 - armW / 2, plinthH + armH / 2, 0], [armW, armH, d - 0.02], "fabric_gray"),
+        cyl("Leg FL", [-w / 2 + 0.08, 0.025, d / 2 - 0.08], 0.035, 0.05),
+        cyl("Leg FR", [w / 2 - 0.08, 0.025, d / 2 - 0.08], 0.035, 0.05),
+        cyl("Leg BL", [-w / 2 + 0.08, 0.025, -d / 2 + 0.08], 0.035, 0.05),
+        cyl("Leg BR", [w / 2 - 0.08, 0.025, -d / 2 + 0.08], 0.035, 0.05),
       ];
     },
   },
@@ -1129,27 +1170,42 @@ export const LIBRARY_TEMPLATES: LibraryTemplate[] = [
     name: "L-Shaped Sectional",
     category: "seating",
     icon: "🛋️",
-    description: "L-shaped sectional sofa with chaise extension",
+    description: "L-shaped sectional with chaise, individual cushions, and plinth",
     dims: { w: 2600, h: 850, d: 1600 },
     buildPanels: (dims) => {
       _pid = 0;
       const w = dims.w / 1000, h = dims.h / 1000, d = dims.d / 1000;
-      const seatH = 0.42;
-      const armW = 0.10, armH = 0.60;
-      const backT = 0.12;
-      const mainD = 0.90;
-      const chaiseW = 0.90;
+      const plinthH = 0.10, seatTopY = 0.45, cushT = 0.14;
+      const armW = 0.14, armH = 0.54;
+      const backT = 0.16, backH = h - seatTopY;
+      const mainD = 0.90; // main section depth
+      const chaiseW = 0.90; // chaise width
+      const mainInnerW = w - chaiseW - armW;
+      const mainCushW = mainInnerW / 2 - 0.01;
+      const seatY = seatTopY - cushT / 2;
+      const backY = seatTopY + backH / 2;
+      const mainCenterX = -(w - mainInnerW) / 2 + armW / 2;
+      const mainBackZ = -d / 2 + backT / 2 + 0.02;
+      const chaiseCenterX = w / 2 - chaiseW / 2;
       return [
-        // Main sofa seat
-        box("Main Seat", "horizontal", [-(w - chaiseW) / 2 + armW / 2, seatH / 2, -d / 2 + mainD / 2], [w - chaiseW - armW, seatH, mainD], "fabric_gray"),
-        // Main back
-        box("Main Back", "vertical", [-(w - chaiseW) / 2, (seatH + h) / 2, -d / 2 + backT / 2], [w - chaiseW, h - seatH, backT], "fabric_gray"),
-        // Chaise seat
-        box("Chaise Seat", "horizontal", [w / 2 - chaiseW / 2, seatH / 2, 0], [chaiseW, seatH, d], "fabric_gray"),
-        // Chaise back (along the side)
-        box("Chaise Back", "vertical", [w / 2 - backT / 2, (seatH + h) / 2, 0], [backT, h - seatH, d], "fabric_gray"),
-        // Left arm
-        box("Left Arm", "vertical", [-w / 2 + armW / 2, armH / 2, -d / 2 + mainD / 2], [armW, armH, mainD], "fabric_gray"),
+        // Plinth — L-shaped (two rectangles)
+        plinth("Main Base", [mainCenterX, plinthH / 2, -d / 2 + mainD / 2], [mainInnerW + armW, plinthH, mainD - 0.04]),
+        plinth("Chaise Base", [chaiseCenterX, plinthH / 2, 0], [chaiseW - 0.04, plinthH, d - 0.04]),
+        // Main section: 2 seat + 2 back cushions
+        cushion("Seat cushion L", "horizontal", [mainCenterX - mainCushW / 2 - 0.005, seatY, -d / 2 + mainD / 2 + 0.04], [mainCushW, cushT, mainD - 0.18], "fabric_gray"),
+        cushion("Seat cushion R", "horizontal", [mainCenterX + mainCushW / 2 + 0.005, seatY, -d / 2 + mainD / 2 + 0.04], [mainCushW, cushT, mainD - 0.18], "fabric_gray"),
+        cushion("Back cushion L", "vertical", [mainCenterX - mainCushW / 2, backY, mainBackZ], [mainCushW - 0.02, backH - 0.04, backT], "fabric_gray"),
+        cushion("Back cushion R", "vertical", [mainCenterX + mainCushW / 2, backY, mainBackZ], [mainCushW - 0.02, backH - 0.04, backT], "fabric_gray"),
+        // Chaise: 1 long seat cushion + back along side
+        cushion("Chaise seat", "horizontal", [chaiseCenterX, seatY, 0.04], [chaiseW - 0.04, cushT, d - 0.18], "fabric_gray"),
+        cushion("Chaise back", "vertical", [w / 2 - backT / 2 - 0.02, backY, 0], [backT, backH - 0.04, d - 0.04], "fabric_gray"),
+        // Arms
+        cushion("Left Arm", "vertical", [-w / 2 + armW / 2, plinthH + armH / 2, -d / 2 + mainD / 2], [armW, armH, mainD - 0.02], "fabric_gray"),
+        // Legs
+        cyl("Leg FL", [-w / 2 + 0.08, 0.025, -d / 2 + 0.08], 0.035, 0.05),
+        cyl("Leg BL", [-w / 2 + 0.08, 0.025, -d / 2 + mainD - 0.08], 0.035, 0.05),
+        cyl("Leg FR", [w / 2 - 0.08, 0.025, d / 2 - 0.08], 0.035, 0.05),
+        cyl("Leg BR", [w / 2 - 0.08, 0.025, -d / 2 + 0.08], 0.035, 0.05),
       ];
     },
   },
@@ -1159,19 +1215,32 @@ export const LIBRARY_TEMPLATES: LibraryTemplate[] = [
     name: "Sofa Bed",
     category: "seating",
     icon: "🛋️",
-    description: "Sofa bed with deeper seat and lower back",
+    description: "Sofa bed with deeper seat cushions and lower back",
     dims: { w: 2000, h: 750, d: 1000 },
     buildPanels: (dims) => {
       _pid = 0;
       const w = dims.w / 1000, h = dims.h / 1000, d = dims.d / 1000;
-      const seatH = 0.38;
-      const armW = 0.10, armH = 0.55;
-      const backT = 0.12;
+      const plinthH = 0.10, seatTopY = 0.40, cushT = 0.14;
+      const armW = 0.14, armH = 0.48;
+      const backT = 0.16, backH = h - seatTopY;
+      const innerW = w - armW * 2;
+      const cushW = innerW / 2 - 0.01;
+      const seatD = d - 0.20;
+      const seatY = seatTopY - cushT / 2;
+      const backY = seatTopY + backH / 2;
+      const backZ = -d / 2 + backT / 2 + 0.02;
       return [
-        box("Seat", "horizontal", [0, seatH / 2, 0.05], [w - armW * 2, seatH, d - 0.15], "fabric_gray"),
-        box("Back", "vertical", [0, (seatH + h) / 2, -d / 2 + backT / 2], [w - armW * 2, h - seatH, backT], "fabric_gray"),
-        box("Left Arm", "vertical", [-w / 2 + armW / 2, armH / 2, 0], [armW, armH, d], "fabric_gray"),
-        box("Right Arm", "vertical", [w / 2 - armW / 2, armH / 2, 0], [armW, armH, d], "fabric_gray"),
+        plinth("Base", [0, plinthH / 2, 0], [w - 0.04, plinthH, d - 0.04]),
+        cushion("Seat cushion L", "horizontal", [-cushW / 2 - 0.005, seatY, 0.04], [cushW, cushT, seatD], "fabric_gray"),
+        cushion("Seat cushion R", "horizontal", [cushW / 2 + 0.005, seatY, 0.04], [cushW, cushT, seatD], "fabric_gray"),
+        cushion("Back cushion L", "vertical", [-cushW / 2 - 0.005, backY, backZ], [cushW - 0.02, backH - 0.04, backT], "fabric_gray"),
+        cushion("Back cushion R", "vertical", [cushW / 2 + 0.005, backY, backZ], [cushW - 0.02, backH - 0.04, backT], "fabric_gray"),
+        cushion("Left Arm", "vertical", [-w / 2 + armW / 2, plinthH + armH / 2, 0], [armW, armH, d - 0.02], "fabric_gray"),
+        cushion("Right Arm", "vertical", [w / 2 - armW / 2, plinthH + armH / 2, 0], [armW, armH, d - 0.02], "fabric_gray"),
+        cyl("Leg FL", [-w / 2 + 0.08, 0.025, d / 2 - 0.08], 0.035, 0.05),
+        cyl("Leg FR", [w / 2 - 0.08, 0.025, d / 2 - 0.08], 0.035, 0.05),
+        cyl("Leg BL", [-w / 2 + 0.08, 0.025, -d / 2 + 0.08], 0.035, 0.05),
+        cyl("Leg BR", [w / 2 - 0.08, 0.025, -d / 2 + 0.08], 0.035, 0.05),
       ];
     },
   },
@@ -1181,24 +1250,30 @@ export const LIBRARY_TEMPLATES: LibraryTemplate[] = [
     name: "Classic Armchair",
     category: "seating",
     icon: "💺",
-    description: "Classic armchair with seat, back, wide arms, and 4 short legs",
+    description: "Classic armchair with cushion seat/back, padded arms, and legs",
     dims: { w: 800, h: 850, d: 800 },
     buildPanels: (dims) => {
       _pid = 0;
       const w = dims.w / 1000, h = dims.h / 1000, d = dims.d / 1000;
-      const legH = 0.12;
-      const seatH = 0.42;
-      const armW = 0.12, armH = 0.55;
-      const backT = 0.10;
+      const legH = 0.10, plinthH = 0.08;
+      const seatTopY = 0.44, cushT = 0.12;
+      const armW = 0.14, armH = 0.48;
+      const backT = 0.14, backH = h - seatTopY;
+      const innerW = w - armW * 2;
+      const seatD = d - 0.18;
+      const seatY = seatTopY - cushT / 2;
+      const backY = seatTopY + backH / 2;
+      const backZ = -d / 2 + backT / 2 + 0.02;
       return [
-        box("Seat", "horizontal", [0, seatH / 2 + legH, 0.03], [w - armW * 2, seatH - legH, d - 0.15], "leather_brown"),
-        box("Back", "vertical", [0, (seatH + h) / 2, -d / 2 + backT / 2], [w - armW * 2, h - seatH, backT], "leather_brown"),
-        box("Left Arm", "vertical", [-w / 2 + armW / 2, (legH + armH) / 2 + legH / 2, 0], [armW, armH, d], "leather_brown"),
-        box("Right Arm", "vertical", [w / 2 - armW / 2, (legH + armH) / 2 + legH / 2, 0], [armW, armH, d], "leather_brown"),
-        cyl("Leg FL", [-w / 2 + 0.08, legH / 2, d / 2 - 0.08], 0.035, legH),
-        cyl("Leg FR", [w / 2 - 0.08, legH / 2, d / 2 - 0.08], 0.035, legH),
-        cyl("Leg BL", [-w / 2 + 0.08, legH / 2, -d / 2 + 0.08], 0.035, legH),
-        cyl("Leg BR", [w / 2 - 0.08, legH / 2, -d / 2 + 0.08], 0.035, legH),
+        plinth("Base", [0, legH + plinthH / 2, 0], [w - 0.04, plinthH, d - 0.04]),
+        cushion("Seat", "horizontal", [0, seatY, 0.04], [innerW, cushT, seatD], "leather_brown"),
+        cushion("Back", "vertical", [0, backY, backZ], [innerW - 0.02, backH - 0.04, backT], "leather_brown"),
+        cushion("Left Arm", "vertical", [-w / 2 + armW / 2, legH + plinthH + armH / 2, 0], [armW, armH, d - 0.02], "leather_brown"),
+        cushion("Right Arm", "vertical", [w / 2 - armW / 2, legH + plinthH + armH / 2, 0], [armW, armH, d - 0.02], "leather_brown"),
+        cyl("Leg FL", [-w / 2 + 0.08, legH / 2, d / 2 - 0.08], 0.04, legH, "oak"),
+        cyl("Leg FR", [w / 2 - 0.08, legH / 2, d / 2 - 0.08], 0.04, legH, "oak"),
+        cyl("Leg BL", [-w / 2 + 0.08, legH / 2, -d / 2 + 0.08], 0.04, legH, "oak"),
+        cyl("Leg BR", [w / 2 - 0.08, legH / 2, -d / 2 + 0.08], 0.04, legH, "oak"),
       ];
     },
   },
