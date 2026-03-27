@@ -39,27 +39,27 @@ export function DesignStepLayout({
         }}
       />
 
-      <div className="relative max-w-5xl mx-auto px-8 py-10">
+      <div className="relative max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6 lg:py-10">
         {/* Top nav: Home + Breadcrumbs */}
         <div className="flex items-center gap-3 text-sm text-muted-foreground mb-8">
           {/* Home / DEXO button */}
           <button
             onClick={() => navigate("/dashboard")}
-            className="flex items-center gap-1.5 text-gray-500 hover:text-[#C87D5A] transition-colors duration-200 shrink-0"
+            className="hidden sm:flex items-center gap-1.5 text-gray-500 hover:text-[#C87D5A] transition-colors duration-200 shrink-0"
           >
             <Home className="w-4 h-4" />
             <span className="font-semibold text-xs">DEXO</span>
           </button>
-          <ChevronRight className="w-3.5 h-3.5 text-[#C87D5A]/40 shrink-0" />
+          <ChevronRight className="hidden sm:block w-3.5 h-3.5 text-[#C87D5A]/40 shrink-0" />
 
           {/* Breadcrumbs */}
           {breadcrumbs.map((crumb, i) => (
             <span key={i} className="flex items-center gap-2">
-              {i > 0 && <ChevronRight className="w-3.5 h-3.5 text-[#C87D5A]/40" />}
+              {i > 0 && <ChevronRight className={`w-3.5 h-3.5 text-[#C87D5A]/40 ${i < breadcrumbs.length - 1 ? "hidden sm:block" : ""}`} />}
               {crumb.onClick ? (
                 <button
                   onClick={crumb.onClick}
-                  className="hover:text-[#C87D5A] transition-colors duration-200"
+                  className={`hover:text-[#C87D5A] transition-colors duration-200 ${i < breadcrumbs.length - 1 ? "hidden sm:inline" : ""}`}
                 >
                   {crumb.label}
                 </button>
@@ -71,7 +71,7 @@ export function DesignStepLayout({
         </div>
 
         {/* Header */}
-        <div className="flex items-start gap-5 mb-10">
+        <div className="flex items-start gap-5 mb-6 lg:mb-10">
           {onBack && (
             <Button
               variant="ghost"
@@ -83,7 +83,7 @@ export function DesignStepLayout({
             </Button>
           )}
           <div>
-            <h1 className="text-3xl lg:text-4xl font-serif text-gray-900 tracking-tight">
+            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-serif text-gray-900 tracking-tight">
               {title}
             </h1>
             {subtitle && (
