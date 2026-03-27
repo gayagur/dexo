@@ -294,8 +294,9 @@ function repairSeatingGeometry(panels: PanelData[], name: string, nextId: () => 
     }
   }
 
-  // === Fix 2: Add missing plinth/base for sofas ===
-  if (seatCushions.length > 0 && plinths.length === 0) {
+  // === Fix 2: Add missing plinth/base for sofas only (not dining chairs) ===
+  const isSofa = /\b(sofa|couch|sectional|loveseat|divan|settee|chesterfield|recliner)\b/i.test(name);
+  if (isSofa && seatCushions.length > 0 && plinths.length === 0) {
     // Find the lowest seat cushion bottom
     const seatBottoms = seatCushions.map(p => p.position[1] - p.size[1] / 2);
     const lowestSeatBottom = Math.min(...seatBottoms);

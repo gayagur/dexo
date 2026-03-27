@@ -79,10 +79,23 @@ SOFAS (2-seat, 3-seat, sectional, chaise):
 - Throw pillows: separate small cushions on top of seats.
 - L-sectional: main section + chaise extension with separate bases.
 
-DINING/ACCENT CHAIRS:
-- Seat (horizontal cushion or box), backrest (vertical cushion or panel).
-- 4 legs at seat corners (cylinder, tapered_leg, or square_leg).
-- Apron/stretchers if visible.
+DINING/ACCENT CHAIRS (critical — decompose carefully):
+- SEAT: If padded/upholstered → horizontal "cushion" with fabric_*/leather_*. If hard wood → horizontal "rounded_rect" with wood material and shapeParams.cornerRadius ~0.02-0.04. If woven cane → horizontal "rounded_rect" with cane_natural.
+- BACKREST: Match the visual appearance:
+  • Padded/upholstered back → vertical "cushion" with fabric/leather
+  • Solid wood panel → vertical "rounded_rect" or "oval" with wood material
+  • Woven/cane back → vertical "rounded_rect" or "oval" with cane_natural
+  • Arched/curved top back → vertical "arc" with shapeParams.arcAngle ~160-180
+  • Slatted back → multiple vertical "box" slats (each one a separate thin panel)
+- LEGS: Look carefully at the shape:
+  • Straight round → "cylinder" or "tapered_leg"
+  • Curved/cabriole → "cabriole_leg"
+  • Square → "square_leg"
+  • Splayed/angled → add rotation for angle
+- STRETCHERS/RAILS: Horizontal rods or bars connecting legs → "rod" or "rail" shape, positioned between legs at appropriate height
+- APRON: Horizontal panel under seat between legs → thin "box" panel
+- SEAT FRAME: If the seat has a separate visible frame around the cushion → thin horizontal "rounded_rect" in wood UNDER the seat cushion
+- ARM PADS: If present, separate panels above arm supports
 
 TABLES:
 - Top (horizontal box/rounded_rect/circle_panel).
@@ -135,13 +148,18 @@ CABINETS/DRESSERS:
 {"label":"Left Arm","type":"vertical","shape":"cushion","position":[-1.02,0.32,0],"size":[0.18,0.52,0.85],"materialId":"fabric_beige"},
 {"label":"Right Arm","type":"vertical","shape":"cushion","position":[1.02,0.32,0],"size":[0.18,0.52,0.85],"materialId":"fabric_beige"}]}
 
-== EXAMPLE: Dining Chair ==
-{"name":"Dining Chair","estimatedDims":{"w":480,"h":900,"d":520},"panels":[
-{"label":"Seat","type":"horizontal","shape":"cushion","position":[0,0.46,0.04],"size":[0.44,0.08,0.44],"materialId":"fabric_gray"},
-{"label":"Backrest","type":"vertical","shape":"cushion","position":[0,0.74,-0.20],"size":[0.40,0.40,0.06],"materialId":"fabric_gray"},
-{"label":"Leg FL","type":"vertical","shape":"tapered_leg","position":[-0.18,0.22,0.18],"size":[0.035,0.44,0.035],"materialId":"oak"},
-{"label":"Leg FR","type":"vertical","shape":"tapered_leg","position":[0.18,0.22,0.18],"size":[0.035,0.44,0.035],"materialId":"oak"},
-{"label":"Leg BL","type":"vertical","shape":"tapered_leg","position":[-0.18,0.22,-0.18],"size":[0.035,0.44,0.035],"materialId":"oak"},
-{"label":"Leg BR","type":"vertical","shape":"tapered_leg","position":[0.18,0.22,-0.18],"size":[0.035,0.44,0.035],"materialId":"oak"}]}
+== EXAMPLE: Rattan Dining Chair (with stretchers and cane back) ==
+{"name":"Rattan Dining Chair","estimatedDims":{"w":450,"h":920,"d":500},"panels":[
+{"label":"Seat frame","type":"horizontal","shape":"rounded_rect","position":[0,0.44,0.02],"size":[0.42,0.03,0.42],"materialId":"oak","shapeParams":{"cornerRadius":0.04}},
+{"label":"Seat cushion","type":"horizontal","shape":"cushion","position":[0,0.47,0.02],"size":[0.38,0.04,0.38],"materialId":"fabric_cream"},
+{"label":"Backrest","type":"vertical","shape":"oval","position":[0,0.72,-0.20],"size":[0.38,0.42,0.02],"materialId":"cane_natural"},
+{"label":"Back frame","type":"vertical","shape":"arc","position":[0,0.72,-0.20],"size":[0.42,0.46,0.03],"materialId":"oak","shapeParams":{"arcAngle":180}},
+{"label":"Leg FL","type":"vertical","shape":"cylinder","position":[-0.18,0.22,0.18],"size":[0.03,0.44,0.03],"materialId":"oak"},
+{"label":"Leg FR","type":"vertical","shape":"cylinder","position":[0.18,0.22,0.18],"size":[0.03,0.44,0.03],"materialId":"oak"},
+{"label":"Leg BL","type":"vertical","shape":"cylinder","position":[-0.18,0.36,-0.18],"size":[0.03,0.72,0.03],"materialId":"oak"},
+{"label":"Leg BR","type":"vertical","shape":"cylinder","position":[0.18,0.36,-0.18],"size":[0.03,0.72,0.03],"materialId":"oak"},
+{"label":"Stretcher front","type":"horizontal","shape":"rod","position":[0,0.15,0.18],"size":[0.32,0.02,0.02],"materialId":"oak"},
+{"label":"Stretcher left","type":"horizontal","shape":"rod","position":[-0.18,0.15,0],"size":[0.02,0.02,0.32],"materialId":"oak"},
+{"label":"Stretcher right","type":"horizontal","shape":"rod","position":[0.18,0.15,0],"size":[0.02,0.02,0.32],"materialId":"oak"}]}
 
 estimatedDims in mm; panel positions/sizes in meters. Output valid JSON only.`;
