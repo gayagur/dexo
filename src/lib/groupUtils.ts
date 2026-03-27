@@ -23,18 +23,41 @@ export function computeBoundingBoxCenter(panels: PanelData[]): [number, number, 
 export function panelsToRelative(
   panels: PanelData[],
   groupPos: [number, number, number],
-  groupRot: [number, number, number] = [0, 0, 0]
+  groupRot: [number, number, number] = [0, 0, 0],
+  groupScale: [number, number, number] = [1, 1, 1]
 ): PanelData[] {
   const euler = new THREE.Euler(...groupRot);
   const invQuat = new THREE.Quaternion().setFromEuler(euler).invert();
   const origin = new THREE.Vector3(...groupPos);
+  const invScale = new THREE.Vector3(
+    groupScale[0] !== 0 ? 1 / groupScale[0] : 1,
+    groupScale[1] !== 0 ? 1 / groupScale[1] : 1,
+    groupScale[2] !== 0 ? 1 / groupScale[2] : 1
+  );
 
   return panels.map((p) => {
+    // Inverse of SRT: inv-translate → inv-rotate → inv-scale
     const worldPos = new THREE.Vector3(...p.position).sub(origin);
     worldPos.applyQuaternion(invQuat);
+    worldPos.multiply(invScale);
+
+    // Decompose rotation: remove group rotation from panel world rotation
+    const panelQuat = new THREE.Quaternion().setFromEuler(new THREE.Euler(...(p.rotation ?? [0, 0, 0])));
+    const localQuat = invQuat.clone().multiply(panelQuat);
+    const localEuler = new THREE.Euler().setFromQuaternion(localQuat);
+
+    // Inverse-scale size
+    const localSize: [number, number, number] = [
+      p.size[0] * invScale.x,
+      p.size[1] * invScale.y,
+      p.size[2] * invScale.z,
+    ];
+
     return {
       ...p,
       position: [worldPos.x, worldPos.y, worldPos.z] as [number, number, number],
+      rotation: [localEuler.x, localEuler.y, localEuler.z] as [number, number, number],
+      size: localSize,
     };
   });
 }
@@ -43,18 +66,37 @@ export function panelsToRelative(
 export function panelsToWorldSpace(
   panels: PanelData[],
   groupPos: [number, number, number],
-  groupRot: [number, number, number] = [0, 0, 0]
+  groupRot: [number, number, number] = [0, 0, 0],
+  groupScale: [number, number, number] = [1, 1, 1]
 ): PanelData[] {
   const euler = new THREE.Euler(...groupRot);
   const quat = new THREE.Quaternion().setFromEuler(euler);
   const origin = new THREE.Vector3(...groupPos);
+  const scale = new THREE.Vector3(...groupScale);
 
   return panels.map((p) => {
-    const localPos = new THREE.Vector3(...p.position);
+    // SRT order (matching Three.js): Scale → Rotate → Translate
+    const localPos = new THREE.Vector3(...p.position).multiply(scale);
     localPos.applyQuaternion(quat).add(origin);
+
+    // Compose panel rotation with group rotation
+    const panelEuler = new THREE.Euler(...(p.rotation ?? [0, 0, 0]));
+    const panelQuat = new THREE.Quaternion().setFromEuler(panelEuler);
+    const worldQuat = quat.clone().multiply(panelQuat);
+    const worldEuler = new THREE.Euler().setFromQuaternion(worldQuat);
+
+    // Scale panel size by group scale
+    const worldSize: [number, number, number] = [
+      p.size[0] * scale.x,
+      p.size[1] * scale.y,
+      p.size[2] * scale.z,
+    ];
+
     return {
       ...p,
       position: [localPos.x, localPos.y, localPos.z] as [number, number, number],
+      rotation: [worldEuler.x, worldEuler.y, worldEuler.z] as [number, number, number],
+      size: worldSize,
     };
   });
 }
@@ -133,7 +175,7 @@ export function findGroupContainingPanel(panelId: string, groups: GroupData[]): 
 export function flattenScene(groups: GroupData[], ungroupedPanels: PanelData[]): PanelData[] {
   const result: PanelData[] = [];
   for (const g of groups) {
-    result.push(...panelsToWorldSpace(g.panels, g.position));
+    result.push(...panelsToWorldSpace(g.panels, g.position, g.rotation, g.scale ?? [1, 1, 1]));
   }
   result.push(...ungroupedPanels);
   return result;

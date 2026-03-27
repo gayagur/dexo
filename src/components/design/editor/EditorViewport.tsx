@@ -86,12 +86,18 @@ const AXIS_LABELS: Record<number, string> = { 0: "Width (X)", 1: "Height (Y)", 2
 const OBJECT_SNAP_THRESHOLD = 0.03; // 30mm
 
 // Surface type PBR overrides (for uploaded textures)
-const SURFACE_PBR: Record<string, { roughness: number; metalness: number }> = {
+// Uses MeshPhysicalMaterial properties for realistic surface behavior
+const SURFACE_PBR: Record<string, {
+  roughness: number; metalness: number;
+  clearcoat?: number; clearcoatRoughness?: number;
+  sheen?: number; sheenRoughness?: number; sheenColor?: string;
+  transmission?: number; ior?: number; thickness?: number;
+}> = {
   matte: { roughness: 1.0, metalness: 0 },
-  wood: { roughness: 0.7, metalness: 0 },
+  wood: { roughness: 0.7, metalness: 0, clearcoat: 0.2, clearcoatRoughness: 0.4 },
   metal: { roughness: 0.2, metalness: 1.0 },
-  fabric: { roughness: 0.9, metalness: 0 },
-  glass: { roughness: 0.05, metalness: 0.1 },
+  fabric: { roughness: 0.9, metalness: 0, sheen: 1.0, sheenRoughness: 0.8, sheenColor: "#ffffff" },
+  glass: { roughness: 0.05, metalness: 0.1, transmission: 0.8, ior: 1.5, thickness: 0.5 },
   stone: { roughness: 0.8, metalness: 0 },
 };
 
@@ -1151,13 +1157,13 @@ function DraggableRotationRing({
     };
   }, [dragging, panel, gl, onUpdateLive, onCommit, onInteractionChange, onDragInfoChange]);
 
-  const handleY = panel.size[1] / 2 + 0.1;
+  const handleY = panel.size[1] / 2 + 0.18;
 
   return (
     <group position={panel.position}>
       {/* Thin vertical stem from object top to handle */}
-      <mesh position={[0, panel.size[1] / 2 + 0.045, 0]}>
-        <cylinderGeometry args={[0.002, 0.002, 0.05, 6]} />
+      <mesh position={[0, panel.size[1] / 2 + 0.085, 0]}>
+        <cylinderGeometry args={[0.002, 0.002, 0.13, 6]} />
         <meshStandardMaterial color="#94A3B8" transparent opacity={0.5} depthTest={false} />
       </mesh>
 
@@ -1719,7 +1725,7 @@ function GroupRotationRing({
     maxZ = Math.max(maxZ, Math.abs(p.position[2]) + p.size[2] / 2);
     maxY = Math.max(maxY, p.position[1] + p.size[1] / 2);
   }
-  const ringY = (maxY === -Infinity ? 0 : maxY) + 0.04;
+  const ringY = (maxY === -Infinity ? 0 : maxY) + 0.12;
 
   const [dragging, setDragging] = useState(false);
   const [hovered, setHovered] = useState(false);
@@ -1768,7 +1774,7 @@ function GroupRotationRing({
     <group position={group.position}>
       {/* Thin stem from group top to handle */}
       <mesh position={[0, ringY + 0.025, 0]}>
-        <cylinderGeometry args={[0.002, 0.002, 0.05, 6]} />
+        <cylinderGeometry args={[0.002, 0.002, 0.13, 6]} />
         <meshStandardMaterial color="#94A3B8" transparent opacity={0.5} depthTest={false} />
       </mesh>
 
@@ -2621,25 +2627,32 @@ function FurniturePanel({
     return getMaterialTextures(mat.id, mat.color, mat.category);
   }, [panel.customColor, panel.textureUrl, mat?.id, mat?.color, mat?.category]);
 
-  // Configure texture tiling — fabric needs dense repeats so weave reads on large cushions
+  // Configure texture tiling — proportional to panel size for natural scale.
+  // Wood/stone/engineered: 1 repeat per 0.5m (500mm) so grain scale looks realistic.
+  // Fabric: dense repeats so weave pattern reads on large cushions.
+  // Metal: moderate repeats for brushed/scratched patterns.
   useMemo(() => {
     if (!textures) return;
-    const [w, h, d] = panel.size;
-    const edge = Math.max(w, h, d);
+    const [w, , d] = panel.size;
     let repX: number;
     let repY: number;
     if (isFabric) {
+      const edge = Math.max(w, d);
       const rep = Math.max(10, edge * 16);
       repX = rep;
       repY = rep;
+    } else if (isMetal) {
+      repX = Math.max(0.5, w * 3);
+      repY = Math.max(0.5, d * 3);
     } else {
-      repX = Math.max(0.5, w * 2);
-      repY = Math.max(0.5, d * 2);
+      // Wood, stone, engineered: 1 repeat per 0.5m of surface
+      repX = Math.max(0.5, w / 0.5);
+      repY = Math.max(0.5, d / 0.5);
     }
     [textures.map, textures.normalMap, textures.roughnessMap].forEach(t => {
       t.repeat.set(repX, repY);
     });
-  }, [textures, panel.size, isFabric]);
+  }, [textures, panel.size, isFabric, isMetal]);
 
   const normalScale = useMemo(() => {
     if (!mat) return new THREE.Vector2(0.3, 0.3);
@@ -2917,6 +2930,19 @@ function FurniturePanel({
                 transparent
                 opacity={shapeMatProps.opacity}
               />
+            ) : sh3dTexture && surfacePbr && (surfacePbr.clearcoat || surfacePbr.sheen || surfacePbr.transmission) ? (
+              <meshPhysicalMaterial
+                map={sh3dTexture}
+                color={shapeMatProps.color}
+                roughness={surfacePbr.roughness}
+                metalness={surfacePbr.metalness}
+                {...(surfacePbr.clearcoat != null ? { clearcoat: surfacePbr.clearcoat, clearcoatRoughness: surfacePbr.clearcoatRoughness ?? 0.4 } : {})}
+                {...(surfacePbr.sheen != null ? { sheen: surfacePbr.sheen, sheenRoughness: surfacePbr.sheenRoughness ?? 0.8, sheenColor: surfacePbr.sheenColor ?? "#ffffff" } : {})}
+                {...(surfacePbr.transmission != null ? { transmission: surfacePbr.transmission, ior: surfacePbr.ior ?? 1.5, thickness: surfacePbr.thickness ?? 0.5 } : {})}
+                transparent={shapeMatProps.transparent || !!(surfacePbr.transmission)}
+                opacity={shapeMatProps.opacity}
+                envMapIntensity={isMetal ? envMetal : envDefault}
+              />
             ) : sh3dTexture ? (
               <meshStandardMaterial
                 map={sh3dTexture}
@@ -2994,6 +3020,19 @@ function FurniturePanel({
               ior={1.5}
               transparent
               opacity={shapeMatProps.opacity}
+            />
+          ) : sh3dTexture && surfacePbr && (surfacePbr.clearcoat || surfacePbr.sheen || surfacePbr.transmission) ? (
+            <meshPhysicalMaterial
+              map={sh3dTexture}
+              color={shapeMatProps.color}
+              roughness={surfacePbr.roughness}
+              metalness={surfacePbr.metalness}
+              {...(surfacePbr.clearcoat != null ? { clearcoat: surfacePbr.clearcoat, clearcoatRoughness: surfacePbr.clearcoatRoughness ?? 0.4 } : {})}
+              {...(surfacePbr.sheen != null ? { sheen: surfacePbr.sheen, sheenRoughness: surfacePbr.sheenRoughness ?? 0.8, sheenColor: surfacePbr.sheenColor ?? "#ffffff" } : {})}
+              {...(surfacePbr.transmission != null ? { transmission: surfacePbr.transmission, ior: surfacePbr.ior ?? 1.5, thickness: surfacePbr.thickness ?? 0.5 } : {})}
+              transparent={shapeMatProps.transparent || !!(surfacePbr.transmission)}
+              opacity={shapeMatProps.opacity}
+              envMapIntensity={isMetal ? envMetal : envDefault}
             />
           ) : sh3dTexture ? (
             <meshStandardMaterial

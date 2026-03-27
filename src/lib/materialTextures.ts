@@ -3,7 +3,7 @@ import * as THREE from "three";
 // Cache to avoid regenerating textures
 const textureCache = new Map<string, { map: THREE.CanvasTexture; normalMap: THREE.CanvasTexture; roughnessMap: THREE.CanvasTexture }>();
 
-const TEX_SIZE = 512;
+const TEX_SIZE = 1024;
 
 /** Get or create PBR textures for a material */
 export function getMaterialTextures(materialId: string, baseColor: string, category: string): {
@@ -14,7 +14,7 @@ export function getMaterialTextures(materialId: string, baseColor: string, categ
   // Skip textures for glass — it uses transmission
   if (category === "Glass") return null;
 
-  const cacheKey = `v3_${materialId}_${baseColor}`;
+  const cacheKey = `v4_${materialId}_${baseColor}`;
   if (textureCache.has(cacheKey)) return textureCache.get(cacheKey)!;
 
   let result;
@@ -80,78 +80,185 @@ function createCanvas(): [HTMLCanvasElement, CanvasRenderingContext2D] {
   return [canvas, ctx];
 }
 
+// ─── Perlin-style value noise for realistic patterns ───
+function valueNoise2D(x: number, y: number, rand: () => number, _seed: number): number {
+  // Simple multi-octave noise approximation using seeded random
+  const ix = Math.floor(x);
+  const iy = Math.floor(y);
+  const fx = x - ix;
+  const fy = y - iy;
+  // Smoothstep interpolation
+  const sx = fx * fx * (3 - 2 * fx);
+  const sy = fy * fy * (3 - 2 * fy);
+  // Hash corners
+  const hash = (xi: number, yi: number) => {
+    let h = ((xi * 374761393 + yi * 668265263 + _seed * 1013904223) >>> 0);
+    h = (((h >> 13) ^ h) * 1274126177) >>> 0;
+    return (h & 0xffff) / 0xffff;
+  };
+  const a = hash(ix, iy);
+  const b = hash(ix + 1, iy);
+  const c = hash(ix, iy + 1);
+  const d = hash(ix + 1, iy + 1);
+  return a + (b - a) * sx + (c - a) * sy + (a - b - c + d) * sx * sy;
+}
+
 // ─── WOOD TEXTURES ────────────────────────────────────
 function generateWoodTextures(baseColor: string, materialId: string) {
   const [r, g, b] = hexToRgb(baseColor);
   const seed = materialId.split("").reduce((acc, c) => acc + c.charCodeAt(0), 0);
   const rand = seededRandom(seed);
 
-  // Color map: wood grain lines
-  const [colorCanvas, colorCtx] = createCanvas();
-  colorCtx.fillStyle = baseColor;
-  colorCtx.fillRect(0, 0, TEX_SIZE, TEX_SIZE);
+  // Create a height buffer for generating the normal map
+  const heightMap = new Float32Array(TEX_SIZE * TEX_SIZE);
 
-  // Draw grain lines
-  for (let i = 0; i < 80; i++) {
-    const y = rand() * TEX_SIZE;
-    const width = 1 + rand() * 3;
-    const darkness = 0.85 + rand() * 0.1; // 85-95% of base color
-    colorCtx.strokeStyle = rgbToHex(r * darkness, g * darkness, b * darkness);
-    colorCtx.lineWidth = width;
-    colorCtx.beginPath();
-    colorCtx.moveTo(0, y);
-    // Slightly wavy grain
-    for (let x = 0; x < TEX_SIZE; x += 20) {
-      const yOff = y + Math.sin(x * 0.02 + rand() * 6) * (3 + rand() * 5);
-      colorCtx.lineTo(x, yOff);
-    }
-    colorCtx.stroke();
+  // Color map: realistic wood grain with multiple layers
+  const [colorCanvas, colorCtx] = createCanvas();
+  const imageData = colorCtx.createImageData(TEX_SIZE, TEX_SIZE);
+  const pixels = imageData.data;
+
+  // Pre-compute grain parameters
+  const grainCount = 160 + Math.floor(rand() * 40); // 160-200 grain lines
+  const grainLines: { y: number; width: number; darkness: number; phase: number; amplitude: number; frequency: number }[] = [];
+  for (let i = 0; i < grainCount; i++) {
+    grainLines.push({
+      y: (i / grainCount) * TEX_SIZE + (rand() - 0.5) * 4,
+      width: 0.5 + rand() * 2.5,
+      darkness: 0.88 + rand() * 0.08,
+      phase: rand() * Math.PI * 2,
+      amplitude: 0.5 + rand() * 2.0, // Very subtle waviness — straight grain
+      frequency: 0.001 + rand() * 0.003,
+    });
   }
 
-  // Add subtle noise/variation
-  const imageData = colorCtx.getImageData(0, 0, TEX_SIZE, TEX_SIZE);
-  const pixels = imageData.data;
+  // Pre-compute knot positions (0-3 knots per texture)
+  const knotCount = Math.floor(rand() * 3);
+  const knots: { cx: number; cy: number; r: number; strength: number }[] = [];
+  for (let i = 0; i < knotCount; i++) {
+    knots.push({
+      cx: rand() * TEX_SIZE,
+      cy: rand() * TEX_SIZE,
+      r: 20 + rand() * 40,
+      strength: 0.15 + rand() * 0.2,
+    });
+  }
+
+  // Generate each pixel
+  for (let y = 0; y < TEX_SIZE; y++) {
+    for (let x = 0; x < TEX_SIZE; x++) {
+      const idx = (y * TEX_SIZE + x) * 4;
+      let height = 0;
+
+      // Base color with subtle large-scale variation (simulates heartwood/sapwood)
+      const largeNoise = valueNoise2D(x * 0.003, y * 0.008, rand, seed);
+      const medNoise = valueNoise2D(x * 0.01, y * 0.04, rand, seed + 100);
+      const fineNoise = valueNoise2D(x * 0.05, y * 0.15, rand, seed + 200);
+
+      let variation = (largeNoise - 0.5) * 0.12 + (medNoise - 0.5) * 0.06 + (fineNoise - 0.5) * 0.03;
+
+      // Grain line contribution — each line darkens pixels near it
+      let grainDarkening = 0;
+      for (const line of grainLines) {
+        const lineY = line.y + Math.sin(x * line.frequency + line.phase) * line.amplitude;
+        const dist = Math.abs(y - lineY);
+        if (dist < line.width * 3) {
+          const t = Math.exp(-(dist * dist) / (line.width * line.width * 0.5));
+          grainDarkening += t * (1 - line.darkness);
+          height += t * 0.5;
+        }
+      }
+
+      // Knot distortion — concentric rings around knot centers
+      for (const knot of knots) {
+        const dx = x - knot.cx;
+        const dy = y - knot.cy;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist < knot.r * 2.5) {
+          const ringVal = Math.sin(dist * 0.3) * 0.5 + 0.5;
+          const falloff = Math.max(0, 1 - dist / (knot.r * 2.5));
+          const knotEffect = ringVal * falloff * knot.strength;
+          grainDarkening += knotEffect;
+          height += knotEffect * 2;
+          // Darken the center of the knot
+          if (dist < knot.r * 0.4) {
+            grainDarkening += (1 - dist / (knot.r * 0.4)) * 0.25;
+          }
+        }
+      }
+
+      const totalDarkening = Math.min(grainDarkening, 0.35);
+      const colorMul = 1 - totalDarkening + variation;
+
+      // Slight warm/cool shift in grain vs non-grain areas
+      const warmShift = grainDarkening * 8; // Grain lines slightly warmer
+      pixels[idx] = Math.max(0, Math.min(255, r * colorMul + warmShift));
+      pixels[idx + 1] = Math.max(0, Math.min(255, g * colorMul));
+      pixels[idx + 2] = Math.max(0, Math.min(255, b * colorMul - warmShift * 0.5));
+      pixels[idx + 3] = 255;
+
+      // Store height for normal map
+      heightMap[y * TEX_SIZE + x] = height + (fineNoise - 0.5) * 0.3;
+    }
+  }
+
+  // Add very fine pixel noise for micro-texture
   for (let i = 0; i < pixels.length; i += 4) {
-    const noise = (rand() - 0.5) * 12;
+    const noise = (rand() - 0.5) * 6;
     pixels[i] = Math.max(0, Math.min(255, pixels[i] + noise));
     pixels[i + 1] = Math.max(0, Math.min(255, pixels[i + 1] + noise));
     pixels[i + 2] = Math.max(0, Math.min(255, pixels[i + 2] + noise));
   }
   colorCtx.putImageData(imageData, 0, 0);
 
-  // Normal map: derive from grain height
+  // Normal map: derive from height map using 3x3 Sobel kernel
   const [normalCanvas, normalCtx] = createCanvas();
   const normalData = normalCtx.createImageData(TEX_SIZE, TEX_SIZE);
-  const colorData = colorCtx.getImageData(0, 0, TEX_SIZE, TEX_SIZE);
+  const strength = 3.0;
   for (let y = 1; y < TEX_SIZE - 1; y++) {
     for (let x = 1; x < TEX_SIZE - 1; x++) {
       const idx = (y * TEX_SIZE + x) * 4;
-      const left = colorData.data[((y) * TEX_SIZE + (x - 1)) * 4];
-      const right = colorData.data[((y) * TEX_SIZE + (x + 1)) * 4];
-      const up = colorData.data[((y - 1) * TEX_SIZE + x) * 4];
-      const down = colorData.data[((y + 1) * TEX_SIZE + x) * 4];
-      // Sobel-ish normal calculation
-      const dx = (right - left) / 255;
-      const dy = (down - up) / 255;
-      const strength = 2.0;
-      normalData.data[idx] = Math.round((dx * strength * 0.5 + 0.5) * 255);
-      normalData.data[idx + 1] = Math.round((dy * strength * 0.5 + 0.5) * 255);
-      normalData.data[idx + 2] = 200; // Z component (mostly up)
+      // Sobel 3x3 kernel
+      const tl = heightMap[(y - 1) * TEX_SIZE + (x - 1)];
+      const tc = heightMap[(y - 1) * TEX_SIZE + x];
+      const tr = heightMap[(y - 1) * TEX_SIZE + (x + 1)];
+      const ml = heightMap[y * TEX_SIZE + (x - 1)];
+      const mr = heightMap[y * TEX_SIZE + (x + 1)];
+      const bl = heightMap[(y + 1) * TEX_SIZE + (x - 1)];
+      const bc = heightMap[(y + 1) * TEX_SIZE + x];
+      const br = heightMap[(y + 1) * TEX_SIZE + (x + 1)];
+
+      const dx = (tr + 2 * mr + br) - (tl + 2 * ml + bl);
+      const dy = (bl + 2 * bc + br) - (tl + 2 * tc + tr);
+
+      // Normalize
+      const nx = -dx * strength;
+      const ny = -dy * strength;
+      const nz = 1.0;
+      const len = Math.sqrt(nx * nx + ny * ny + nz * nz);
+
+      normalData.data[idx] = Math.round(((nx / len) * 0.5 + 0.5) * 255);
+      normalData.data[idx + 1] = Math.round(((ny / len) * 0.5 + 0.5) * 255);
+      normalData.data[idx + 2] = Math.round(((nz / len) * 0.5 + 0.5) * 255);
       normalData.data[idx + 3] = 255;
     }
   }
   normalCtx.putImageData(normalData, 0, 0);
 
-  // Roughness map: grain areas slightly smoother
+  // Roughness map: grain areas slightly smoother, variation across surface
   const [roughCanvas, roughCtx] = createCanvas();
-  roughCtx.fillStyle = "#bbb"; // base roughness ~0.73
-  roughCtx.fillRect(0, 0, TEX_SIZE, TEX_SIZE);
-  // Add variation
-  const roughData = roughCtx.getImageData(0, 0, TEX_SIZE, TEX_SIZE);
-  for (let i = 0; i < roughData.data.length; i += 4) {
-    const variation = (rand() - 0.5) * 30;
-    const val = Math.max(0, Math.min(255, 187 + variation));
-    roughData.data[i] = roughData.data[i + 1] = roughData.data[i + 2] = val;
+  const roughData = roughCtx.createImageData(TEX_SIZE, TEX_SIZE);
+  for (let y = 0; y < TEX_SIZE; y++) {
+    for (let x = 0; x < TEX_SIZE; x++) {
+      const i = (y * TEX_SIZE + x) * 4;
+      const h = heightMap[y * TEX_SIZE + x];
+      // Grain lines are slightly smoother (lower roughness where height is high)
+      const baseRoughness = 180; // ~0.71
+      const grainSmoothing = Math.min(h * 12, 25); // Up to -25 from base
+      const noise = (rand() - 0.5) * 16;
+      const val = Math.max(100, Math.min(220, baseRoughness - grainSmoothing + noise));
+      roughData.data[i] = roughData.data[i + 1] = roughData.data[i + 2] = val;
+      roughData.data[i + 3] = 255;
+    }
   }
   roughCtx.putImageData(roughData, 0, 0);
 

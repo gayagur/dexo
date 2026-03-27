@@ -270,6 +270,11 @@ export function FurnitureEditor({
   ) => {
     const nextGroups = groupsUpdater(groupsRef.current);
     const nextUngrouped = ungroupedUpdater ? ungroupedUpdater(ungroupedRef.current) : ungroupedRef.current;
+    // Eagerly update refs so back-to-back calls in the same tick read fresh data.
+    // Without this, a second updateScene/setGroups before React renders would read
+    // stale ref values and overwrite the first change (causing material reverts).
+    groupsRef.current = nextGroups;
+    ungroupedRef.current = nextUngrouped;
     setGroups(nextGroups);
     setUngroupedPanels(nextUngrouped);
     pushHistory(nextGroups, nextUngrouped);
@@ -281,7 +286,7 @@ export function FurnitureEditor({
   const enterEditMode = useCallback((groupId: string) => {
     const group = groupsRef.current.find((g) => g.id === groupId);
     if (!group) return;
-    const worldPanels = panelsToWorldSpace(group.panels, group.position, group.rotation);
+    const worldPanels = panelsToWorldSpace(group.panels, group.position, group.rotation, group.scale ?? [1, 1, 1]);
     setEditModePanels(worldPanels);
     setEditingGroupId(groupId);
     setSelectedGroupId(null);
@@ -294,10 +299,11 @@ export function FurnitureEditor({
     if (!editingGroupId) return;
     const group = groupsRef.current.find((g) => g.id === editingGroupId);
     if (!group) { setEditingGroupId(null); setEditModePanels(null); return; }
-    const worldPanels = editModePanels ?? panelsToWorldSpace(group.panels, group.position, group.rotation);
+    const worldPanels = editModePanels ?? panelsToWorldSpace(group.panels, group.position, group.rotation, group.scale ?? [1, 1, 1]);
     const center = computeBoundingBoxCenter(worldPanels);
-    const relativePanels = panelsToRelative(worldPanels, center, [0, 0, 0]);
-    const updatedGroup: GroupData = { ...group, position: center, rotation: [0, 0, 0], panels: relativePanels };
+    // Use identity rotation & scale since transforms are now baked into world-space panels
+    const relativePanels = panelsToRelative(worldPanels, center, [0, 0, 0], [1, 1, 1]);
+    const updatedGroup: GroupData = { ...group, position: center, rotation: [0, 0, 0], scale: [1, 1, 1], panels: relativePanels };
     updateScene((prev) => prev.map((g) => g.id === editingGroupId ? updatedGroup : g));
     setEditingGroupId(null);
     setSelectedGroupId(editingGroupId);
@@ -346,22 +352,30 @@ export function FurnitureEditor({
         prev!.map((p) => (p.id === id ? { ...p, ...updates } : p))
       );
     } else {
-      setGroups((prev) =>
-        prev.map((g) => ({
+      // Use functional updaters to avoid overwriting pending state changes.
+      // Eagerly sync refs so updateScene reads fresh data in the same tick.
+      setGroups((prev) => {
+        const next = prev.map((g) => ({
           ...g,
           panels: g.panels.map((p) => (p.id === id ? { ...p, ...updates } : p)),
-        }))
-      );
-      setUngroupedPanels((prev) =>
-        prev.map((p) => (p.id === id ? { ...p, ...updates } : p))
-      );
+        }));
+        groupsRef.current = next;
+        return next;
+      });
+      setUngroupedPanels((prev) => {
+        const next = prev.map((p) => (p.id === id ? { ...p, ...updates } : p));
+        ungroupedRef.current = next;
+        return next;
+      });
     }
   }, [editingGroupId, editModePanels]);
 
   const handleUpdateGroupLive = useCallback((groupId: string, updates: Partial<GroupData>) => {
-    setGroups((prev) =>
-      prev.map((g) => (g.id === groupId ? { ...g, ...updates } : g))
-    );
+    setGroups((prev) => {
+      const next = prev.map((g) => (g.id === groupId ? { ...g, ...updates } : g));
+      groupsRef.current = next;
+      return next;
+    });
   }, []);
 
   const handleAddPart = useCallback((preset: {
