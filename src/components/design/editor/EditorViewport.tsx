@@ -5,7 +5,7 @@ import { OrbitControls, Grid, GizmoHelper, GizmoViewport, Environment, Lightform
 import type { PanelData, GroupData } from "@/lib/furnitureData";
 import { MATERIALS } from "@/lib/furnitureData";
 import { ShapeRenderer, isCompositeShape } from "./ShapeRenderer";
-import { getMaterialTextures } from "@/lib/materialTextures";
+import { getFabricRenderingParams, getMaterialTextures } from "@/lib/materialTextures";
 import { applyDesignMaterialToGlbRoot } from "@/lib/glbMaterialOverride";
 import { useMobileInfo } from "@/hooks/use-mobile";
 import * as THREE from "three";
@@ -97,7 +97,7 @@ const SURFACE_PBR: Record<string, {
   matte: { roughness: 1.0, metalness: 0 },
   wood: { roughness: 0.7, metalness: 0, clearcoat: 0.2, clearcoatRoughness: 0.4 },
   metal: { roughness: 0.2, metalness: 1.0 },
-  fabric: { roughness: 0.9, metalness: 0, sheen: 0.06, sheenRoughness: 0.9, sheenColor: "#f5f5f4" },
+  fabric: { roughness: 0.9, metalness: 0, sheen: 0.085, sheenRoughness: 0.82, sheenColor: "#f4f3f1" },
   glass: { roughness: 0.05, metalness: 0.1, transmission: 0.8, ior: 1.5, thickness: 0.5 },
   stone: { roughness: 0.8, metalness: 0 },
 };
@@ -830,6 +830,7 @@ export function EditorViewport({
             <ambientLight intensity={0.06} color="#3a3f55" />
             <pointLight position={[1, 2.5, -1]} intensity={0.55} color="#ffd699" distance={7} decay={2} />
             <pointLight position={[-1.5, 2, 1]} intensity={0.4} color="#ffccaa" distance={6} decay={2} />
+            <directionalLight position={[4.5, 3.5, -3.5]} intensity={0.22} color="#c8d2e8" />
           </>
         ) : (
           <>
@@ -841,7 +842,7 @@ export function EditorViewport({
             <hemisphereLight skyColor="#ffffff" groundColor="#e8eaef" intensity={0.38} />
             <directionalLight
               position={[-4, 8, 4]}
-              intensity={1.35}
+              intensity={1.48}
               castShadow
               shadow-mapSize-width={2048}
               shadow-mapSize-height={2048}
@@ -852,7 +853,9 @@ export function EditorViewport({
               shadow-camera-bottom={-5}
               color="#ffffff"
             />
-            <ambientLight intensity={0.42} color="#ffffff" />
+            <ambientLight intensity={0.36} color="#ffffff" />
+            {/* Low rake fill — reveals fabric normal detail without washing shadows */}
+            <directionalLight position={[5.5, 4.2, -4]} intensity={0.44} color="#fff6ec" />
           </>
         )}
 
@@ -2804,9 +2807,9 @@ function FurniturePanel({
     if (mat.category === "Engineered") return new THREE.Vector2(0.2, 0.2);
     if (mat.category === "Stone") return new THREE.Vector2(0.4, 0.4);
     if (mat.category === "Fabric") {
-      if (mat.id.includes("velvet")) return new THREE.Vector2(0.4, 0.5);
-      if (mat.id.includes("leather")) return new THREE.Vector2(0.35, 0.35);
-      return new THREE.Vector2(0.5, 0.5);
+      if (mat.id.includes("velvet")) return new THREE.Vector2(0.52, 0.62);
+      if (mat.id.includes("leather")) return new THREE.Vector2(0.42, 0.42);
+      return new THREE.Vector2(0.64, 0.64);
     }
     return new THREE.Vector2(0.3, 0.3);
   }, [mat]);
@@ -2854,6 +2857,11 @@ function FurniturePanel({
       roughnessMap: textures.roughnessMap,
     } : {}),
   };
+
+  const fabricPhysical = useMemo(() => {
+    if (!isFabric || !mat) return null;
+    return getFabricRenderingParams(mat.id, shapeMatProps.color, lightMode);
+  }, [isFabric, mat, shapeMatProps.color, lightMode]);
 
   // When dimmed, disable raycasting
   const noopRaycast = useCallback(() => {}, []);
@@ -3114,7 +3122,7 @@ function FurniturePanel({
                 opacity={shapeMatProps.opacity}
                 envMapIntensity={lightMode === "night" ? 0.9 : 1.1}
               />
-            ) : textures && isFabric ? (
+            ) : textures && isFabric && fabricPhysical ? (
               <meshPhysicalMaterial
                 map={textures.map}
                 normalMap={textures.normalMap}
@@ -3122,12 +3130,9 @@ function FurniturePanel({
                 roughnessMap={textures.roughnessMap}
                 roughness={shapeMatProps.roughness}
                 metalness={0}
-                sheen={mat!.id.includes("velvet") ? 0.08 : mat!.id.includes("leather") ? 0.02 : 0.04}
-                sheenRoughness={mat!.id.includes("velvet") ? 0.82 : mat!.id.includes("leather") ? 0.92 : 0.88}
-                sheenColor={mat!.color}
+                {...fabricPhysical}
                 transparent={shapeMatProps.transparent}
                 opacity={shapeMatProps.opacity}
-                envMapIntensity={mat!.id.includes("velvet") ? 0.26 : 0.2}
               />
             ) : textures ? (
               <meshStandardMaterial
@@ -3231,7 +3236,7 @@ function FurniturePanel({
               opacity={shapeMatProps.opacity}
               envMapIntensity={isMetal ? envMetal : envDefault}
             />
-          ) : textures && isFabric ? (
+          ) : textures && isFabric && fabricPhysical ? (
             <meshPhysicalMaterial
               map={textures.map}
               normalMap={textures.normalMap}
@@ -3239,12 +3244,9 @@ function FurniturePanel({
               roughnessMap={textures.roughnessMap}
               roughness={shapeMatProps.roughness}
               metalness={0}
-              sheen={mat!.id.includes("velvet") ? 0.08 : mat!.id.includes("leather") ? 0.02 : 0.04}
-              sheenRoughness={mat!.id.includes("velvet") ? 0.82 : mat!.id.includes("leather") ? 0.92 : 0.88}
-              sheenColor={mat!.color}
+              {...fabricPhysical}
               transparent={shapeMatProps.transparent}
               opacity={shapeMatProps.opacity}
-              envMapIntensity={mat!.id.includes("velvet") ? 0.26 : 0.2}
             />
           ) : (
             <meshStandardMaterial

@@ -4,7 +4,7 @@ import { OrbitControls, Environment } from "@react-three/drei";
 import type { PanelData, GroupData, EditorSceneData } from "@/lib/furnitureData";
 import { panelsToWorldSpace } from "@/lib/groupUtils";
 import { MATERIALS } from "@/lib/furnitureData";
-import { getMaterialTextures } from "@/lib/materialTextures";
+import { getFabricRenderingParams, getMaterialTextures } from "@/lib/materialTextures";
 import * as THREE from "three";
 
 // ─── Auto-fit camera to bounding box ────────────────────
@@ -93,12 +93,17 @@ function PreviewPanel({ panel }: { panel: PanelData }) {
   const normalScale = useMemo(() => {
     if (!mat) return new THREE.Vector2(0.3, 0.3);
     if (mat.category === "Fabric") {
-      if (mat.id.includes("velvet")) return new THREE.Vector2(0.85, 1.25);
-      if (mat.id.includes("leather")) return new THREE.Vector2(0.7, 0.7);
-      return new THREE.Vector2(1.1, 1.1);
+      if (mat.id.includes("velvet")) return new THREE.Vector2(0.52, 0.62);
+      if (mat.id.includes("leather")) return new THREE.Vector2(0.42, 0.42);
+      return new THREE.Vector2(0.64, 0.64);
     }
     return new THREE.Vector2(0.3, 0.3);
   }, [mat]);
+
+  const fabricParams = useMemo(() => {
+    if (!isFabric || !mat) return null;
+    return getFabricRenderingParams(mat.id, color, "day");
+  }, [isFabric, mat, color]);
 
   function renderGeometry() {
     switch (shape) {
@@ -129,7 +134,7 @@ function PreviewPanel({ panel }: { panel: PanelData }) {
           transparent
           opacity={0.3}
         />
-      ) : textures && shape === "box" && isFabric ? (
+      ) : textures && shape === "box" && isFabric && fabricParams ? (
         <meshPhysicalMaterial
           map={textures.map}
           normalMap={textures.normalMap}
@@ -137,10 +142,7 @@ function PreviewPanel({ panel }: { panel: PanelData }) {
           roughnessMap={textures.roughnessMap}
           roughness={roughness}
           metalness={0}
-          sheen={mat!.id.includes("velvet") ? 0.08 : mat!.id.includes("leather") ? 0.02 : 0.04}
-          sheenRoughness={mat!.id.includes("velvet") ? 0.82 : mat!.id.includes("leather") ? 0.92 : 0.88}
-          sheenColor={mat!.color}
-          envMapIntensity={mat!.id.includes("velvet") ? 0.26 : 0.2}
+          {...fabricParams}
         />
       ) : textures && shape === "box" ? (
         <meshStandardMaterial
@@ -209,8 +211,9 @@ export function FurniturePreview({ panels, className, disableInteraction }: Furn
         shadows
         style={{ width: "100%", height: "100%" }}
       >
-        <ambientLight intensity={0.5} />
-        <directionalLight position={[5, 8, 5]} intensity={1} castShadow />
+        <ambientLight intensity={0.42} />
+        <directionalLight position={[5, 8, 5]} intensity={1.05} castShadow />
+        <directionalLight position={[4.5, 3.5, -4]} intensity={0.4} color="#fff6ec" />
         <Environment preset="apartment" />
 
         <AutoFitCamera panels={allPanels} />

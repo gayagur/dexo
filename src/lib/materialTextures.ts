@@ -14,7 +14,7 @@ export function getMaterialTextures(materialId: string, baseColor: string, categ
   // Skip textures for glass — it uses transmission
   if (category === "Glass") return null;
 
-  const cacheKey = `v8_${materialId}_${baseColor}`;
+  const cacheKey = `v9_${materialId}_${baseColor}`;
   if (textureCache.has(cacheKey)) return textureCache.get(cacheKey)!;
 
   let result;
@@ -40,12 +40,13 @@ export function getMaterialTextures(materialId: string, baseColor: string, categ
 
   if (result) {
     // Configure all textures for tiling + high-quality filtering
+    const aniso = category === "Fabric" ? 14 : 8;
     [result.map, result.normalMap, result.roughnessMap].forEach(tex => {
       tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
       tex.generateMipmaps = true;
       tex.minFilter = THREE.LinearMipmapLinearFilter;
       tex.magFilter = THREE.LinearFilter;
-      tex.anisotropy = 8; // sharper at oblique angles (grain on tabletops)
+      tex.anisotropy = aniso;
       tex.needsUpdate = true;
     });
     result.map.colorSpace = THREE.SRGBColorSpace;
@@ -536,6 +537,53 @@ function fabricRoughnessFromAlbedo(colorCtx: CanvasRenderingContext2D, baseGray:
   return roughCanvas;
 }
 
+/** Seamless height samples for tileable normal maps */
+function fabricHeightAt(hm: Float32Array, x: number, y: number): number {
+  let xi = Math.floor(x) % TEX_SIZE;
+  let yi = Math.floor(y) % TEX_SIZE;
+  if (xi < 0) xi += TEX_SIZE;
+  if (yi < 0) yi += TEX_SIZE;
+  return hm[yi * TEX_SIZE + xi];
+}
+
+/**
+ * MeshPhysicalMaterial tuning for catalog fabrics — sheen models grazing retroreflect;
+ * values balanced for real textile look (not plastic) under studio-style lighting.
+ */
+export function getFabricRenderingParams(
+  materialId: string,
+  albedoHex: string,
+  lightMode: "day" | "night",
+): { sheen: number; sheenRoughness: number; envMapIntensity: number; sheenColor: string } {
+  const night = lightMode === "night";
+  const velvet = materialId.includes("velvet");
+  const leather = materialId.includes("leather");
+  let sheen: number;
+  let sheenRoughness: number;
+  let envMapIntensity: number;
+  if (velvet) {
+    sheen = night ? 0.09 : 0.12;
+    sheenRoughness = 0.74;
+    envMapIntensity = night ? 0.26 : 0.4;
+  } else if (leather) {
+    sheen = night ? 0.034 : 0.048;
+    sheenRoughness = 0.9;
+    envMapIntensity = night ? 0.22 : 0.34;
+  } else {
+    sheen = night ? 0.052 : 0.072;
+    sheenRoughness = 0.8;
+    envMapIntensity = night ? 0.22 : 0.36;
+  }
+  const c = new THREE.Color(albedoHex);
+  c.lerp(new THREE.Color(0xffffff), velvet ? 0.2 : leather ? 0.18 : 0.26);
+  return {
+    sheen,
+    sheenRoughness,
+    envMapIntensity,
+    sheenColor: `#${c.getHexString()}`,
+  };
+}
+
 // ─── FABRIC TEXTURES — premium stylized (soft plush upholstery) ──────────────
 function generateFabricTextures(baseColor: string, materialId: string) {
   const [r, g, b] = hexToRgb(baseColor);
@@ -564,14 +612,15 @@ function generateFabricTextures(baseColor: string, materialId: string) {
         const broad = fbm(u * 8, v * 8, seed, 3, 2.0, 0.4);
         const fine = fbm(u * 25, v * 25, seed + 100, 2, 2.0, 0.35);
 
-        const colorVar = (broad - 0.5) * 0.06 + (fine - 0.5) * 0.025;
+        const grain = (vnoise(u * 44, v * 44, seed + 111) - 0.5) * 0.11;
+        const colorVar = (broad - 0.5) * 0.06 + (fine - 0.5) * 0.025 + grain * 0.35;
         const mod = 1.0 + colorVar;
         px[i] = Math.max(0, Math.min(255, r * mod));
         px[i + 1] = Math.max(0, Math.min(255, g * mod));
         px[i + 2] = Math.max(0, Math.min(255, b * mod));
         px[i + 3] = 255;
 
-        heightMap[py * TEX_SIZE + px_] = broad * 0.2 + fine * 0.08;
+        heightMap[py * TEX_SIZE + px_] = broad * 0.22 + fine * 0.11 + Math.abs(grain) * 1.2;
       }
     }
   } else if (isVelvet) {
@@ -585,14 +634,15 @@ function generateFabricTextures(baseColor: string, materialId: string) {
         const pile = fbm(u * 2, v * 12, seed, 3, 2.0, 0.4);
         const micro = fbm(u * 20, v * 20, seed + 100, 2);
 
-        const colorVar = (pile - 0.5) * 0.05 + (micro - 0.5) * 0.02;
+        const pileStrand = fbm(u * 36, v * 5 + u * 2, seed + 120, 3, 2.1, 0.42);
+        const colorVar = (pile - 0.5) * 0.055 + (micro - 0.5) * 0.022 + (pileStrand - 0.5) * 0.028;
         const mod = 1.0 + colorVar;
         px[i] = Math.max(0, Math.min(255, r * mod));
         px[i + 1] = Math.max(0, Math.min(255, g * mod));
         px[i + 2] = Math.max(0, Math.min(255, b * mod));
         px[i + 3] = 255;
 
-        heightMap[py * TEX_SIZE + px_] = pile * 0.15 + micro * 0.06;
+        heightMap[py * TEX_SIZE + px_] = pile * 0.17 + micro * 0.075 + pileStrand * 0.055;
       }
     }
   } else {
@@ -642,8 +692,13 @@ function generateFabricTextures(baseColor: string, materialId: string) {
         const yarn = yarnBumpStag;
 
         // === 3. Fine fiber fuzz (individual fiber-scale noise) ===
-        const fuzz = fbm(u * 60, v * 60, seed + 500, 2, 2.0, 0.4);
-        const fuzzMod = (fuzz - 0.5) * 0.025;
+        const fuzz = fbm(u * 72, v * 72, seed + 500, 3, 2.0, 0.42);
+        const fuzzMod = (fuzz - 0.5) * 0.032;
+
+        // Shuttle / weft undulation + faint twill so the weave isn’t only vertical cords
+        const weftUndul =
+          Math.sin(v * Math.PI * ribCount * 1.78 + fbm(u * 2.8, v * 5, seed + 802, 2) * 1.15) * 0.041;
+        const twillBias = Math.sin((u + v * 0.24) * Math.PI * ribCount * 2.05 + seed * 0.017) * 0.021;
 
         // === 4. Broad tonal variation (cushion-scale warm/cool shifts) ===
         const broad = fbm(u * 1.5, v * 1.5, seed + 600, 2, 2.0, 0.45);
@@ -652,7 +707,7 @@ function generateFabricTextures(baseColor: string, materialId: string) {
         // === Combine color ===
         const ribTone = ribTones[Math.min(ribIdx, ribTones.length - 1)];
         const yarnDark = (1.0 - yarn) * 0.05; // yarn valleys slightly darker
-        const mod = 1.0 + ribTone + broadMod + fuzzMod - ribGap - yarnDark;
+        const mod = 1.0 + ribTone + broadMod + fuzzMod - ribGap - yarnDark + weftUndul * 0.08;
 
         // Slight warm shift in darker areas
         const warmth = (ribGap + yarnDark) * 12;
@@ -662,11 +717,13 @@ function generateFabricTextures(baseColor: string, materialId: string) {
         px[i + 2] = clamp(b * mod - warmth * 0.15);
         px[i + 3] = 255;
 
-        // Height map — ribs are tall, yarn bumps are secondary
+        // Height map — ribs + yarn + micro-fiber + cross-weft (tileable)
         heightMap[py * TEX_SIZE + px_] =
-          ribProfile * 0.45 +   // rib columns are the main relief
-          yarn * 0.20 +         // yarn bumps within ribs
-          fuzz * 0.05;          // micro fiber texture
+          ribProfile * 0.44 +
+          yarn * 0.19 +
+          fuzz * 0.075 +
+          weftUndul * (0.32 + ribProfile * 0.68) +
+          twillBias * ribProfile;
       }
     }
   }
@@ -681,50 +738,58 @@ function generateFabricTextures(baseColor: string, materialId: string) {
   }
   colorCtx.putImageData(imgData, 0, 0);
 
-  // ── Normal map — gentle Sobel, soft strength for plush feel ──
+  // ── Normal map — seamless Sobel over height (tileable UVs, no dead edges) ──
   const [normalCanvas, normalCtx] = createCanvas();
   const nd = normalCtx.createImageData(TEX_SIZE, TEX_SIZE);
-  const nStr = isLeather ? 2.5 : isVelvet ? 2.0 : 3.5; // woven: strong relief for visible rib structure
-  for (let py = 1; py < TEX_SIZE - 1; py++) {
-    for (let px_ = 1; px_ < TEX_SIZE - 1; px_++) {
+  const nStr = isLeather ? 3.35 : isVelvet ? 2.65 : 4.75;
+  const hm = heightMap;
+  for (let py = 0; py < TEX_SIZE; py++) {
+    for (let px_ = 0; px_ < TEX_SIZE; px_++) {
+      const ddx =
+        fabricHeightAt(hm, px_ + 1, py - 1) + 2 * fabricHeightAt(hm, px_ + 1, py) + fabricHeightAt(hm, px_ + 1, py + 1) -
+        (fabricHeightAt(hm, px_ - 1, py - 1) + 2 * fabricHeightAt(hm, px_ - 1, py) + fabricHeightAt(hm, px_ - 1, py + 1));
+      const ddy =
+        fabricHeightAt(hm, px_ - 1, py + 1) + 2 * fabricHeightAt(hm, px_, py + 1) + fabricHeightAt(hm, px_ + 1, py + 1) -
+        (fabricHeightAt(hm, px_ - 1, py - 1) + 2 * fabricHeightAt(hm, px_, py - 1) + fabricHeightAt(hm, px_ + 1, py - 1));
+      const nx = -ddx * nStr;
+      const ny = -ddy * nStr;
+      const nz = 1.0;
+      const len = Math.sqrt(nx * nx + ny * ny + nz * nz);
       const o = (py * TEX_SIZE + px_) * 4;
-      const h = (yy: number, xx: number) => heightMap[yy * TEX_SIZE + xx];
-      const tl = h(py-1,px_-1), tc = h(py-1,px_), tr = h(py-1,px_+1);
-      const ml = h(py,px_-1),                       mr = h(py,px_+1);
-      const bl = h(py+1,px_-1), bc = h(py+1,px_), br = h(py+1,px_+1);
-      const ddx = (tr + 2*mr + br) - (tl + 2*ml + bl);
-      const ddy = (bl + 2*bc + br) - (tl + 2*tc + tr);
-      const nx = -ddx * nStr, ny = -ddy * nStr, nz = 1.0;
-      const len = Math.sqrt(nx*nx + ny*ny + nz*nz);
-      nd.data[o] = Math.round(((nx/len)*0.5+0.5)*255);
-      nd.data[o+1] = Math.round(((ny/len)*0.5+0.5)*255);
-      nd.data[o+2] = Math.round(((nz/len)*0.5+0.5)*255);
-      nd.data[o+3] = 255;
+      nd.data[o] = Math.round(((nx / len) * 0.5 + 0.5) * 255);
+      nd.data[o + 1] = Math.round(((ny / len) * 0.5 + 0.5) * 255);
+      nd.data[o + 2] = Math.round(((nz / len) * 0.5 + 0.5) * 255);
+      nd.data[o + 3] = 255;
     }
   }
   normalCtx.putImageData(nd, 0, 0);
 
-  // ── Roughness map — high roughness = matte, soft, no plastic shine ──
+  // ── Roughness map — height-correlated: thread tops slightly smoother, valleys rougher (micro-contrast) ──
+  let hMax = 1e-6;
+  for (let i = 0; i < heightMap.length; i++) hMax = Math.max(hMax, heightMap[i]);
+
   const [roughCanvas, roughCtx] = createCanvas();
   const rd = roughCtx.createImageData(TEX_SIZE, TEX_SIZE);
   for (let py = 0; py < TEX_SIZE; py++) {
     for (let px_ = 0; px_ < TEX_SIZE; px_++) {
       const i = (py * TEX_SIZE + px_) * 4;
-      const u = px_ / TEX_SIZE, v = py / TEX_SIZE;
+      const u = px_ / TEX_SIZE;
+      const v = py / TEX_SIZE;
+      const hn = heightMap[py * TEX_SIZE + px_] / hMax;
 
       let rough: number;
       if (isLeather) {
-        rough = 175; // ~0.69 — matte leather, not shiny
-        rough += (vnoise(u * 8, v * 8, seed + 500) - 0.5) * 10;
+        rough = 166 + (1 - hn) * 40;
+        rough += (vnoise(u * 12, v * 12, seed + 500) - 0.5) * 15;
       } else if (isVelvet) {
-        rough = 185; // ~0.73 — very matte
-        rough += (vnoise(u * 10, v * 10, seed + 500) - 0.5) * 8;
+        rough = 170 + (1 - hn) * 36;
+        rough += (vnoise(u * 14, v * 14, seed + 500) - 0.5) * 13;
       } else {
-        rough = 200; // ~0.78 — high roughness for soft woven feel
-        rough += (fbm(u * 3, v * 3, seed + 500, 2) - 0.5) * 12;
+        rough = 176 + (1 - hn) * 44;
+        rough += (fbm(u * 4, v * 4, seed + 500, 2) - 0.5) * 17;
       }
-      rd.data[i] = rd.data[i+1] = rd.data[i+2] = Math.max(150, Math.min(230, Math.round(rough)));
-      rd.data[i+3] = 255;
+      rd.data[i] = rd.data[i + 1] = rd.data[i + 2] = Math.max(148, Math.min(238, Math.round(rough)));
+      rd.data[i + 3] = 255;
     }
   }
   roughCtx.putImageData(rd, 0, 0);

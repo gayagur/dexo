@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import { MATERIALS, type MaterialOption } from "./furnitureData";
-import { getMaterialTextures } from "./materialTextures";
+import { getFabricRenderingParams, getMaterialTextures } from "./materialTextures";
 
 function disposeMaterialRef(m: THREE.Material | THREE.Material[]) {
   if (Array.isArray(m)) {
@@ -15,9 +15,9 @@ function normalScaleForMaterial(mat: MaterialOption | undefined): THREE.Vector2 
   if (mat.category === "Wood") return new THREE.Vector2(0.45, 0.45);
   if (mat.category === "Stone") return new THREE.Vector2(0.4, 0.4);
   if (mat.category === "Fabric") {
-    if (mat.id.includes("velvet")) return new THREE.Vector2(0.4, 0.5);
-    if (mat.id.includes("leather")) return new THREE.Vector2(0.35, 0.35);
-    return new THREE.Vector2(0.5, 0.5);
+    if (mat.id.includes("velvet")) return new THREE.Vector2(0.52, 0.62);
+    if (mat.id.includes("leather")) return new THREE.Vector2(0.42, 0.42);
+    return new THREE.Vector2(0.64, 0.64);
   }
   return new THREE.Vector2(0.3, 0.3);
 }
@@ -199,6 +199,7 @@ export function applyDesignMaterialToGlbRoot(
     }
 
     if (textures && isFabric && matEntry) {
+      const fp = getFabricRenderingParams(matEntry.id, matEntry.color, night ? "night" : "day");
       return new THREE.MeshPhysicalMaterial({
         map: textures.map,
         normalMap: textures.normalMap,
@@ -206,12 +207,9 @@ export function applyDesignMaterialToGlbRoot(
         roughnessMap: textures.roughnessMap,
         roughness,
         metalness: 0,
-        sheen: matEntry.id.includes("velvet") ? 0.08 : matEntry.id.includes("leather") ? 0.02 : 0.04,
-        sheenRoughness: matEntry.id.includes("velvet") ? 0.82 : matEntry.id.includes("leather") ? 0.92 : 0.88,
-        sheenColor: matEntry.color,
+        ...fp,
         transparent,
         opacity,
-        envMapIntensity: matEntry.id.includes("velvet") ? 0.26 : 0.2,
       });
     }
 
