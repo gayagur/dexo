@@ -630,6 +630,7 @@ export function EditorParameters({
                   <Input
                     type="number"
                     min={10}
+                    inputMode="decimal"
                     value={Math.round(groupSize[i] * 1000)}
                     onChange={(e) => {
                       const newVal = parseInt(e.target.value) || 0;
@@ -640,7 +641,7 @@ export function EditorParameters({
                       scales[i] = scale;
                       onScaleGroup(selectedGroup.id, scales[0], scales[1], scales[2]);
                     }}
-                    className="h-8 text-xs pr-8"
+                    className="h-8 text-base lg:text-xs pr-8"
                   />
                   <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-gray-400">
                     mm
@@ -712,13 +713,14 @@ export function EditorParameters({
                 <div className="relative">
                   <Input
                     type="number"
+                    inputMode="decimal"
                     value={Math.round(panel.size[i] * 1000)}
                     onChange={(e) => {
                       const newSize = [...panel.size] as [number, number, number];
                       newSize[i] = (parseInt(e.target.value) || 0) / 1000;
                       onUpdatePanel(panel.id, { size: newSize });
                     }}
-                    className="h-8 text-xs pr-8"
+                    className="h-8 text-base lg:text-xs pr-8"
                   />
                   <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-gray-400">
                     mm
@@ -771,6 +773,7 @@ export function EditorParameters({
                       <div className="relative">
                         <Input
                           type="number"
+                          inputMode="decimal"
                           step={isAngle ? "5" : isRatio ? "0.05" : "1"}
                           value={isAngle ? value : isRatio ? value : Math.round(value * 1000)}
                           onChange={(e) => {
@@ -780,7 +783,7 @@ export function EditorParameters({
                               shapeParams: { ...panel.shapeParams, [key]: newVal },
                             });
                           }}
-                          className="h-8 text-xs pr-8"
+                          className="h-8 text-base lg:text-xs pr-8"
                         />
                         <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-gray-400">
                           {isAngle ? "°" : isRatio ? "" : "mm"}
@@ -807,6 +810,7 @@ export function EditorParameters({
                 <div className="relative">
                   <Input
                     type="number"
+                    inputMode="decimal"
                     step="10"
                     value={Math.round(panel.position[i] * 1000)}
                     onChange={(e) => {
@@ -814,7 +818,7 @@ export function EditorParameters({
                       newPos[i] = (parseInt(e.target.value) || 0) / 1000;
                       onUpdatePanel(panel.id, { position: newPos });
                     }}
-                    className="h-8 text-xs pr-8"
+                    className="h-8 text-base lg:text-xs pr-8"
                   />
                   <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-gray-400">
                     mm
@@ -840,6 +844,7 @@ export function EditorParameters({
                   <div className="relative">
                     <Input
                       type="number"
+                      inputMode="decimal"
                       step="15"
                       value={Math.round((rot[i] * 180) / Math.PI)}
                       onChange={(e) => {
@@ -847,7 +852,7 @@ export function EditorParameters({
                         newRot[i] = ((parseInt(e.target.value) || 0) * Math.PI) / 180;
                         onUpdatePanel(panel.id, { rotation: newRot });
                       }}
-                      className="h-8 text-xs pr-6"
+                      className="h-8 text-base lg:text-xs pr-6"
                     />
                     <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-gray-400">
                       °
