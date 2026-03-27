@@ -528,6 +528,7 @@ interface EditorParametersProps {
   onUpdateGroupMaterial: (groupId: string, materialId: string) => void;
   onCustomGroupColor: (groupId: string, color: string) => void;
   onUpdateGroupTexture?: (groupId: string, textureUrl: string) => void;
+  onUpdateGroupSurfaceType?: (groupId: string, surfaceType: string) => void;
   onUpdateDims: (dims: { w: number; h: number; d: number }) => void;
   style: string;
   onStyleChange: (style: string) => void;
@@ -546,6 +547,7 @@ export function EditorParameters({
   onUpdateGroupMaterial,
   onCustomGroupColor,
   onUpdateGroupTexture,
+  onUpdateGroupSurfaceType,
   onUpdateDims,
   style,
   onStyleChange,
@@ -610,9 +612,11 @@ export function EditorParameters({
               if (tex && onUpdateGroupTexture) onUpdateGroupTexture(selectedGroup.id, getSH3DTextureUrl(tex.file));
             }}
             onCustomColor={(color) => onCustomGroupColor(selectedGroup.id, color)}
-            customColor={MATERIALS.find((m) => m.id === dominantMaterial)?.color}
+            customColor={selectedGroup.panels[0]?.customColor ?? MATERIALS.find((m) => m.id === dominantMaterial)?.color}
             label="Material (All)"
             onUploadTexture={onUpdateGroupTexture ? (url) => onUpdateGroupTexture(selectedGroup.id, url) : undefined}
+            onSurfaceType={onUpdateGroupSurfaceType ? (type) => onUpdateGroupSurfaceType(selectedGroup.id, type) : undefined}
+            currentSurfaceType={(selectedGroup.panels[0] as any)?.surfaceType}
           />
         </CollapsibleSection>
 

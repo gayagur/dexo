@@ -911,6 +911,16 @@ export function FurnitureEditor({
     }));
   }, [updateScene]);
 
+  const handleUpdateGroupSurfaceType = useCallback((groupId: string, surfaceType: string) => {
+    updateScene((prev) => prev.map((g) => {
+      if (g.id !== groupId) return g;
+      return {
+        ...g,
+        panels: g.panels.map((p) => ({ ...p, surfaceType })),
+      };
+    }));
+  }, [updateScene]);
+
   const handleUpdateAllMaterials = useCallback((materialId: string) => {
     if (editingGroupId) {
       setEditModePanels((prev) =>
@@ -1567,6 +1577,7 @@ export function FurnitureEditor({
           onUpdateGroupMaterial={handleUpdateGroupMaterial}
           onCustomGroupColor={handleCustomGroupColor}
           onUpdateGroupTexture={handleUpdateGroupTexture}
+          onUpdateGroupSurfaceType={handleUpdateGroupSurfaceType}
           multiSelectCount={selectedPanelIds.length}
         />
 
