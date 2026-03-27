@@ -174,19 +174,19 @@ export function normalizeAnalysisPanel(raw: RawAnalysisPanel, id: string): Panel
 }
 
 const SEATING_NAME_RE =
-  /\b(sofa|couch|sectional|loveseat|divan|settee|chesterfield|recliner|armchair|chaise|ottoman|ספה|כורסא)\b/i;
+  /\b(sofa|couch|sectional|loveseat|divan|settee|chesterfield|recliner|armchair|chaise|ottoman|chair|bench|stool|rocker|glider|ספה|כורסא|כיסא)\b/i;
 
 const UPHOLSTERY_MAT_RE = /^(fabric_|leather_|velvet_)/;
 
 function isExcludedFromCushionLabel(label: string): boolean {
-  return /\b(leg|legs|feet|foot|plinth|skirt|rail|stretcher|mechanism|spring|slat|hardware|knob|handle|caster|wheel|base\s*frame|frame\s*only)\b/i.test(
+  return /\b(leg|legs|feet|foot|plinth|skirt|rail|stretcher|mechanism|spring|slat|hardware|knob|handle|caster|wheel|base\s*frame|frame\s*only|gas\s*lift|column|star\s*base|x.base)\b/i.test(
     label
   );
 }
 
 function isCushionLikeLabel(label: string): boolean {
   if (isExcludedFromCushionLabel(label)) return false;
-  return /\b(cushion|seat|back|rest|headrest|pillow|bolster|pad|upholster|padding|foam|loft|arm\s*rest|armrest)\b/i.test(
+  return /\b(cushion|seat|back|rest|headrest|head\s*rest|pillow|bolster|pad|upholster|padding|foam|loft|arm\s*rest|armrest|arm\s*pad|backrest)\b/i.test(
     label
   );
 }
