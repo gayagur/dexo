@@ -214,24 +214,24 @@ export function HeroSection({
               <motion.div
                 custom={0.38}
                 variants={fadeUp}
-                className="flex items-center gap-4 flex-wrap justify-center lg:justify-start pt-2"
+                className="flex flex-col sm:flex-row items-center gap-4 justify-center lg:justify-start pt-2"
               >
                 <Link to={primaryCta.to}>
                   <Button
                     variant="hero"
                     size="lg"
-                    className="group h-14 px-10 text-base rounded-xl shadow-lg shadow-primary/20"
+                    className="group h-14 w-full sm:w-auto px-8 sm:px-10 text-base rounded-xl shadow-lg shadow-primary/20"
                   >
                     {primaryCta.label}
                     <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
                   </Button>
                 </Link>
                 {secondaryCta && (
-                  <Link to={secondaryCta.to}>
+                  <Link to={secondaryCta.to} className="w-full sm:w-auto">
                     <Button
                       variant="outline"
                       size="lg"
-                      className="h-14 px-10 text-base rounded-xl border-[#1B2432]/20 text-[#1B2432] hover:bg-[#1B2432]/5"
+                      className="h-14 w-full sm:w-auto px-8 sm:px-10 text-base rounded-xl border-[#1B2432]/20 text-[#1B2432] hover:bg-[#1B2432]/5"
                     >
                       {secondaryCta.label}
                     </Button>

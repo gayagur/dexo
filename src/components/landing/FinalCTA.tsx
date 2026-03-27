@@ -39,21 +39,21 @@ export function FinalCTA({
           {subheading}
         </p>
         <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-          <Link to={primaryCta.to}>
+          <Link to={primaryCta.to} className="w-full sm:w-auto">
             <Button
               size="xl"
-              className="bg-[#C05621] text-white hover:bg-[#A84A1C] h-14 px-10 text-lg rounded-xl shadow-sm hover:shadow-md"
+              className="bg-[#C05621] text-white hover:bg-[#A84A1C] h-14 w-full sm:w-auto px-8 sm:px-10 text-lg rounded-xl shadow-sm hover:shadow-md"
             >
               {primaryCta.label}
               <ArrowRight className="w-5 h-5" />
             </Button>
           </Link>
           {secondaryCta && (
-            <Link to={secondaryCta.to}>
+            <Link to={secondaryCta.to} className="w-full sm:w-auto">
               <Button
                 variant="outline"
                 size="xl"
-                className="border-[#1B2432]/20 text-[#1B2432] hover:bg-[#1B2432]/5 h-14 px-10 text-lg rounded-xl"
+                className="border-[#1B2432]/20 text-[#1B2432] hover:bg-[#1B2432]/5 h-14 w-full sm:w-auto px-8 sm:px-10 text-lg rounded-xl"
               >
                 {secondaryCta.label}
               </Button>
