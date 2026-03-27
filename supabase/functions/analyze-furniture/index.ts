@@ -3,12 +3,14 @@ import { verifyAuth } from "../_shared/auth.ts";
 import { logUsage, getDailyUsageCount } from "../_shared/usage.ts";
 import { FURNITURE_ANALYSIS_PROMPT } from "../_shared/furnitureAnalysisPrompt.ts";
 
-// Try multiple vision models in order of preference
+// Faster models first — avoids gateway timeouts; heavy model last as fallback
 const VISION_MODELS = [
-  "meta-llama/Llama-3.2-90B-Vision-Instruct-Turbo",
-  "moonshotai/Kimi-K2.5",
   "Qwen/Qwen3-VL-8B-Instruct",
+  "moonshotai/Kimi-K2.5",
+  "meta-llama/Llama-3.2-90B-Vision-Instruct-Turbo",
 ];
+/** Abort one Together attempt so a slow/hung model does not burn the whole function budget */
+const PER_MODEL_MS = 75_000;
 const DAILY_LIMIT = 20;
 
 Deno.serve(async (req) => {
@@ -54,27 +56,35 @@ Deno.serve(async (req) => {
       usedModel = model;
 
       try {
-        const response = await fetch("https://api.together.xyz/v1/chat/completions", {
-          method: "POST",
-          headers: {
-            "Authorization": `Bearer ${togetherApiKey}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            model,
-            messages: [
-              {
-                role: "user",
-                content: [
-                  { type: "text", text: FURNITURE_ANALYSIS_PROMPT },
-                  { type: "image_url", image_url: { url: imageUrl } },
-                ],
-              },
-            ],
-            max_tokens: 8192,
-            temperature: 0.2,
-          }),
-        });
+        const ac = new AbortController();
+        const timer = setTimeout(() => ac.abort(), PER_MODEL_MS);
+        let response: Response;
+        try {
+          response = await fetch("https://api.together.xyz/v1/chat/completions", {
+            method: "POST",
+            signal: ac.signal,
+            headers: {
+              "Authorization": `Bearer ${togetherApiKey}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              model,
+              messages: [
+                {
+                  role: "user",
+                  content: [
+                    { type: "text", text: FURNITURE_ANALYSIS_PROMPT },
+                    { type: "image_url", image_url: { url: imageUrl } },
+                  ],
+                },
+              ],
+              max_tokens: 4096,
+              temperature: 0.2,
+            }),
+          });
+        } finally {
+          clearTimeout(timer);
+        }
 
         if (!response.ok) {
           const errText = await response.text();

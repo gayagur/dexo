@@ -342,12 +342,11 @@ export interface FurnitureAnalysis {
  */
 export async function uploadFurnitureImage(file: File): Promise<{ url?: string; error?: string }> {
   try {
-    const MAX_SIZE = 1024;
+    const MAX_SIZE = 896;
 
     return new Promise((resolve) => {
       const img = new Image();
       img.onload = () => {
-        // Calculate resize dimensions
         let { width, height } = img;
         if (width > MAX_SIZE || height > MAX_SIZE) {
           const scale = MAX_SIZE / Math.max(width, height);
@@ -384,10 +383,29 @@ export async function analyzeFurnitureImage(imageUrl: string): Promise<{ data?: 
       body: JSON.stringify({ imageUrl }),
     });
 
-    const result = await response.json();
-    if (!response.ok) return { error: result.error || "Analysis failed" };
-    return { data: result as FurnitureAnalysis };
+    let result: Record<string, unknown> = {};
+    try {
+      result = (await response.json()) as Record<string, unknown>;
+    } catch {
+      if (!response.ok) {
+        return {
+          error: `Analysis failed (HTTP ${response.status}). Try again or use a smaller image.`,
+        };
+      }
+    }
+    if (!response.ok) {
+      const msg = typeof result.error === "string" ? result.error : `Analysis failed (HTTP ${response.status})`;
+      return { error: msg };
+    }
+    return { data: result as unknown as FurnitureAnalysis };
   } catch (err) {
-    return { error: (err as Error).message };
+    const msg = (err as Error).message;
+    if (msg === "Failed to fetch" || msg.includes("NetworkError") || msg.includes("fetch")) {
+      return {
+        error:
+          "Request timed out or could not reach the server. Try again in a moment, or use a smaller photo. If it keeps failing, redeploy the analyze-furniture Edge Function.",
+      };
+    }
+    return { error: msg };
   }
 }
