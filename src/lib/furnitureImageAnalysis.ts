@@ -242,10 +242,40 @@ function refineSeatingImportPanels(panels: PanelData[], furnitureName: string): 
   });
 }
 
+/**
+ * CylinderGeometry / circle_panel use Y as disk axis: flat top in XZ. rotation.x ≈ π/2 turns it vertical (wrong for tabletops).
+ * Size must be [diameter, thickness, diameter] for horizontal cylinder; circle_panel uses w and d similarly.
+ */
+function fixHorizontalRoundDisk(panel: PanelData): PanelData {
+  const sh = panel.shape ?? "box";
+  if (panel.type !== "horizontal" || (sh !== "cylinder" && sh !== "circle_panel")) return panel;
+
+  let p = { ...panel };
+  const rot = p.rotation;
+  if (
+    rot &&
+    Math.abs(rot[0] - Math.PI / 2) < 0.45 &&
+    Math.abs(rot[1]) < 0.35 &&
+    Math.abs(rot[2]) < 0.35
+  ) {
+    p = { ...p, rotation: [0, 0, 0] };
+  }
+
+  const [a, b, c] = p.size;
+  const sorted = [a, b, c].slice().sort((x, y) => x - y);
+  const t = sorted[0];
+  const D = sorted[2];
+  if (t >= D * 0.32) return p;
+  p = { ...p, size: [D, t, D] as [number, number, number] };
+  return p;
+}
+
 export function panelsFromFurnitureAnalysis(
   analysis: FurnitureAnalysis,
   nextId: () => string
 ): PanelData[] {
-  const panels = analysis.panels.map((p) => normalizeAnalysisPanel(p as RawAnalysisPanel, nextId()));
+  const panels = analysis.panels
+    .map((p) => normalizeAnalysisPanel(p as RawAnalysisPanel, nextId()))
+    .map(fixHorizontalRoundDisk);
   return refineSeatingImportPanels(panels, analysis.name ?? "");
 }

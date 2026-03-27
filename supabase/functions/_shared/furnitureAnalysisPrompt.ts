@@ -11,6 +11,7 @@ DECOMPOSITION — most important:
 - Do NOT merge unrelated masses into one box. Seat and backrest MUST be separate panels (different position, size, type). A single tall block for "seat+back" is WRONG.
 - Chair with 4 legs: output FOUR leg panels (cylinder or square_leg), one seat (horizontal), one back (vertical or rotated), plus apron/stretchers if visible. Minimum ~6 panels for a typical chair; 3–4 panels is unacceptable unless it is a solid one-piece molded stool.
 - Table: top + 4 legs + optional apron/rails. Sofa: multiple cushions + frame rails + legs — never one cube for the whole sofa.
+- Round / pedestal table top: shape "cylinder" or "circle_panel", type "horizontal", rotation [0,0,0] only. size [diameter, thickness, diameter] meters (thickness smallest, ~0.02–0.05). Do NOT use rotation [π/2,0,0] on the top — that tips the disk vertical.
 - Each physically separate part in the photo = its own panel with its own label (e.g. "Leg FL", "Seat", "Backrest", "Stretcher front").
 
 SHAPES — exact ids only:

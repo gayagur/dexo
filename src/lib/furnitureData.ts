@@ -434,7 +434,7 @@ export function getDefaultTemplate(furnitureId: string, dims: { w: number; h: nu
             shape: "cylinder",
             label: "Tabletop",
             position: [0, h - topT / 2, 0],
-            rotation: [Math.PI / 2, 0, 0],
+            // CylinderGeometry is along Y; size [diam, thickness, diam] → flat disk in XZ — no X-rotation
             size: [dm * 0.992, topT, dm * 0.992],
             materialId: "laminate_oak",
           },
