@@ -14,7 +14,7 @@ export function getMaterialTextures(materialId: string, baseColor: string, categ
   // Skip textures for glass — it uses transmission
   if (category === "Glass") return null;
 
-  const cacheKey = `v4_${materialId}_${baseColor}`;
+  const cacheKey = `v5_${materialId}_${baseColor}`;
   if (textureCache.has(cacheKey)) return textureCache.get(cacheKey)!;
 
   let result;
@@ -39,9 +39,13 @@ export function getMaterialTextures(materialId: string, baseColor: string, categ
   }
 
   if (result) {
-    // Configure all textures for tiling
+    // Configure all textures for tiling + high-quality filtering
     [result.map, result.normalMap, result.roughnessMap].forEach(tex => {
       tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+      tex.generateMipmaps = true;
+      tex.minFilter = THREE.LinearMipmapLinearFilter;
+      tex.magFilter = THREE.LinearFilter;
+      tex.anisotropy = 8; // sharper at oblique angles (grain on tabletops)
       tex.needsUpdate = true;
     });
     result.map.colorSpace = THREE.SRGBColorSpace;
@@ -80,187 +84,282 @@ function createCanvas(): [HTMLCanvasElement, CanvasRenderingContext2D] {
   return [canvas, ctx];
 }
 
-// ─── Perlin-style value noise for realistic patterns ───
-function valueNoise2D(x: number, y: number, rand: () => number, _seed: number): number {
-  // Simple multi-octave noise approximation using seeded random
-  const ix = Math.floor(x);
-  const iy = Math.floor(y);
-  const fx = x - ix;
-  const fy = y - iy;
-  // Smoothstep interpolation
-  const sx = fx * fx * (3 - 2 * fx);
-  const sy = fy * fy * (3 - 2 * fy);
-  // Hash corners
-  const hash = (xi: number, yi: number) => {
-    let h = ((xi * 374761393 + yi * 668265263 + _seed * 1013904223) >>> 0);
-    h = (((h >> 13) ^ h) * 1274126177) >>> 0;
-    return (h & 0xffff) / 0xffff;
-  };
-  const a = hash(ix, iy);
-  const b = hash(ix + 1, iy);
-  const c = hash(ix, iy + 1);
-  const d = hash(ix + 1, iy + 1);
+// ─── Noise primitives for photorealistic procedural textures ───
+
+/** Integer hash — fast, deterministic, no state */
+function ihash(x: number, y: number, s: number): number {
+  let h = ((x * 374761393 + y * 668265263 + s * 1013904223) | 0) >>> 0;
+  h = (((h >> 13) ^ h) * 1274126177) >>> 0;
+  return (h & 0x7fffffff) / 0x7fffffff; // 0..1
+}
+
+/** Bicubic-smooth value noise (seamless integer lattice) */
+function vnoise(x: number, y: number, s: number): number {
+  const ix = Math.floor(x), iy = Math.floor(y);
+  const fx = x - ix, fy = y - iy;
+  // Quintic interpolation (Ken Perlin's improved smoothstep)
+  const sx = fx * fx * fx * (fx * (fx * 6 - 15) + 10);
+  const sy = fy * fy * fy * (fy * (fy * 6 - 15) + 10);
+  const a = ihash(ix, iy, s), b = ihash(ix + 1, iy, s);
+  const c = ihash(ix, iy + 1, s), d = ihash(ix + 1, iy + 1, s);
   return a + (b - a) * sx + (c - a) * sy + (a - b - c + d) * sx * sy;
 }
 
-// ─── WOOD TEXTURES ────────────────────────────────────
+/** Fractal Brownian Motion — stacks octaves for organic detail */
+function fbm(x: number, y: number, s: number, octaves: number, lacunarity = 2.0, gain = 0.5): number {
+  let value = 0, amplitude = 1, frequency = 1, maxAmp = 0;
+  for (let i = 0; i < octaves; i++) {
+    value += amplitude * vnoise(x * frequency, y * frequency, s + i * 7919);
+    maxAmp += amplitude;
+    amplitude *= gain;
+    frequency *= lacunarity;
+  }
+  return value / maxAmp;
+}
+
+/** Domain-warped FBM — distorts coordinates with another fbm for ultra-organic look */
+function warpedFbm(x: number, y: number, s: number, octaves: number): number {
+  const wx = fbm(x + 1.7, y + 9.2, s + 31, 3) * 4.0;
+  const wy = fbm(x + 8.3, y + 2.8, s + 67, 3) * 4.0;
+  return fbm(x + wx, y + wy, s, octaves);
+}
+
+// ─── WOOD TEXTURES — photorealistic procedural generation ──────
 function generateWoodTextures(baseColor: string, materialId: string) {
-  const [r, g, b] = hexToRgb(baseColor);
+  const [br, bg, bb] = hexToRgb(baseColor);
   const seed = materialId.split("").reduce((acc, c) => acc + c.charCodeAt(0), 0);
   const rand = seededRandom(seed);
 
-  // Create a height buffer for generating the normal map
+  // ── Wood species parameters (adaptive to the material id) ──
+  const isOak = materialId.includes("oak");
+  const isWalnut = materialId.includes("walnut");
+  const isPine = materialId.includes("pine");
+  const isBirch = materialId.includes("birch");
+  const isCherry = materialId.includes("cherry");
+
+  // Growth ring density (rings per texture tile). Oak/walnut = wide rings, pine = tight.
+  const ringDensity = isPine ? 22 + rand() * 6 : isOak ? 10 + rand() * 4 : isWalnut ? 8 + rand() * 4 : 12 + rand() * 5;
+  // Knot probability
+  const knotChance = isPine ? 0.7 : isOak ? 0.25 : 0.35;
+  // Medullary ray intensity (quarter-sawn oak fleck)
+  const rayIntensity = isOak ? 0.22 : isBirch ? 0.08 : 0.03;
+  // Pore depth (open-pore woods like oak)
+  const poreIntensity = isOak ? 0.35 : isWalnut ? 0.2 : isCherry ? 0.12 : 0.06;
+  // Color warmth shift for earlywood vs latewood
+  const earlyLateContrast = isOak ? 0.14 : isWalnut ? 0.1 : isPine ? 0.18 : 0.1;
+
+  // Derived warm/cool tones from the base color
+  const earlyR = Math.min(255, br + 12), earlyG = Math.min(255, bg + 6), earlyB = bb;
+  const lateR = Math.max(0, br - 18), lateG = Math.max(0, bg - 12), lateB = Math.max(0, bb - 8);
+
+  // ── Buffers ──
   const heightMap = new Float32Array(TEX_SIZE * TEX_SIZE);
-
-  // Color map: realistic wood grain with multiple layers
   const [colorCanvas, colorCtx] = createCanvas();
-  const imageData = colorCtx.createImageData(TEX_SIZE, TEX_SIZE);
-  const pixels = imageData.data;
+  const imgData = colorCtx.createImageData(TEX_SIZE, TEX_SIZE);
+  const px = imgData.data;
 
-  // Pre-compute grain parameters
-  const grainCount = 160 + Math.floor(rand() * 40); // 160-200 grain lines
-  const grainLines: { y: number; width: number; darkness: number; phase: number; amplitude: number; frequency: number }[] = [];
-  for (let i = 0; i < grainCount; i++) {
-    grainLines.push({
-      y: (i / grainCount) * TEX_SIZE + (rand() - 0.5) * 4,
-      width: 0.5 + rand() * 2.5,
-      darkness: 0.88 + rand() * 0.08,
-      phase: rand() * Math.PI * 2,
-      amplitude: 0.5 + rand() * 2.0, // Very subtle waviness — straight grain
-      frequency: 0.001 + rand() * 0.003,
-    });
-  }
+  // ── Virtual tree center for growth rings (off-screen = flat-sawn look) ──
+  const treeCX = TEX_SIZE * (0.4 + rand() * 0.2);
+  const treeCY = TEX_SIZE * (-1.5 - rand() * 3);  // far above = nearly horizontal rings
 
-  // Pre-compute knot positions (0-3 knots per texture)
-  const knotCount = Math.floor(rand() * 3);
-  const knots: { cx: number; cy: number; r: number; strength: number }[] = [];
+  // ── Pre-compute knots ──
+  const knotCount = rand() < knotChance ? 1 + Math.floor(rand() * 2) : 0;
+  const knots: { cx: number; cy: number; r: number }[] = [];
   for (let i = 0; i < knotCount; i++) {
-    knots.push({
-      cx: rand() * TEX_SIZE,
-      cy: rand() * TEX_SIZE,
-      r: 20 + rand() * 40,
-      strength: 0.15 + rand() * 0.2,
-    });
+    knots.push({ cx: rand() * TEX_SIZE, cy: rand() * TEX_SIZE, r: 18 + rand() * 35 });
   }
 
-  // Generate each pixel
-  for (let y = 0; y < TEX_SIZE; y++) {
-    for (let x = 0; x < TEX_SIZE; x++) {
-      const idx = (y * TEX_SIZE + x) * 4;
-      let height = 0;
+  // ── Per-pixel generation ──
+  for (let py = 0; py < TEX_SIZE; py++) {
+    for (let px_ = 0; px_ < TEX_SIZE; px_++) {
+      const idx = (py * TEX_SIZE + px_) * 4;
 
-      // Base color with subtle large-scale variation (simulates heartwood/sapwood)
-      const largeNoise = valueNoise2D(x * 0.003, y * 0.008, rand, seed);
-      const medNoise = valueNoise2D(x * 0.01, y * 0.04, rand, seed + 100);
-      const fineNoise = valueNoise2D(x * 0.05, y * 0.15, rand, seed + 200);
+      // Normalised coordinates
+      const u = px_ / TEX_SIZE;
+      const v = py / TEX_SIZE;
 
-      let variation = (largeNoise - 0.5) * 0.12 + (medNoise - 0.5) * 0.06 + (fineNoise - 0.5) * 0.03;
+      // === 1. Growth rings ===
+      // Distance from virtual tree center, warped by domain noise for organic flow
+      const warpX = fbm(u * 3, v * 3, seed, 3) * 0.35;
+      const warpY = fbm(u * 3 + 5.1, v * 3 + 3.7, seed + 41, 3) * 0.35;
+      const dx = (px_ + warpX * TEX_SIZE) - treeCX;
+      const dy = (py + warpY * TEX_SIZE) - treeCY;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      const ringPhase = (dist / TEX_SIZE) * ringDensity * Math.PI * 2;
 
-      // Grain line contribution — each line darkens pixels near it
-      let grainDarkening = 0;
-      for (const line of grainLines) {
-        const lineY = line.y + Math.sin(x * line.frequency + line.phase) * line.amplitude;
-        const dist = Math.abs(y - lineY);
-        if (dist < line.width * 3) {
-          const t = Math.exp(-(dist * dist) / (line.width * line.width * 0.5));
-          grainDarkening += t * (1 - line.darkness);
-          height += t * 0.5;
+      // Ring profile: sharp latewood boundary (realistic — wood rings aren't sinusoidal)
+      const ringRaw = Math.sin(ringPhase);
+      const ringSharp = ringRaw > 0.3 ? 1.0 : ringRaw < -0.3 ? 0.0 : (ringRaw + 0.3) / 0.6;
+      // ringSharp: 0 = earlywood (light), 1 = latewood (dark)
+
+      // === 2. Grain flow — fibers along the X axis with organic variation ===
+      const fiberNoise = fbm(u * 40, v * 2.5, seed + 100, 4, 2.0, 0.45);
+      const fiberDetail = fbm(u * 120, v * 6, seed + 200, 3, 2.0, 0.4);
+
+      // === 3. Medullary rays — bright cross-grain flecks ===
+      let rayVal = 0;
+      if (rayIntensity > 0.01) {
+        // Rays run perpendicular to grain (vertical streaks in flat-sawn)
+        const rayNoise = vnoise(u * 2, v * 80, seed + 500);
+        const rayMask = vnoise(u * 6, v * 250, seed + 510);
+        rayVal = rayMask > 0.72 ? (rayNoise > 0.4 ? rayIntensity * (rayMask - 0.72) / 0.28 : 0) : 0;
+      }
+
+      // === 4. Pores — tiny dark dots along grain ===
+      let poreVal = 0;
+      if (poreIntensity > 0.04) {
+        const poreN = vnoise(u * 200, v * 25, seed + 600);
+        const poreMask = vnoise(u * 60, v * 8, seed + 610);
+        // Pores cluster in earlywood bands
+        if (poreN > 0.82 && poreMask > 0.45 && ringSharp < 0.5) {
+          poreVal = poreIntensity * (poreN - 0.82) / 0.18;
         }
       }
 
-      // Knot distortion — concentric rings around knot centers
+      // === 5. Knot distortion ===
+      let knotVal = 0;
       for (const knot of knots) {
-        const dx = x - knot.cx;
-        const dy = y - knot.cy;
-        const dist = Math.sqrt(dx * dx + dy * dy);
-        if (dist < knot.r * 2.5) {
-          const ringVal = Math.sin(dist * 0.3) * 0.5 + 0.5;
-          const falloff = Math.max(0, 1 - dist / (knot.r * 2.5));
-          const knotEffect = ringVal * falloff * knot.strength;
-          grainDarkening += knotEffect;
-          height += knotEffect * 2;
-          // Darken the center of the knot
-          if (dist < knot.r * 0.4) {
-            grainDarkening += (1 - dist / (knot.r * 0.4)) * 0.25;
+        const kx = px_ - knot.cx, ky = py - knot.cy;
+        const kd = Math.sqrt(kx * kx + ky * ky);
+        if (kd < knot.r * 3) {
+          const falloff = Math.max(0, 1 - kd / (knot.r * 3));
+          const falloff2 = falloff * falloff;
+          // Concentric rings
+          const kRing = Math.sin(kd * 0.4) * 0.5 + 0.5;
+          knotVal += kRing * falloff2 * 0.3;
+          // Dark core
+          if (kd < knot.r * 0.35) {
+            knotVal += (1 - kd / (knot.r * 0.35)) * 0.4;
           }
         }
       }
 
-      const totalDarkening = Math.min(grainDarkening, 0.35);
-      const colorMul = 1 - totalDarkening + variation;
+      // === 6. Large-scale heartwood/sapwood color drift ===
+      const drift = warpedFbm(u * 1.5, v * 0.8, seed + 300, 4);
 
-      // Slight warm/cool shift in grain vs non-grain areas
-      const warmShift = grainDarkening * 8; // Grain lines slightly warmer
-      pixels[idx] = Math.max(0, Math.min(255, r * colorMul + warmShift));
-      pixels[idx + 1] = Math.max(0, Math.min(255, g * colorMul));
-      pixels[idx + 2] = Math.max(0, Math.min(255, b * colorMul - warmShift * 0.5));
-      pixels[idx + 3] = 255;
+      // === Combine into final color ===
+      const earlyLate = ringSharp * earlyLateContrast;
+      const fiberMod = (fiberNoise - 0.5) * 0.08 + (fiberDetail - 0.5) * 0.03;
+      const driftMod = (drift - 0.5) * 0.12;
 
-      // Store height for normal map
-      heightMap[y * TEX_SIZE + x] = height + (fineNoise - 0.5) * 0.3;
+      // Interpolate between earlywood and latewood colors
+      const t = ringSharp;
+      let cr = earlyR + (lateR - earlyR) * t;
+      let cg = earlyG + (lateG - earlyG) * t;
+      let cb = earlyB + (lateB - earlyB) * t;
+
+      // Apply modifiers
+      const mod = 1.0 + fiberMod + driftMod - earlyLate * 0.5 - knotVal - poreVal;
+      cr *= mod;
+      cg *= mod;
+      cb *= mod;
+
+      // Medullary rays — add brightness (they reflect light)
+      cr += rayVal * 45;
+      cg += rayVal * 35;
+      cb += rayVal * 20;
+
+      // Micro-stains: rare dark spots for natural irregularity
+      const stain = vnoise(u * 30, v * 30, seed + 700);
+      if (stain > 0.92) {
+        const s = (stain - 0.92) / 0.08 * 0.15;
+        cr *= (1 - s); cg *= (1 - s); cb *= (1 - s);
+      }
+
+      px[idx] = Math.max(0, Math.min(255, Math.round(cr)));
+      px[idx + 1] = Math.max(0, Math.min(255, Math.round(cg)));
+      px[idx + 2] = Math.max(0, Math.min(255, Math.round(cb)));
+      px[idx + 3] = 255;
+
+      // === Height map — for normal generation ===
+      heightMap[py * TEX_SIZE + px_] =
+        ringSharp * 0.35 +           // grain depth in latewood
+        fiberNoise * 0.2 +           // fiber-level relief
+        fiberDetail * 0.1 +          // micro-fiber detail
+        poreVal * -1.5 +             // pores are depressions
+        knotVal * 0.8 +              // knots are raised
+        rayVal * 0.4;                // rays have slight elevation
     }
   }
 
-  // Add very fine pixel noise for micro-texture
-  for (let i = 0; i < pixels.length; i += 4) {
-    const noise = (rand() - 0.5) * 6;
-    pixels[i] = Math.max(0, Math.min(255, pixels[i] + noise));
-    pixels[i + 1] = Math.max(0, Math.min(255, pixels[i + 1] + noise));
-    pixels[i + 2] = Math.max(0, Math.min(255, pixels[i + 2] + noise));
+  // === Micro pixel noise — breaks digital perfection ===
+  const microRand = seededRandom(seed + 999);
+  for (let i = 0; i < px.length; i += 4) {
+    const n = (microRand() - 0.5) * 4;
+    px[i] = Math.max(0, Math.min(255, px[i] + n));
+    px[i + 1] = Math.max(0, Math.min(255, px[i + 1] + n));
+    px[i + 2] = Math.max(0, Math.min(255, px[i + 2] + n));
   }
-  colorCtx.putImageData(imageData, 0, 0);
+  colorCtx.putImageData(imgData, 0, 0);
 
-  // Normal map: derive from height map using 3x3 Sobel kernel
+  // ── Normal map — 3x3 Sobel on height buffer ──
   const [normalCanvas, normalCtx] = createCanvas();
-  const normalData = normalCtx.createImageData(TEX_SIZE, TEX_SIZE);
-  const strength = 3.0;
-  for (let y = 1; y < TEX_SIZE - 1; y++) {
-    for (let x = 1; x < TEX_SIZE - 1; x++) {
-      const idx = (y * TEX_SIZE + x) * 4;
-      // Sobel 3x3 kernel
-      const tl = heightMap[(y - 1) * TEX_SIZE + (x - 1)];
-      const tc = heightMap[(y - 1) * TEX_SIZE + x];
-      const tr = heightMap[(y - 1) * TEX_SIZE + (x + 1)];
-      const ml = heightMap[y * TEX_SIZE + (x - 1)];
-      const mr = heightMap[y * TEX_SIZE + (x + 1)];
-      const bl = heightMap[(y + 1) * TEX_SIZE + (x - 1)];
-      const bc = heightMap[(y + 1) * TEX_SIZE + x];
-      const br = heightMap[(y + 1) * TEX_SIZE + (x + 1)];
+  const nd = normalCtx.createImageData(TEX_SIZE, TEX_SIZE);
+  const nStr = 4.0; // stronger normals for visible grain under lighting
+  for (let py = 1; py < TEX_SIZE - 1; py++) {
+    for (let px_ = 1; px_ < TEX_SIZE - 1; px_++) {
+      const o = (py * TEX_SIZE + px_) * 4;
+      const h = (yy: number, xx: number) => heightMap[yy * TEX_SIZE + xx];
+      const tl = h(py - 1, px_ - 1), tc = h(py - 1, px_), tr = h(py - 1, px_ + 1);
+      const ml = h(py, px_ - 1),                             mr = h(py, px_ + 1);
+      const bl = h(py + 1, px_ - 1), bc = h(py + 1, px_), br = h(py + 1, px_ + 1);
 
-      const dx = (tr + 2 * mr + br) - (tl + 2 * ml + bl);
-      const dy = (bl + 2 * bc + br) - (tl + 2 * tc + tr);
-
-      // Normalize
-      const nx = -dx * strength;
-      const ny = -dy * strength;
-      const nz = 1.0;
+      const ddx = (tr + 2 * mr + br) - (tl + 2 * ml + bl);
+      const ddy = (bl + 2 * bc + br) - (tl + 2 * tc + tr);
+      const nx = -ddx * nStr, ny = -ddy * nStr, nz = 1.0;
       const len = Math.sqrt(nx * nx + ny * ny + nz * nz);
-
-      normalData.data[idx] = Math.round(((nx / len) * 0.5 + 0.5) * 255);
-      normalData.data[idx + 1] = Math.round(((ny / len) * 0.5 + 0.5) * 255);
-      normalData.data[idx + 2] = Math.round(((nz / len) * 0.5 + 0.5) * 255);
-      normalData.data[idx + 3] = 255;
+      nd.data[o] = Math.round(((nx / len) * 0.5 + 0.5) * 255);
+      nd.data[o + 1] = Math.round(((ny / len) * 0.5 + 0.5) * 255);
+      nd.data[o + 2] = Math.round(((nz / len) * 0.5 + 0.5) * 255);
+      nd.data[o + 3] = 255;
     }
   }
-  normalCtx.putImageData(normalData, 0, 0);
+  // Fill edges (copy from neighbours)
+  for (let x = 0; x < TEX_SIZE; x++) {
+    const top = (0 * TEX_SIZE + x) * 4, row1 = (1 * TEX_SIZE + x) * 4;
+    nd.data[top] = nd.data[row1]; nd.data[top + 1] = nd.data[row1 + 1]; nd.data[top + 2] = nd.data[row1 + 2]; nd.data[top + 3] = 255;
+    const bot = ((TEX_SIZE - 1) * TEX_SIZE + x) * 4, rowN = ((TEX_SIZE - 2) * TEX_SIZE + x) * 4;
+    nd.data[bot] = nd.data[rowN]; nd.data[bot + 1] = nd.data[rowN + 1]; nd.data[bot + 2] = nd.data[rowN + 2]; nd.data[bot + 3] = 255;
+  }
+  normalCtx.putImageData(nd, 0, 0);
 
-  // Roughness map: grain areas slightly smoother, variation across surface
+  // ── Roughness map — grain-aware with micro-scratches ──
   const [roughCanvas, roughCtx] = createCanvas();
-  const roughData = roughCtx.createImageData(TEX_SIZE, TEX_SIZE);
-  for (let y = 0; y < TEX_SIZE; y++) {
-    for (let x = 0; x < TEX_SIZE; x++) {
-      const i = (y * TEX_SIZE + x) * 4;
-      const h = heightMap[y * TEX_SIZE + x];
-      // Grain lines are slightly smoother (lower roughness where height is high)
-      const baseRoughness = 180; // ~0.71
-      const grainSmoothing = Math.min(h * 12, 25); // Up to -25 from base
-      const noise = (rand() - 0.5) * 16;
-      const val = Math.max(100, Math.min(220, baseRoughness - grainSmoothing + noise));
-      roughData.data[i] = roughData.data[i + 1] = roughData.data[i + 2] = val;
-      roughData.data[i + 3] = 255;
+  const rd = roughCtx.createImageData(TEX_SIZE, TEX_SIZE);
+  const scratchRand = seededRandom(seed + 1234);
+  for (let py = 0; py < TEX_SIZE; py++) {
+    for (let px_ = 0; px_ < TEX_SIZE; px_++) {
+      const i = (py * TEX_SIZE + px_) * 4;
+      const h = heightMap[py * TEX_SIZE + px_];
+
+      // Base roughness: finished wood ~0.55-0.70
+      let rough = 150; // ~0.59 for finished/lacquered wood
+
+      // Latewood is slightly smoother (denser fibers)
+      rough -= h * 8;
+
+      // Large-scale roughness variation (worn areas)
+      const wearNoise = vnoise(px_ / TEX_SIZE * 4, py / TEX_SIZE * 4, seed + 800);
+      rough += (wearNoise - 0.5) * 18;
+
+      // Micro-scratches — fine directional marks along grain
+      const scratch = vnoise(px_ / TEX_SIZE * 300, py / TEX_SIZE * 8, seed + 900);
+      if (scratch > 0.85) {
+        rough += (scratch - 0.85) / 0.15 * 35; // scratches are rougher
+      }
+
+      // Pore areas — slightly rougher (open pore finish)
+      const u = px_ / TEX_SIZE, v = py / TEX_SIZE;
+      const poreCheck = vnoise(u * 200, v * 25, seed + 600);
+      if (poreCheck > 0.82 && poreIntensity > 0.04) {
+        rough += 20;
+      }
+
+      rd.data[i] = rd.data[i + 1] = rd.data[i + 2] = Math.max(60, Math.min(220, Math.round(rough)));
+      rd.data[i + 3] = 255;
     }
   }
-  roughCtx.putImageData(roughData, 0, 0);
+  roughCtx.putImageData(rd, 0, 0);
 
   return {
     map: new THREE.CanvasTexture(colorCanvas),
@@ -507,7 +606,7 @@ function fabricRoughnessFromAlbedo(colorCtx: CanvasRenderingContext2D, baseGray:
   return roughCanvas;
 }
 
-// ─── FABRIC TEXTURES ──────────────────────────────────
+// ─── FABRIC TEXTURES — photorealistic upholstery ──────────────
 function generateFabricTextures(baseColor: string, materialId: string) {
   const [r, g, b] = hexToRgb(baseColor);
   const seed = materialId.split("").reduce((acc, c) => acc + c.charCodeAt(0), 0);
@@ -515,118 +614,186 @@ function generateFabricTextures(baseColor: string, materialId: string) {
   const isLeather = materialId.includes("leather");
   const isVelvet = materialId.includes("velvet");
 
+  const heightMap = new Float32Array(TEX_SIZE * TEX_SIZE);
   const [colorCanvas, colorCtx] = createCanvas();
+  const imgData = colorCtx.createImageData(TEX_SIZE, TEX_SIZE);
+  const px = imgData.data;
 
   if (isLeather) {
-    colorCtx.fillStyle = baseColor;
-    colorCtx.fillRect(0, 0, TEX_SIZE, TEX_SIZE);
-    for (let i = 0; i < 4500; i++) {
-      const x = rand() * TEX_SIZE;
-      const y = rand() * TEX_SIZE;
-      const size = 1.5 + rand() * 5;
-      const brightness = 0.88 + rand() * 0.22;
-      colorCtx.fillStyle = rgbToHex(
-        Math.min(255, r * brightness),
-        Math.min(255, g * brightness),
-        Math.min(255, b * brightness)
-      );
-      colorCtx.globalAlpha = 0.22 + rand() * 0.28;
-      colorCtx.beginPath();
-      colorCtx.ellipse(x, y, size, size * 0.75, rand() * Math.PI, 0, Math.PI * 2);
-      colorCtx.fill();
-    }
-    colorCtx.globalAlpha = 1;
-    // Crease lines
-    colorCtx.strokeStyle = rgbToHex(Math.max(0, r - 25), Math.max(0, g - 25), Math.max(0, b - 25));
-    colorCtx.globalAlpha = 0.12;
-    colorCtx.lineWidth = 1;
-    for (let k = 0; k < 12; k++) {
-      colorCtx.beginPath();
-      let cx = rand() * TEX_SIZE;
-      let cy = rand() * TEX_SIZE;
-      for (let s = 0; s < 30; s++) {
-        cx += (rand() - 0.3) * 18;
-        cy += (rand() - 0.5) * 18;
-        if (s === 0) colorCtx.moveTo(cx, cy);
-        else colorCtx.lineTo(cx, cy);
+    // ── Leather: pebble grain with creases and micro-pitting ──
+    for (let py = 0; py < TEX_SIZE; py++) {
+      for (let px_ = 0; px_ < TEX_SIZE; px_++) {
+        const i = (py * TEX_SIZE + px_) * 4;
+        const u = px_ / TEX_SIZE, v = py / TEX_SIZE;
+
+        // Pebble grain — domain-warped noise creates organic cell pattern
+        const pebble = warpedFbm(u * 18, v * 18, seed, 4);
+        const detail = fbm(u * 60, v * 60, seed + 100, 3);
+        const crease = fbm(u * 6, v * 8, seed + 200, 3);
+
+        // Color variation — slight warm/cool shift
+        const colorVar = (pebble - 0.5) * 0.12 + (detail - 0.5) * 0.04;
+        const creaseEffect = crease < 0.35 ? (0.35 - crease) * 0.25 : 0;
+
+        const mod = 1.0 + colorVar - creaseEffect;
+        px[i] = Math.max(0, Math.min(255, r * mod));
+        px[i + 1] = Math.max(0, Math.min(255, g * mod));
+        px[i + 2] = Math.max(0, Math.min(255, b * mod));
+        px[i + 3] = 255;
+
+        heightMap[py * TEX_SIZE + px_] = pebble * 0.6 + detail * 0.2 - creaseEffect * 1.5;
       }
-      colorCtx.stroke();
     }
-    colorCtx.globalAlpha = 1;
   } else if (isVelvet) {
-    const img = colorCtx.createImageData(TEX_SIZE, TEX_SIZE);
-    // Short pile: vertical streaks + noise (sheen handled in material)
-    for (let y = 0; y < TEX_SIZE; y++) {
-      for (let x = 0; x < TEX_SIZE; x++) {
-        const stripe = Math.sin(x * 0.45 + y * 0.08) * 0.045 + Math.sin(y * 0.12) * 0.025;
-        const n = Math.sin(x * 0.31 + y * 0.47) * 0.018 + Math.sin(x * 0.09 - y * 0.13) * 0.012;
-        const bump = 1 + stripe + n;
-        const i = (y * TEX_SIZE + x) * 4;
-        img.data[i] = Math.max(0, Math.min(255, r * bump));
-        img.data[i + 1] = Math.max(0, Math.min(255, g * bump));
-        img.data[i + 2] = Math.max(0, Math.min(255, b * bump));
-        img.data[i + 3] = 255;
+    // ── Velvet: short pile with directional sheen ──
+    for (let py = 0; py < TEX_SIZE; py++) {
+      for (let px_ = 0; px_ < TEX_SIZE; px_++) {
+        const i = (py * TEX_SIZE + px_) * 4;
+        const u = px_ / TEX_SIZE, v = py / TEX_SIZE;
+
+        // Pile direction streaks
+        const pile = fbm(u * 3 + v * 0.5, v * 40, seed, 4, 2.0, 0.5);
+        const micro = fbm(u * 80, v * 80, seed + 100, 3);
+
+        const colorVar = (pile - 0.5) * 0.09 + (micro - 0.5) * 0.03;
+        const mod = 1.0 + colorVar;
+        px[i] = Math.max(0, Math.min(255, r * mod));
+        px[i + 1] = Math.max(0, Math.min(255, g * mod));
+        px[i + 2] = Math.max(0, Math.min(255, b * mod));
+        px[i + 3] = 255;
+
+        heightMap[py * TEX_SIZE + px_] = pile * 0.4 + micro * 0.15;
       }
     }
-    colorCtx.putImageData(img, 0, 0);
   } else {
-    const img = colorCtx.createImageData(TEX_SIZE, TEX_SIZE);
-    // Woven cloth: basket / plain weave with visible thread spacing
-    const thread = 5;
-    for (let y = 0; y < TEX_SIZE; y++) {
-      for (let x = 0; x < TEX_SIZE; x++) {
-        const cx = Math.floor(x / thread);
-        const cy = Math.floor(y / thread);
-        const under = (cx + cy) % 2 === 0;
-        const u = (x % thread) / thread;
-        const v = (y % thread) / thread;
-        let shade = 1;
-        if (under) {
-          const dist = Math.abs(v - 0.5);
-          shade = dist < 0.38 ? 1.06 - dist * 0.18 : 0.9 + dist * 0.08;
-        } else {
-          const dist = Math.abs(u - 0.5);
-          shade = dist < 0.38 ? 1.04 - dist * 0.15 : 0.91 + dist * 0.07;
-        }
-        const fiber = 1 + Math.sin((cx * 7 + cy * 11 + x * 0.2 + y * 0.17) * 0.9) * 0.03;
-        const i = (y * TEX_SIZE + x) * 4;
-        img.data[i] = Math.max(0, Math.min(255, r * shade * fiber));
-        img.data[i + 1] = Math.max(0, Math.min(255, g * shade * fiber));
-        img.data[i + 2] = Math.max(0, Math.min(255, b * shade * fiber));
-        img.data[i + 3] = 255;
+    // ── Woven cloth: realistic twill / plain weave with fiber detail ──
+    const threadSize = 4; // pixels per thread
+    const threadCount = TEX_SIZE / threadSize;
+
+    // Pre-generate per-thread color variation (each yarn slightly different)
+    const threadColors: number[] = [];
+    for (let i = 0; i < threadCount * 2; i++) {
+      threadColors.push(0.94 + rand() * 0.12); // 0.94-1.06 brightness per thread
+    }
+
+    for (let py = 0; py < TEX_SIZE; py++) {
+      for (let px_ = 0; px_ < TEX_SIZE; px_++) {
+        const i = (py * TEX_SIZE + px_) * 4;
+        const u = px_ / TEX_SIZE, v = py / TEX_SIZE;
+
+        // Thread indices
+        const tx = Math.floor(px_ / threadSize);
+        const ty = Math.floor(py / threadSize);
+        // Position within thread (0..1)
+        const lx = (px_ % threadSize) / threadSize;
+        const ly = (py % threadSize) / threadSize;
+
+        // Plain weave: alternating over/under
+        const isWarp = (tx + ty) % 2 === 0; // warp on top
+
+        // Thread cross-section profile — rounded for realism
+        const profileX = 1.0 - 4.0 * (lx - 0.5) * (lx - 0.5); // parabolic
+        const profileY = 1.0 - 4.0 * (ly - 0.5) * (ly - 0.5);
+        const threadProfile = isWarp ? profileY : profileX;
+
+        // Thread elevation (over threads are raised)
+        const elevation = isWarp ? 0.3 + threadProfile * 0.5 : threadProfile * 0.3;
+
+        // Gap shadow between threads
+        const gapX = Math.min(lx, 1 - lx);
+        const gapY = Math.min(ly, 1 - ly);
+        const gap = Math.min(gapX, gapY);
+        const gapShadow = gap < 0.15 ? (0.15 - gap) / 0.15 * 0.15 : 0;
+
+        // Per-thread color variation
+        const threadColorMod = isWarp
+          ? threadColors[ty % threadCount]
+          : threadColors[(threadCount + tx) % (threadCount * 2)];
+
+        // Micro-fiber noise
+        const fiberNoise = vnoise(u * 200, v * 200, seed + 300);
+        const fiberMod = (fiberNoise - 0.5) * 0.04;
+
+        // Large-scale wear/fading
+        const wear = fbm(u * 2.5, v * 2.5, seed + 400, 3);
+        const wearMod = (wear - 0.5) * 0.06;
+
+        const shade = (threadColorMod + fiberMod + wearMod - gapShadow) *
+          (0.92 + threadProfile * 0.12); // raised center slightly brighter
+
+        // Slight warm/cool shift between warp and weft
+        const warmShift = isWarp ? 2 : -2;
+        px[i] = Math.max(0, Math.min(255, r * shade + warmShift));
+        px[i + 1] = Math.max(0, Math.min(255, g * shade));
+        px[i + 2] = Math.max(0, Math.min(255, b * shade - warmShift * 0.5));
+        px[i + 3] = 255;
+
+        heightMap[py * TEX_SIZE + px_] = elevation - gapShadow * 0.5;
       }
     }
-    colorCtx.putImageData(img, 0, 0);
-    // Secondary fine weft/warp lines
-    colorCtx.globalAlpha = 0.18;
-    colorCtx.lineWidth = 1;
-    for (let y = 0; y < TEX_SIZE; y += 2) {
-      colorCtx.strokeStyle = rgbToHex(
-        Math.max(0, r - 22), Math.max(0, g - 22), Math.max(0, b - 22)
-      );
-      colorCtx.beginPath();
-      colorCtx.moveTo(0, y);
-      colorCtx.lineTo(TEX_SIZE, y);
-      colorCtx.stroke();
-    }
-    for (let x = 0; x < TEX_SIZE; x += 2) {
-      colorCtx.strokeStyle = rgbToHex(
-        Math.min(255, r + 12), Math.min(255, g + 12), Math.min(255, b + 12)
-      );
-      colorCtx.beginPath();
-      colorCtx.moveTo(x, 0);
-      colorCtx.lineTo(x, TEX_SIZE);
-      colorCtx.stroke();
-    }
-    colorCtx.globalAlpha = 1;
   }
 
-  const normalStrength = isLeather ? 4.2 : isVelvet ? 5.5 : 6.2;
-  const normalCanvas = fabricNormalsFromAlbedo(colorCtx, normalStrength);
+  // Micro pixel noise — breaks digital perfection
+  const noiseRand = seededRandom(seed + 777);
+  for (let i = 0; i < px.length; i += 4) {
+    const n = (noiseRand() - 0.5) * 3;
+    px[i] = Math.max(0, Math.min(255, px[i] + n));
+    px[i + 1] = Math.max(0, Math.min(255, px[i + 1] + n));
+    px[i + 2] = Math.max(0, Math.min(255, px[i + 2] + n));
+  }
+  colorCtx.putImageData(imgData, 0, 0);
 
-  const roughBase = isLeather ? 0.62 : isVelvet ? 0.58 : 0.68;
-  const roughContrast = isLeather ? 0.28 : 0.35;
-  const roughCanvas = fabricRoughnessFromAlbedo(colorCtx, roughBase, roughContrast);
+  // ── Normal map from height buffer (Sobel) ──
+  const [normalCanvas, normalCtx] = createCanvas();
+  const nd = normalCtx.createImageData(TEX_SIZE, TEX_SIZE);
+  const nStr = isLeather ? 5.0 : isVelvet ? 6.0 : 7.0;
+  for (let py = 1; py < TEX_SIZE - 1; py++) {
+    for (let px_ = 1; px_ < TEX_SIZE - 1; px_++) {
+      const o = (py * TEX_SIZE + px_) * 4;
+      const h = (yy: number, xx: number) => heightMap[yy * TEX_SIZE + xx];
+      const tl = h(py-1,px_-1), tc = h(py-1,px_), tr = h(py-1,px_+1);
+      const ml = h(py,px_-1),                       mr = h(py,px_+1);
+      const bl = h(py+1,px_-1), bc = h(py+1,px_), br = h(py+1,px_+1);
+      const ddx = (tr + 2*mr + br) - (tl + 2*ml + bl);
+      const ddy = (bl + 2*bc + br) - (tl + 2*tc + tr);
+      const nx = -ddx * nStr, ny = -ddy * nStr, nz = 1.0;
+      const len = Math.sqrt(nx*nx + ny*ny + nz*nz);
+      nd.data[o] = Math.round(((nx/len)*0.5+0.5)*255);
+      nd.data[o+1] = Math.round(((ny/len)*0.5+0.5)*255);
+      nd.data[o+2] = Math.round(((nz/len)*0.5+0.5)*255);
+      nd.data[o+3] = 255;
+    }
+  }
+  normalCtx.putImageData(nd, 0, 0);
+
+  // ── Roughness map — height-driven with wear variation ──
+  const [roughCanvas, roughCtx] = createCanvas();
+  const rd = roughCtx.createImageData(TEX_SIZE, TEX_SIZE);
+  for (let py = 0; py < TEX_SIZE; py++) {
+    for (let px_ = 0; px_ < TEX_SIZE; px_++) {
+      const i = (py * TEX_SIZE + px_) * 4;
+      const h = heightMap[py * TEX_SIZE + px_];
+      const u = px_ / TEX_SIZE, v = py / TEX_SIZE;
+
+      let rough: number;
+      if (isLeather) {
+        rough = 155 + h * -15; // ~0.61 base, smoother on raised grain
+        rough += (vnoise(u * 20, v * 20, seed + 500) - 0.5) * 20;
+      } else if (isVelvet) {
+        rough = 145 + h * -10; // ~0.57 base, pile direction affects roughness
+        rough += (vnoise(u * 30, v * 30, seed + 500) - 0.5) * 15;
+      } else {
+        rough = 175; // ~0.69 base for woven cloth
+        // Weave gaps are rougher, raised thread centers smoother
+        rough -= h * 18;
+        // Wear variation
+        rough += (fbm(u * 3, v * 3, seed + 500, 3) - 0.5) * 22;
+      }
+      rd.data[i] = rd.data[i+1] = rd.data[i+2] = Math.max(80, Math.min(230, Math.round(rough)));
+      rd.data[i+3] = 255;
+    }
+  }
+  roughCtx.putImageData(rd, 0, 0);
 
   return {
     map: new THREE.CanvasTexture(colorCanvas),

@@ -2586,6 +2586,7 @@ function FurniturePanel({
   const isGlass = mat?.id === "glass";
   const isMetal = mat?.category === "Metal";
   const isFabric = mat?.category === "Fabric";
+  const isWood = mat?.category === "Wood";
   /** Metals reflect the env map; when night dims the env, boost so legs/chrome still read. */
   const envMetal = lightMode === "night" ? 4.75 : 2.5;
   const envDefault = lightMode === "night" ? 0.62 : 0.88;
@@ -2656,6 +2657,9 @@ function FurniturePanel({
 
   const normalScale = useMemo(() => {
     if (!mat) return new THREE.Vector2(0.3, 0.3);
+    if (mat.category === "Wood") return new THREE.Vector2(0.65, 0.65);
+    if (mat.category === "Engineered") return new THREE.Vector2(0.25, 0.25);
+    if (mat.category === "Stone") return new THREE.Vector2(0.5, 0.5);
     if (mat.category === "Fabric") {
       if (mat.id.includes("velvet")) return new THREE.Vector2(0.85, 1.25);
       if (mat.id.includes("leather")) return new THREE.Vector2(0.7, 0.7);
@@ -2953,6 +2957,20 @@ function FurniturePanel({
                 opacity={shapeMatProps.opacity}
                 envMapIntensity={isMetal ? envMetal : envDefault}
               />
+            ) : textures && isWood ? (
+              <meshPhysicalMaterial
+                map={textures.map}
+                normalMap={textures.normalMap}
+                normalScale={normalScale}
+                roughnessMap={textures.roughnessMap}
+                roughness={shapeMatProps.roughness}
+                metalness={0}
+                clearcoat={0.25}
+                clearcoatRoughness={0.35}
+                transparent={shapeMatProps.transparent}
+                opacity={shapeMatProps.opacity}
+                envMapIntensity={lightMode === "night" ? 0.9 : 1.1}
+              />
             ) : textures && isFabric ? (
               <meshPhysicalMaterial
                 map={textures.map}
@@ -2961,8 +2979,8 @@ function FurniturePanel({
                 roughnessMap={textures.roughnessMap}
                 roughness={shapeMatProps.roughness}
                 metalness={0}
-                sheen={mat!.id.includes("velvet") ? 0.5 : mat!.id.includes("leather") ? 0.1 : 0.28}
-                sheenRoughness={mat!.id.includes("velvet") ? 0.72 : 0.9}
+                sheen={mat!.id.includes("velvet") ? 0.6 : mat!.id.includes("leather") ? 0.12 : 0.45}
+                sheenRoughness={mat!.id.includes("velvet") ? 0.65 : mat!.id.includes("leather") ? 0.85 : 0.75}
                 sheenColor={mat!.color}
                 transparent={shapeMatProps.transparent}
                 opacity={shapeMatProps.opacity}
@@ -3043,6 +3061,20 @@ function FurniturePanel({
               transparent={shapeMatProps.transparent}
               opacity={shapeMatProps.opacity}
               envMapIntensity={isMetal ? envMetal : envDefault}
+            />
+          ) : textures && isWood ? (
+            <meshPhysicalMaterial
+              map={textures.map}
+              normalMap={textures.normalMap}
+              normalScale={normalScale}
+              roughnessMap={textures.roughnessMap}
+              roughness={shapeMatProps.roughness}
+              metalness={0}
+              clearcoat={0.25}
+              clearcoatRoughness={0.35}
+              transparent={shapeMatProps.transparent}
+              opacity={shapeMatProps.opacity}
+              envMapIntensity={lightMode === "night" ? 0.9 : 1.1}
             />
           ) : textures && !isFabric ? (
             <meshStandardMaterial

@@ -12,6 +12,8 @@ function disposeMaterialRef(m: THREE.Material | THREE.Material[]) {
 
 function normalScaleForMaterial(mat: MaterialOption | undefined): THREE.Vector2 {
   if (!mat) return new THREE.Vector2(0.3, 0.3);
+  if (mat.category === "Wood") return new THREE.Vector2(0.65, 0.65);
+  if (mat.category === "Stone") return new THREE.Vector2(0.5, 0.5);
   if (mat.category === "Fabric") {
     if (mat.id.includes("velvet")) return new THREE.Vector2(0.85, 1.25);
     if (mat.id.includes("leather")) return new THREE.Vector2(0.7, 0.7);
@@ -204,12 +206,30 @@ export function applyDesignMaterialToGlbRoot(
         roughnessMap: textures.roughnessMap,
         roughness,
         metalness: 0,
-        sheen: matEntry.id.includes("velvet") ? 0.5 : matEntry.id.includes("leather") ? 0.1 : 0.28,
-        sheenRoughness: matEntry.id.includes("velvet") ? 0.72 : 0.9,
+        sheen: matEntry.id.includes("velvet") ? 0.6 : matEntry.id.includes("leather") ? 0.12 : 0.45,
+        sheenRoughness: matEntry.id.includes("velvet") ? 0.65 : matEntry.id.includes("leather") ? 0.85 : 0.75,
         sheenColor: matEntry.color,
         transparent,
         opacity,
         envMapIntensity: matEntry.id.includes("velvet") ? 0.5 : 0.36,
+      });
+    }
+
+    // Wood: MeshPhysicalMaterial with clearcoat (lacquer/polyurethane finish)
+    const isWood = matEntry?.category === "Wood";
+    if (textures && isWood) {
+      return new THREE.MeshPhysicalMaterial({
+        map: textures.map,
+        normalMap: textures.normalMap,
+        normalScale,
+        roughnessMap: textures.roughnessMap,
+        roughness,
+        metalness: 0,
+        clearcoat: 0.25,
+        clearcoatRoughness: 0.35,
+        transparent,
+        opacity,
+        envMapIntensity: night ? 0.9 : 1.1,
       });
     }
 
