@@ -1310,7 +1310,7 @@ Now let's complete your project brief so designers can give you accurate quotes.
                 transition={{ duration: 0.3, ease: 'easeOut' }}
                 className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
               >
-                <div className={`max-w-[80%] px-5 py-3 rounded-2xl text-[0.92rem] leading-relaxed ${
+                <div className={`max-w-[90%] md:max-w-[80%] px-4 md:px-5 py-3 rounded-2xl text-[0.92rem] leading-relaxed ${
                   msg.role === 'user'
                     ? 'bg-[#C05621] text-white rounded-br-md'
                     : 'bg-white border border-[#C05621]/[0.06] text-[#1B2432] rounded-bl-md shadow-sm'
@@ -1341,7 +1341,7 @@ Now let's complete your project brief so designers can give you accurate quotes.
               animate={{ opacity: 1, y: 0 }}
               className="flex justify-start"
             >
-              <div className="max-w-[80%] px-5 py-3 rounded-2xl rounded-bl-md text-[0.92rem] leading-relaxed bg-white border border-[#C05621]/[0.06] text-[#1B2432] shadow-sm">
+              <div className="max-w-[90%] md:max-w-[80%] px-4 md:px-5 py-3 rounded-2xl rounded-bl-md text-[0.92rem] leading-relaxed bg-white border border-[#C05621]/[0.06] text-[#1B2432] shadow-sm">
                 <div className="prose prose-sm prose-stone max-w-none [&>p]:mb-2 [&>p:last-child]:mb-0">
                   <ReactMarkdown>{streamingContent}</ReactMarkdown>
                   <span className="inline-block w-1.5 h-4 bg-[#C05621]/60 animate-pulse ml-0.5 align-text-bottom" />
@@ -1488,7 +1488,7 @@ Now let's complete your project brief so designers can give you accurate quotes.
               className="flex-1 px-4 py-3 rounded-xl border border-[#C05621]/10 bg-white text-[#1B2432]
                          placeholder:text-[#4A5568]/50 focus:outline-none focus:ring-2 focus:ring-[#C05621]/30
                          focus:border-[#C05621]/30 transition-all resize-none min-h-[48px] max-h-[150px]
-                         disabled:opacity-50"
+                         disabled:opacity-50 text-base"
             />
             {isLoading ? (
               <Button
