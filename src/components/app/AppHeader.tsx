@@ -10,7 +10,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { User, Settings, LogOut, ChevronDown, Shield } from 'lucide-react';
+import { Sheet, SheetContent, SheetTrigger, SheetTitle } from '@/components/ui/sheet';
+import { User, Settings, LogOut, ChevronDown, Shield, Menu } from 'lucide-react';
 import { NotificationBell } from './NotificationBell';
 
 export function AppHeader() {
@@ -18,6 +19,7 @@ export function AppHeader() {
   const location = useLocation();
   const { user, activeRole, isAdmin, signOut } = useAuth();
   const [scrolled, setScrolled] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 8);
@@ -36,6 +38,19 @@ export function AppHeader() {
     .slice(0, 2);
 
   const homePath = '/home';
+
+  const navLinks = activeRole === 'business'
+    ? [
+        { to: '/home', label: 'Home' },
+        { to: '/business', label: 'Dashboard' },
+        { to: '/business/projects', label: 'Projects' },
+        { to: '/business/conversations', label: 'Messages' },
+      ]
+    : [
+        { to: '/home', label: 'Home' },
+        { to: '/dashboard', label: 'Projects' },
+        { to: '/browse-businesses', label: 'Creators' },
+      ];
 
   const handleLogout = async () => {
     await signOut();
@@ -60,20 +75,41 @@ export function AppHeader() {
             DEXO
           </Link>
 
+          {/* Mobile hamburger - visible below md */}
+          <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
+            <SheetTrigger asChild>
+              <button className="md:hidden h-11 w-11 flex items-center justify-center rounded-lg hover:bg-gray-100">
+                <Menu className="w-5 h-5 text-gray-700" />
+              </button>
+            </SheetTrigger>
+            <SheetContent side="right" className="w-72 p-0">
+              <SheetTitle className="sr-only">Navigation Menu</SheetTitle>
+              <nav className="flex flex-col pt-12 px-4">
+                {navLinks.map(({ to, label }) => {
+                  const isActive = location.pathname === to
+                    || (to === '/dashboard' && location.pathname.startsWith('/project/'))
+                    || (to === '/business' && location.pathname.startsWith('/business/request/'));
+                  return (
+                    <Link
+                      key={to}
+                      to={to}
+                      onClick={() => setMobileMenuOpen(false)}
+                      className={`h-12 flex items-center px-3 rounded-lg text-sm font-medium transition-colors ${
+                        isActive
+                          ? 'text-foreground bg-muted/70'
+                          : 'text-muted-foreground hover:text-foreground hover:bg-muted/60'
+                      }`}
+                    >
+                      {label}
+                    </Link>
+                  );
+                })}
+              </nav>
+            </SheetContent>
+          </Sheet>
+
           <nav className="hidden md:flex items-center gap-1">
-            {(activeRole === 'business'
-              ? [
-                  { to: '/home', label: 'Home' },
-                  { to: '/business', label: 'Dashboard' },
-                  { to: '/business/projects', label: 'Projects' },
-                  { to: '/business/conversations', label: 'Messages' },
-                ]
-              : [
-                  { to: '/home', label: 'Home' },
-                  { to: '/dashboard', label: 'Projects' },
-                  { to: '/browse-businesses', label: 'Creators' },
-                ]
-            ).map(({ to, label }) => {
+            {navLinks.map(({ to, label }) => {
               const isActive = location.pathname === to
                 || (to === '/dashboard' && location.pathname.startsWith('/project/'))
                 || (to === '/business' && location.pathname.startsWith('/business/request/'));
