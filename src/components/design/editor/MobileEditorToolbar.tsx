@@ -52,7 +52,7 @@ export function MobileEditorToolbar({
     : furnitureLabel;
 
   return (
-    <div className="shrink-0 bg-white border-b border-gray-200 px-2 flex items-center gap-1 safe-area-top" style={{ minHeight: 48 }}
+    <div className="shrink-0 bg-white border-b border-gray-200 px-2 flex items-center gap-1 safe-area-top" style={{ minHeight: 48 }}>
       {/* Back + Name */}
       <button onClick={onBack} className="h-11 w-11 flex items-center justify-center shrink-0" title="Back">
         <ArrowLeft className="w-5 h-5 text-gray-700" />
