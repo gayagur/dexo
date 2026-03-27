@@ -95,8 +95,8 @@ const BusinessProfilePage = () => {
   useEffect(() => {
     if (!id || !fetched || !business) return;
     supabase
-      .from('business_page_views')
-      .insert({ business_id: id, viewer_id: user?.id ?? null })
+      .from('business_page_views' as any)
+      .insert({ business_id: id, viewer_id: user?.id ?? null } as any)
       .then(() => {});
   }, [id, fetched, business]);
 

@@ -241,9 +241,9 @@ function CompositeShapeRenderer({
     case "x_base":
       return <XBase w={w} h={h} d={d} matProps={matProps} />;
     case "shaker_door":
-      return <ShakerDoor w={w} h={h} d={d} matProps={matProps} />;
+      return <ShakerDoor w={w} h={h} d={d} matProps={matProps} shapeParams={shapeParams} />;
     case "glass_insert_door":
-      return <GlassInsertDoor w={w} h={h} d={d} matProps={matProps} />;
+      return <GlassInsertDoor w={w} h={h} d={d} matProps={matProps} shapeParams={shapeParams} />;
     case "louvered_door":
       return <LouveredDoor w={w} h={h} d={d} matProps={matProps} />;
     case "drawer_box":
@@ -646,9 +646,15 @@ function XBase({ w, h, d, matProps }: CompProps) {
 
 // ─── Shaker Door (frame + recessed panel) ────────────────
 
-function ShakerDoor({ w, h, d, matProps }: CompProps) {
-  const frameW = Math.min(w * 0.12, 0.04);
-  const panelD = d * 0.4;
+function ShakerDoor({
+  w, h, d, matProps,
+  shapeParams,
+}: CompProps & { shapeParams?: Record<string, number> }) {
+  const frameW = Math.min(w * 0.11, h * 0.09, 0.038);
+  const panelD = Math.max(d * 0.35, 0.008);
+  const knobR = Math.min(0.013, d * 0.22, w * 0.045);
+  const knobSign = shapeParams?.knobSign === -1 ? -1 : 1;
+  const knobX = knobSign * Math.max(frameW * 0.9, w * 0.5 - frameW - knobR * 2.2);
   return (
     <group>
       {/* Frame — 4 bars */}
@@ -673,14 +679,25 @@ function ShakerDoor({ w, h, d, matProps }: CompProps) {
         <boxGeometry args={[w - frameW * 2 - 0.004, h - frameW * 2 - 0.004, panelD]} />
         <meshStandardMaterial {...matProps} />
       </mesh>
+      {/* Pull knob — chrome, toward opening edge (knobSign -1 for right-hinged leaf) */}
+      <mesh position={[knobX, h * 0.02, d * 0.52]}>
+        <sphereGeometry args={[knobR, 14, 14]} />
+        <meshStandardMaterial color="#d0d4dc" metalness={0.9} roughness={0.22} envMapIntensity={2} />
+      </mesh>
     </group>
   );
 }
 
 // ─── Glass Insert Door ──────────────────────────────────
 
-function GlassInsertDoor({ w, h, d, matProps }: CompProps) {
-  const frameW = Math.min(w * 0.12, 0.04);
+function GlassInsertDoor({
+  w, h, d, matProps,
+  shapeParams,
+}: CompProps & { shapeParams?: Record<string, number> }) {
+  const frameW = Math.min(w * 0.11, h * 0.09, 0.036);
+  const knobR = Math.min(0.012, d * 0.2, w * 0.04);
+  const knobSign = shapeParams?.knobSign === -1 ? -1 : 1;
+  const knobX = knobSign * Math.max(frameW * 0.9, w * 0.5 - frameW - knobR * 2.2);
   return (
     <group>
       {/* Frame */}
@@ -703,7 +720,11 @@ function GlassInsertDoor({ w, h, d, matProps }: CompProps) {
       {/* Glass panel */}
       <mesh position={[0, 0, 0]}>
         <boxGeometry args={[w - frameW * 2 - 0.004, h - frameW * 2 - 0.004, 0.004]} />
-        <meshStandardMaterial color="#d4e8f0" transparent opacity={0.3} roughness={0.05} metalness={0.1} />
+        <meshStandardMaterial color="#d4e8f0" transparent opacity={0.32} roughness={0.06} metalness={0.12} />
+      </mesh>
+      <mesh position={[knobX, h * 0.02, d * 0.52]}>
+        <sphereGeometry args={[knobR, 14, 14]} />
+        <meshStandardMaterial color="#d0d4dc" metalness={0.9} roughness={0.22} envMapIntensity={2} />
       </mesh>
     </group>
   );

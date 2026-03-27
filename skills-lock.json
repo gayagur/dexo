@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "skills": {
+    "design-and-user-experience-guidelines": {
+      "source": "oimiragieo/agent-studio",
+      "sourceType": "github",
+      "computedHash": "4588b44eaf3b5d71c8918b667fbabf4ab682096249bded2526174cc090184fb1"
+    },
+    "mobile-first-design-rules": {
+      "source": "oimiragieo/agent-studio",
+      "sourceType": "github",
+      "computedHash": "b4d06a547d74147fd0d03d16d13b51eceb11f83655557cac07edcfa9f429f749"
+    }
+  }
+}
