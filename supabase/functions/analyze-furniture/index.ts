@@ -5,7 +5,7 @@ import { logUsage, getDailyUsageCount } from "../_shared/usage.ts";
 // Try multiple vision models in order of preference
 const VISION_MODELS = [
   "meta-llama/Llama-3.2-90B-Vision-Instruct-Turbo",
-  "meta-llama/Llama-4-Maverick-17B-128E-Instruct-FP8",
+  "moonshotai/Kimi-K2.5",
   "Qwen/Qwen3-VL-8B-Instruct",
 ];
 const DAILY_LIMIT = 20;
