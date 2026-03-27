@@ -19,14 +19,14 @@ export function SelectionCard({
     return (
       <button
         onClick={onClick}
-        className="group relative overflow-hidden rounded-2xl border border-gray-200/60 bg-white text-left transition-all duration-300 ease-out hover:scale-[1.02] hover:shadow-xl hover:shadow-[#C87D5A]/10 hover:border-[#C87D5A]/30 min-h-[250px] flex flex-col"
+        className="group relative overflow-hidden rounded-2xl border border-gray-200/60 bg-white text-left transition-all duration-300 ease-out lg:hover:scale-[1.02] lg:hover:shadow-xl lg:hover:shadow-[#C87D5A]/10 lg:hover:border-[#C87D5A]/30 min-h-[180px] sm:min-h-[250px] flex flex-col"
       >
         {/* Image section - 65% */}
         <div className="relative w-full flex-[0_0_65%] overflow-hidden">
           <img
             src={imageUrl}
             alt={label}
-            className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 ease-out group-hover:scale-110"
+            className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 ease-out lg:group-hover:scale-110"
           />
           {/* Gradient overlay for smooth transition to text */}
           <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent" />
@@ -45,7 +45,7 @@ export function SelectionCard({
         </div>
 
         {/* Hover shine effect */}
-        <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
+        <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/10 to-transparent opacity-0 lg:group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
       </button>
     );
   }
@@ -54,13 +54,13 @@ export function SelectionCard({
   return (
     <button
       onClick={onClick}
-      className="group relative overflow-hidden rounded-2xl border border-gray-200/60 bg-white text-left transition-all duration-300 ease-out hover:scale-[1.02] hover:shadow-xl hover:shadow-[#C87D5A]/10 hover:border-[#C87D5A]/30 min-h-[250px] flex flex-col"
+      className="group relative overflow-hidden rounded-2xl border border-gray-200/60 bg-white text-left transition-all duration-300 ease-out lg:hover:scale-[1.02] lg:hover:shadow-xl lg:hover:shadow-[#C87D5A]/10 lg:hover:border-[#C87D5A]/30 min-h-[180px] sm:min-h-[250px] flex flex-col"
     >
       {/* Emoji / gradient section */}
       <div
         className={`relative w-full flex-[0_0_65%] bg-gradient-to-br ${gradient} flex items-center justify-center overflow-hidden`}
       >
-        <span className="text-5xl transition-transform duration-300 group-hover:scale-110 drop-shadow-sm">
+        <span className="text-5xl transition-transform duration-300 lg:group-hover:scale-110 drop-shadow-sm">
           {icon}
         </span>
         {/* Decorative circles */}
@@ -81,7 +81,7 @@ export function SelectionCard({
       </div>
 
       {/* Hover shine effect */}
-      <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
+      <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/10 to-transparent opacity-0 lg:group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
     </button>
   );
 }
