@@ -305,10 +305,10 @@ function RoundedRectGeometry({ w, h, depth, cornerRadius }: { w: number; h: numb
 
 function CushionGeometry({ w, h, depth, puff }: { w: number; h: number; depth: number; puff: number }) {
   const geo = useMemo(() => {
-    // High subdivision for smooth deformation
-    const segsW = Math.max(8, Math.round(w * 22));
-    const segsH = Math.max(6, Math.round(h * 22));
-    const segsD = Math.max(8, Math.round(depth * 22));
+    // Subdivision for smooth deformation — capped to avoid perf issues
+    const segsW = Math.min(16, Math.max(6, Math.round(w * 14)));
+    const segsH = Math.min(10, Math.max(4, Math.round(h * 14)));
+    const segsD = Math.min(16, Math.max(6, Math.round(depth * 14)));
     const g = new THREE.BoxGeometry(w, h, depth, segsW, segsH, segsD);
 
     const pos = g.attributes.position;
