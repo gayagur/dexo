@@ -179,7 +179,7 @@ export const MATERIALS: MaterialOption[] = [
   { id: "teak", label: "Teak", color: "#8B6914", category: "Wood", roughness: 0.8, metalness: 0.0 },
   { id: "mahogany", label: "Mahogany", color: "#6B3A2A", category: "Wood", roughness: 0.8, metalness: 0.0 },
   { id: "ash", label: "Ash", color: "#D6C6A5", category: "Wood", roughness: 0.8, metalness: 0.0 },
-  { id: "bamboo", label: "Bamboo", color: "#C9B76C", category: "Wood", roughness: 0.8, metalness: 0.0 },
+  { id: "bamboo", label: "Bamboo wood · במבוק", color: "#C9B76C", category: "Wood", roughness: 0.8, metalness: 0.0 },
   { id: "ebony", label: "Ebony", color: "#3C2415", category: "Wood", roughness: 0.8, metalness: 0.0 },
   // Engineered
   { id: "mdf", label: "MDF", color: "#C8B89A", category: "Engineered", roughness: 0.7, metalness: 0.0 },
@@ -219,6 +219,7 @@ export const MATERIALS: MaterialOption[] = [
   { id: "fabric_brown", label: "Brown Fabric", color: "#8B7355", category: "Fabric", roughness: 0.95, metalness: 0.0 },
   { id: "fabric_blue", label: "Blue Fabric", color: "#4A6FA5", category: "Fabric", roughness: 0.95, metalness: 0.0 },
   { id: "fabric_green", label: "Green Fabric", color: "#5B7B5E", category: "Fabric", roughness: 0.95, metalness: 0.0 },
+  { id: "fabric_bamboo", label: "Bamboo fabric · במבוק", color: "#B8A878", category: "Fabric", roughness: 0.95, metalness: 0.0 },
   { id: "velvet_navy", label: "Navy Velvet", color: "#1B3A5C", category: "Fabric", roughness: 0.95, metalness: 0.0 },
   // Glass & Acrylic
   { id: "glass", label: "Clear Glass", color: "#E0F0FF", category: "Glass", roughness: 0.1, metalness: 0.1 },

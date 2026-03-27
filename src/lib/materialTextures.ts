@@ -14,7 +14,7 @@ export function getMaterialTextures(materialId: string, baseColor: string, categ
   // Skip textures for glass — it uses transmission
   if (category === "Glass") return null;
 
-  const cacheKey = `v10_${materialId}_${baseColor}`;
+  const cacheKey = `v11_${materialId}_${baseColor}`;
   if (textureCache.has(cacheKey)) return textureCache.get(cacheKey)!;
 
   let result;
@@ -125,11 +125,117 @@ function warpedFbm(x: number, y: number, s: number, octaves: number): number {
   return fbm(x + wx, y + wy, s, octaves);
 }
 
+// ─── BAMBOO WOOD — vertical culm fibers + horizontal node rings ──────
+function generateBambooWoodTextures(
+  baseColor: string,
+  seed: number,
+  rand: () => number,
+  br: number,
+  bg: number,
+  bb: number,
+): { map: THREE.CanvasTexture; normalMap: THREE.CanvasTexture; roughnessMap: THREE.CanvasTexture } {
+  const heightMap = new Float32Array(TEX_SIZE * TEX_SIZE);
+  const [colorCanvas, colorCtx] = createCanvas();
+  const imgData = colorCtx.createImageData(TEX_SIZE, TEX_SIZE);
+  const px = imgData.data;
+
+  const stripeFreq = 72 + rand() * 36;
+  const nodeCount = 8 + Math.floor(rand() * 5);
+
+  for (let py = 0; py < TEX_SIZE; py++) {
+    for (let px_ = 0; px_ < TEX_SIZE; px_++) {
+      const idx = (py * TEX_SIZE + px_) * 4;
+      const u = px_ / TEX_SIZE;
+      const v = py / TEX_SIZE;
+
+      const stripeWobble = fbm(u * 3.5, v * 1.8, seed, 2, 2.0, 0.4) * 0.12;
+      const verticalStripe = Math.sin((u * stripeFreq + stripeWobble) * Math.PI * 2) * 0.5 + 0.5;
+      const nodeBand = Math.pow(Math.abs(Math.sin(v * nodeCount * Math.PI * 2 + fbm(u * 2, v * 6, seed + 11, 2) * 0.4)), 10);
+      const nodeDark = nodeBand * 0.07;
+      const fiber = fbm(u * 28, v * 18, seed + 50, 2, 2.0, 0.45);
+      const mod = 1.0 - verticalStripe * 0.072 - nodeDark + (fiber - 0.5) * 0.05;
+
+      const greenPush = verticalStripe * 5 + (1 - nodeBand) * 2;
+      const clamp = (x: number) => Math.max(0, Math.min(255, Math.round(x)));
+      px[idx] = clamp(br * mod - greenPush * 0.12);
+      px[idx + 1] = clamp(bg * mod + greenPush * 0.38);
+      px[idx + 2] = clamp(bb * mod - greenPush * 0.18);
+      px[idx + 3] = 255;
+
+      heightMap[py * TEX_SIZE + px_] =
+        verticalStripe * 0.26 + nodeBand * 0.42 + fiber * 0.08;
+    }
+  }
+
+  const microRand = seededRandom(seed + 701);
+  for (let i = 0; i < px.length; i += 4) {
+    const n = (microRand() - 0.5) * 2.5;
+    px[i] = Math.max(0, Math.min(255, px[i] + n));
+    px[i + 1] = Math.max(0, Math.min(255, px[i + 1] + n * 0.85));
+    px[i + 2] = Math.max(0, Math.min(255, px[i + 2] + n * 0.55));
+  }
+  colorCtx.putImageData(imgData, 0, 0);
+
+  const [normalCanvas, normalCtx] = createCanvas();
+  const nd = normalCtx.createImageData(TEX_SIZE, TEX_SIZE);
+  const nStr = 3.1;
+  for (let py = 1; py < TEX_SIZE - 1; py++) {
+    for (let px_ = 1; px_ < TEX_SIZE - 1; px_++) {
+      const o = (py * TEX_SIZE + px_) * 4;
+      const h = (yy: number, xx: number) => heightMap[yy * TEX_SIZE + xx];
+      const tl = h(py - 1, px_ - 1), tc = h(py - 1, px_), tr = h(py - 1, px_ + 1);
+      const ml = h(py, px_ - 1), mr = h(py, px_ + 1);
+      const bl = h(py + 1, px_ - 1), bc = h(py + 1, px_), brc = h(py + 1, px_ + 1);
+      const ddx = (tr + 2 * mr + brc) - (tl + 2 * ml + bl);
+      const ddy = (bl + 2 * bc + brc) - (tl + 2 * tc + tr);
+      const nx = -ddx * nStr, ny = -ddy * nStr, nz = 1.0;
+      const len = Math.sqrt(nx * nx + ny * ny + nz * nz);
+      nd.data[o] = Math.round(((nx / len) * 0.5 + 0.5) * 255);
+      nd.data[o + 1] = Math.round(((ny / len) * 0.5 + 0.5) * 255);
+      nd.data[o + 2] = Math.round(((nz / len) * 0.5 + 0.5) * 255);
+      nd.data[o + 3] = 255;
+    }
+  }
+  for (let x = 0; x < TEX_SIZE; x++) {
+    const top = (0 * TEX_SIZE + x) * 4, row1 = (1 * TEX_SIZE + x) * 4;
+    nd.data[top] = nd.data[row1]; nd.data[top + 1] = nd.data[row1 + 1]; nd.data[top + 2] = nd.data[row1 + 2]; nd.data[top + 3] = 255;
+    const bot = ((TEX_SIZE - 1) * TEX_SIZE + x) * 4, rowN = ((TEX_SIZE - 2) * TEX_SIZE + x) * 4;
+    nd.data[bot] = nd.data[rowN]; nd.data[bot + 1] = nd.data[rowN + 1]; nd.data[bot + 2] = nd.data[rowN + 2]; nd.data[bot + 3] = 255;
+  }
+  normalCtx.putImageData(nd, 0, 0);
+
+  const [roughCanvas, roughCtx] = createCanvas();
+  const rd = roughCtx.createImageData(TEX_SIZE, TEX_SIZE);
+  for (let py = 0; py < TEX_SIZE; py++) {
+    for (let px_ = 0; px_ < TEX_SIZE; px_++) {
+      const i = (py * TEX_SIZE + px_) * 4;
+      const u = px_ / TEX_SIZE;
+      const v = py / TEX_SIZE;
+      let rough = 188;
+      rough += (vnoise(u * 4, v * 20, seed + 800) - 0.5) * 16;
+      rough += (vnoise(u * 20, v * 20, seed + 900) - 0.5) * 10;
+      rd.data[i] = rd.data[i + 1] = rd.data[i + 2] = Math.max(168, Math.min(218, Math.round(rough)));
+      rd.data[i + 3] = 255;
+    }
+  }
+  roughCtx.putImageData(rd, 0, 0);
+
+  return {
+    map: new THREE.CanvasTexture(colorCanvas),
+    normalMap: new THREE.CanvasTexture(normalCanvas),
+    roughnessMap: new THREE.CanvasTexture(roughCanvas),
+  };
+}
+
 // ─── WOOD TEXTURES — natural flowing grain with knot eyes ──────
 function generateWoodTextures(baseColor: string, materialId: string) {
   const [br, bg, bb] = hexToRgb(baseColor);
   const seed = materialId.split("").reduce((acc, c) => acc + c.charCodeAt(0), 0);
   const rand = seededRandom(seed);
+
+  if (materialId === "bamboo") {
+    return generateBambooWoodTextures(baseColor, seed, rand, br, bg, bb);
+  }
 
   // ── Knot/eye features: 2-4 organic focal points where grain flows around ──
   const knotCount = 2 + Math.floor(rand() * 3);
