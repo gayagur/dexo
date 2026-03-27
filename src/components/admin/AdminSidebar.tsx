@@ -9,7 +9,9 @@ import {
   ArrowLeft,
   BookOpen,
   Library,
+  Menu,
 } from "lucide-react";
+import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet";
 
 interface NavItem {
   to: string;
@@ -42,8 +44,8 @@ export function AdminSidebar({ pendingCount = 0 }: AdminSidebarProps) {
     return location.pathname.startsWith(path);
   };
 
-  return (
-    <aside className="w-64 h-screen bg-white border-r border-gray-100 flex flex-col fixed left-0 top-0 z-40">
+  const NavContent = () => (
+    <>
       {/* Header */}
       <div className="h-16 flex items-center px-5 border-b border-gray-50">
         <Link to="/admin" className="flex items-center gap-2.5">
@@ -96,6 +98,30 @@ export function AdminSidebar({ pendingCount = 0 }: AdminSidebarProps) {
           <span>Back to Platform</span>
         </Link>
       </div>
-    </aside>
+    </>
+  );
+
+  return (
+    <>
+      {/* Desktop sidebar — hidden on mobile */}
+      <aside className="hidden md:flex w-64 h-screen bg-white border-r border-gray-100 flex-col fixed left-0 top-0 z-40">
+        <NavContent />
+      </aside>
+
+      {/* Mobile hamburger + Sheet — visible only on mobile */}
+      <div className="md:hidden fixed top-0 left-0 z-50 p-2">
+        <Sheet>
+          <SheetTrigger asChild>
+            <button className="h-11 w-11 flex items-center justify-center rounded-lg bg-white shadow-md border border-gray-200">
+              <Menu className="w-5 h-5 text-gray-700" />
+            </button>
+          </SheetTrigger>
+          <SheetContent side="left" className="w-72 p-0 flex flex-col">
+            <SheetTitle className="sr-only">Admin Navigation</SheetTitle>
+            <NavContent />
+          </SheetContent>
+        </Sheet>
+      </div>
+    </>
   );
 }
