@@ -206,12 +206,12 @@ export function applyDesignMaterialToGlbRoot(
         roughnessMap: textures.roughnessMap,
         roughness,
         metalness: 0,
-        sheen: matEntry.id.includes("velvet") ? 0.35 : matEntry.id.includes("leather") ? 0.06 : 0.18,
-        sheenRoughness: matEntry.id.includes("velvet") ? 0.75 : matEntry.id.includes("leather") ? 0.9 : 0.85,
+        sheen: matEntry.id.includes("velvet") ? 0.08 : matEntry.id.includes("leather") ? 0.02 : 0.04,
+        sheenRoughness: matEntry.id.includes("velvet") ? 0.82 : matEntry.id.includes("leather") ? 0.92 : 0.88,
         sheenColor: matEntry.color,
         transparent,
         opacity,
-        envMapIntensity: matEntry.id.includes("velvet") ? 0.5 : 0.36,
+        envMapIntensity: matEntry.id.includes("velvet") ? 0.26 : 0.2,
       });
     }
 

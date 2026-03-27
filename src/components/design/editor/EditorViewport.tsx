@@ -97,7 +97,7 @@ const SURFACE_PBR: Record<string, {
   matte: { roughness: 1.0, metalness: 0 },
   wood: { roughness: 0.7, metalness: 0, clearcoat: 0.2, clearcoatRoughness: 0.4 },
   metal: { roughness: 0.2, metalness: 1.0 },
-  fabric: { roughness: 0.9, metalness: 0, sheen: 1.0, sheenRoughness: 0.8, sheenColor: "#ffffff" },
+  fabric: { roughness: 0.9, metalness: 0, sheen: 0.06, sheenRoughness: 0.9, sheenColor: "#f5f5f4" },
   glass: { roughness: 0.05, metalness: 0.1, transmission: 0.8, ior: 1.5, thickness: 0.5 },
   stone: { roughness: 0.8, metalness: 0 },
 };
@@ -3122,12 +3122,12 @@ function FurniturePanel({
                 roughnessMap={textures.roughnessMap}
                 roughness={shapeMatProps.roughness}
                 metalness={0}
-                sheen={mat!.id.includes("velvet") ? 0.35 : mat!.id.includes("leather") ? 0.06 : 0.18}
-                sheenRoughness={mat!.id.includes("velvet") ? 0.75 : mat!.id.includes("leather") ? 0.9 : 0.85}
+                sheen={mat!.id.includes("velvet") ? 0.08 : mat!.id.includes("leather") ? 0.02 : 0.04}
+                sheenRoughness={mat!.id.includes("velvet") ? 0.82 : mat!.id.includes("leather") ? 0.92 : 0.88}
                 sheenColor={mat!.color}
                 transparent={shapeMatProps.transparent}
                 opacity={shapeMatProps.opacity}
-                envMapIntensity={mat!.id.includes("velvet") ? 0.5 : 0.36}
+                envMapIntensity={mat!.id.includes("velvet") ? 0.26 : 0.2}
               />
             ) : textures ? (
               <meshStandardMaterial
@@ -3239,12 +3239,12 @@ function FurniturePanel({
               roughnessMap={textures.roughnessMap}
               roughness={shapeMatProps.roughness}
               metalness={0}
-              sheen={mat!.id.includes("velvet") ? 0.5 : mat!.id.includes("leather") ? 0.1 : 0.28}
-              sheenRoughness={mat!.id.includes("velvet") ? 0.72 : 0.9}
+              sheen={mat!.id.includes("velvet") ? 0.08 : mat!.id.includes("leather") ? 0.02 : 0.04}
+              sheenRoughness={mat!.id.includes("velvet") ? 0.82 : mat!.id.includes("leather") ? 0.92 : 0.88}
               sheenColor={mat!.color}
               transparent={shapeMatProps.transparent}
               opacity={shapeMatProps.opacity}
-              envMapIntensity={mat!.id.includes("velvet") ? 0.5 : 0.36}
+              envMapIntensity={mat!.id.includes("velvet") ? 0.26 : 0.2}
             />
           ) : (
             <meshStandardMaterial

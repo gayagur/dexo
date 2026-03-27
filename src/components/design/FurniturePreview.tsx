@@ -137,10 +137,10 @@ function PreviewPanel({ panel }: { panel: PanelData }) {
           roughnessMap={textures.roughnessMap}
           roughness={roughness}
           metalness={0}
-          sheen={mat!.id.includes("velvet") ? 0.5 : mat!.id.includes("leather") ? 0.1 : 0.28}
-          sheenRoughness={mat!.id.includes("velvet") ? 0.72 : 0.9}
+          sheen={mat!.id.includes("velvet") ? 0.08 : mat!.id.includes("leather") ? 0.02 : 0.04}
+          sheenRoughness={mat!.id.includes("velvet") ? 0.82 : mat!.id.includes("leather") ? 0.92 : 0.88}
           sheenColor={mat!.color}
-          envMapIntensity={mat!.id.includes("velvet") ? 0.5 : 0.36}
+          envMapIntensity={mat!.id.includes("velvet") ? 0.26 : 0.2}
         />
       ) : textures && shape === "box" ? (
         <meshStandardMaterial
