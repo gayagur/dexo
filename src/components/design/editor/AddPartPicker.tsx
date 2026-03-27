@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { X, Search } from "lucide-react";
 import type { PanelData, PanelShape } from "@/lib/furnitureData";
+import { useMobileInfo } from "@/hooks/use-mobile";
+import { MobileDrawer } from "@/components/ui/MobileDrawer";
 
 // ─── Part definition ───────────────────────────────────
 
@@ -28,6 +30,8 @@ interface PartPreset {
   shapeParams?: Record<string, number>;
   /** When true, spawns centered on the selected panel’s top (or highest horizontal surface). */
   placeOnSelected?: boolean;
+  /** When true, always sits on the ground plane (y=0), not on tables/shelves. */
+  placeOnFloor?: boolean;
   /** Multi-part items: when set, adds a GROUP with these panels instead of a single panel */
   buildPanels?: () => PanelData[];
   /** Group name when buildPanels is used */
@@ -378,24 +382,28 @@ const PART_CATEGORIES: PartCategory[] = [
         description: "Simple flat panel door",
         shape: "box", type: "vertical",
         size: [0.7, 2.0, 0.04], materialId: "melamine_white",
+        placeOnFloor: true,
       },
       {
         id: "shaker_door", label: "Shaker Door", icon: "▣",
         description: "Frame + recessed panel",
         shape: "shaker_door", type: "vertical",
         size: [0.7, 2.0, 0.04], materialId: "oak",
+        placeOnFloor: true,
       },
       {
         id: "glass_insert_door", label: "Glass Insert Door", icon: "◇",
         description: "Frame with glass center",
         shape: "glass_insert_door", type: "vertical",
         size: [0.7, 2.0, 0.04], materialId: "oak",
+        placeOnFloor: true,
       },
       {
         id: "louvered_door", label: "Louvered Door", icon: "☰",
         description: "Frame with angled slats",
         shape: "louvered_door", type: "vertical",
         size: [0.7, 2.0, 0.04], materialId: "oak",
+        placeOnFloor: true,
       },
       {
         id: "drawer_box", label: "Drawer Box", icon: "☐",
@@ -737,6 +745,7 @@ interface AddPartPickerProps {
     materialId: string;
     shapeParams?: Record<string, number>;
     placeOnSelected?: boolean;
+    placeOnFloor?: boolean;
   }) => void;
   onAddGroup?: (name: string, panels: PanelData[]) => void;
   onAddGLB?: (name: string, glbPath: string) => void;
@@ -744,6 +753,7 @@ interface AddPartPickerProps {
 }
 
 export function AddPartPicker({ onAdd, onAddGroup, onAddGLB, onClose }: AddPartPickerProps) {
+  const { isMobileLayout } = useMobileInfo();
   const [hovered, setHovered] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [expandedCategory, setExpandedCategory] = useState<string | null>(null);
@@ -758,6 +768,136 @@ export function AddPartPicker({ onAdd, onAddGroup, onAddGLB, onClose }: AddPartP
         item.description.toLowerCase().includes(searchLower)
     ),
   })).filter((cat) => cat.items.length > 0);
+
+  const categoryList = (
+    <div className="space-y-3">
+      {filteredCategories.map((category) => {
+        const isExpanded = expandedCategory === category.label || search.length > 0;
+        const showItems = isExpanded ? category.items : [];
+        const hasMore = !isExpanded;
+
+        return (
+          <div key={category.label}>
+            <button
+              onClick={() => setExpandedCategory(
+                expandedCategory === category.label ? null : category.label
+              )}
+              className="w-full flex items-center gap-2 px-1 mb-2 group"
+            >
+              <span className="text-sm">{category.icon}</span>
+              <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
+                {category.label}
+              </p>
+              <span className="text-[10px] text-gray-300 ml-1">
+                ({category.items.length})
+              </span>
+              <div className="flex-1" />
+              <span className="text-[10px] text-gray-300 group-hover:text-gray-500 transition-colors">
+                {isExpanded ? "▾ collapse" : `▸ ${category.items.length} items`}
+              </span>
+            </button>
+
+            <div className={`grid gap-2 ${isMobileLayout ? "grid-cols-2" : "grid-cols-3"}`}>
+              {showItems.map((item) => (
+                <button
+                  key={item.id}
+                  onClick={() => {
+                    if (item.glbPath && onAddGLB) {
+                      onAddGLB(item.groupName ?? item.label, item.glbPath);
+                    } else if (item.buildPanels && onAddGroup) {
+                      onAddGroup(item.groupName ?? item.label, item.buildPanels());
+                    } else {
+                      onAdd({
+                        shape: item.shape,
+                        type: item.type,
+                        label: item.label,
+                        size: item.size,
+                        materialId: item.materialId,
+                        shapeParams: item.shapeParams,
+                        placeOnSelected: item.placeOnSelected,
+                        placeOnFloor: item.placeOnFloor,
+                      });
+                    }
+                    onClose();
+                  }}
+                  onMouseEnter={() => setHovered(item.id)}
+                  onMouseLeave={() => setHovered(null)}
+                  className={`relative group rounded-xl border p-3 text-left transition-all duration-200 min-h-[44px] ${
+                    hovered === item.id
+                      ? "border-[#C87D5A]/40 bg-[#C87D5A]/[0.04] shadow-md shadow-[#C87D5A]/10 scale-[1.02]"
+                      : "border-gray-200 bg-white hover:border-gray-300"
+                  }`}
+                >
+                  <div
+                    className={`w-9 h-9 rounded-lg flex items-center justify-center mb-2 text-lg transition-colors ${
+                      hovered === item.id
+                        ? "bg-[#C87D5A]/10"
+                        : "bg-gray-100"
+                    }`}
+                  >
+                    {item.icon}
+                  </div>
+                  <p className="text-xs font-medium text-gray-900 leading-tight">
+                    {item.label}
+                  </p>
+                  <p className="text-[10px] text-gray-400 mt-0.5 leading-tight">
+                    {item.description}
+                  </p>
+                </button>
+              ))}
+            </div>
+
+            {hasMore && (
+              <button
+                onClick={() => setExpandedCategory(category.label)}
+                className="mt-1.5 w-full text-center text-[10px] text-[#C87D5A] hover:text-[#B06B4A] font-medium py-1 transition-colors"
+              >
+                + {category.items.length - 6} more
+              </button>
+            )}
+          </div>
+        );
+      })}
+
+      {filteredCategories.length === 0 && (
+        <div className="text-center text-sm text-gray-400 py-8">
+          No shapes match &quot;{search}&quot;
+        </div>
+      )}
+    </div>
+  );
+
+  const searchBar = (
+    <div className="relative">
+      <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
+      <input
+        type="text"
+        placeholder="Search shapes..."
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        className="w-full pl-8 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#C87D5A]/30 focus:border-[#C87D5A]/50"
+        autoFocus
+      />
+    </div>
+  );
+
+  if (isMobileLayout) {
+    return (
+      <MobileDrawer isOpen={true} onClose={onClose} title="Add Part" height="half">
+        <div className="flex flex-col gap-3">
+          <p className="text-xs text-gray-400">
+            {PART_CATEGORIES.reduce((n, c) => n + c.items.length, 0)} shapes across {PART_CATEGORIES.length} categories
+          </p>
+          <p className="text-[11px] text-gray-600 leading-snug">
+            <span className="font-medium text-[#C87D5A]">On selected surface:</span>{" "}
+            click a seat, tabletop, or shelf in the 3D view, open + Add, then pick a pillow, vase, etc.
+          </p>
+          {searchBar}
+          {categoryList}
+        </div>
+      </MobileDrawer>
+    );
+  }
 
   return (
     <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm">
@@ -785,113 +925,12 @@ export function AddPartPicker({ onAdd, onAddGroup, onAddGLB, onClose }: AddPartP
             </button>
           </div>
           {/* Search */}
-          <div className="relative">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Search shapes..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-8 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#C87D5A]/30 focus:border-[#C87D5A]/50"
-              autoFocus
-            />
-          </div>
+          {searchBar}
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-3">
-          {filteredCategories.map((category) => {
-            const isExpanded = expandedCategory === category.label || search.length > 0;
-            const showItems = isExpanded ? category.items : [];
-            const hasMore = !isExpanded;
-
-            return (
-              <div key={category.label}>
-                <button
-                  onClick={() => setExpandedCategory(
-                    expandedCategory === category.label ? null : category.label
-                  )}
-                  className="w-full flex items-center gap-2 px-1 mb-2 group"
-                >
-                  <span className="text-sm">{category.icon}</span>
-                  <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
-                    {category.label}
-                  </p>
-                  <span className="text-[10px] text-gray-300 ml-1">
-                    ({category.items.length})
-                  </span>
-                  <div className="flex-1" />
-                  <span className="text-[10px] text-gray-300 group-hover:text-gray-500 transition-colors">
-                    {isExpanded ? "▾ collapse" : `▸ ${category.items.length} items`}
-                  </span>
-                </button>
-
-                <div className="grid grid-cols-3 gap-2">
-                  {showItems.map((item) => (
-                    <button
-                      key={item.id}
-                      onClick={() => {
-                        if (item.glbPath && onAddGLB) {
-                          onAddGLB(item.groupName ?? item.label, item.glbPath);
-                        } else if (item.buildPanels && onAddGroup) {
-                          onAddGroup(item.groupName ?? item.label, item.buildPanels());
-                        } else {
-                          onAdd({
-                            shape: item.shape,
-                            type: item.type,
-                            label: item.label,
-                            size: item.size,
-                            materialId: item.materialId,
-                            shapeParams: item.shapeParams,
-                            placeOnSelected: item.placeOnSelected,
-                          });
-                        }
-                        onClose();
-                      }}
-                      onMouseEnter={() => setHovered(item.id)}
-                      onMouseLeave={() => setHovered(null)}
-                      className={`relative group rounded-xl border p-3 text-left transition-all duration-200 ${
-                        hovered === item.id
-                          ? "border-[#C87D5A]/40 bg-[#C87D5A]/[0.04] shadow-md shadow-[#C87D5A]/10 scale-[1.02]"
-                          : "border-gray-200 bg-white hover:border-gray-300"
-                      }`}
-                    >
-                      <div
-                        className={`w-9 h-9 rounded-lg flex items-center justify-center mb-2 text-lg transition-colors ${
-                          hovered === item.id
-                            ? "bg-[#C87D5A]/10"
-                            : "bg-gray-100"
-                        }`}
-                      >
-                        {item.icon}
-                      </div>
-                      <p className="text-xs font-medium text-gray-900 leading-tight">
-                        {item.label}
-                      </p>
-                      <p className="text-[10px] text-gray-400 mt-0.5 leading-tight">
-                        {item.description}
-                      </p>
-                    </button>
-                  ))}
-                </div>
-
-                {hasMore && (
-                  <button
-                    onClick={() => setExpandedCategory(category.label)}
-                    className="mt-1.5 w-full text-center text-[10px] text-[#C87D5A] hover:text-[#B06B4A] font-medium py-1 transition-colors"
-                  >
-                    + {category.items.length - 6} more
-                  </button>
-                )}
-              </div>
-            );
-          })}
-
-          {filteredCategories.length === 0 && (
-            <div className="text-center text-sm text-gray-400 py-8">
-              No shapes match &quot;{search}&quot;
-            </div>
-          )}
+        <div className="flex-1 overflow-y-auto p-4">
+          {categoryList}
         </div>
       </div>
     </div>
