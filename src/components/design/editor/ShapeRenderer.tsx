@@ -314,13 +314,13 @@ function CushionGeometry({ w, h, depth, puff }: { w: number; h: number; depth: n
     const pos = g.attributes.position;
     const hw = w / 2, hh = h / 2, hd = depth / 2;
 
-    // Corner radius — very generous for visibly soft shape
+    // Corner radius — use half the smallest dimension for always-visible rounding
     const minDim = Math.min(w, h, depth);
-    const cr = Math.min(minDim * 0.45, hw * 0.7, hh * 0.85, hd * 0.7);
-    // Crown height — visible dome (not subtle)
-    const crownH = Math.min(h * 0.25, 0.04) * puff;
-    // Side bulge amount
-    const bulge = cr * puff * 0.6;
+    const cr = minDim * 0.48;
+    // Crown height — visible dome
+    const crownH = Math.min(h * 0.22, 0.035) * puff;
+    // Side bulge amount — proportional to corner radius
+    const bulge = minDim * puff * 0.18;
 
     for (let i = 0; i < pos.count; i++) {
       let x = pos.getX(i);
