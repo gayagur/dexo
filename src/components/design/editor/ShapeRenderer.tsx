@@ -200,10 +200,10 @@ function SingleGeometry({
 
     // ── Decorative ───────────────────────────────────
     case "cushion":
-      return <CushionGeometry w={w + pad * 2} h={h + pad * 2} depth={d + pad * 2} puff={0.35} />;
+      return <CushionGeometry w={w + pad * 2} h={h + pad * 2} depth={d + pad * 2} puff={0.85} />;
 
     case "mattress":
-      return <CushionGeometry w={w + pad * 2} h={h + pad * 2} depth={d + pad * 2} puff={0.18} />;
+      return <CushionGeometry w={w + pad * 2} h={h + pad * 2} depth={d + pad * 2} puff={0.45} />;
 
     case "vase":
       return <VaseGeometry radius={radius + pad} height={h + pad * 2} />;
@@ -305,77 +305,80 @@ function RoundedRectGeometry({ w, h, depth, cornerRadius }: { w: number; h: numb
 
 function CushionGeometry({ w, h, depth, puff }: { w: number; h: number; depth: number; puff: number }) {
   const geo = useMemo(() => {
-    // Subdivisions for smooth deformation — more on larger faces
-    const segsW = Math.max(6, Math.round(w * 18));
-    const segsH = Math.max(4, Math.round(h * 14));
-    const segsD = Math.max(6, Math.round(depth * 18));
+    // High subdivision for smooth deformation
+    const segsW = Math.max(8, Math.round(w * 22));
+    const segsH = Math.max(6, Math.round(h * 22));
+    const segsD = Math.max(8, Math.round(depth * 22));
     const g = new THREE.BoxGeometry(w, h, depth, segsW, segsH, segsD);
 
     const pos = g.attributes.position;
     const hw = w / 2, hh = h / 2, hd = depth / 2;
 
-    // Corner radius — generous for soft look
-    const minPlan = Math.min(w, depth);
-    const cr = Math.min(minPlan * 0.28, h * 0.48, hw, hh, hd);
-    // Crown height — how much the top center rises above the edges
-    const crownH = h * puff * 0.12;
-    // Edge softness — how much edges pull inward
-    const edgeSoft = cr * puff;
+    // Corner radius — very generous for visibly soft shape
+    const minDim = Math.min(w, h, depth);
+    const cr = Math.min(minDim * 0.45, hw * 0.7, hh * 0.85, hd * 0.7);
+    // Crown height — visible dome (not subtle)
+    const crownH = Math.min(h * 0.25, 0.04) * puff;
+    // Side bulge amount
+    const bulge = cr * puff * 0.6;
 
     for (let i = 0; i < pos.count; i++) {
       let x = pos.getX(i);
       let y = pos.getY(i);
       let z = pos.getZ(i);
 
-      // Normalized position in box (0..1 from edge to center)
-      const nx = 1.0 - Math.abs(x) / hw; // 0 at edge, 1 at center
-      const ny = 1.0 - Math.abs(y) / hh;
-      const nz = 1.0 - Math.abs(z) / hd;
+      // Normalized position (0 = edge, 1 = center)
+      const nx = hw > 0.001 ? 1.0 - Math.abs(x) / hw : 0.5;
+      const ny = hh > 0.001 ? 1.0 - Math.abs(y) / hh : 0.5;
+      const nz = hd > 0.001 ? 1.0 - Math.abs(z) / hd : 0.5;
 
-      // === Edge rounding (pull corners inward) ===
-      // Distance from each edge, clamped to corner radius zone
-      const ex = Math.max(0, Math.abs(x) - (hw - cr)) / cr; // 0 inside, 0..1 in corner zone
+      // === Spherical corner rounding ===
+      const ex = Math.max(0, Math.abs(x) - (hw - cr)) / cr;
       const ey = Math.max(0, Math.abs(y) - (hh - cr)) / cr;
       const ez = Math.max(0, Math.abs(z) - (hd - cr)) / cr;
 
-      // Spherical rounding at corners/edges
       const cornerDist = Math.sqrt(ex * ex + ey * ey + ez * ez);
       if (cornerDist > 1.0) {
-        // Pull vertex inward along each axis proportionally
         const scale = 1.0 / cornerDist;
-        const pullX = ex > 0 ? (1.0 - scale) * ex * cr * Math.sign(x) : 0;
-        const pullY = ey > 0 ? (1.0 - scale) * ey * cr * Math.sign(y) : 0;
-        const pullZ = ez > 0 ? (1.0 - scale) * ez * cr * Math.sign(z) : 0;
-        x -= pullX;
-        y -= pullY;
-        z -= pullZ;
+        if (ex > 0) x -= (1.0 - scale) * ex * cr * Math.sign(x);
+        if (ey > 0) y -= (1.0 - scale) * ey * cr * Math.sign(y);
+        if (ez > 0) z -= (1.0 - scale) * ez * cr * Math.sign(z);
       }
 
-      // === Crown/dome on top surface ===
-      // Only push upward on the top half, strongest at center
+      // === Crown dome on top ===
       if (y > 0) {
-        const topFactor = y / hh; // 0 at middle, 1 at top
-        // Smooth falloff from center to edges (bell curve shape)
-        const bellX = Math.cos((1.0 - nx) * Math.PI * 0.5);
-        const bellZ = Math.cos((1.0 - nz) * Math.PI * 0.5);
-        const crown = bellX * bellZ * crownH * topFactor;
-        y += crown;
+        const topness = y / hh;
+        // Smooth bell: cos(0)=1 at center, cos(pi/2)=0 at edge
+        const bx = Math.cos((1.0 - nx) * Math.PI * 0.5);
+        const bz = Math.cos((1.0 - nz) * Math.PI * 0.5);
+        y += bx * bz * crownH * topness;
       }
 
-      // === Slight bottom indent (cushion compression) ===
+      // === Bottom compression indent ===
       if (y < 0) {
-        const bottomFactor = Math.abs(y) / hh;
-        const bellX = Math.cos((1.0 - nx) * Math.PI * 0.5);
-        const bellZ = Math.cos((1.0 - nz) * Math.PI * 0.5);
-        y += bellX * bellZ * crownH * 0.3 * bottomFactor; // push up = indent
+        const botness = Math.abs(y) / hh;
+        const bx = Math.cos((1.0 - nx) * Math.PI * 0.5);
+        const bz = Math.cos((1.0 - nz) * Math.PI * 0.5);
+        y += bx * bz * crownH * 0.4 * botness;
       }
 
-      // === Slight edge inflation (puffiness) ===
-      // Sides bulge outward slightly — the soft cushion look
-      const sideInflateX = edgeSoft * 0.15 * Math.sin(ny * Math.PI) * Math.sin(nz * Math.PI);
-      const sideInflateZ = edgeSoft * 0.15 * Math.sin(ny * Math.PI) * Math.sin(nx * Math.PI);
-      x += sideInflateX * Math.sign(x);
-      z += sideInflateZ * Math.sign(z);
+      // === Side bulge (puffiness) — visible outward push ===
+      const sinNy = Math.sin(ny * Math.PI); // peak at vertical center
+      const sinNx = Math.sin(nx * Math.PI);
+      const sinNz = Math.sin(nz * Math.PI);
+
+      // X sides bulge outward
+      if (Math.abs(x) > hw * 0.3) {
+        x += bulge * sinNy * sinNz * Math.sign(x) * 0.5;
+      }
+      // Z sides bulge outward
+      if (Math.abs(z) > hd * 0.3) {
+        z += bulge * sinNy * sinNx * Math.sign(z) * 0.5;
+      }
+      // Y top/bottom bulge outward slightly
+      if (Math.abs(y) > hh * 0.3) {
+        y += bulge * sinNx * sinNz * Math.sign(y) * 0.25;
+      }
 
       pos.setXYZ(i, x, y, z);
     }
