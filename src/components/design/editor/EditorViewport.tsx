@@ -242,13 +242,13 @@ const FLOOR_STYLE: Record<
   },
   grass: {
     sky: "#e8f4ea",
-    floorHex: "#b8de8f",
+    floorHex: "#6a9b4a",
     roughness: 0.98,
     metalness: 0,
-    gridCell: "#5a8c3a",
+    gridCell: "#4a7a32",
     gridSection: "#3d6b28",
     hasTexture: true,
-    repeat: 7,
+    repeat: 6,
   },
 };
 
@@ -264,24 +264,71 @@ function createEditorFloorTexture(preset: EditorFloorPreset): THREE.CanvasTextur
   if (!ctx) return null;
 
   if (preset === "parquet") {
-    ctx.fillStyle = "#f4e8d8";
+    // Staggered plank parquet — each plank has its own tone + subtle grain
+    ctx.fillStyle = "#e8d8c4";
     ctx.fillRect(0, 0, size, size);
-    const rows = 10;
-    const h = size / rows;
-    for (let r = 0; r < rows; r++) {
-      const v = (r % 3) * 10;
-      ctx.fillStyle = `rgb(${248 - v}, ${224 - v}, ${198 - v})`;
-      ctx.fillRect(0, r * h, size, h);
-      ctx.strokeStyle = "rgba(90, 60, 30, 0.07)";
-      ctx.strokeRect(0, r * h, size, h);
+    const plankRows = 12;
+    const plankH = size / plankRows;
+    const planksPerRow = 4;
+    const plankW = size / planksPerRow;
+    const gap = 1.2;
+
+    // Deterministic random for plank tones
+    let pSeed = 42;
+    const pRand = () => { pSeed = (pSeed * 16807) % 2147483647; return (pSeed - 1) / 2147483646; };
+
+    for (let row = 0; row < plankRows; row++) {
+      // Stagger: odd rows offset by half a plank
+      const offset = (row % 2 === 1) ? plankW * 0.5 : 0;
+      const y = row * plankH;
+
+      for (let col = -1; col <= planksPerRow; col++) {
+        const x = col * plankW + offset;
+        if (x + plankW < 0 || x > size) continue;
+
+        // Per-plank base tone — warm blonde range
+        const toneShift = (pRand() - 0.5) * 35;
+        const baseR = 218 + toneShift;
+        const baseG = 192 + toneShift * 0.85;
+        const baseB = 160 + toneShift * 0.6;
+
+        // Fill plank
+        ctx.fillStyle = `rgb(${Math.round(baseR)},${Math.round(baseG)},${Math.round(baseB)})`;
+        ctx.fillRect(x + gap, y + gap, plankW - gap * 2, plankH - gap * 2);
+
+        // Subtle grain lines within each plank (horizontal streaks)
+        const grainCount = 4 + Math.floor(pRand() * 5);
+        for (let g = 0; g < grainCount; g++) {
+          const gy = y + gap + pRand() * (plankH - gap * 2);
+          const grainAlpha = 0.04 + pRand() * 0.06;
+          ctx.strokeStyle = `rgba(90, 55, 25, ${grainAlpha})`;
+          ctx.lineWidth = 0.5 + pRand() * 1.0;
+          ctx.beginPath();
+          ctx.moveTo(x + gap, gy);
+          // Slightly wavy grain
+          for (let gx = x + gap; gx < x + plankW - gap; gx += 12) {
+            ctx.lineTo(gx, gy + Math.sin(gx * 0.04 + pRand() * 6) * 1.5);
+          }
+          ctx.stroke();
+        }
+      }
+
+      // Horizontal gap line between rows
+      ctx.fillStyle = "rgba(60, 38, 18, 0.18)";
+      ctx.fillRect(0, y, size, gap);
     }
-    ctx.strokeStyle = "rgba(65, 42, 22, 0.14)";
-    for (let c = 0; c <= 20; c++) {
-      const x = (c * size) / 20;
-      ctx.beginPath();
-      ctx.moveTo(x, 0);
-      ctx.lineTo(x, size);
-      ctx.stroke();
+
+    // Vertical gap lines at plank boundaries
+    for (let row = 0; row < plankRows; row++) {
+      const offset = (row % 2 === 1) ? plankW * 0.5 : 0;
+      const y = row * plankH;
+      for (let col = 0; col <= planksPerRow; col++) {
+        const x = col * plankW + offset;
+        if (x >= 0 && x <= size) {
+          ctx.fillStyle = "rgba(60, 38, 18, 0.16)";
+          ctx.fillRect(x - gap / 2, y, gap, plankH);
+        }
+      }
     }
   } else if (preset === "tile") {
     ctx.fillStyle = "#fafcff";
@@ -309,19 +356,66 @@ function createEditorFloorTexture(preset: EditorFloorPreset): THREE.CanvasTextur
       }
     }
   } else {
-    /* grass */
-    ctx.fillStyle = "#d4ecc4";
+    /* grass — dense, multi-tonal natural lawn */
+    // Base: medium green fill
+    ctx.fillStyle = "#6a9b4a";
     ctx.fillRect(0, 0, size, size);
-    for (let i = 0; i < 7000; i++) {
-      const x = Math.random() * size;
-      const y = Math.random() * size;
-      const lum = 95 + Math.random() * 75;
-      ctx.fillStyle = `rgba(${28 + Math.random() * 45}, ${lum}, ${32 + Math.random() * 30}, 0.22)`;
-      ctx.fillRect(x, y, 2, 5);
+
+    // Seeded random for deterministic output
+    let gSeed = 137;
+    const gRand = () => { gSeed = (gSeed * 16807) % 2147483647; return (gSeed - 1) / 2147483646; };
+
+    // Layer 1: Broad organic patches (light/dark variation like real lawn)
+    for (let i = 0; i < 35; i++) {
+      const px = gRand() * size;
+      const py = gRand() * size;
+      const radius = 30 + gRand() * 80;
+      const tone = gRand();
+      let fillColor: string;
+      if (tone < 0.3) {
+        // Darker green patches
+        fillColor = `rgba(${40 + gRand() * 20}, ${75 + gRand() * 30}, ${30 + gRand() * 15}, 0.35)`;
+      } else if (tone < 0.7) {
+        // Mid green
+        fillColor = `rgba(${55 + gRand() * 25}, ${110 + gRand() * 30}, ${40 + gRand() * 20}, 0.25)`;
+      } else if (tone < 0.9) {
+        // Light green
+        fillColor = `rgba(${85 + gRand() * 30}, ${145 + gRand() * 30}, ${55 + gRand() * 20}, 0.22)`;
+      } else {
+        // Yellow-brown dry patches (sparse)
+        fillColor = `rgba(${140 + gRand() * 40}, ${135 + gRand() * 30}, ${70 + gRand() * 30}, 0.20)`;
+      }
+      const grad = ctx.createRadialGradient(px, py, 0, px, py, radius);
+      grad.addColorStop(0, fillColor);
+      grad.addColorStop(1, "rgba(0,0,0,0)");
+      ctx.fillStyle = grad;
+      ctx.fillRect(px - radius, py - radius, radius * 2, radius * 2);
     }
-    ctx.fillStyle = "rgba(255,255,255,0.14)";
-    for (let i = 0; i < 24; i++) {
-      ctx.fillRect(Math.random() * (size - 48), Math.random() * (size - 48), 36, 36);
+
+    // Layer 2: Dense grass blades — short angled strokes
+    for (let i = 0; i < 12000; i++) {
+      const bx = gRand() * size;
+      const by = gRand() * size;
+      const green = 80 + gRand() * 90;
+      const red = 30 + gRand() * 50;
+      const blue = 20 + gRand() * 30;
+      const alpha = 0.15 + gRand() * 0.2;
+      ctx.strokeStyle = `rgba(${Math.round(red)}, ${Math.round(green)}, ${Math.round(blue)}, ${alpha})`;
+      ctx.lineWidth = 0.6 + gRand() * 1.2;
+      const angle = -Math.PI / 2 + (gRand() - 0.5) * 0.8; // mostly vertical with sway
+      const bladeLen = 3 + gRand() * 6;
+      ctx.beginPath();
+      ctx.moveTo(bx, by);
+      ctx.lineTo(bx + Math.cos(angle) * bladeLen, by + Math.sin(angle) * bladeLen);
+      ctx.stroke();
+    }
+
+    // Layer 3: Scattered light highlights (sun catching blade tips)
+    for (let i = 0; i < 800; i++) {
+      const hx = gRand() * size;
+      const hy = gRand() * size;
+      ctx.fillStyle = `rgba(${160 + gRand() * 60}, ${200 + gRand() * 50}, ${100 + gRand() * 50}, 0.12)`;
+      ctx.fillRect(hx, hy, 1 + gRand() * 2, 1 + gRand() * 2);
     }
   }
 
@@ -2706,13 +2800,13 @@ function FurniturePanel({
 
   const normalScale = useMemo(() => {
     if (!mat) return new THREE.Vector2(0.3, 0.3);
-    if (mat.category === "Wood") return new THREE.Vector2(0.65, 0.65);
-    if (mat.category === "Engineered") return new THREE.Vector2(0.25, 0.25);
-    if (mat.category === "Stone") return new THREE.Vector2(0.5, 0.5);
+    if (mat.category === "Wood") return new THREE.Vector2(0.35, 0.35);
+    if (mat.category === "Engineered") return new THREE.Vector2(0.2, 0.2);
+    if (mat.category === "Stone") return new THREE.Vector2(0.4, 0.4);
     if (mat.category === "Fabric") {
-      if (mat.id.includes("velvet")) return new THREE.Vector2(0.85, 1.25);
-      if (mat.id.includes("leather")) return new THREE.Vector2(0.7, 0.7);
-      return new THREE.Vector2(1.1, 1.1);
+      if (mat.id.includes("velvet")) return new THREE.Vector2(0.4, 0.5);
+      if (mat.id.includes("leather")) return new THREE.Vector2(0.35, 0.35);
+      return new THREE.Vector2(0.5, 0.5);
     }
     return new THREE.Vector2(0.3, 0.3);
   }, [mat]);
@@ -3014,8 +3108,8 @@ function FurniturePanel({
                 roughnessMap={textures.roughnessMap}
                 roughness={shapeMatProps.roughness}
                 metalness={0}
-                clearcoat={0.25}
-                clearcoatRoughness={0.35}
+                clearcoat={0.12}
+                clearcoatRoughness={0.5}
                 transparent={shapeMatProps.transparent}
                 opacity={shapeMatProps.opacity}
                 envMapIntensity={lightMode === "night" ? 0.9 : 1.1}
@@ -3028,8 +3122,8 @@ function FurniturePanel({
                 roughnessMap={textures.roughnessMap}
                 roughness={shapeMatProps.roughness}
                 metalness={0}
-                sheen={mat!.id.includes("velvet") ? 0.6 : mat!.id.includes("leather") ? 0.12 : 0.45}
-                sheenRoughness={mat!.id.includes("velvet") ? 0.65 : mat!.id.includes("leather") ? 0.85 : 0.75}
+                sheen={mat!.id.includes("velvet") ? 0.35 : mat!.id.includes("leather") ? 0.06 : 0.18}
+                sheenRoughness={mat!.id.includes("velvet") ? 0.75 : mat!.id.includes("leather") ? 0.9 : 0.85}
                 sheenColor={mat!.color}
                 transparent={shapeMatProps.transparent}
                 opacity={shapeMatProps.opacity}

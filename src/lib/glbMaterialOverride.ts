@@ -12,12 +12,12 @@ function disposeMaterialRef(m: THREE.Material | THREE.Material[]) {
 
 function normalScaleForMaterial(mat: MaterialOption | undefined): THREE.Vector2 {
   if (!mat) return new THREE.Vector2(0.3, 0.3);
-  if (mat.category === "Wood") return new THREE.Vector2(0.65, 0.65);
-  if (mat.category === "Stone") return new THREE.Vector2(0.5, 0.5);
+  if (mat.category === "Wood") return new THREE.Vector2(0.45, 0.45);
+  if (mat.category === "Stone") return new THREE.Vector2(0.4, 0.4);
   if (mat.category === "Fabric") {
-    if (mat.id.includes("velvet")) return new THREE.Vector2(0.85, 1.25);
-    if (mat.id.includes("leather")) return new THREE.Vector2(0.7, 0.7);
-    return new THREE.Vector2(1.1, 1.1);
+    if (mat.id.includes("velvet")) return new THREE.Vector2(0.4, 0.5);
+    if (mat.id.includes("leather")) return new THREE.Vector2(0.35, 0.35);
+    return new THREE.Vector2(0.5, 0.5);
   }
   return new THREE.Vector2(0.3, 0.3);
 }
@@ -206,8 +206,8 @@ export function applyDesignMaterialToGlbRoot(
         roughnessMap: textures.roughnessMap,
         roughness,
         metalness: 0,
-        sheen: matEntry.id.includes("velvet") ? 0.6 : matEntry.id.includes("leather") ? 0.12 : 0.45,
-        sheenRoughness: matEntry.id.includes("velvet") ? 0.65 : matEntry.id.includes("leather") ? 0.85 : 0.75,
+        sheen: matEntry.id.includes("velvet") ? 0.35 : matEntry.id.includes("leather") ? 0.06 : 0.18,
+        sheenRoughness: matEntry.id.includes("velvet") ? 0.75 : matEntry.id.includes("leather") ? 0.9 : 0.85,
         sheenColor: matEntry.color,
         transparent,
         opacity,
@@ -215,7 +215,7 @@ export function applyDesignMaterialToGlbRoot(
       });
     }
 
-    // Wood: MeshPhysicalMaterial with clearcoat (lacquer/polyurethane finish)
+    // Wood: MeshPhysicalMaterial — matte/satin natural finish (no lacquer sheen)
     const isWood = matEntry?.category === "Wood";
     if (textures && isWood) {
       return new THREE.MeshPhysicalMaterial({
@@ -225,11 +225,11 @@ export function applyDesignMaterialToGlbRoot(
         roughnessMap: textures.roughnessMap,
         roughness,
         metalness: 0,
-        clearcoat: 0.25,
-        clearcoatRoughness: 0.35,
+        clearcoat: 0.03,
+        clearcoatRoughness: 0.8,
         transparent,
         opacity,
-        envMapIntensity: night ? 0.9 : 1.1,
+        envMapIntensity: night ? 0.6 : 0.75,
       });
     }
 

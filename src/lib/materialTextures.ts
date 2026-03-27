@@ -14,7 +14,7 @@ export function getMaterialTextures(materialId: string, baseColor: string, categ
   // Skip textures for glass — it uses transmission
   if (category === "Glass") return null;
 
-  const cacheKey = `v5_${materialId}_${baseColor}`;
+  const cacheKey = `v8_${materialId}_${baseColor}`;
   if (textureCache.has(cacheKey)) return textureCache.get(cacheKey)!;
 
   let result;
@@ -124,33 +124,24 @@ function warpedFbm(x: number, y: number, s: number, octaves: number): number {
   return fbm(x + wx, y + wy, s, octaves);
 }
 
-// ─── WOOD TEXTURES — photorealistic procedural generation ──────
+// ─── WOOD TEXTURES — natural flowing grain with knot eyes ──────
 function generateWoodTextures(baseColor: string, materialId: string) {
   const [br, bg, bb] = hexToRgb(baseColor);
   const seed = materialId.split("").reduce((acc, c) => acc + c.charCodeAt(0), 0);
   const rand = seededRandom(seed);
 
-  // ── Wood species parameters (adaptive to the material id) ──
-  const isOak = materialId.includes("oak");
-  const isWalnut = materialId.includes("walnut");
-  const isPine = materialId.includes("pine");
-  const isBirch = materialId.includes("birch");
-  const isCherry = materialId.includes("cherry");
-
-  // Growth ring density (rings per texture tile). Oak/walnut = wide rings, pine = tight.
-  const ringDensity = isPine ? 22 + rand() * 6 : isOak ? 10 + rand() * 4 : isWalnut ? 8 + rand() * 4 : 12 + rand() * 5;
-  // Knot probability
-  const knotChance = isPine ? 0.7 : isOak ? 0.25 : 0.35;
-  // Medullary ray intensity (quarter-sawn oak fleck)
-  const rayIntensity = isOak ? 0.22 : isBirch ? 0.08 : 0.03;
-  // Pore depth (open-pore woods like oak)
-  const poreIntensity = isOak ? 0.35 : isWalnut ? 0.2 : isCherry ? 0.12 : 0.06;
-  // Color warmth shift for earlywood vs latewood
-  const earlyLateContrast = isOak ? 0.14 : isWalnut ? 0.1 : isPine ? 0.18 : 0.1;
-
-  // Derived warm/cool tones from the base color
-  const earlyR = Math.min(255, br + 12), earlyG = Math.min(255, bg + 6), earlyB = bb;
-  const lateR = Math.max(0, br - 18), lateG = Math.max(0, bg - 12), lateB = Math.max(0, bb - 8);
+  // ── Knot/eye features: 2-4 organic focal points where grain flows around ──
+  const knotCount = 2 + Math.floor(rand() * 3);
+  const knots: { cx: number; cy: number; rx: number; ry: number; strength: number }[] = [];
+  for (let i = 0; i < knotCount; i++) {
+    knots.push({
+      cx: 0.15 + rand() * 0.7,              // x position (normalized)
+      cy: 0.1 + rand() * 0.8,               // y position
+      rx: 0.06 + rand() * 0.10,             // horizontal radius (wide ovals)
+      ry: 0.03 + rand() * 0.06,             // vertical radius (shorter)
+      strength: 0.5 + rand() * 0.5,         // how strongly grain warps around it
+    });
+  }
 
   // ── Buffers ──
   const heightMap = new Float32Array(TEX_SIZE * TEX_SIZE);
@@ -158,205 +149,144 @@ function generateWoodTextures(baseColor: string, materialId: string) {
   const imgData = colorCtx.createImageData(TEX_SIZE, TEX_SIZE);
   const px = imgData.data;
 
-  // ── Virtual tree center for growth rings (off-screen = flat-sawn look) ──
-  const treeCX = TEX_SIZE * (0.4 + rand() * 0.2);
-  const treeCY = TEX_SIZE * (-1.5 - rand() * 3);  // far above = nearly horizontal rings
-
-  // ── Pre-compute knots ──
-  const knotCount = rand() < knotChance ? 1 + Math.floor(rand() * 2) : 0;
-  const knots: { cx: number; cy: number; r: number }[] = [];
-  for (let i = 0; i < knotCount; i++) {
-    knots.push({ cx: rand() * TEX_SIZE, cy: rand() * TEX_SIZE, r: 18 + rand() * 35 });
-  }
-
-  // ── Per-pixel generation ──
   for (let py = 0; py < TEX_SIZE; py++) {
     for (let px_ = 0; px_ < TEX_SIZE; px_++) {
       const idx = (py * TEX_SIZE + px_) * 4;
-
-      // Normalised coordinates
       const u = px_ / TEX_SIZE;
       const v = py / TEX_SIZE;
 
-      // === 1. Growth rings ===
-      // Distance from virtual tree center, warped by domain noise for organic flow
-      const warpX = fbm(u * 3, v * 3, seed, 3) * 0.35;
-      const warpY = fbm(u * 3 + 5.1, v * 3 + 3.7, seed + 41, 3) * 0.35;
-      const dx = (px_ + warpX * TEX_SIZE) - treeCX;
-      const dy = (py + warpY * TEX_SIZE) - treeCY;
-      const dist = Math.sqrt(dx * dx + dy * dy);
-      const ringPhase = (dist / TEX_SIZE) * ringDensity * Math.PI * 2;
-
-      // Ring profile: sharp latewood boundary (realistic — wood rings aren't sinusoidal)
-      const ringRaw = Math.sin(ringPhase);
-      const ringSharp = ringRaw > 0.3 ? 1.0 : ringRaw < -0.3 ? 0.0 : (ringRaw + 0.3) / 0.6;
-      // ringSharp: 0 = earlywood (light), 1 = latewood (dark)
-
-      // === 2. Grain flow — fibers along the X axis with organic variation ===
-      const fiberNoise = fbm(u * 40, v * 2.5, seed + 100, 4, 2.0, 0.45);
-      const fiberDetail = fbm(u * 120, v * 6, seed + 200, 3, 2.0, 0.4);
-
-      // === 3. Medullary rays — bright cross-grain flecks ===
-      let rayVal = 0;
-      if (rayIntensity > 0.01) {
-        // Rays run perpendicular to grain (vertical streaks in flat-sawn)
-        const rayNoise = vnoise(u * 2, v * 80, seed + 500);
-        const rayMask = vnoise(u * 6, v * 250, seed + 510);
-        rayVal = rayMask > 0.72 ? (rayNoise > 0.4 ? rayIntensity * (rayMask - 0.72) / 0.28 : 0) : 0;
-      }
-
-      // === 4. Pores — tiny dark dots along grain ===
-      let poreVal = 0;
-      if (poreIntensity > 0.04) {
-        const poreN = vnoise(u * 200, v * 25, seed + 600);
-        const poreMask = vnoise(u * 60, v * 8, seed + 610);
-        // Pores cluster in earlywood bands
-        if (poreN > 0.82 && poreMask > 0.45 && ringSharp < 0.5) {
-          poreVal = poreIntensity * (poreN - 0.82) / 0.18;
-        }
-      }
-
-      // === 5. Knot distortion ===
-      let knotVal = 0;
-      for (const knot of knots) {
-        const kx = px_ - knot.cx, ky = py - knot.cy;
-        const kd = Math.sqrt(kx * kx + ky * ky);
-        if (kd < knot.r * 3) {
-          const falloff = Math.max(0, 1 - kd / (knot.r * 3));
-          const falloff2 = falloff * falloff;
-          // Concentric rings
-          const kRing = Math.sin(kd * 0.4) * 0.5 + 0.5;
-          knotVal += kRing * falloff2 * 0.3;
-          // Dark core
-          if (kd < knot.r * 0.35) {
-            knotVal += (1 - kd / (knot.r * 0.35)) * 0.4;
+      // === 1. Knot-warped coordinates ===
+      // Grain flows around knots like water around stones
+      let warpU = u;
+      let warpV = v;
+      let knotDarkening = 0;
+      for (const k of knots) {
+        const dx = (u - k.cx) / k.rx;
+        const dy = (v - k.cy) / k.ry;
+        const dist2 = dx * dx + dy * dy;
+        const dist = Math.sqrt(dist2);
+        if (dist < 3.0) {
+          // Push grain lines away from knot center (radial displacement)
+          const falloff = Math.exp(-dist2 * 0.8) * k.strength;
+          const angle = Math.atan2(dy, dx);
+          // Deflect vertically (grain bends up/down around knot)
+          warpV += Math.sin(angle) * falloff * 0.12;
+          // Compress grain near knot edges (lines bunch together)
+          warpU += Math.cos(angle) * falloff * 0.04;
+          // Darken inside knot eye
+          if (dist < 1.0) {
+            knotDarkening += (1.0 - dist) * 0.10 * k.strength;
           }
         }
       }
 
-      // === 6. Large-scale heartwood/sapwood color drift ===
-      const drift = warpedFbm(u * 1.5, v * 0.8, seed + 300, 4);
+      // === 2. Organic domain warp (flowing, not mechanical) ===
+      const warp1 = fbm(warpU * 2.5, warpV * 1.2, seed, 3, 2.0, 0.45) * 0.20;
+      const warp2 = fbm(warpU * 2.0 + 5.3, warpV * 1.0 + 3.1, seed + 41, 2, 2.0, 0.4) * 0.12;
+      const wu = warpU + warp2;
+      const wv = warpV + warp1;
 
-      // === Combine into final color ===
-      const earlyLate = ringSharp * earlyLateContrast;
-      const fiberMod = (fiberNoise - 0.5) * 0.08 + (fiberDetail - 0.5) * 0.03;
-      const driftMod = (drift - 0.5) * 0.12;
+      // === 3. Multi-frequency grain lines (horizontal, flowing) ===
+      // Wide bands — the dominant visual pattern
+      const grain1 = Math.sin(wv * 18.0) * 0.5 + 0.5;
+      // Medium detail — fills space between wide bands
+      const grain2 = Math.sin(wv * 38.0 + wu * 1.5) * 0.5 + 0.5;
+      // Fine lines — tight grain detail visible up close
+      const grain3 = Math.sin(wv * 72.0 + wu * 2.0) * 0.5 + 0.5;
+      // Sub-grain texture — very fine shimmer
+      const grain4 = Math.sin(wv * 140.0 + wu * 3.0) * 0.5 + 0.5;
 
-      // Interpolate between earlywood and latewood colors
-      const t = ringSharp;
-      let cr = earlyR + (lateR - earlyR) * t;
-      let cg = earlyG + (lateG - earlyG) * t;
-      let cb = earlyB + (lateB - earlyB) * t;
+      // Grain density varies across surface (some areas tight, some open)
+      const densityVar = fbm(u * 1.5, v * 0.8, seed + 200, 2, 2.0, 0.4);
+      // Where density is high, fine grain shows more; where low, only wide bands
+      const fineWeight = 0.08 + densityVar * 0.12;
+      const grainVal = grain1 * 0.42 + grain2 * 0.30 + grain3 * fineWeight + grain4 * 0.04;
 
-      // Apply modifiers
-      const mod = 1.0 + fiberMod + driftMod - earlyLate * 0.5 - knotVal - poreVal;
-      cr *= mod;
-      cg *= mod;
-      cb *= mod;
+      // === 4. Long flowing fiber streaks ===
+      const fiberWarp = fbm(wu * 1.5, wv * 0.4, seed + 500, 2, 2.0, 0.35) * 0.4;
+      const fiber = fbm(wu * 2.0 + fiberWarp, wv * 18.0, seed + 100, 3, 2.2, 0.5);
+      const fiberMod = (fiber - 0.5) * 0.04;
 
-      // Medullary rays — add brightness (they reflect light)
-      cr += rayVal * 45;
-      cg += rayVal * 35;
-      cb += rayVal * 20;
+      // === 5. Broad tonal drift (warm patches, cool patches) ===
+      const drift = warpedFbm(u * 0.7, v * 0.5, seed + 300, 3);
+      const driftMod = (drift - 0.5) * 0.06;
 
-      // Micro-stains: rare dark spots for natural irregularity
-      const stain = vnoise(u * 30, v * 30, seed + 700);
-      if (stain > 0.92) {
-        const s = (stain - 0.92) / 0.08 * 0.15;
-        cr *= (1 - s); cg *= (1 - s); cb *= (1 - s);
-      }
+      // === Combine ===
+      const grainDark = grainVal * 0.12; // ~12% contrast — clearly visible grain
+      const mod = 1.0 - grainDark + driftMod + fiberMod - knotDarkening;
 
-      px[idx] = Math.max(0, Math.min(255, Math.round(cr)));
-      px[idx + 1] = Math.max(0, Math.min(255, Math.round(cg)));
-      px[idx + 2] = Math.max(0, Math.min(255, Math.round(cb)));
+      // Warmth: grain lines and knots get amber push
+      const warmth = (grainVal * 0.6 + knotDarkening * 3.0) * 5.0;
+      const clamp = (x: number) => Math.max(0, Math.min(255, Math.round(x)));
+      px[idx]     = clamp(br * mod + warmth);
+      px[idx + 1] = clamp(bg * mod + warmth * 0.35);
+      px[idx + 2] = clamp(bb * mod - warmth * 0.15);
       px[idx + 3] = 255;
 
-      // === Height map — for normal generation ===
+      // Height map — grain + knot depression
       heightMap[py * TEX_SIZE + px_] =
-        ringSharp * 0.35 +           // grain depth in latewood
-        fiberNoise * 0.2 +           // fiber-level relief
-        fiberDetail * 0.1 +          // micro-fiber detail
-        poreVal * -1.5 +             // pores are depressions
-        knotVal * 0.8 +              // knots are raised
-        rayVal * 0.4;                // rays have slight elevation
+        grainVal * 0.3 +
+        fiber * 0.1 -
+        knotDarkening * 0.4;
     }
   }
 
-  // === Micro pixel noise — breaks digital perfection ===
+  // Dither to break banding
   const microRand = seededRandom(seed + 999);
   for (let i = 0; i < px.length; i += 4) {
-    const n = (microRand() - 0.5) * 4;
-    px[i] = Math.max(0, Math.min(255, px[i] + n));
-    px[i + 1] = Math.max(0, Math.min(255, px[i + 1] + n));
-    px[i + 2] = Math.max(0, Math.min(255, px[i + 2] + n));
+    const n = (microRand() - 0.5) * 3.0;
+    px[i]     = Math.max(0, Math.min(255, px[i] + n));
+    px[i + 1] = Math.max(0, Math.min(255, px[i + 1] + n * 0.8));
+    px[i + 2] = Math.max(0, Math.min(255, px[i + 2] + n * 0.5));
   }
   colorCtx.putImageData(imgData, 0, 0);
 
-  // ── Normal map — 3x3 Sobel on height buffer ──
+  // ── Normal map — Sobel, moderate strength ──
   const [normalCanvas, normalCtx] = createCanvas();
   const nd = normalCtx.createImageData(TEX_SIZE, TEX_SIZE);
-  const nStr = 4.0; // stronger normals for visible grain under lighting
+  const nStr = 2.8;
   for (let py = 1; py < TEX_SIZE - 1; py++) {
     for (let px_ = 1; px_ < TEX_SIZE - 1; px_++) {
       const o = (py * TEX_SIZE + px_) * 4;
       const h = (yy: number, xx: number) => heightMap[yy * TEX_SIZE + xx];
-      const tl = h(py - 1, px_ - 1), tc = h(py - 1, px_), tr = h(py - 1, px_ + 1);
-      const ml = h(py, px_ - 1),                             mr = h(py, px_ + 1);
-      const bl = h(py + 1, px_ - 1), bc = h(py + 1, px_), br = h(py + 1, px_ + 1);
-
-      const ddx = (tr + 2 * mr + br) - (tl + 2 * ml + bl);
-      const ddy = (bl + 2 * bc + br) - (tl + 2 * tc + tr);
+      const tl = h(py-1,px_-1), tc = h(py-1,px_), tr = h(py-1,px_+1);
+      const ml = h(py,px_-1),                       mr = h(py,px_+1);
+      const bl = h(py+1,px_-1), bc = h(py+1,px_), brc = h(py+1,px_+1);
+      const ddx = (tr + 2*mr + brc) - (tl + 2*ml + bl);
+      const ddy = (bl + 2*bc + brc) - (tl + 2*tc + tr);
       const nx = -ddx * nStr, ny = -ddy * nStr, nz = 1.0;
-      const len = Math.sqrt(nx * nx + ny * ny + nz * nz);
-      nd.data[o] = Math.round(((nx / len) * 0.5 + 0.5) * 255);
-      nd.data[o + 1] = Math.round(((ny / len) * 0.5 + 0.5) * 255);
-      nd.data[o + 2] = Math.round(((nz / len) * 0.5 + 0.5) * 255);
-      nd.data[o + 3] = 255;
+      const len = Math.sqrt(nx*nx + ny*ny + nz*nz);
+      nd.data[o]   = Math.round(((nx/len)*0.5+0.5)*255);
+      nd.data[o+1] = Math.round(((ny/len)*0.5+0.5)*255);
+      nd.data[o+2] = Math.round(((nz/len)*0.5+0.5)*255);
+      nd.data[o+3] = 255;
     }
   }
-  // Fill edges (copy from neighbours)
   for (let x = 0; x < TEX_SIZE; x++) {
-    const top = (0 * TEX_SIZE + x) * 4, row1 = (1 * TEX_SIZE + x) * 4;
-    nd.data[top] = nd.data[row1]; nd.data[top + 1] = nd.data[row1 + 1]; nd.data[top + 2] = nd.data[row1 + 2]; nd.data[top + 3] = 255;
-    const bot = ((TEX_SIZE - 1) * TEX_SIZE + x) * 4, rowN = ((TEX_SIZE - 2) * TEX_SIZE + x) * 4;
-    nd.data[bot] = nd.data[rowN]; nd.data[bot + 1] = nd.data[rowN + 1]; nd.data[bot + 2] = nd.data[rowN + 2]; nd.data[bot + 3] = 255;
+    const top = (0*TEX_SIZE+x)*4, row1 = (1*TEX_SIZE+x)*4;
+    nd.data[top]=nd.data[row1]; nd.data[top+1]=nd.data[row1+1]; nd.data[top+2]=nd.data[row1+2]; nd.data[top+3]=255;
+    const bot = ((TEX_SIZE-1)*TEX_SIZE+x)*4, rowN = ((TEX_SIZE-2)*TEX_SIZE+x)*4;
+    nd.data[bot]=nd.data[rowN]; nd.data[bot+1]=nd.data[rowN+1]; nd.data[bot+2]=nd.data[rowN+2]; nd.data[bot+3]=255;
   }
   normalCtx.putImageData(nd, 0, 0);
 
-  // ── Roughness map — grain-aware with micro-scratches ──
+  // ── Roughness map — soft matte with grain-following micro-variation ──
   const [roughCanvas, roughCtx] = createCanvas();
   const rd = roughCtx.createImageData(TEX_SIZE, TEX_SIZE);
-  const scratchRand = seededRandom(seed + 1234);
   for (let py = 0; py < TEX_SIZE; py++) {
     for (let px_ = 0; px_ < TEX_SIZE; px_++) {
       const i = (py * TEX_SIZE + px_) * 4;
-      const h = heightMap[py * TEX_SIZE + px_];
-
-      // Base roughness: finished wood ~0.55-0.70
-      let rough = 150; // ~0.59 for finished/lacquered wood
-
-      // Latewood is slightly smoother (denser fibers)
-      rough -= h * 8;
-
-      // Large-scale roughness variation (worn areas)
-      const wearNoise = vnoise(px_ / TEX_SIZE * 4, py / TEX_SIZE * 4, seed + 800);
-      rough += (wearNoise - 0.5) * 18;
-
-      // Micro-scratches — fine directional marks along grain
-      const scratch = vnoise(px_ / TEX_SIZE * 300, py / TEX_SIZE * 8, seed + 900);
-      if (scratch > 0.85) {
-        rough += (scratch - 0.85) / 0.15 * 35; // scratches are rougher
-      }
-
-      // Pore areas — slightly rougher (open pore finish)
       const u = px_ / TEX_SIZE, v = py / TEX_SIZE;
-      const poreCheck = vnoise(u * 200, v * 25, seed + 600);
-      if (poreCheck > 0.82 && poreIntensity > 0.04) {
-        rough += 20;
-      }
-
-      rd.data[i] = rd.data[i + 1] = rd.data[i + 2] = Math.max(60, Math.min(220, Math.round(rough)));
-      rd.data[i + 3] = 255;
+      // Soft matte base (~0.72-0.85)
+      let rough = 200; // ~0.78
+      // Grain-aligned variation
+      const grainVar = vnoise(u * 3, v * 14, seed + 800);
+      rough += (grainVar - 0.5) * 18;
+      // Micro-roughness
+      const micro = vnoise(u * 16, v * 16, seed + 900);
+      rough += (micro - 0.5) * 8;
+      rd.data[i] = rd.data[i+1] = rd.data[i+2] = Math.max(175, Math.min(220, Math.round(rough)));
+      rd.data[i+3] = 255;
     }
   }
   roughCtx.putImageData(rd, 0, 0);
@@ -606,7 +536,7 @@ function fabricRoughnessFromAlbedo(colorCtx: CanvasRenderingContext2D, baseGray:
   return roughCanvas;
 }
 
-// ─── FABRIC TEXTURES — photorealistic upholstery ──────────────
+// ─── FABRIC TEXTURES — premium stylized (soft plush upholstery) ──────────────
 function generateFabricTextures(baseColor: string, materialId: string) {
   const [r, g, b] = hexToRgb(baseColor);
   const seed = materialId.split("").reduce((acc, c) => acc + c.charCodeAt(0), 0);
@@ -614,66 +544,71 @@ function generateFabricTextures(baseColor: string, materialId: string) {
   const isLeather = materialId.includes("leather");
   const isVelvet = materialId.includes("velvet");
 
+  // ── Style: soft, plush, cozy — like premium boucle / woven upholstery.
+  // No visible individual threads. Broad gentle tonal variation.
+  // Reads as "touchably soft" at medium camera distance. ──
+
   const heightMap = new Float32Array(TEX_SIZE * TEX_SIZE);
   const [colorCanvas, colorCtx] = createCanvas();
   const imgData = colorCtx.createImageData(TEX_SIZE, TEX_SIZE);
   const px = imgData.data;
 
   if (isLeather) {
-    // ── Leather: pebble grain with creases and micro-pitting ──
+    // ── Leather: soft, clean, premium — not raw pebble grain ──
     for (let py = 0; py < TEX_SIZE; py++) {
       for (let px_ = 0; px_ < TEX_SIZE; px_++) {
         const i = (py * TEX_SIZE + px_) * 4;
         const u = px_ / TEX_SIZE, v = py / TEX_SIZE;
 
-        // Pebble grain — domain-warped noise creates organic cell pattern
-        const pebble = warpedFbm(u * 18, v * 18, seed, 4);
-        const detail = fbm(u * 60, v * 60, seed + 100, 3);
-        const crease = fbm(u * 6, v * 8, seed + 200, 3);
+        // Gentle organic variation (not aggressive pebble)
+        const broad = fbm(u * 8, v * 8, seed, 3, 2.0, 0.4);
+        const fine = fbm(u * 25, v * 25, seed + 100, 2, 2.0, 0.35);
 
-        // Color variation — slight warm/cool shift
-        const colorVar = (pebble - 0.5) * 0.12 + (detail - 0.5) * 0.04;
-        const creaseEffect = crease < 0.35 ? (0.35 - crease) * 0.25 : 0;
-
-        const mod = 1.0 + colorVar - creaseEffect;
-        px[i] = Math.max(0, Math.min(255, r * mod));
-        px[i + 1] = Math.max(0, Math.min(255, g * mod));
-        px[i + 2] = Math.max(0, Math.min(255, b * mod));
-        px[i + 3] = 255;
-
-        heightMap[py * TEX_SIZE + px_] = pebble * 0.6 + detail * 0.2 - creaseEffect * 1.5;
-      }
-    }
-  } else if (isVelvet) {
-    // ── Velvet: short pile with directional sheen ──
-    for (let py = 0; py < TEX_SIZE; py++) {
-      for (let px_ = 0; px_ < TEX_SIZE; px_++) {
-        const i = (py * TEX_SIZE + px_) * 4;
-        const u = px_ / TEX_SIZE, v = py / TEX_SIZE;
-
-        // Pile direction streaks
-        const pile = fbm(u * 3 + v * 0.5, v * 40, seed, 4, 2.0, 0.5);
-        const micro = fbm(u * 80, v * 80, seed + 100, 3);
-
-        const colorVar = (pile - 0.5) * 0.09 + (micro - 0.5) * 0.03;
+        const colorVar = (broad - 0.5) * 0.06 + (fine - 0.5) * 0.025;
         const mod = 1.0 + colorVar;
         px[i] = Math.max(0, Math.min(255, r * mod));
         px[i + 1] = Math.max(0, Math.min(255, g * mod));
         px[i + 2] = Math.max(0, Math.min(255, b * mod));
         px[i + 3] = 255;
 
-        heightMap[py * TEX_SIZE + px_] = pile * 0.4 + micro * 0.15;
+        heightMap[py * TEX_SIZE + px_] = broad * 0.2 + fine * 0.08;
+      }
+    }
+  } else if (isVelvet) {
+    // ── Velvet: soft pile, gentle directional shimmer ──
+    for (let py = 0; py < TEX_SIZE; py++) {
+      for (let px_ = 0; px_ < TEX_SIZE; px_++) {
+        const i = (py * TEX_SIZE + px_) * 4;
+        const u = px_ / TEX_SIZE, v = py / TEX_SIZE;
+
+        // Soft pile direction
+        const pile = fbm(u * 2, v * 12, seed, 3, 2.0, 0.4);
+        const micro = fbm(u * 20, v * 20, seed + 100, 2);
+
+        const colorVar = (pile - 0.5) * 0.05 + (micro - 0.5) * 0.02;
+        const mod = 1.0 + colorVar;
+        px[i] = Math.max(0, Math.min(255, r * mod));
+        px[i + 1] = Math.max(0, Math.min(255, g * mod));
+        px[i + 2] = Math.max(0, Math.min(255, b * mod));
+        px[i + 3] = 255;
+
+        heightMap[py * TEX_SIZE + px_] = pile * 0.15 + micro * 0.06;
       }
     }
   } else {
-    // ── Woven cloth: realistic twill / plain weave with fiber detail ──
-    const threadSize = 4; // pixels per thread
-    const threadCount = TEX_SIZE / threadSize;
+    // ── Woven upholstery: ribbed wool/sisal weave with visible yarn structure ──
+    // Vertical ribs (cords) with individual yarn bumps inside each rib.
 
-    // Pre-generate per-thread color variation (each yarn slightly different)
-    const threadColors: number[] = [];
-    for (let i = 0; i < threadCount * 2; i++) {
-      threadColors.push(0.94 + rand() * 0.12); // 0.94-1.06 brightness per thread
+    // Rib parameters — how many vertical cords across the texture
+    const ribCount = 28 + Math.floor(rand() * 12); // 28-40 ribs
+    const ribWidth = TEX_SIZE / ribCount;
+    // Yarn row parameters — horizontal yarn loops within each rib
+    const yarnRowHeight = ribWidth * (0.7 + rand() * 0.3);
+
+    // Per-rib tone variation (some ribs slightly lighter/darker)
+    const ribTones: number[] = [];
+    for (let i = 0; i < ribCount + 1; i++) {
+      ribTones.push((rand() - 0.5) * 0.08);
     }
 
     for (let py = 0; py < TEX_SIZE; py++) {
@@ -681,72 +616,75 @@ function generateFabricTextures(baseColor: string, materialId: string) {
         const i = (py * TEX_SIZE + px_) * 4;
         const u = px_ / TEX_SIZE, v = py / TEX_SIZE;
 
-        // Thread indices
-        const tx = Math.floor(px_ / threadSize);
-        const ty = Math.floor(py / threadSize);
-        // Position within thread (0..1)
-        const lx = (px_ % threadSize) / threadSize;
-        const ly = (py % threadSize) / threadSize;
+        // === 1. Vertical rib structure ===
+        // Slight horizontal warp so ribs aren't perfectly straight
+        const ribWarp = fbm(u * 1.5, v * 3, seed + 200, 2, 2.0, 0.4) * 0.008;
+        const ribPhase = ((px_ / ribWidth) + ribWarp * ribCount) % 1.0;
+        // Smooth rib profile: rounded column shape (cosine bump)
+        const ribProfile = Math.cos(ribPhase * Math.PI * 2) * 0.5 + 0.5; // 0=gap, 1=center
+        // Gap darkening between ribs
+        const ribGap = ribProfile < 0.15 ? (0.15 - ribProfile) * 0.4 : 0;
 
-        // Plain weave: alternating over/under
-        const isWarp = (tx + ty) % 2 === 0; // warp on top
+        // Which rib index for tone lookup
+        const ribIdx = Math.floor(px_ / ribWidth);
 
-        // Thread cross-section profile — rounded for realism
-        const profileX = 1.0 - 4.0 * (lx - 0.5) * (lx - 0.5); // parabolic
-        const profileY = 1.0 - 4.0 * (ly - 0.5) * (ly - 0.5);
-        const threadProfile = isWarp ? profileY : profileX;
+        // === 2. Yarn bumps within each rib ===
+        // Slight vertical warp for organic feel
+        const yarnWarp = fbm(u * 4 + 3.7, v * 1.5, seed + 300, 2, 2.0, 0.35) * 0.006;
+        const yarnPhase = ((py / yarnRowHeight) + yarnWarp * (TEX_SIZE / yarnRowHeight)) % 1.0;
+        // Each yarn loop is a rounded bump
+        const yarnBump = Math.cos(yarnPhase * Math.PI * 2) * 0.5 + 0.5;
+        // Stagger alternate ribs by half a yarn (like real weaving)
+        const stagger = (ribIdx % 2 === 0) ? 0 : 0.5;
+        const yarnPhaseStag = ((py / yarnRowHeight) + stagger + yarnWarp * (TEX_SIZE / yarnRowHeight)) % 1.0;
+        const yarnBumpStag = Math.cos(yarnPhaseStag * Math.PI * 2) * 0.5 + 0.5;
+        // Use staggered version
+        const yarn = yarnBumpStag;
 
-        // Thread elevation (over threads are raised)
-        const elevation = isWarp ? 0.3 + threadProfile * 0.5 : threadProfile * 0.3;
+        // === 3. Fine fiber fuzz (individual fiber-scale noise) ===
+        const fuzz = fbm(u * 60, v * 60, seed + 500, 2, 2.0, 0.4);
+        const fuzzMod = (fuzz - 0.5) * 0.025;
 
-        // Gap shadow between threads
-        const gapX = Math.min(lx, 1 - lx);
-        const gapY = Math.min(ly, 1 - ly);
-        const gap = Math.min(gapX, gapY);
-        const gapShadow = gap < 0.15 ? (0.15 - gap) / 0.15 * 0.15 : 0;
+        // === 4. Broad tonal variation (cushion-scale warm/cool shifts) ===
+        const broad = fbm(u * 1.5, v * 1.5, seed + 600, 2, 2.0, 0.45);
+        const broadMod = (broad - 0.5) * 0.04;
 
-        // Per-thread color variation
-        const threadColorMod = isWarp
-          ? threadColors[ty % threadCount]
-          : threadColors[(threadCount + tx) % (threadCount * 2)];
+        // === Combine color ===
+        const ribTone = ribTones[Math.min(ribIdx, ribTones.length - 1)];
+        const yarnDark = (1.0 - yarn) * 0.05; // yarn valleys slightly darker
+        const mod = 1.0 + ribTone + broadMod + fuzzMod - ribGap - yarnDark;
 
-        // Micro-fiber noise
-        const fiberNoise = vnoise(u * 200, v * 200, seed + 300);
-        const fiberMod = (fiberNoise - 0.5) * 0.04;
-
-        // Large-scale wear/fading
-        const wear = fbm(u * 2.5, v * 2.5, seed + 400, 3);
-        const wearMod = (wear - 0.5) * 0.06;
-
-        const shade = (threadColorMod + fiberMod + wearMod - gapShadow) *
-          (0.92 + threadProfile * 0.12); // raised center slightly brighter
-
-        // Slight warm/cool shift between warp and weft
-        const warmShift = isWarp ? 2 : -2;
-        px[i] = Math.max(0, Math.min(255, r * shade + warmShift));
-        px[i + 1] = Math.max(0, Math.min(255, g * shade));
-        px[i + 2] = Math.max(0, Math.min(255, b * shade - warmShift * 0.5));
+        // Slight warm shift in darker areas
+        const warmth = (ribGap + yarnDark) * 12;
+        const clamp = (x: number) => Math.max(0, Math.min(255, Math.round(x)));
+        px[i]     = clamp(r * mod + warmth * 0.3);
+        px[i + 1] = clamp(g * mod);
+        px[i + 2] = clamp(b * mod - warmth * 0.15);
         px[i + 3] = 255;
 
-        heightMap[py * TEX_SIZE + px_] = elevation - gapShadow * 0.5;
+        // Height map — ribs are tall, yarn bumps are secondary
+        heightMap[py * TEX_SIZE + px_] =
+          ribProfile * 0.45 +   // rib columns are the main relief
+          yarn * 0.20 +         // yarn bumps within ribs
+          fuzz * 0.05;          // micro fiber texture
       }
     }
   }
 
-  // Micro pixel noise — breaks digital perfection
+  // Very minimal pixel noise
   const noiseRand = seededRandom(seed + 777);
   for (let i = 0; i < px.length; i += 4) {
-    const n = (noiseRand() - 0.5) * 3;
+    const n = (noiseRand() - 0.5) * 2;
     px[i] = Math.max(0, Math.min(255, px[i] + n));
     px[i + 1] = Math.max(0, Math.min(255, px[i + 1] + n));
     px[i + 2] = Math.max(0, Math.min(255, px[i + 2] + n));
   }
   colorCtx.putImageData(imgData, 0, 0);
 
-  // ── Normal map from height buffer (Sobel) ──
+  // ── Normal map — gentle Sobel, soft strength for plush feel ──
   const [normalCanvas, normalCtx] = createCanvas();
   const nd = normalCtx.createImageData(TEX_SIZE, TEX_SIZE);
-  const nStr = isLeather ? 5.0 : isVelvet ? 6.0 : 7.0;
+  const nStr = isLeather ? 2.5 : isVelvet ? 2.0 : 3.5; // woven: strong relief for visible rib structure
   for (let py = 1; py < TEX_SIZE - 1; py++) {
     for (let px_ = 1; px_ < TEX_SIZE - 1; px_++) {
       const o = (py * TEX_SIZE + px_) * 4;
@@ -766,30 +704,26 @@ function generateFabricTextures(baseColor: string, materialId: string) {
   }
   normalCtx.putImageData(nd, 0, 0);
 
-  // ── Roughness map — height-driven with wear variation ──
+  // ── Roughness map — high roughness = matte, soft, no plastic shine ──
   const [roughCanvas, roughCtx] = createCanvas();
   const rd = roughCtx.createImageData(TEX_SIZE, TEX_SIZE);
   for (let py = 0; py < TEX_SIZE; py++) {
     for (let px_ = 0; px_ < TEX_SIZE; px_++) {
       const i = (py * TEX_SIZE + px_) * 4;
-      const h = heightMap[py * TEX_SIZE + px_];
       const u = px_ / TEX_SIZE, v = py / TEX_SIZE;
 
       let rough: number;
       if (isLeather) {
-        rough = 155 + h * -15; // ~0.61 base, smoother on raised grain
-        rough += (vnoise(u * 20, v * 20, seed + 500) - 0.5) * 20;
+        rough = 175; // ~0.69 — matte leather, not shiny
+        rough += (vnoise(u * 8, v * 8, seed + 500) - 0.5) * 10;
       } else if (isVelvet) {
-        rough = 145 + h * -10; // ~0.57 base, pile direction affects roughness
-        rough += (vnoise(u * 30, v * 30, seed + 500) - 0.5) * 15;
+        rough = 185; // ~0.73 — very matte
+        rough += (vnoise(u * 10, v * 10, seed + 500) - 0.5) * 8;
       } else {
-        rough = 175; // ~0.69 base for woven cloth
-        // Weave gaps are rougher, raised thread centers smoother
-        rough -= h * 18;
-        // Wear variation
-        rough += (fbm(u * 3, v * 3, seed + 500, 3) - 0.5) * 22;
+        rough = 200; // ~0.78 — high roughness for soft woven feel
+        rough += (fbm(u * 3, v * 3, seed + 500, 2) - 0.5) * 12;
       }
-      rd.data[i] = rd.data[i+1] = rd.data[i+2] = Math.max(80, Math.min(230, Math.round(rough)));
+      rd.data[i] = rd.data[i+1] = rd.data[i+2] = Math.max(150, Math.min(230, Math.round(rough)));
       rd.data[i+3] = 255;
     }
   }
