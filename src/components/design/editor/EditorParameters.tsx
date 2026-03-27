@@ -616,7 +616,7 @@ export function EditorParameters({
             customColor={selectedGroup.panels[0]?.customColor ?? MATERIALS.find((m) => m.id === dominantMaterial)?.color}
             label="Material (All)"
             onUploadTexture={onUpdateGroupTexture ? (url) => onUpdateGroupTexture(selectedGroup.id, url) : undefined}
-            onSurfaceType={onUpdateGroupSurfaceType ? (type) => onUpdateGroupSurfaceType(selectedGroup.id, type) : undefined}
+            onSurfaceType={(type) => onUpdateGroupSurfaceType?.(selectedGroup.id, type)}
             currentSurfaceType={(selectedGroup.panels[0] as any)?.surfaceType}
           />
         </CollapsibleSection>
