@@ -1515,6 +1515,7 @@ export function FurnitureEditor({
               floorPreset={floorPreset}
               initialCameraPosition={boot.cameraPosition}
               onCameraMove={(pos) => { cameraPositionRef.current = pos; }}
+              suspendPointerEvents={showAddPicker}
             />
             {hintsVisible && (
               <div className="absolute inset-0 z-20 pointer-events-none">
@@ -1619,6 +1620,7 @@ export function FurnitureEditor({
             floorPreset={floorPreset}
             initialCameraPosition={boot.cameraPosition}
             onCameraMove={(pos) => { cameraPositionRef.current = pos; }}
+            suspendPointerEvents={showAddPicker}
           />
           {/* Mobile hints */}
           {hintsVisible && (

@@ -590,6 +590,8 @@ export interface EditorViewportProps {
   /** Initial 3D orbit camera position (e.g. when resuming a saved design). */
   initialCameraPosition?: [number, number, number];
   onCameraMove?: (pos: [number, number, number]) => void;
+  /** When true, the WebGL canvas ignores pointer events (e.g. Add Part modal above must receive clicks). */
+  suspendPointerEvents?: boolean;
   /* Legacy prop — kept for backward compatibility during migration */
   panels?: PanelData[];
 }
@@ -621,6 +623,7 @@ export function EditorViewport({
   floorPreset,
   initialCameraPosition,
   onCameraMove,
+  suspendPointerEvents = false,
 }: EditorViewportProps) {
   const [openPanels, setOpenPanels] = useState<Record<string, boolean>>({});
   const [contextMenu, setContextMenu] = useState<ContextMenuInfo | null>(null);
@@ -777,7 +780,7 @@ export function EditorViewport({
     <div
       className={`w-full h-full rounded-xl overflow-hidden border relative ${
         lightMode === "night" ? "bg-[#0f0f16] border-gray-700" : "bg-[#eceff4] border-gray-200"
-      }`}
+      } ${suspendPointerEvents ? "pointer-events-none" : ""}`}
       style={{ touchAction: "none" }}
       onContextMenu={(e) => e.preventDefault()}
     >

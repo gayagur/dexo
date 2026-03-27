@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { createPortal } from "react-dom";
 import { X, Search } from "lucide-react";
 import type { PanelData, PanelShape } from "@/lib/furnitureData";
 import { useMobileInfo } from "@/hooks/use-mobile";
@@ -779,6 +780,7 @@ export function AddPartPicker({ onAdd, onAddGroup, onAddGLB, onClose }: AddPartP
         return (
           <div key={category.label}>
             <button
+              type="button"
               onClick={() => setExpandedCategory(
                 expandedCategory === category.label ? null : category.label
               )}
@@ -800,25 +802,29 @@ export function AddPartPicker({ onAdd, onAddGroup, onAddGLB, onClose }: AddPartP
             <div className={`grid gap-2 ${isMobileLayout ? "grid-cols-2" : "grid-cols-3"}`}>
               {showItems.map((item) => (
                 <button
+                  type="button"
                   key={item.id}
-                  onClick={() => {
-                    if (item.glbPath && onAddGLB) {
-                      onAddGLB(item.groupName ?? item.label, item.glbPath);
-                    } else if (item.buildPanels && onAddGroup) {
-                      onAddGroup(item.groupName ?? item.label, item.buildPanels());
-                    } else {
-                      onAdd({
-                        shape: item.shape,
-                        type: item.type,
-                        label: item.label,
-                        size: item.size,
-                        materialId: item.materialId,
-                        shapeParams: item.shapeParams,
-                        placeOnSelected: item.placeOnSelected,
-                        placeOnFloor: item.placeOnFloor,
-                      });
+                  onClick={async () => {
+                    try {
+                      if (item.glbPath && onAddGLB) {
+                        await onAddGLB(item.groupName ?? item.label, item.glbPath);
+                      } else if (item.buildPanels && onAddGroup) {
+                        onAddGroup(item.groupName ?? item.label, item.buildPanels());
+                      } else {
+                        onAdd({
+                          shape: item.shape,
+                          type: item.type,
+                          label: item.label,
+                          size: item.size,
+                          materialId: item.materialId,
+                          shapeParams: item.shapeParams,
+                          placeOnSelected: item.placeOnSelected,
+                          placeOnFloor: item.placeOnFloor,
+                        });
+                      }
+                    } finally {
+                      onClose();
                     }
-                    onClose();
                   }}
                   onMouseEnter={() => setHovered(item.id)}
                   onMouseLeave={() => setHovered(null)}
@@ -849,6 +855,7 @@ export function AddPartPicker({ onAdd, onAddGroup, onAddGLB, onClose }: AddPartP
 
             {hasMore && (
               <button
+                type="button"
                 onClick={() => setExpandedCategory(category.label)}
                 className="mt-1.5 w-full text-center text-[10px] text-[#C87D5A] hover:text-[#B06B4A] font-medium py-1 transition-colors"
               >
@@ -899,14 +906,26 @@ export function AddPartPicker({ onAdd, onAddGroup, onAddGLB, onClose }: AddPartP
     );
   }
 
-  return (
-    <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm">
-      <div className="bg-white rounded-2xl shadow-2xl w-[600px] max-h-[85vh] flex flex-col overflow-hidden border border-gray-200">
+  const desktopModal = (
+    <div
+      className="fixed inset-0 z-[300] flex items-center justify-center bg-black/30 backdrop-blur-sm p-4"
+      role="presentation"
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      <div
+        className="bg-white rounded-2xl shadow-2xl w-[600px] max-w-full max-h-[85vh] flex flex-col overflow-hidden border border-gray-200 pointer-events-auto"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="add-part-title"
+        onMouseDown={(e) => e.stopPropagation()}
+      >
         {/* Header */}
         <div className="px-5 py-4 border-b border-gray-100 shrink-0">
           <div className="flex items-center justify-between mb-3">
             <div>
-              <h3 className="text-base font-serif font-semibold text-gray-900">
+              <h3 id="add-part-title" className="text-base font-serif font-semibold text-gray-900">
                 Add Part
               </h3>
               <p className="text-xs text-gray-400 mt-0.5">
@@ -918,6 +937,7 @@ export function AddPartPicker({ onAdd, onAddGroup, onAddGLB, onClose }: AddPartP
               </p>
             </div>
             <button
+              type="button"
               onClick={onClose}
               className="w-8 h-8 rounded-lg hover:bg-gray-100 flex items-center justify-center transition-colors"
             >
@@ -929,10 +949,12 @@ export function AddPartPicker({ onAdd, onAddGroup, onAddGLB, onClose }: AddPartP
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto p-4">
+        <div className="flex-1 overflow-y-auto p-4 min-h-0">
           {categoryList}
         </div>
       </div>
     </div>
   );
+
+  return typeof document !== "undefined" ? createPortal(desktopModal, document.body) : null;
 }

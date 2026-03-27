@@ -2,6 +2,11 @@ import { corsHeaders } from "../_shared/cors.ts";
 import { verifyAuth } from "../_shared/auth.ts";
 import { logUsage, getDailyUsageCount } from "../_shared/usage.ts";
 import { FURNITURE_ANALYSIS_PROMPT } from "../_shared/furnitureAnalysisPrompt.ts";
+import { parseFurnitureAnalysisFromLlmText } from "../_shared/extractFurnitureAnalysisJson.ts";
+import {
+  FURNITURE_ANALYSIS_RESPONSE_FORMAT,
+  VISION_MODELS_SUPPORTING_JSON_SCHEMA,
+} from "../_shared/furnitureAnalysisJsonSchema.ts";
 
 // Faster models first — avoids gateway timeouts; heavy model last as fallback
 const VISION_MODELS = [
@@ -59,6 +64,25 @@ Deno.serve(async (req) => {
         const ac = new AbortController();
         const timer = setTimeout(() => ac.abort(), PER_MODEL_MS);
         let response: Response;
+        const messages = [
+          {
+            role: "user" as const,
+            content: [
+              { type: "text" as const, text: FURNITURE_ANALYSIS_PROMPT },
+              { type: "image_url" as const, image_url: { url: imageUrl } },
+            ],
+          },
+        ];
+
+        const basePayload = {
+          model,
+          messages,
+          max_tokens: 4096,
+          temperature: 0.2,
+        };
+
+        const useSchema = VISION_MODELS_SUPPORTING_JSON_SCHEMA.has(model);
+
         try {
           response = await fetch("https://api.together.xyz/v1/chat/completions", {
             method: "POST",
@@ -67,21 +91,26 @@ Deno.serve(async (req) => {
               "Authorization": `Bearer ${togetherApiKey}`,
               "Content-Type": "application/json",
             },
-            body: JSON.stringify({
-              model,
-              messages: [
-                {
-                  role: "user",
-                  content: [
-                    { type: "text", text: FURNITURE_ANALYSIS_PROMPT },
-                    { type: "image_url", image_url: { url: imageUrl } },
-                  ],
-                },
-              ],
-              max_tokens: 4096,
-              temperature: 0.2,
-            }),
+            body: JSON.stringify(
+              useSchema
+                ? { ...basePayload, response_format: FURNITURE_ANALYSIS_RESPONSE_FORMAT }
+                : basePayload,
+            ),
           });
+
+          if (!response.ok && useSchema && response.status === 400) {
+            const err400 = await response.text();
+            console.warn(`${model}: JSON schema request rejected (${err400.slice(0, 160)}), retrying without schema`);
+            response = await fetch("https://api.together.xyz/v1/chat/completions", {
+              method: "POST",
+              signal: ac.signal,
+              headers: {
+                "Authorization": `Bearer ${togetherApiKey}`,
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify(basePayload),
+            });
+          }
         } finally {
           clearTimeout(timer);
         }
@@ -95,8 +124,14 @@ Deno.serve(async (req) => {
 
         const result = await response.json();
         content = result.choices?.[0]?.message?.content || "";
-        console.log(`Model ${model} succeeded. Content length: ${content.length}`);
+        const finishReason = result.choices?.[0]?.finish_reason;
+        console.log(`Model ${model} succeeded. Content length: ${content.length} finish_reason=${finishReason}`);
         console.log("Preview:", content.slice(0, 300));
+        if (finishReason === "length") {
+          console.warn(`Model ${model} hit max_tokens; JSON may be truncated — trying next model`);
+          lastError = `${model}: truncated (length)`;
+          continue;
+        }
 
         if (content) break; // Success - stop trying
       } catch (err) {
@@ -113,39 +148,33 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Extract JSON from the response (it might be wrapped in markdown code blocks)
-    let analysisJson: string = content;
-    const jsonMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/);
-    if (jsonMatch) {
-      analysisJson = jsonMatch[1].trim();
-    } else {
-      // Try to find raw JSON object
-      const braceMatch = content.match(/\{[\s\S]*\}/);
-      if (braceMatch) {
-        analysisJson = braceMatch[0];
-      }
-    }
-
-    let analysis;
-    try {
-      analysis = JSON.parse(analysisJson);
-    } catch (parseErr) {
-      console.error("Failed to parse AI response as JSON. Raw content:", content);
-      console.error("Extracted JSON attempt:", analysisJson.slice(0, 500));
-      console.error("Parse error:", parseErr);
+    const parsed = parseFurnitureAnalysisFromLlmText(content);
+    if (!parsed.ok) {
+      console.error("Failed to parse AI response as JSON. Raw tail:", content.slice(-800));
+      console.error("Raw head:", content.slice(0, 400));
       return new Response(
         JSON.stringify({ error: "AI returned invalid format. Please try a different image." }),
         { status: 422, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
+    const raw = parsed.data as Record<string, unknown>;
+    const panelsRaw =
+      Array.isArray(raw.panels)
+        ? raw.panels
+        : Array.isArray(raw.components)
+          ? raw.components
+          : Array.isArray(raw.parts)
+            ? raw.parts
+            : null;
 
-    // Validate the structure
-    if (!analysis.panels || !Array.isArray(analysis.panels)) {
+    if (!panelsRaw || panelsRaw.length === 0) {
       return new Response(
         JSON.stringify({ error: "AI analysis did not include furniture components." }),
         { status: 422, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
+
+    const analysis = { ...raw, panels: panelsRaw };
 
     // Log usage
     logUsage({
@@ -157,10 +186,9 @@ Deno.serve(async (req) => {
       costUsd: 0.01,
     }).catch((err) => console.error("Usage log failed:", err));
 
-    return new Response(
-      JSON.stringify(analysis),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    return new Response(JSON.stringify(analysis), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
 
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";
