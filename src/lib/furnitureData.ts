@@ -275,7 +275,7 @@ export interface PanelData {
   textureUrl?: string;
   /** Surface type for custom texture PBR behavior: 'matte' | 'wood' | 'metal' | 'fabric' | 'glass' | 'stone' */
   surfaceType?: string;
-  /** Corner radius in meters for RoundedBox shapes (default 0.002 for wood, 0.02 for cushions) */
+  /** Corner radius in meters for RoundedBox box panels only; cushion/mattress shapes use ShapeRenderer defaults */
   cornerRadius?: number;
 }
 
