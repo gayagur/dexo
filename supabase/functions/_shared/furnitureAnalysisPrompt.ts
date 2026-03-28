@@ -70,14 +70,18 @@ OFFICE/EXECUTIVE CHAIRS:
 - Star base: x_base or 5 rods radiating from center, ~0.60x0.04x0.60m, chrome
 - Casters: 5 small spheres or casters at base tips, ~0.05x0.05x0.05m
 
-SOFAS (2-seat, 3-seat, sectional, chaise):
-- EACH seat cushion separate. 3-seater = 3 seat cushions.
-- EACH back cushion separate. Match seat cushion count.
-- Arms: padded vertical cushions (0.18m+ wide).
-- Back cushion thickness: 0.20-0.28m (thick and puffy, NOT thin panels).
-- Hidden base/plinth under cushions.
-- Throw pillows: separate small cushions on top of seats.
-- L-sectional: main section + chaise extension with separate bases.
+SOFAS (2-seat, 3-seat, sectional, chaise) — POSITIONING IS CRITICAL:
+- BASE/PLINTH: horizontal "plinth" or "rounded_rect" at bottom. Y center ~0.04m. Full width and depth.
+- SEAT CUSHIONS: horizontal "cushion" panels CENTERED on the sofa. Y center ~0.36m. X positions spread evenly across inner width. Z pushed slightly forward (positive Z). 2-seater = 2 cushions side by side, 3-seater = 3.
+- BACK CUSHIONS: vertical "cushion" panels DIRECTLY BEHIND seat cushions. Same X positions as seat cushions. Z position at BACK of sofa (negative Z, ~-0.20 to -0.30). Y center ~0.64m. MUST be same count as seat cushions.
+- ARMS: vertical "cushion" panels at LEFT and RIGHT edges. X at ±(sofa_width/2 - arm_width/2). Z centered (0). Full depth.
+- THROW PILLOWS: small vertical "cushion" panels ON TOP of seat cushions, leaning against back cushions.
+- IMPORTANT POSITION RULES:
+  • Seat cushions X spread: left cushion at negative X, right at positive X
+  • Back cushions at SAME X as their matching seat cushion
+  • Back cushions Z MUST be behind seats (more negative Z than seat back edge)
+  • Arms at the extreme left/right X positions
+  • Nothing should float — all parts touch adjacent parts
 
 DINING/ACCENT CHAIRS (critical — decompose carefully):
 - SEAT: If padded/upholstered → horizontal "cushion" with fabric_*/leather_*. If hard wood → horizontal "rounded_rect" with wood material and shapeParams.cornerRadius ~0.02-0.04. If woven cane → horizontal "rounded_rect" with cane_natural.

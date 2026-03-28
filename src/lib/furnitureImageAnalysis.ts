@@ -344,20 +344,46 @@ function repairSeatingGeometry(panels: PanelData[], name: string, nextId: () => 
     }
   }
 
-  // === Fix 3: Validate seat cushion vertical stacking ===
-  // Ensure back cushions sit above/behind seat cushions, not overlapping
+  // === Fix 3: Validate back cushion positions ===
   if (seatCushions.length > 0 && backCushions.length > 0) {
     const seatTopY = Math.max(...seatCushions.map(p => p.position[1] + p.size[1] / 2));
     const seatBackZ = Math.min(...seatCushions.map(p => p.position[2] - p.size[2] / 2));
+    const seatCenterX = seatCushions.reduce((s, p) => s + p.position[0], 0) / seatCushions.length;
 
-    for (const bc of backCushions) {
-      // Back cushion center should be above seat top
+    // Sort seat cushions by X to match with back cushions
+    const sortedSeats = [...seatCushions].sort((a, b) => a.position[0] - b.position[0]);
+
+    for (let i = 0; i < backCushions.length; i++) {
+      const bc = backCushions[i];
+
+      // Back cushion Y: must be above seat top
       if (bc.position[1] < seatTopY) {
         bc.position = [bc.position[0], seatTopY + bc.size[1] / 2, bc.position[2]];
       }
-      // Back cushion should be behind seats (smaller Z or at seat back edge)
+
+      // Back cushion Z: must be behind seats
       if (bc.position[2] > seatBackZ + 0.05) {
         bc.position = [bc.position[0], bc.position[1], seatBackZ - bc.size[2] / 2 + 0.02];
+      }
+
+      // Back cushion X: if counts match, align X with corresponding seat cushion
+      if (backCushions.length === seatCushions.length && sortedSeats[i]) {
+        const seatX = sortedSeats[i].position[0];
+        // If back cushion X is far from its matching seat, snap it
+        if (Math.abs(bc.position[0] - seatX) > 0.15) {
+          bc.position = [seatX, bc.position[1], bc.position[2]];
+        }
+      }
+
+      // Back cushion X: if too far from sofa center, it's misplaced (probably at arm position)
+      const allSeatMinX = Math.min(...seatCushions.map(p => p.position[0] - p.size[0] / 2));
+      const allSeatMaxX = Math.max(...seatCushions.map(p => p.position[0] + p.size[0] / 2));
+      if (bc.position[0] < allSeatMinX - 0.10 || bc.position[0] > allSeatMaxX + 0.10) {
+        // Back cushion is outside seat area — snap to nearest seat X
+        const nearest = sortedSeats.reduce((best, s) =>
+          Math.abs(s.position[0] - bc.position[0]) < Math.abs(best.position[0] - bc.position[0]) ? s : best
+        );
+        bc.position = [nearest.position[0], bc.position[1], bc.position[2]];
       }
     }
   }
