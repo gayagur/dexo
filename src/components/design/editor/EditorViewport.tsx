@@ -2569,13 +2569,18 @@ function GLBClonePlain({
     const c = scene.clone(true);
     centerGlbCloneRoot(c);
 
-    if (glbMatState.unified) {
+    // For generated models (preserveOriginalDiffuseMaps === false), ALWAYS apply
+    // a DEXO palette material — the original GLB materials are unreliable.
+    // Use the materialId from glbMatState regardless of unified status.
+    const forceApply = preserveOriginalDiffuseMaps === false;
+
+    if (glbMatState.unified || forceApply) {
       applyDesignMaterialToGlbRoot(c, {
         materialId: glbMatState.materialId,
         customColor: glbMatState.customColor,
         lightMode,
         dimmed: !!dimmed,
-        preserveOriginalDiffuseMaps: preserveOriginalDiffuseMaps !== false,
+        preserveOriginalDiffuseMaps: !forceApply,
       });
     } else if (dimmed) {
       c.traverse((child) => {
@@ -2632,10 +2637,23 @@ function GLBModelRenderer({
         signature: `u:${p0?.materialId ?? "oak"}|${p0?.customColor ?? ""}|${p0?.textureUrl ?? ""}`,
       };
     }
+    // Not unified — find the most common material to use as dominant
+    const counts = new Map<string, number>();
+    for (const p of panels) {
+      const key = p.customColor ?? p.materialId;
+      counts.set(key, (counts.get(key) ?? 0) + 1);
+    }
+    let dominant = p0;
+    let maxCount = 0;
+    for (const p of panels) {
+      const key = p.customColor ?? p.materialId;
+      const c = counts.get(key) ?? 0;
+      if (c > maxCount) { maxCount = c; dominant = p; }
+    }
     return {
       unified: false,
-      materialId: "oak",
-      customColor: undefined,
+      materialId: dominant?.materialId ?? "oak",
+      customColor: dominant?.customColor,
       signature: `m:${panels.map((p) => `${p.materialId}|${p.customColor ?? ""}|${p.textureUrl ?? ""}`).join(";")}`,
     };
   }, [panels]);
