@@ -343,8 +343,8 @@ export default function AdminBlogEditorPage() {
           </Alert>
         ) : null}
 
-        <div className="grid grid-cols-1 xl:grid-cols-12 gap-8 items-start">
-          <div className="xl:col-span-8 space-y-6">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+          <div className="lg:col-span-8 space-y-6">
             <Card className="rounded-2xl border-gray-100 shadow-sm">
               <CardContent className="p-6 sm:p-8 space-y-5">
                 <div>
@@ -412,7 +412,7 @@ export default function AdminBlogEditorPage() {
             </Card>
           </div>
 
-          <div className="xl:col-span-4 space-y-6">
+          <div className="lg:col-span-4 space-y-6">
             <Card className="rounded-2xl border-gray-100 shadow-sm sticky top-6">
               <CardHeader className="pb-3">
                 <CardTitle className="text-base font-semibold">Publishing</CardTitle>

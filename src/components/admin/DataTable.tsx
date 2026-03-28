@@ -135,6 +135,7 @@ export function DataTable<T extends Record<string, any>>({
       </div>
 
       {/* Table */}
+      <div className="overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0">
       <div className="border border-gray-200 rounded-lg overflow-hidden bg-white">
         <Table>
           <TableHeader>
@@ -179,6 +180,7 @@ export function DataTable<T extends Record<string, any>>({
             )}
           </TableBody>
         </Table>
+      </div>
       </div>
 
       {/* Pagination */}
