@@ -365,6 +365,74 @@ function repairSeatingGeometry(panels: PanelData[], name: string, nextId: () => 
   return result;
 }
 
+/**
+ * General geometry validation — runs on ALL furniture types.
+ * Fixes common AI mistakes regardless of category.
+ */
+function validateAndRepairGeometry(panels: PanelData[]): PanelData[] {
+  if (panels.length === 0) return panels;
+
+  const result = [...panels];
+
+  // === Fix: Remove duplicate/near-identical panels ===
+  // AI sometimes outputs the same part twice with nearly identical positions
+  const toRemove = new Set<number>();
+  for (let i = 0; i < result.length; i++) {
+    if (toRemove.has(i)) continue;
+    for (let j = i + 1; j < result.length; j++) {
+      if (toRemove.has(j)) continue;
+      const a = result[i], b = result[j];
+      const dx = Math.abs(a.position[0] - b.position[0]);
+      const dy = Math.abs(a.position[1] - b.position[1]);
+      const dz = Math.abs(a.position[2] - b.position[2]);
+      const sw = Math.abs(a.size[0] - b.size[0]);
+      const sh = Math.abs(a.size[1] - b.size[1]);
+      const sd = Math.abs(a.size[2] - b.size[2]);
+      // If position AND size are nearly identical, it's a duplicate
+      if (dx < 0.02 && dy < 0.02 && dz < 0.02 && sw < 0.02 && sh < 0.02 && sd < 0.02) {
+        toRemove.add(j);
+      }
+    }
+  }
+  if (toRemove.size > 0) {
+    const cleaned = result.filter((_, i) => !toRemove.has(i));
+    result.length = 0;
+    result.push(...cleaned);
+  }
+
+  // === Fix: Ensure nothing is below floor (Y < 0) ===
+  const allBottomY = result.map(p => p.position[1] - p.size[1] / 2);
+  const lowestY = Math.min(...allBottomY);
+  if (lowestY < -0.01) {
+    const shift = -lowestY;
+    for (const p of result) {
+      p.position = [p.position[0], p.position[1] + shift, p.position[2]];
+    }
+  }
+
+  // === Fix: Clamp unreasonably large panels ===
+  for (const p of result) {
+    for (let axis = 0; axis < 3; axis++) {
+      if (p.size[axis] > 4.0) {
+        p.size[axis] = Math.min(p.size[axis], 4.0);
+      }
+    }
+  }
+
+  // === Fix: Ensure parts with "leg" in label touch floor ===
+  for (const p of result) {
+    if (/\bleg\b/i.test(p.label) && !/(arm|back)/i.test(p.label)) {
+      const legH = p.size[1];
+      const expectedY = legH / 2;
+      if (Math.abs(p.position[1] - expectedY) > 0.05) {
+        p.position = [p.position[0], expectedY, p.position[2]];
+      }
+    }
+  }
+
+  return result;
+}
+
 export function panelsFromFurnitureAnalysis(
   analysis: FurnitureAnalysis,
   nextId: () => string
@@ -373,5 +441,6 @@ export function panelsFromFurnitureAnalysis(
     .map((p) => normalizeAnalysisPanel(p as RawAnalysisPanel, nextId()))
     .map(fixHorizontalRoundDisk);
   const refined = refineSeatingImportPanels(panels, analysis.name ?? "");
-  return repairSeatingGeometry(refined, analysis.name ?? "", nextId);
+  const repaired = repairSeatingGeometry(refined, analysis.name ?? "", nextId);
+  return validateAndRepairGeometry(repaired);
 }

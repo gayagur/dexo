@@ -48,7 +48,7 @@ import { MobileEditorToolbar } from "./MobileEditorToolbar";
 import { MobileEditorBar } from "./MobileEditorBar";
 import type { ViewMode, EditorLightMode, EditorFloorPreset } from "./EditorViewport";
 import { EDITOR_FLOOR_OPTIONS } from "./EditorViewport";
-import { uploadFurnitureImage, analyzeFurnitureImage, generate3DFromImage, type FurnitureAnalysis } from "@/lib/ai";
+import { uploadFurnitureImage, analyzeFurnitureImage, type FurnitureAnalysis } from "@/lib/ai";
 import { panelsFromFurnitureAnalysis } from "@/lib/furnitureImageAnalysis";
 
 interface FurnitureEditorProps {
@@ -691,45 +691,17 @@ export function FurnitureEditor({
       alert(uploadErr || "Upload failed");
       return;
     }
-
-    // Ask user which mode to use
-    const use3D = window.confirm(
-      "How would you like to import this image?\n\nOK = Generate 3D model (higher quality, slower)\nCancel = Analyze & build from components (faster)"
-    );
-
-    if (use3D) {
-      // ─── 3D generation + part analysis path ───
-      const { glbUrl, analysis, error: genErr } = await generate3DFromImage(url);
-      setIsToolbarAnalyzing(false);
-      if (genErr || (!glbUrl && !analysis)) {
-        alert(genErr || "3D generation failed");
-        return;
-      }
-      try {
-        if (glbUrl) {
-          await handleAddGLBGroup(analysis?.name ?? "Imported 3D", glbUrl, analysis);
-        } else if (analysis) {
-          // Fallback: no GLB, use analysis panels only
-          handleBuildFromImage(analysis, "add");
-        }
-      } catch (err) {
-        console.error("Failed to load generated model:", err);
-        alert("Failed to load the generated 3D model.");
-      }
-    } else {
-      // ─── Component analysis path (existing) ───
-      const { data: analysis, error: analysisErr } = await analyzeFurnitureImage(url);
-      setIsToolbarAnalyzing(false);
-      if (analysisErr || !analysis) {
-        alert(analysisErr || "Analysis failed");
-        return;
-      }
-      const action = window.confirm(
-        `Detected: ${analysis.name} (${analysis.panels.length} components)\n\nOK = Replace current design\nCancel = Add alongside`
-      );
-      handleBuildFromImage(analysis, action ? "replace" : "add");
+    const { data: analysis, error: analysisErr } = await analyzeFurnitureImage(url);
+    setIsToolbarAnalyzing(false);
+    if (analysisErr || !analysis) {
+      alert(analysisErr || "Analysis failed");
+      return;
     }
-  }, [handleBuildFromImage, updateScene]);
+    const action = window.confirm(
+      `Detected: ${analysis.name} (${analysis.panels.length} components)\n\nOK = Replace current design\nCancel = Add alongside`
+    );
+    handleBuildFromImage(analysis, action ? "replace" : "add");
+  }, [handleBuildFromImage]);
 
   const handleSave = useCallback(async () => {
     if (!onSave || saveStatus === "saving") return;
@@ -1650,7 +1622,6 @@ export function FurnitureEditor({
             onRemovePanel={handleChatRemovePanel}
             onAddPanel={handleChatAddPanel}
             onBuildFromImage={handleBuildFromImage}
-            onAddGLBGroup={handleAddGLBGroup}
             onClose={() => setChatOpen(false)}
           />
         )}
@@ -1788,7 +1759,6 @@ export function FurnitureEditor({
             onRemovePanel={handleChatRemovePanel}
             onAddPanel={handleChatAddPanel}
             onBuildFromImage={handleBuildFromImage}
-            onAddGLBGroup={handleAddGLBGroup}
             onClose={closeMobileSheets}
           />
         </MobileDrawer>

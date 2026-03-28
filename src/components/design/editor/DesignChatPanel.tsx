@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { streamChat, type ChatMessage, uploadFurnitureImage, analyzeFurnitureImage, generate3DFromImage, type FurnitureAnalysis } from "@/lib/ai";
+import { streamChat, type ChatMessage, uploadFurnitureImage, analyzeFurnitureImage, type FurnitureAnalysis } from "@/lib/ai";
 import { MATERIALS, STYLES, type PanelData, type FurnitureOption } from "@/lib/furnitureData";
 import { Sparkles, Send, Loader2, X, ImagePlus } from "lucide-react";
 
@@ -27,7 +27,6 @@ interface DesignChatPanelProps {
   onRemovePanel: (panelLabel: string) => void;
   onAddPanel: (panel: { label: string; type: PanelData["type"]; position: [number, number, number]; size: [number, number, number]; materialId: string }) => void;
   onBuildFromImage: (analysis: FurnitureAnalysis, mode: "replace" | "add") => void;
-  onAddGLBGroup?: (name: string, glbUrl: string, analysis?: FurnitureAnalysis) => Promise<void>;
   onClose: () => void;
 }
 
@@ -106,7 +105,6 @@ export function DesignChatPanel({
   onRemovePanel,
   onAddPanel,
   onBuildFromImage,
-  onAddGLBGroup,
   onClose,
 }: DesignChatPanelProps) {
   const [messages, setMessages] = useState<DisplayMessage[]>([
@@ -282,8 +280,6 @@ export function DesignChatPanel({
   };
 
   // ─── Image upload & analysis ───────────────────────────
-  const [pendingImageUrl, setPendingImageUrl] = useState<string | null>(null);
-
   const handleImageUpload = useCallback(async (file: File) => {
     if (isAnalyzing || isStreaming) return;
 
@@ -295,7 +291,7 @@ export function DesignChatPanel({
     }]);
     setMessages((prev) => [...prev, {
       role: "assistant",
-      content: "Processing your image...",
+      content: "Analyzing the furniture in your image... This may take a moment.",
     }]);
 
     const { url, error: uploadErr } = await uploadFurnitureImage(file);
@@ -305,7 +301,6 @@ export function DesignChatPanel({
       return;
     }
 
-    // Analyze with AI Vision
     const { data: analysis, error: analysisErr } = await analyzeFurnitureImage(url);
     setIsAnalyzing(false);
 
@@ -319,15 +314,13 @@ export function DesignChatPanel({
       return;
     }
 
-    const panelList = analysis.panels.map(p => `• ${p.label} (${p.shape})`).join("\n");
-    const has3D = !!onAddGLBGroup;
+    const panelList = analysis.panels.map((p: { label: string; shape: string }) => `• ${p.label} (${p.shape})`).join("\n");
     setMessages((prev) => [...prev, {
       role: "assistant",
-      content: `I identified **${analysis.name}** with ${analysis.panels.length} components:\n${panelList}\n\nEstimated size: ${analysis.estimatedDims.w}×${analysis.estimatedDims.h}×${analysis.estimatedDims.d}mm\n\nChoose an action:\n• **Replace** or **Add** — build from components (fast)\n${has3D ? "• **Generate 3D** — create a 3D model from the image (slower, higher quality)" : ""}`,
+      content: `I identified **${analysis.name}** with ${analysis.panels.length} components:\n${panelList}\n\nEstimated size: ${analysis.estimatedDims.w}×${analysis.estimatedDims.h}×${analysis.estimatedDims.d}mm\n\nWould you like to **replace** the current design or **add** it alongside?`,
     }]);
     setPendingAnalysis(analysis);
-    setPendingImageUrl(url);
-  }, [isAnalyzing, isStreaming, onAddGLBGroup]);
+  }, [isAnalyzing, isStreaming]);
 
   const handleAnalysisAction = useCallback((mode: "replace" | "add") => {
     if (!pendingAnalysis) return;
@@ -339,53 +332,7 @@ export function DesignChatPanel({
         : `Done! Added ${pendingAnalysis.panels.length} components to the scene.`,
     }]);
     setPendingAnalysis(null);
-    setPendingImageUrl(null);
   }, [pendingAnalysis, onBuildFromImage]);
-
-  const handleGenerate3D = useCallback(async () => {
-    if (!pendingImageUrl || !onAddGLBGroup) return;
-    setPendingAnalysis(null);
-    setIsAnalyzing(true);
-    setMessages((prev) => [...prev, {
-      role: "assistant",
-      content: "Generating 3D model and analyzing parts... This may take 1-2 minutes.",
-    }]);
-
-    const { glbUrl, analysis, error: genErr } = await generate3DFromImage(pendingImageUrl);
-    setIsAnalyzing(false);
-    setPendingImageUrl(null);
-
-    if (genErr || (!glbUrl && !analysis)) {
-      setMessages((prev) => [...prev, {
-        role: "assistant",
-        content: `3D generation failed: ${genErr || "Unknown error"}`,
-      }]);
-      return;
-    }
-
-    try {
-      if (glbUrl) {
-        await onAddGLBGroup(analysis?.name ?? "Imported 3D", glbUrl, analysis ?? undefined);
-        const partCount = analysis?.panels?.length ?? 0;
-        setMessages((prev) => [...prev, {
-          role: "assistant",
-          content: `3D model generated${partCount > 0 ? ` with ${partCount} editable parts` : ""}! You can now select and edit individual components.`,
-        }]);
-      } else if (analysis) {
-        // Fallback — no GLB, use panels only
-        onBuildFromImage(analysis, "add");
-        setMessages((prev) => [...prev, {
-          role: "assistant",
-          content: `3D generation failed but part analysis succeeded — added ${analysis.panels.length} components.`,
-        }]);
-      }
-    } catch (err) {
-      setMessages((prev) => [...prev, {
-        role: "assistant",
-        content: `Failed to load the 3D model: ${(err as Error).message}`,
-      }]);
-    }
-  }, [pendingImageUrl, onAddGLBGroup, onBuildFromImage]);
 
   const handleFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -506,34 +453,21 @@ export function DesignChatPanel({
           </div>
         )}
 
-        {/* Pending analysis: Replace/Add/Generate 3D buttons */}
-        {(pendingAnalysis || pendingImageUrl) && (
-          <div className="flex flex-col gap-2 px-1">
-            {pendingAnalysis && (
-              <div className="flex gap-2">
-                <button
-                  onClick={() => handleAnalysisAction("replace")}
-                  className="flex-1 py-2 rounded-lg bg-[#C87D5A] hover:bg-[#B06B4A] text-white text-xs font-medium transition-colors"
-                >
-                  Replace current
-                </button>
-                <button
-                  onClick={() => handleAnalysisAction("add")}
-                  className="flex-1 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-medium border border-gray-200 transition-colors"
-                >
-                  Add to scene
-                </button>
-              </div>
-            )}
-            {pendingImageUrl && onAddGLBGroup && (
-              <button
-                onClick={handleGenerate3D}
-                disabled={isAnalyzing}
-                className="w-full py-2 rounded-lg bg-blue-500 hover:bg-blue-600 disabled:bg-blue-300 text-white text-xs font-medium transition-colors"
-              >
-                {isAnalyzing ? "Generating 3D model..." : "Generate 3D model"}
-              </button>
-            )}
+        {/* Pending analysis: Replace/Add buttons */}
+        {pendingAnalysis && (
+          <div className="flex gap-2 px-1">
+            <button
+              onClick={() => handleAnalysisAction("replace")}
+              className="flex-1 py-2 rounded-lg bg-[#C87D5A] hover:bg-[#B06B4A] text-white text-xs font-medium transition-colors"
+            >
+              Replace current
+            </button>
+            <button
+              onClick={() => handleAnalysisAction("add")}
+              className="flex-1 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-medium border border-gray-200 transition-colors"
+            >
+              Add to scene
+            </button>
           </div>
         )}
 
