@@ -651,7 +651,7 @@ export function FurnitureEditor({
   // ─── Add GLB group from URL (used by chat 3D generation) ───
   const handleAddGLBGroup = useCallback(async (name: string, glbUrl: string) => {
     const { loadGLBAsGroup } = await import("@/lib/glbLoader");
-    const group = await loadGLBAsGroup(glbUrl, name);
+    const group = await loadGLBAsGroup(glbUrl, name, undefined, { preserveOriginalMaterials: false });
     const offset = computeGroupXOffset(groupsRef.current);
     const offsetGroup: GroupData = {
       ...group,
@@ -693,7 +693,7 @@ export function FurnitureEditor({
       }
       try {
         const { loadGLBAsGroup } = await import("@/lib/glbLoader");
-        const group = await loadGLBAsGroup(glbUrl, "Imported 3D");
+        const group = await loadGLBAsGroup(glbUrl, "Imported 3D", undefined, { preserveOriginalMaterials: false });
         const offset = computeGroupXOffset(groupsRef.current);
         const offsetGroup: GroupData = {
           ...group,

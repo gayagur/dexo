@@ -63,6 +63,7 @@ export async function loadGLBAsGroup(
   url: string,
   groupName: string,
   offsetPosition?: [number, number, number],
+  options?: { preserveOriginalMaterials?: boolean },
 ): Promise<GroupData> {
   console.log("[glbLoader] Loading:", url);
   return new Promise((resolve, reject) => {
@@ -184,7 +185,7 @@ export async function loadGLBAsGroup(
           rotation: [0, 0, 0],
           panels,
           glbUrl: url,
-          preserveGlbDiffuseMaps: true,
+          preserveGlbDiffuseMaps: options?.preserveOriginalMaterials !== false,
         });
       },
       (progress) => {
