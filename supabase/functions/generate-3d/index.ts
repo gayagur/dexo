@@ -10,9 +10,7 @@ import {
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
 
 const DAILY_LIMIT = 10;
-/** 3D models to try in order — Trellis is best quality, TripoSR is fallback */
-const FAL_3D_MODELS = ["fal-ai/trellis", "fal-ai/triposr"];
-const TIMEOUT_MS = 180_000;
+const TIMEOUT_MS = 120_000;
 
 /** Vision models for parallel part analysis */
 const VISION_MODELS = [
@@ -45,48 +43,59 @@ Deno.serve(async (req) => {
       );
     }
 
-    const falKey = Deno.env.get("FAL_KEY");
+    const stabilityKey = Deno.env.get("STABILITY_API_KEY");
     const togetherApiKey = Deno.env.get("TOGETHER_API_KEY");
-    if (!falKey) {
+
+    if (!stabilityKey) {
       return new Response(
-        JSON.stringify({ error: "3D generation service not configured" }),
+        JSON.stringify({ error: "3D generation service not configured (missing STABILITY_API_KEY)" }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
     console.log("[generate-3d] Starting parallel 3D generation + part analysis");
 
-    // ─── Upload base64 image to storage if needed ───
-    let publicImageUrl = imageUrl;
+    // ─── Download image bytes (needed for Stability multipart upload) ───
+    let imageBytes: Uint8Array;
     if (imageUrl.startsWith("data:")) {
+      const base64Data = imageUrl.replace(/^data:image\/\w+;base64,/, "");
+      imageBytes = Uint8Array.from(atob(base64Data), (c) => c.charCodeAt(0));
+    } else {
+      const imgResp = await fetch(imageUrl);
+      if (!imgResp.ok) {
+        return new Response(
+          JSON.stringify({ error: "Failed to fetch source image" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      imageBytes = new Uint8Array(await imgResp.arrayBuffer());
+    }
+    console.log("[generate-3d] Image size:", imageBytes.length, "bytes");
+
+    // Upload image to Supabase for the vision analysis (needs a public URL)
+    let publicImageUrl = imageUrl;
+    if (imageUrl.startsWith("data:") && togetherApiKey) {
       const supabase = createClient(
         Deno.env.get("SUPABASE_URL")!,
         Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
       );
-      const base64Data = imageUrl.replace(/^data:image\/\w+;base64,/, "");
-      const imageBuffer = Uint8Array.from(atob(base64Data), (c) => c.charCodeAt(0));
       const imagePath = `3d-inputs/${userId}/${Date.now()}-${crypto.randomUUID().slice(0, 6)}.jpg`;
       const { error: uploadErr } = await supabase.storage
         .from("project-images")
-        .upload(imagePath, imageBuffer, { contentType: "image/jpeg", upsert: false });
-      if (uploadErr) {
-        return new Response(
-          JSON.stringify({ error: "Failed to upload image for processing" }),
-          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
+        .upload(imagePath, imageBytes, { contentType: "image/jpeg", upsert: false });
+      if (!uploadErr) {
+        const { data: urlData } = supabase.storage.from("project-images").getPublicUrl(imagePath);
+        publicImageUrl = urlData.publicUrl;
       }
-      const { data: urlData } = supabase.storage.from("project-images").getPublicUrl(imagePath);
-      publicImageUrl = urlData.publicUrl;
-      console.log("[generate-3d] Image uploaded to:", publicImageUrl);
     }
 
     // ═══════════════════════════════════════════════════════════
     // Run BOTH in parallel:
-    //   1. FAL.ai Trellis → 3D mesh (GLB)
-    //   2. Together.ai Vision → part segmentation (panels JSON)
+    //   1. Stability AI Stable Fast 3D → GLB mesh
+    //   2. Together.ai Vision → part segmentation
     // ═══════════════════════════════════════════════════════════
 
-    const meshPromise = generate3DMesh(falKey, publicImageUrl);
+    const meshPromise = generateStability3D(stabilityKey, imageBytes);
     const partsPromise = togetherApiKey
       ? analyzePartsFromImage(togetherApiKey, publicImageUrl)
       : Promise.resolve(null);
@@ -96,32 +105,28 @@ Deno.serve(async (req) => {
     // ─── Process mesh result ───
     let publicGlbUrl: string | undefined;
     if (meshResult.status === "fulfilled" && meshResult.value) {
-      // Download and upload GLB to Supabase storage
-      const glbResp = await fetch(meshResult.value);
-      if (glbResp.ok) {
-        const glbBuffer = new Uint8Array(await glbResp.arrayBuffer());
-        console.log("[generate-3d] GLB downloaded, size:", glbBuffer.length, "bytes");
+      const glbBuffer = meshResult.value;
+      console.log("[generate-3d] GLB received, size:", glbBuffer.length, "bytes");
 
-        const supabase = createClient(
-          Deno.env.get("SUPABASE_URL")!,
-          Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-        );
-        const glbPath = `generated-models/${userId}/${Date.now()}-${crypto.randomUUID().slice(0, 6)}.glb`;
-        const { error: glbUploadErr } = await supabase.storage
-          .from("project-images")
-          .upload(glbPath, glbBuffer, { contentType: "model/gltf-binary", upsert: false });
+      const supabase = createClient(
+        Deno.env.get("SUPABASE_URL")!,
+        Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+      );
+      const glbPath = `generated-models/${userId}/${Date.now()}-${crypto.randomUUID().slice(0, 6)}.glb`;
+      const { error: glbUploadErr } = await supabase.storage
+        .from("project-images")
+        .upload(glbPath, glbBuffer, { contentType: "model/gltf-binary", upsert: false });
 
-        if (!glbUploadErr) {
-          const { data: glbUrlData } = supabase.storage.from("project-images").getPublicUrl(glbPath);
-          publicGlbUrl = glbUrlData.publicUrl;
-          console.log("[generate-3d] GLB stored at:", publicGlbUrl);
-        } else {
-          console.error("[generate-3d] GLB upload failed:", glbUploadErr);
-        }
+      if (!glbUploadErr) {
+        const { data: glbUrlData } = supabase.storage.from("project-images").getPublicUrl(glbPath);
+        publicGlbUrl = glbUrlData.publicUrl;
+        console.log("[generate-3d] GLB stored at:", publicGlbUrl);
+      } else {
+        console.error("[generate-3d] GLB upload failed:", glbUploadErr);
       }
     } else {
-      console.error("[generate-3d] Mesh generation failed:",
-        meshResult.status === "rejected" ? meshResult.reason : "no URL");
+      console.error("[generate-3d] 3D generation failed:",
+        meshResult.status === "rejected" ? meshResult.reason : "no data");
     }
 
     // ─── Process parts result ───
@@ -134,8 +139,7 @@ Deno.serve(async (req) => {
           ? `${((analysis as { panels: unknown[] }).panels).length} parts`
           : "no parts");
     } else {
-      console.warn("[generate-3d] Part analysis failed or skipped:",
-        partsResult.status === "rejected" ? partsResult.reason : "no result");
+      console.warn("[generate-3d] Part analysis failed or skipped");
     }
 
     // ─── Build response ───
@@ -149,10 +153,10 @@ Deno.serve(async (req) => {
     logUsage({
       userId,
       functionName: "generate-3d",
-      model: FAL_3D_MODELS[0],
+      model: "stability-stable-fast-3d",
       tokensIn: 0,
       tokensOut: 0,
-      costUsd: 0.06,
+      costUsd: 0.04,
     }).catch((err) => console.error("Usage log failed:", err));
 
     return new Response(
@@ -176,109 +180,49 @@ Deno.serve(async (req) => {
 });
 
 // ═══════════════════════════════════════════════════════════
-// 3D Mesh Generation (FAL.ai — tries multiple models)
+// 3D Mesh Generation — Stability AI Stable Fast 3D
+// Returns GLB as Uint8Array directly (no URL indirection)
 // ═══════════════════════════════════════════════════════════
 
-async function generate3DMesh(falKey: string, imageUrl: string): Promise<string> {
-  let lastError = "";
+async function generateStability3D(apiKey: string, imageBytes: Uint8Array): Promise<Uint8Array> {
+  console.log("[generate-3d] Calling Stability AI Stable Fast 3D...");
 
-  for (const model of FAL_3D_MODELS) {
-    console.log("[generate-3d] Trying 3D model:", model);
-    const ac = new AbortController();
-    const timer = setTimeout(() => ac.abort(), TIMEOUT_MS);
+  const ac = new AbortController();
+  const timer = setTimeout(() => ac.abort(), TIMEOUT_MS);
 
-    try {
-      const submitResp = await fetch(`https://queue.fal.run/${model}`, {
-        method: "POST",
-        signal: ac.signal,
-        headers: {
-          "Authorization": `Key ${falKey}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ image_url: imageUrl }),
-      });
+  try {
+    // Stability API requires multipart form-data with image file
+    const formData = new FormData();
+    formData.append("image", new Blob([imageBytes], { type: "image/jpeg" }), "input.jpg");
+    // Request GLB output
+    formData.append("texture_resolution", "1024");
+    formData.append("foreground_ratio", "0.85");
 
-      if (!submitResp.ok) {
-        const errText = await submitResp.text();
-        lastError = `${model}: ${submitResp.status} ${errText.slice(0, 150)}`;
-        console.warn("[generate-3d] Model failed:", lastError);
-        continue;
-      }
-
-      const submitResult = await submitResp.json();
-      const requestId = submitResult.request_id;
-
-      if (!requestId) {
-        const url = extractGlbUrl(submitResult);
-        console.log("[generate-3d] Got synchronous result from", model);
-        return url;
-      }
-
-      console.log("[generate-3d] Queued on", model, "request_id:", requestId);
-      const url = await pollForResult(falKey, model, requestId, ac.signal);
-      console.log("[generate-3d] Success from", model);
-      return url;
-    } catch (err) {
-      lastError = `${model}: ${(err as Error).message}`;
-      console.warn("[generate-3d] Model error:", lastError);
-      continue;
-    } finally {
-      clearTimeout(timer);
-    }
-  }
-
-  throw new Error(`All 3D models failed. Last: ${lastError}`);
-}
-
-function extractGlbUrl(result: Record<string, unknown>): string {
-  if (result.model_mesh && typeof result.model_mesh === "object") {
-    const mesh = result.model_mesh as Record<string, unknown>;
-    if (typeof mesh.url === "string") return mesh.url;
-  }
-  if (typeof result.glb_url === "string") return result.glb_url;
-  if (typeof result.mesh_url === "string") return result.mesh_url;
-  if (result.output && typeof result.output === "object") {
-    return extractGlbUrl(result.output as Record<string, unknown>);
-  }
-  if (result.mesh && typeof result.mesh === "object") {
-    const mesh = result.mesh as Record<string, unknown>;
-    if (typeof mesh.url === "string") return mesh.url;
-  }
-  throw new Error("No GLB URL in FAL response");
-}
-
-async function pollForResult(falKey: string, model: string, requestId: string, signal: AbortSignal): Promise<string> {
-  const statusUrl = `https://queue.fal.run/${model}/requests/${requestId}/status`;
-  const resultUrl = `https://queue.fal.run/${model}/requests/${requestId}`;
-
-  while (!signal.aborted) {
-    await new Promise((r) => setTimeout(r, 3000));
-    const statusResp = await fetch(statusUrl, {
-      headers: { "Authorization": `Key ${falKey}` },
-      signal,
+    const response = await fetch("https://api.stability.ai/v2beta/3d/stable-fast-3d", {
+      method: "POST",
+      signal: ac.signal,
+      headers: {
+        "Authorization": `Bearer ${apiKey}`,
+      },
+      body: formData,
     });
-    if (!statusResp.ok) continue;
-    const status = await statusResp.json();
-    console.log("[generate-3d] FAL job status:", status.status);
 
-    if (status.status === "COMPLETED") {
-      const resultResp = await fetch(resultUrl, {
-        headers: { "Authorization": `Key ${falKey}` },
-        signal,
-      });
-      if (!resultResp.ok) throw new Error(`Failed to fetch result: ${resultResp.status}`);
-      const result = await resultResp.json();
-      return extractGlbUrl(result);
+    if (!response.ok) {
+      const errText = await response.text();
+      throw new Error(`Stability API ${response.status}: ${errText.slice(0, 200)}`);
     }
-    if (status.status === "FAILED") {
-      throw new Error(`3D generation failed: ${status.error || "Unknown"}`);
-    }
+
+    // Response IS the GLB binary directly
+    const buffer = new Uint8Array(await response.arrayBuffer());
+    console.log("[generate-3d] Stability AI returned", buffer.length, "bytes");
+    return buffer;
+  } finally {
+    clearTimeout(timer);
   }
-  throw new Error("3D generation timed out");
 }
 
 // ═══════════════════════════════════════════════════════════
-// Part Analysis (Together.ai Vision — same as analyze-furniture)
+// Part Analysis (Together.ai Vision)
 // ═══════════════════════════════════════════════════════════
 
 async function analyzePartsFromImage(
@@ -333,25 +277,15 @@ async function analyzePartsFromImage(
         clearTimeout(timer);
       }
 
-      if (!response.ok) {
-        console.warn(`[generate-3d] Vision ${model} failed: ${response.status}`);
-        continue;
-      }
+      if (!response.ok) continue;
 
       const result = await response.json();
       const content = result.choices?.[0]?.message?.content || "";
-      if (result.choices?.[0]?.finish_reason === "length") {
-        console.warn(`[generate-3d] Vision ${model} truncated`);
-        continue;
-      }
-
+      if (result.choices?.[0]?.finish_reason === "length") continue;
       if (!content) continue;
 
       const parsed = parseFurnitureAnalysisFromLlmText(content);
-      if (!parsed.ok) {
-        console.warn("[generate-3d] Failed to parse vision response");
-        continue;
-      }
+      if (!parsed.ok) continue;
 
       const raw = parsed.data as Record<string, unknown>;
       const panels = Array.isArray(raw.panels) ? raw.panels
@@ -359,7 +293,6 @@ async function analyzePartsFromImage(
         : Array.isArray(raw.parts) ? raw.parts : null;
 
       if (!panels || panels.length === 0) continue;
-
       return { ...raw, panels };
     } catch (err) {
       console.warn(`[generate-3d] Vision ${model} error:`, (err as Error).message);
