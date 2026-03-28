@@ -12,7 +12,7 @@ import {
   panelShouldHaveFabricTufting,
   tuftStyleForPanel,
 } from "@/lib/fabricTufting";
-import { applyDesignMaterialToGlbRoot } from "@/lib/glbMaterialOverride";
+import { applyDesignMaterialToGlbRoot, applyPerPartMaterialsToGlbRoot } from "@/lib/glbMaterialOverride";
 import { useMobileInfo } from "@/hooks/use-mobile";
 import * as THREE from "three";
 
@@ -2553,6 +2553,7 @@ function GLBCloneWithSh3Texture({
 function GLBClonePlain({
   scene,
   glbMatState,
+  panels,
   lightMode,
   dimmed,
   preserveOriginalDiffuseMaps,
@@ -2560,27 +2561,37 @@ function GLBClonePlain({
 }: {
   scene: THREE.Object3D;
   glbMatState: GlbMatMemoState;
+  panels: PanelData[];
   lightMode: EditorLightMode;
   dimmed?: boolean;
-  /** When true (default), keep per-mesh GLB colors / maps until user overrides group material */
   preserveOriginalDiffuseMaps?: boolean;
 } & GLBPrimitiveHandlers) {
   const cloned = useMemo(() => {
     const c = scene.clone(true);
     centerGlbCloneRoot(c);
 
-    // For generated models (preserveOriginalDiffuseMaps === false), ALWAYS apply
-    // a DEXO palette material — the original GLB materials are unreliable.
-    // Use the materialId from glbMatState regardless of unified status.
     const forceApply = preserveOriginalDiffuseMaps === false;
 
-    if (glbMatState.unified || forceApply) {
+    if (glbMatState.unified) {
+      // All panels share the same material — apply uniformly
       applyDesignMaterialToGlbRoot(c, {
         materialId: glbMatState.materialId,
         customColor: glbMatState.customColor,
         lightMode,
         dimmed: !!dimmed,
         preserveOriginalDiffuseMaps: !forceApply,
+      });
+    } else if (forceApply && panels.length > 1) {
+      // Generated model with per-part materials — match sub-meshes to panels
+      applyPerPartMaterialsToGlbRoot(c, panels, lightMode, !!dimmed);
+    } else if (forceApply) {
+      // Generated model, single panel — apply dominant material
+      applyDesignMaterialToGlbRoot(c, {
+        materialId: glbMatState.materialId,
+        customColor: glbMatState.customColor,
+        lightMode,
+        dimmed: !!dimmed,
+        preserveOriginalDiffuseMaps: false,
       });
     } else if (dimmed) {
       c.traverse((child) => {
@@ -2597,7 +2608,7 @@ function GLBClonePlain({
       });
     }
     return c;
-  }, [scene, dimmed, lightMode, glbMatState, preserveOriginalDiffuseMaps]);
+  }, [scene, dimmed, lightMode, glbMatState, panels, preserveOriginalDiffuseMaps]);
   return <GLBPrimitiveWithHandlers cloned={cloned} {...handlers} />;
 }
 
@@ -2682,6 +2693,7 @@ function GLBModelRenderer({
         <GLBClonePlain
           scene={scene}
           glbMatState={glbMatState}
+          panels={panels}
           lightMode={lightMode}
           dimmed={dimmed}
           preserveOriginalDiffuseMaps={preserveGlbDiffuseMaps}

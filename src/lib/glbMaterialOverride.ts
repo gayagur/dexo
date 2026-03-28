@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { MATERIALS, type MaterialOption } from "./furnitureData";
+import { MATERIALS, type MaterialOption, type PanelData } from "./furnitureData";
 import { getFabricRenderingParams, getMaterialTextures } from "./materialTextures";
 
 function disposeMaterialRef(m: THREE.Material | THREE.Material[]) {
@@ -294,4 +294,61 @@ export function applyDesignMaterialToGlbRoot(
       child.material = next;
     }
   });
+}
+
+/**
+ * Apply per-part materials to a GLB model by matching each sub-mesh
+ * to the nearest analysis panel (by bounding box centroid distance).
+ * Each sub-mesh gets the material of its matched panel.
+ */
+export function applyPerPartMaterialsToGlbRoot(
+  root: THREE.Object3D,
+  panels: PanelData[],
+  lightMode: GlbMaterialLightMode,
+  dimmed: boolean,
+): void {
+  if (panels.length === 0) return;
+
+  root.updateMatrixWorld(true);
+
+  // Collect sub-meshes with their world-space centroids
+  const meshes: { mesh: THREE.Mesh; center: THREE.Vector3 }[] = [];
+  root.traverse((child) => {
+    if (!(child instanceof THREE.Mesh)) return;
+    const geo = child.geometry;
+    if (!geo.boundingBox) geo.computeBoundingBox();
+    const bbox = geo.boundingBox!.clone().applyMatrix4(child.matrixWorld);
+    const center = new THREE.Vector3();
+    bbox.getCenter(center);
+    meshes.push({ mesh: child, center });
+  });
+
+  if (meshes.length === 0) return;
+
+  // For each mesh, find the closest panel by centroid distance
+  for (const { mesh, center } of meshes) {
+    let bestPanel = panels[0];
+    let bestDist = Infinity;
+
+    for (const panel of panels) {
+      const [px, py, pz] = panel.position;
+      const dx = center.x - px;
+      const dy = center.y - py;
+      const dz = center.z - pz;
+      const dist = dx * dx + dy * dy + dz * dz;
+      if (dist < bestDist) {
+        bestDist = dist;
+        bestPanel = panel;
+      }
+    }
+
+    // Apply this panel's material to the mesh
+    applyDesignMaterialToGlbRoot(mesh, {
+      materialId: bestPanel.materialId,
+      customColor: bestPanel.customColor,
+      lightMode,
+      dimmed,
+      preserveOriginalDiffuseMaps: false,
+    });
+  }
 }
