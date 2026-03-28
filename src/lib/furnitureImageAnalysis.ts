@@ -251,8 +251,15 @@ function refineSeatingImportPanels(panels: PanelData[], furnitureName: string): 
       if (backish && h >= Math.max(w, d) * 0.55) type = "vertical";
     }
 
+    // Use cushion_firm (not full cushion) because the AI chose "box" —
+    // meaning the furniture looks structured/boxy. If the AI wanted puffy
+    // pillow shapes it would have output "cushion" directly.
+    // Arms get padded_block (even less rounding — they're structural).
+    const isArm = /\b(arm|armrest)\b/i.test(panel.label);
+    const targetShape: PanelShape = isArm ? "padded_block" : "cushion_firm";
+
     const { cornerRadius: _omit, ...base } = panel;
-    return { ...base, type, shape: "cushion" };
+    return { ...base, type, shape: targetShape };
   });
 }
 
