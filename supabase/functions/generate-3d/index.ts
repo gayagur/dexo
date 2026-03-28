@@ -10,7 +10,8 @@ import {
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
 
 const DAILY_LIMIT = 10;
-const FAL_MODEL = "fal-ai/trellis";
+/** 3D models to try in order — Trellis is best quality, TripoSR is fallback */
+const FAL_3D_MODELS = ["fal-ai/trellis", "fal-ai/triposr"];
 const TIMEOUT_MS = 180_000;
 
 /** Vision models for parallel part analysis */
@@ -175,41 +176,58 @@ Deno.serve(async (req) => {
 });
 
 // ═══════════════════════════════════════════════════════════
-// 3D Mesh Generation (FAL.ai Trellis)
+// 3D Mesh Generation (FAL.ai — tries multiple models)
 // ═══════════════════════════════════════════════════════════
 
 async function generate3DMesh(falKey: string, imageUrl: string): Promise<string> {
-  const ac = new AbortController();
-  const timer = setTimeout(() => ac.abort(), TIMEOUT_MS);
+  let lastError = "";
 
-  try {
-    const submitResp = await fetch(`https://queue.fal.run/${FAL_MODEL}`, {
-      method: "POST",
-      signal: ac.signal,
-      headers: {
-        "Authorization": `Key ${falKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ image_url: imageUrl }),
-    });
+  for (const model of FAL_3D_MODELS) {
+    console.log("[generate-3d] Trying 3D model:", model);
+    const ac = new AbortController();
+    const timer = setTimeout(() => ac.abort(), TIMEOUT_MS);
 
-    if (!submitResp.ok) {
-      const errText = await submitResp.text();
-      throw new Error(`FAL submit failed: ${submitResp.status} ${errText.slice(0, 200)}`);
+    try {
+      const submitResp = await fetch(`https://queue.fal.run/${model}`, {
+        method: "POST",
+        signal: ac.signal,
+        headers: {
+          "Authorization": `Key ${falKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ image_url: imageUrl }),
+      });
+
+      if (!submitResp.ok) {
+        const errText = await submitResp.text();
+        lastError = `${model}: ${submitResp.status} ${errText.slice(0, 150)}`;
+        console.warn("[generate-3d] Model failed:", lastError);
+        continue;
+      }
+
+      const submitResult = await submitResp.json();
+      const requestId = submitResult.request_id;
+
+      if (!requestId) {
+        const url = extractGlbUrl(submitResult);
+        console.log("[generate-3d] Got synchronous result from", model);
+        return url;
+      }
+
+      console.log("[generate-3d] Queued on", model, "request_id:", requestId);
+      const url = await pollForResult(falKey, model, requestId, ac.signal);
+      console.log("[generate-3d] Success from", model);
+      return url;
+    } catch (err) {
+      lastError = `${model}: ${(err as Error).message}`;
+      console.warn("[generate-3d] Model error:", lastError);
+      continue;
+    } finally {
+      clearTimeout(timer);
     }
-
-    const submitResult = await submitResp.json();
-    const requestId = submitResult.request_id;
-
-    if (!requestId) {
-      return extractGlbUrl(submitResult);
-    }
-
-    console.log("[generate-3d] FAL queued, request_id:", requestId);
-    return await pollForResult(falKey, requestId, ac.signal);
-  } finally {
-    clearTimeout(timer);
   }
+
+  throw new Error(`All 3D models failed. Last: ${lastError}`);
 }
 
 function extractGlbUrl(result: Record<string, unknown>): string {
@@ -229,9 +247,9 @@ function extractGlbUrl(result: Record<string, unknown>): string {
   throw new Error("No GLB URL in FAL response");
 }
 
-async function pollForResult(falKey: string, requestId: string, signal: AbortSignal): Promise<string> {
-  const statusUrl = `https://queue.fal.run/${FAL_MODEL}/requests/${requestId}/status`;
-  const resultUrl = `https://queue.fal.run/${FAL_MODEL}/requests/${requestId}`;
+async function pollForResult(falKey: string, model: string, requestId: string, signal: AbortSignal): Promise<string> {
+  const statusUrl = `https://queue.fal.run/${model}/requests/${requestId}/status`;
+  const resultUrl = `https://queue.fal.run/${model}/requests/${requestId}`;
 
   while (!signal.aborted) {
     await new Promise((r) => setTimeout(r, 3000));
