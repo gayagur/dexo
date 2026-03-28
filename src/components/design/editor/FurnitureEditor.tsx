@@ -648,10 +648,24 @@ export function FurnitureEditor({
     setSelectedPanelId(null);
   }, [pushHistory, updateScene]);
 
-  // ─── Add GLB group from URL (used by chat 3D generation) ───
-  const handleAddGLBGroup = useCallback(async (name: string, glbUrl: string) => {
+  // ─── Add GLB group from URL, optionally with analysis panels for editability ───
+  const handleAddGLBGroup = useCallback(async (name: string, glbUrl: string, analysis?: FurnitureAnalysis) => {
     const { loadGLBAsGroup } = await import("@/lib/glbLoader");
-    const group = await loadGLBAsGroup(glbUrl, name, undefined, { preserveOriginalMaterials: false });
+
+    let group: GroupData;
+    if (analysis && analysis.panels?.length > 0) {
+      // Hybrid mode: GLB mesh for visuals + analysis panels for editing
+      const analysisPanels = panelsFromFurnitureAnalysis(analysis, () => `p${++nextPanelId}`);
+      group = createGroupFromPanels(analysis.name ?? name, analysisPanels);
+      group = { ...group, glbUrl, preserveGlbDiffuseMaps: false };
+      if (analysis.estimatedDims) {
+        setDims(analysis.estimatedDims);
+      }
+    } else {
+      // GLB-only mode: load mesh and extract panels from geometry
+      group = await loadGLBAsGroup(glbUrl, name, undefined, { preserveOriginalMaterials: false });
+    }
+
     const offset = computeGroupXOffset(groupsRef.current);
     const offsetGroup: GroupData = {
       ...group,
@@ -660,7 +674,7 @@ export function FurnitureEditor({
     updateScene((prev) => [...prev, offsetGroup]);
     setSelectedGroupId(offsetGroup.id);
     setSelectedPanelId(null);
-  }, [updateScene]);
+  }, [updateScene, pushHistory]);
 
   // ─── Toolbar image import ────────────────────────────
   // Camera position ref (updated by viewport via onCameraMove)
@@ -684,26 +698,22 @@ export function FurnitureEditor({
     );
 
     if (use3D) {
-      // ─── 3D generation path ───
-      const { glbUrl, error: genErr } = await generate3DFromImage(url);
+      // ─── 3D generation + part analysis path ───
+      const { glbUrl, analysis, error: genErr } = await generate3DFromImage(url);
       setIsToolbarAnalyzing(false);
-      if (genErr || !glbUrl) {
+      if (genErr || (!glbUrl && !analysis)) {
         alert(genErr || "3D generation failed");
         return;
       }
       try {
-        const { loadGLBAsGroup } = await import("@/lib/glbLoader");
-        const group = await loadGLBAsGroup(glbUrl, "Imported 3D", undefined, { preserveOriginalMaterials: false });
-        const offset = computeGroupXOffset(groupsRef.current);
-        const offsetGroup: GroupData = {
-          ...group,
-          position: [group.position[0] + offset, group.position[1], group.position[2]],
-        };
-        updateScene((prev) => [...prev, offsetGroup]);
-        setSelectedGroupId(offsetGroup.id);
-        setSelectedPanelId(null);
+        if (glbUrl) {
+          await handleAddGLBGroup(analysis?.name ?? "Imported 3D", glbUrl, analysis);
+        } else if (analysis) {
+          // Fallback: no GLB, use analysis panels only
+          handleBuildFromImage(analysis, "add");
+        }
       } catch (err) {
-        console.error("Failed to load generated GLB:", err);
+        console.error("Failed to load generated model:", err);
         alert("Failed to load the generated 3D model.");
       }
     } else {

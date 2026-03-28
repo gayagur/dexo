@@ -411,10 +411,15 @@ export async function analyzeFurnitureImage(imageUrl: string): Promise<{ data?: 
 }
 
 /**
- * Generate a 3D model (GLB) from a furniture image using FAL.ai.
- * Returns a public URL to the generated GLB file stored in Supabase.
+ * Generate a 3D model (GLB) + part segmentation from a furniture image.
+ * Runs FAL.ai 3D generation and Together.ai vision analysis in parallel.
+ * Returns GLB URL for visual mesh and analysis for editable parts.
  */
-export async function generate3DFromImage(imageUrl: string): Promise<{ glbUrl?: string; error?: string }> {
+export async function generate3DFromImage(imageUrl: string): Promise<{
+  glbUrl?: string;
+  analysis?: FurnitureAnalysis;
+  error?: string;
+}> {
   try {
     const headers = await getAuthHeaders();
     const response = await fetch(`${FUNCTIONS_URL}/generate-3d`, {
@@ -428,7 +433,7 @@ export async function generate3DFromImage(imageUrl: string): Promise<{ glbUrl?: 
       result = (await response.json()) as Record<string, unknown>;
     } catch {
       if (!response.ok) {
-        return { error: `3D generation failed (HTTP ${response.status}). Try again or use a different image.` };
+        return { error: `3D generation failed (HTTP ${response.status}).` };
       }
     }
 
@@ -438,11 +443,16 @@ export async function generate3DFromImage(imageUrl: string): Promise<{ glbUrl?: 
     }
 
     const glbUrl = typeof result.glbUrl === "string" ? result.glbUrl : undefined;
-    if (!glbUrl) {
-      return { error: "3D generation did not return a model URL" };
+    const analysis = result.analysis as FurnitureAnalysis | null | undefined;
+
+    if (!glbUrl && !analysis) {
+      return { error: "Both 3D generation and part analysis failed." };
     }
 
-    return { glbUrl };
+    return {
+      glbUrl: glbUrl || undefined,
+      analysis: analysis || undefined,
+    };
   } catch (err) {
     const msg = (err as Error).message;
     if (msg === "Failed to fetch" || msg.includes("NetworkError") || msg.includes("fetch")) {

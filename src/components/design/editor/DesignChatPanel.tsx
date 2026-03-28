@@ -27,7 +27,7 @@ interface DesignChatPanelProps {
   onRemovePanel: (panelLabel: string) => void;
   onAddPanel: (panel: { label: string; type: PanelData["type"]; position: [number, number, number]; size: [number, number, number]; materialId: string }) => void;
   onBuildFromImage: (analysis: FurnitureAnalysis, mode: "replace" | "add") => void;
-  onAddGLBGroup?: (name: string, glbUrl: string) => Promise<void>;
+  onAddGLBGroup?: (name: string, glbUrl: string, analysis?: FurnitureAnalysis) => Promise<void>;
   onClose: () => void;
 }
 
@@ -348,14 +348,14 @@ export function DesignChatPanel({
     setIsAnalyzing(true);
     setMessages((prev) => [...prev, {
       role: "assistant",
-      content: "Generating 3D model from your image... This may take 1-2 minutes.",
+      content: "Generating 3D model and analyzing parts... This may take 1-2 minutes.",
     }]);
 
-    const { glbUrl, error: genErr } = await generate3DFromImage(pendingImageUrl);
+    const { glbUrl, analysis, error: genErr } = await generate3DFromImage(pendingImageUrl);
     setIsAnalyzing(false);
     setPendingImageUrl(null);
 
-    if (genErr || !glbUrl) {
+    if (genErr || (!glbUrl && !analysis)) {
       setMessages((prev) => [...prev, {
         role: "assistant",
         content: `3D generation failed: ${genErr || "Unknown error"}`,
@@ -364,18 +364,28 @@ export function DesignChatPanel({
     }
 
     try {
-      await onAddGLBGroup("Imported 3D", glbUrl);
-      setMessages((prev) => [...prev, {
-        role: "assistant",
-        content: "3D model generated and added to the scene!",
-      }]);
+      if (glbUrl) {
+        await onAddGLBGroup(analysis?.name ?? "Imported 3D", glbUrl, analysis ?? undefined);
+        const partCount = analysis?.panels?.length ?? 0;
+        setMessages((prev) => [...prev, {
+          role: "assistant",
+          content: `3D model generated${partCount > 0 ? ` with ${partCount} editable parts` : ""}! You can now select and edit individual components.`,
+        }]);
+      } else if (analysis) {
+        // Fallback — no GLB, use panels only
+        onBuildFromImage(analysis, "add");
+        setMessages((prev) => [...prev, {
+          role: "assistant",
+          content: `3D generation failed but part analysis succeeded — added ${analysis.panels.length} components.`,
+        }]);
+      }
     } catch (err) {
       setMessages((prev) => [...prev, {
         role: "assistant",
         content: `Failed to load the 3D model: ${(err as Error).message}`,
       }]);
     }
-  }, [pendingImageUrl, onAddGLBGroup]);
+  }, [pendingImageUrl, onAddGLBGroup, onBuildFromImage]);
 
   const handleFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
