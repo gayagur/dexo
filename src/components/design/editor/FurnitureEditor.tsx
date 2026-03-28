@@ -1710,7 +1710,7 @@ export function FurnitureEditor({
 
         {/* Bottom action bar */}
         <MobileEditorBar
-          onOpenLibrary={() => openMobileSheet("library")}
+          onOpenLibrary={() => { setShowLibrary(true); openMobileSheet("library"); }}
           onOpenProperties={() => openMobileSheet("properties")}
           onOpenChat={() => openMobileSheet("chat")}
           editingGroupId={editingGroupId}

@@ -400,9 +400,9 @@ export function DesignChatPanel({
   const displayStreamingText = streamingText.replace(CMD_REGEX, "").replace(/\[DESIGN_CMD\][^[]*$/s, "").trim();
 
   return (
-    <div className="w-80 bg-white border-l border-gray-200 flex flex-col shrink-0 overflow-hidden">
-      {/* Header bar */}
-      <div className="flex items-center justify-between px-4 py-2.5 border-b border-gray-100 shrink-0">
+    <div className="w-full lg:w-80 bg-white lg:border-l border-gray-200 flex flex-col lg:shrink-0 overflow-hidden">
+      {/* Header bar — hidden on mobile (MobileDrawer provides its own) */}
+      <div className="hidden lg:flex items-center justify-between px-4 py-2.5 border-b border-gray-100 shrink-0">
         <div className="flex items-center gap-2">
           <Sparkles className="w-3.5 h-3.5 text-[#C87D5A]" />
           <span className="text-xs font-semibold text-gray-700">AI Assistant</span>
@@ -583,7 +583,7 @@ export function DesignChatPanel({
             placeholder="Ask about your design..."
             rows={1}
             disabled={isStreaming || isAnalyzing}
-            className="flex-1 bg-transparent text-sm text-gray-700 placeholder-gray-400 resize-none outline-none max-h-24 leading-relaxed disabled:opacity-50"
+            className="flex-1 bg-transparent text-base lg:text-sm text-gray-700 placeholder-gray-400 resize-none outline-none max-h-24 leading-relaxed disabled:opacity-50"
             style={{ minHeight: "20px" }}
           />
           <button
