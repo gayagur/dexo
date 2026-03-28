@@ -300,10 +300,12 @@ function repairSeatingGeometry(panels: PanelData[], name: string, nextId: () => 
 
   const result = [...panels];
 
-  // Collect semantic groups — match any cushion variant
-  const isCushionShape = (s: string) => s === "cushion" || s === "cushion_firm" || s === "padded_block" || s === "mattress";
-  const seatCushions = result.filter(p => isCushionShape(p.shape ?? "box") && p.type === "horizontal" && /seat|cushion/i.test(p.label) && !/back|pillow|throw/i.test(p.label));
-  const backCushions = result.filter(p => isCushionShape(p.shape ?? "box") && p.type === "vertical" && /back|rest/i.test(p.label));
+  // Collect semantic groups — match any cushion variant + boxes with upholstery
+  const isCushionShape = (s: string) => /^(cushion|cushion_firm|padded_block|mattress)$/.test(s);
+  const isUpholstered = (p: PanelData) => isCushionShape(p.shape ?? "box") || ((p.shape ?? "box") === "box" && UPHOLSTERY_MAT_RE.test(p.materialId));
+  // Seat = horizontal upholstered part at seat height, excluding back/pillow/arm/throw
+  const seatCushions = result.filter(p => isUpholstered(p) && p.type === "horizontal" && p.position[1] > 0.15 && p.position[1] < 0.55 && !/back|pillow|throw|arm/i.test(p.label));
+  const backCushions = result.filter(p => isUpholstered(p) && p.type === "vertical" && !/arm|leg|pillow|throw/i.test(p.label) && /back|rest|cushion/i.test(p.label));
   const legs = result.filter(p => /leg|foot|feet/i.test(p.label));
   const plinths = result.filter(p => (p.shape ?? "box") === "plinth" || /plinth|base\b/i.test(p.label));
 
