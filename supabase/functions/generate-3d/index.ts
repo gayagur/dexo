@@ -149,7 +149,7 @@ Deno.serve(async (req) => {
     logUsage({
       userId,
       functionName: "generate-3d",
-      model: FAL_MODEL,
+      model: FAL_3D_MODELS[0],
       tokensIn: 0,
       tokensOut: 0,
       costUsd: 0.06,
