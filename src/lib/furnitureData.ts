@@ -193,7 +193,7 @@ export const MATERIALS: MaterialOption[] = [
   // Metal
   { id: "steel", label: "Steel", color: "#71797E", category: "Metal", roughness: 0.2, metalness: 0.9 },
   { id: "brass", label: "Brass", color: "#B5A642", category: "Metal", roughness: 0.25, metalness: 0.9 },
-  { id: "black_metal", label: "Black Metal", color: "#1C1C1C", category: "Metal", roughness: 0.3, metalness: 0.85 },
+  { id: "black_metal", label: "Black Metal", color: "#333333", category: "Metal", roughness: 0.3, metalness: 0.85 },
   { id: "chrome", label: "Chrome", color: "#C0C0C0", category: "Metal", roughness: 0.1, metalness: 0.95 },
   { id: "gold", label: "Gold", color: "#D4AF37", category: "Metal", roughness: 0.2, metalness: 0.9 },
   { id: "copper", label: "Copper", color: "#B87333", category: "Metal", roughness: 0.25, metalness: 0.9 },
@@ -210,7 +210,7 @@ export const MATERIALS: MaterialOption[] = [
   { id: "ceramic_white", label: "White Ceramic", color: "#FAFAFA", category: "Stone", roughness: 0.5, metalness: 0.1 },
   // Fabric & Leather
   { id: "leather_brown", label: "Brown Leather", color: "#8B5E3C", category: "Fabric", roughness: 0.85, metalness: 0.0 },
-  { id: "leather_black", label: "Black Leather", color: "#1A1A1A", category: "Fabric", roughness: 0.85, metalness: 0.0 },
+  { id: "leather_black", label: "Black Leather", color: "#303030", category: "Fabric", roughness: 0.85, metalness: 0.0 },
   { id: "leather_tan", label: "Tan Leather", color: "#C19A6B", category: "Fabric", roughness: 0.85, metalness: 0.0 },
   { id: "fabric_gray", label: "Gray Fabric", color: "#9B9B9B", category: "Fabric", roughness: 0.95, metalness: 0.0 },
   { id: "fabric_cream", label: "Cream Fabric", color: "#F5E6D3", category: "Fabric", roughness: 0.95, metalness: 0.0 },
