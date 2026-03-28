@@ -409,3 +409,45 @@ export async function analyzeFurnitureImage(imageUrl: string): Promise<{ data?: 
     return { error: msg };
   }
 }
+
+/**
+ * Generate a 3D model (GLB) from a furniture image using FAL.ai.
+ * Returns a public URL to the generated GLB file stored in Supabase.
+ */
+export async function generate3DFromImage(imageUrl: string): Promise<{ glbUrl?: string; error?: string }> {
+  try {
+    const headers = await getAuthHeaders();
+    const response = await fetch(`${FUNCTIONS_URL}/generate-3d`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ imageUrl }),
+    });
+
+    let result: Record<string, unknown> = {};
+    try {
+      result = (await response.json()) as Record<string, unknown>;
+    } catch {
+      if (!response.ok) {
+        return { error: `3D generation failed (HTTP ${response.status}). Try again or use a different image.` };
+      }
+    }
+
+    if (!response.ok) {
+      const msg = typeof result.error === "string" ? result.error : `3D generation failed (HTTP ${response.status})`;
+      return { error: msg };
+    }
+
+    const glbUrl = typeof result.glbUrl === "string" ? result.glbUrl : undefined;
+    if (!glbUrl) {
+      return { error: "3D generation did not return a model URL" };
+    }
+
+    return { glbUrl };
+  } catch (err) {
+    const msg = (err as Error).message;
+    if (msg === "Failed to fetch" || msg.includes("NetworkError") || msg.includes("fetch")) {
+      return { error: "3D generation timed out or network error. Try again." };
+    }
+    return { error: msg };
+  }
+}

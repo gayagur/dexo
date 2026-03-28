@@ -48,7 +48,7 @@ import { MobileEditorToolbar } from "./MobileEditorToolbar";
 import { MobileEditorBar } from "./MobileEditorBar";
 import type { ViewMode, EditorLightMode, EditorFloorPreset } from "./EditorViewport";
 import { EDITOR_FLOOR_OPTIONS } from "./EditorViewport";
-import { uploadFurnitureImage, analyzeFurnitureImage, type FurnitureAnalysis } from "@/lib/ai";
+import { uploadFurnitureImage, analyzeFurnitureImage, generate3DFromImage, type FurnitureAnalysis } from "@/lib/ai";
 import { panelsFromFurnitureAnalysis } from "@/lib/furnitureImageAnalysis";
 
 interface FurnitureEditorProps {
@@ -648,6 +648,20 @@ export function FurnitureEditor({
     setSelectedPanelId(null);
   }, [pushHistory, updateScene]);
 
+  // ─── Add GLB group from URL (used by chat 3D generation) ───
+  const handleAddGLBGroup = useCallback(async (name: string, glbUrl: string) => {
+    const { loadGLBAsGroup } = await import("@/lib/glbLoader");
+    const group = await loadGLBAsGroup(glbUrl, name);
+    const offset = computeGroupXOffset(groupsRef.current);
+    const offsetGroup: GroupData = {
+      ...group,
+      position: [group.position[0] + offset, group.position[1], group.position[2]],
+    };
+    updateScene((prev) => [...prev, offsetGroup]);
+    setSelectedGroupId(offsetGroup.id);
+    setSelectedPanelId(null);
+  }, [updateScene]);
+
   // ─── Toolbar image import ────────────────────────────
   // Camera position ref (updated by viewport via onCameraMove)
   const cameraPositionRef = useRef<[number, number, number]>(boot.cameraPosition);
@@ -663,17 +677,49 @@ export function FurnitureEditor({
       alert(uploadErr || "Upload failed");
       return;
     }
-    const { data: analysis, error: analysisErr } = await analyzeFurnitureImage(url);
-    setIsToolbarAnalyzing(false);
-    if (analysisErr || !analysis) {
-      alert(analysisErr || "Analysis failed");
-      return;
-    }
-    const action = window.confirm(
-      `Detected: ${analysis.name} (${analysis.panels.length} components)\n\nOK = Replace current design\nCancel = Add alongside`
+
+    // Ask user which mode to use
+    const use3D = window.confirm(
+      "How would you like to import this image?\n\nOK = Generate 3D model (higher quality, slower)\nCancel = Analyze & build from components (faster)"
     );
-    handleBuildFromImage(analysis, action ? "replace" : "add");
-  }, [handleBuildFromImage]);
+
+    if (use3D) {
+      // ─── 3D generation path ───
+      const { glbUrl, error: genErr } = await generate3DFromImage(url);
+      setIsToolbarAnalyzing(false);
+      if (genErr || !glbUrl) {
+        alert(genErr || "3D generation failed");
+        return;
+      }
+      try {
+        const { loadGLBAsGroup } = await import("@/lib/glbLoader");
+        const group = await loadGLBAsGroup(glbUrl, "Imported 3D");
+        const offset = computeGroupXOffset(groupsRef.current);
+        const offsetGroup: GroupData = {
+          ...group,
+          position: [group.position[0] + offset, group.position[1], group.position[2]],
+        };
+        updateScene((prev) => [...prev, offsetGroup]);
+        setSelectedGroupId(offsetGroup.id);
+        setSelectedPanelId(null);
+      } catch (err) {
+        console.error("Failed to load generated GLB:", err);
+        alert("Failed to load the generated 3D model.");
+      }
+    } else {
+      // ─── Component analysis path (existing) ───
+      const { data: analysis, error: analysisErr } = await analyzeFurnitureImage(url);
+      setIsToolbarAnalyzing(false);
+      if (analysisErr || !analysis) {
+        alert(analysisErr || "Analysis failed");
+        return;
+      }
+      const action = window.confirm(
+        `Detected: ${analysis.name} (${analysis.panels.length} components)\n\nOK = Replace current design\nCancel = Add alongside`
+      );
+      handleBuildFromImage(analysis, action ? "replace" : "add");
+    }
+  }, [handleBuildFromImage, updateScene]);
 
   const handleSave = useCallback(async () => {
     if (!onSave || saveStatus === "saving") return;
@@ -1594,6 +1640,7 @@ export function FurnitureEditor({
             onRemovePanel={handleChatRemovePanel}
             onAddPanel={handleChatAddPanel}
             onBuildFromImage={handleBuildFromImage}
+            onAddGLBGroup={handleAddGLBGroup}
             onClose={() => setChatOpen(false)}
           />
         )}
@@ -1731,6 +1778,7 @@ export function FurnitureEditor({
             onRemovePanel={handleChatRemovePanel}
             onAddPanel={handleChatAddPanel}
             onBuildFromImage={handleBuildFromImage}
+            onAddGLBGroup={handleAddGLBGroup}
             onClose={closeMobileSheets}
           />
         </MobileDrawer>
