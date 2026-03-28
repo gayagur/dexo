@@ -300,9 +300,10 @@ function repairSeatingGeometry(panels: PanelData[], name: string, nextId: () => 
 
   const result = [...panels];
 
-  // Collect semantic groups
-  const seatCushions = result.filter(p => (p.shape ?? "box") === "cushion" && p.type === "horizontal" && /seat|cushion/i.test(p.label) && !/back|pillow|throw/i.test(p.label));
-  const backCushions = result.filter(p => (p.shape ?? "box") === "cushion" && p.type === "vertical" && /back|rest/i.test(p.label));
+  // Collect semantic groups — match any cushion variant
+  const isCushionShape = (s: string) => s === "cushion" || s === "cushion_firm" || s === "padded_block" || s === "mattress";
+  const seatCushions = result.filter(p => isCushionShape(p.shape ?? "box") && p.type === "horizontal" && /seat|cushion/i.test(p.label) && !/back|pillow|throw/i.test(p.label));
+  const backCushions = result.filter(p => isCushionShape(p.shape ?? "box") && p.type === "vertical" && /back|rest/i.test(p.label));
   const legs = result.filter(p => /leg|foot|feet/i.test(p.label));
   const plinths = result.filter(p => (p.shape ?? "box") === "plinth" || /plinth|base\b/i.test(p.label));
 
@@ -354,7 +355,42 @@ function repairSeatingGeometry(panels: PanelData[], name: string, nextId: () => 
     }
   }
 
-  // === Fix 3: Validate back cushion positions ===
+  // === Fix 3: Compact seat cushions (remove gaps between them) ===
+  // AI often spaces seat cushions too far apart. Pack them side-by-side within the arm boundaries.
+  if (isSofa && seatCushions.length >= 2) {
+    // Find arm positions to determine inner width
+    const arms = result.filter(p => /arm/i.test(p.label));
+    let innerLeft: number, innerRight: number;
+    if (arms.length >= 2) {
+      const armXs = arms.map(a => a.position[0]).sort((a, b) => a - b);
+      const leftArm = arms.find(a => a.position[0] === armXs[0])!;
+      const rightArm = arms.find(a => a.position[0] === armXs[armXs.length - 1])!;
+      innerLeft = leftArm.position[0] + leftArm.size[0] / 2;
+      innerRight = rightArm.position[0] - rightArm.size[0] / 2;
+    } else {
+      // No arms — use total footprint
+      const allX = result.map(p => [p.position[0] - p.size[0] / 2, p.position[0] + p.size[0] / 2]).flat();
+      innerLeft = Math.min(...allX) + 0.05;
+      innerRight = Math.max(...allX) - 0.05;
+    }
+
+    const innerWidth = innerRight - innerLeft;
+    if (innerWidth > 0.3) {
+      const cushCount = seatCushions.length;
+      const gap = 0.015; // small gap between cushions
+      const cushW = (innerWidth - gap * (cushCount - 1)) / cushCount;
+
+      // Sort cushions by current X and reassign evenly
+      const sorted = [...seatCushions].sort((a, b) => a.position[0] - b.position[0]);
+      for (let i = 0; i < sorted.length; i++) {
+        const newX = innerLeft + cushW / 2 + i * (cushW + gap);
+        sorted[i].position = [newX, sorted[i].position[1], sorted[i].position[2]];
+        sorted[i].size = [cushW, sorted[i].size[1], sorted[i].size[2]];
+      }
+    }
+  }
+
+  // === Fix 4: Validate back cushion positions ===
   if (seatCushions.length > 0 && backCushions.length > 0) {
     const seatTopY = Math.max(...seatCushions.map(p => p.position[1] + p.size[1] / 2));
     const seatBackZ = Math.min(...seatCushions.map(p => p.position[2] - p.size[2] / 2));
