@@ -198,9 +198,25 @@ function SingleGeometry({
     case "caster":
       return <CasterGeometry radius={radius + pad} />;
 
-    // ── Decorative ───────────────────────────────────
+    // ── Decorative / Upholstery ─────────────────────
     case "cushion":
+      // Plush/pillow cushion — very rounded, puffy (loose sofa cushions, pillows)
       return <CushionGeometry w={w + pad * 2} h={h + pad * 2} depth={d + pad * 2} puff={0.85} />;
+
+    case "cushion_firm": {
+      // Firm/tight cushion — subtle rounding, structured (modern sofa seats, firm pads)
+      return <CushionGeometry w={w + pad * 2} h={h + pad * 2} depth={d + pad * 2} puff={0.35} />;
+    }
+
+    case "cushion_bolster": {
+      // Bolster/roll pillow — cylindrical cushion (arm rolls, neck rolls)
+      return <cylinderGeometry args={[h / 2 + pad, h / 2 + pad, w + pad * 2, 16]} />;
+    }
+
+    case "padded_block": {
+      // Padded block — box with just slightly rounded edges (sofa arms, firm backrests, ottomans)
+      return <CushionGeometry w={w + pad * 2} h={h + pad * 2} depth={d + pad * 2} puff={0.18} />;
+    }
 
     case "mattress":
       return <CushionGeometry w={w + pad * 2} h={h + pad * 2} depth={d + pad * 2} puff={0.45} />;

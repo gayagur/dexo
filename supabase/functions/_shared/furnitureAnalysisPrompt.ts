@@ -44,17 +44,25 @@ size = [width, height, depth] outer extents.
 type: "horizontal" (tops/shelves/seats), "vertical" (sides/legs/posts), "back" (thin rear panels).
 
 == SHAPE IDS (exact match required) ==
-box, cylinder (size [d,h,d]), sphere (size [d,d,d]), cone, rounded_rect (shapeParams.cornerRadius), circle_panel, oval, triangle, trapezoid (shapeParams.topRatio), l_shape, u_shape (shapeParams.thickness), arc (shapeParams.arcAngle degrees; size [span,_,depth]), hexagon, half_sphere, torus (shapeParams.tubeRadius), pyramid, wedge, tube (shapeParams.thickness), tapered_leg, cabriole_leg, hairpin_leg, x_base, pedestal, square_leg, bun_foot, bracket_foot, plinth, bar_handle, knob, cup_pull, ring_pull, shaker_door, glass_insert_door, louvered_door, drawer_box, open_tray, crown_molding, base_molding, edge_trim, cross_brace, l_bracket, rail, rod, caster, cushion, mattress, books, vase, basket, picture_frame, lamp_shade, potted_plant
+box, cylinder (size [d,h,d]), sphere (size [d,d,d]), cone, rounded_rect (shapeParams.cornerRadius), circle_panel, oval, triangle, trapezoid (shapeParams.topRatio), l_shape, u_shape (shapeParams.thickness), arc (shapeParams.arcAngle degrees; size [span,_,depth]), hexagon, half_sphere, torus (shapeParams.tubeRadius), pyramid, wedge, tube (shapeParams.thickness), tapered_leg, cabriole_leg, hairpin_leg, x_base, pedestal, square_leg, bun_foot, bracket_foot, plinth, bar_handle, knob, cup_pull, ring_pull, shaker_door, glass_insert_door, louvered_door, drawer_box, open_tray, crown_molding, base_molding, edge_trim, cross_brace, l_bracket, rail, rod, caster, cushion, cushion_firm, cushion_bolster, padded_block, mattress, books, vase, basket, picture_frame, lamp_shade, potted_plant
 
 Optional per panel: shapeParams { cornerRadius, arcAngle, topRatio, tubeRadius, thickness, knobSign }; rotation [rx,ry,rz] as numeric radians only (e.g. 1.5708 for 90°); cornerRadius on box panels.
 
 == MATERIALS (exact ids) ==
 oak, walnut, pine, cherry, maple, birch, teak, mahogany, ash, bamboo, ebony, mdf, plywood, melamine_white, melamine_black, melamine_gray, melamine_cream, laminate_walnut, laminate_oak, steel, brass, black_metal, chrome, gold, copper, bronze, paint_slate_blue, paint_olive_metal, rose_gold, marble_white, marble_black, granite, terrazzo, concrete, ceramic_white, leather_brown, leather_black, leather_tan, fabric_gray, fabric_cream, fabric_beige, fabric_ivory, fabric_taupe, fabric_charcoal, fabric_brown, fabric_blue, fabric_green, fabric_sage, fabric_mustard, fabric_blush, fabric_terracotta, fabric_bamboo, cane_natural, fabric_plaid_blue, fabric_plaid_olive, velvet_navy, glass, frosted_glass, tinted_glass, mirror, acrylic_clear, acrylic_black
 
+== UPHOLSTERY SHAPE GUIDE (choose the right shape for softness level) ==
+- "cushion" — plush, puffy, very rounded edges (loose sofa cushions, throw pillows, pillow-like seats)
+- "cushion_firm" — structured, subtle rounding (modern/tight sofa seats, firm chair seats, fitted cushions)
+- "padded_block" — barely rounded, box-like but slightly soft edges (sofa arms, tight backrests, ottomans, firm upholstered panels)
+- "cushion_bolster" — cylindrical roll shape (bolster pillows, arm rolls, neck rolls)
+- "mattress" — medium softness, flat top (bed mattresses, thick seat pads)
+Pick based on what you SEE: plush loose cushions = "cushion", tight modern upholstery = "cushion_firm", boxy padded arms = "padded_block".
+
 == CRITICAL DECOMPOSITION RULES ==
 
 1. EVERY visible part = its own panel. Do NOT merge seat+back into one block.
-2. Padded/upholstered surfaces use shape "cushion" (not "box"). This includes: seat cushions, back cushions, armrest pads, headrests, padded panels.
+2. Padded/upholstered surfaces use the appropriate cushion shape (see guide above), NOT plain "box".
 3. Minimum 6 panels for any chair, 8+ for sofas, 5+ for tables.
 4. Each repeated element (legs, cushions) is a separate panel with unique label.
 5. Parts must TOUCH — no floating gaps. Cushions sit on frames. Backs connect to seats.

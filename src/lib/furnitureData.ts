@@ -266,8 +266,9 @@ export type PanelShape =
   | "crown_molding" | "base_molding" | "edge_trim"
   // Structural
   | "cross_brace" | "l_bracket" | "rail" | "rod" | "caster"
-  // Decorative
-  | "cushion" | "mattress" | "books" | "vase" | "basket" | "picture_frame" | "lamp_shade"
+  // Decorative & Upholstery
+  | "cushion" | "cushion_firm" | "cushion_bolster" | "padded_block"
+  | "mattress" | "books" | "vase" | "basket" | "picture_frame" | "lamp_shade"
   | "potted_plant";
 
 export interface PanelData {
