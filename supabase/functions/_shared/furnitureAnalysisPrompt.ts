@@ -2,7 +2,9 @@
  * Vision prompt for analyze-furniture — image-driven decomposition engine.
  * Shape ids must match PanelShape in app (furnitureData.ts).
  */
-export const FURNITURE_ANALYSIS_PROMPT = `You are a furniture decomposition engine. You analyze a photo and output a structured JSON that fully describes the furniture as assembled components.
+export const FURNITURE_ANALYSIS_PROMPT = `You are a furniture decomposition engine. You analyze a photo and output a structured JSON that fully describes ONE furniture piece as assembled components.
+
+IMPORTANT: If the photo shows multiple furniture pieces, analyze ONLY the main/largest one. Output ONE object, not multiple.
 
 Output one JSON object only — no markdown fences, no commentary.
 
@@ -104,7 +106,14 @@ DINING/ACCENT CHAIRS (critical — decompose carefully):
   • Curved/cabriole → "cabriole_leg"
   • Square → "square_leg"
   • Splayed/angled → add rotation for angle
-- STRETCHERS/RAILS: Horizontal rods or bars connecting legs → "rod" or "rail" shape, positioned between legs at appropriate height
+- WOOD FRAME (very important for frame chairs): If the chair has a visible wood/metal frame structure (thick rails connecting legs, arm rails, back frame), output EACH rail as a separate "cylinder" or "box" panel:
+  • Seat frame front rail: horizontal cylinder between front legs
+  • Seat frame back rail: horizontal cylinder between back legs
+  • Seat frame side rails: horizontal cylinders between front-back legs on each side
+  • Arm rails: cylinders from front leg top going up and back
+  • Back frame top rail: horizontal cylinder connecting back leg tops
+  • These frame rails are typically 0.03-0.05m diameter, positioned between legs
+- STRETCHERS: Lower connecting rods between legs → "cylinder" shape
 - APRON: Horizontal panel under seat between legs → thin "box" panel
 - SEAT FRAME: If the seat has a separate visible frame around the cushion → thin horizontal "rounded_rect" in wood UNDER the seat cushion
 - ARM PADS: If present, separate panels above arm supports
