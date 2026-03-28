@@ -366,6 +366,66 @@ function repairSeatingGeometry(panels: PanelData[], name: string, nextId: () => 
 }
 
 /**
+ * Fix office/task chairs: if casters exist but no star base connects them
+ * to the gas lift, add an x_base automatically.
+ */
+function repairOfficeChairBase(panels: PanelData[], name: string, nextId: () => string): PanelData[] {
+  if (!/\b(office|task|desk|executive|swivel|ergonomic|gaming)\b/i.test(name) &&
+      !/\bchair\b/i.test(name)) return panels;
+
+  const casters = panels.filter(p => /caster|wheel/i.test(p.label) || (p.shape ?? "box") === "caster");
+  const starBases = panels.filter(p => /star.*base|x.base|base.*star/i.test(p.label) || (p.shape ?? "box") === "x_base");
+  const gasLifts = panels.filter(p => /gas.*lift|lift.*column|column|pedestal|center.*post/i.test(p.label));
+
+  if (casters.length >= 3 && starBases.length === 0) {
+    // Find centroid of all casters
+    const cx = casters.reduce((s, p) => s + p.position[0], 0) / casters.length;
+    const cz = casters.reduce((s, p) => s + p.position[2], 0) / casters.length;
+    // Star base sits just above casters
+    const casterTopY = Math.max(...casters.map(p => p.position[1] + p.size[1] / 2));
+    // Compute radius from center to furthest caster
+    const maxR = Math.max(...casters.map(p => {
+      const dx = p.position[0] - cx;
+      const dz = p.position[2] - cz;
+      return Math.sqrt(dx * dx + dz * dz);
+    }));
+    const baseSize = Math.max(0.50, maxR * 2);
+
+    panels.push({
+      id: nextId(),
+      type: "horizontal",
+      label: "Star Base",
+      position: [cx, casterTopY + 0.02, cz],
+      size: [baseSize, 0.04, baseSize],
+      materialId: "chrome",
+      shape: "x_base",
+    });
+
+    // If no gas lift exists, add one connecting base to seat
+    if (gasLifts.length === 0) {
+      const seatPanels = panels.filter(p => /seat/i.test(p.label));
+      const seatBottomY = seatPanels.length > 0
+        ? Math.min(...seatPanels.map(p => p.position[1] - p.size[1] / 2))
+        : 0.40;
+      const liftH = seatBottomY - (casterTopY + 0.04);
+      if (liftH > 0.05) {
+        panels.push({
+          id: nextId(),
+          type: "vertical",
+          label: "Gas Lift",
+          position: [cx, casterTopY + 0.04 + liftH / 2, cz],
+          size: [0.06, liftH, 0.06],
+          materialId: "black_metal",
+          shape: "cylinder",
+        });
+      }
+    }
+  }
+
+  return panels;
+}
+
+/**
  * General geometry validation — runs on ALL furniture types.
  * Fixes common AI mistakes regardless of category.
  */
@@ -442,5 +502,6 @@ export function panelsFromFurnitureAnalysis(
     .map(fixHorizontalRoundDisk);
   const refined = refineSeatingImportPanels(panels, analysis.name ?? "");
   const repaired = repairSeatingGeometry(refined, analysis.name ?? "", nextId);
-  return validateAndRepairGeometry(repaired);
+  const withBase = repairOfficeChairBase(repaired, analysis.name ?? "", nextId);
+  return validateAndRepairGeometry(withBase);
 }
