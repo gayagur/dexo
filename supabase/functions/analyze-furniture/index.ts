@@ -8,14 +8,14 @@ import {
   VISION_MODELS_SUPPORTING_JSON_SCHEMA,
 } from "../_shared/furnitureAnalysisJsonSchema.ts";
 
-// Strongest models first for best quality; smaller models as fallback
+// Fast model first to avoid edge function timeout; stronger models as fallback
 const VISION_MODELS = [
+  "Qwen/Qwen3-VL-8B-Instruct",
   "moonshotai/Kimi-K2.5",
   "meta-llama/Llama-3.2-90B-Vision-Instruct-Turbo",
-  "Qwen/Qwen3-VL-8B-Instruct",
 ];
-/** Abort one Together attempt so a slow/hung model does not burn the whole function budget */
-const PER_MODEL_MS = 90_000;
+/** Per-model timeout — must leave room for fallbacks within edge function's ~150s limit */
+const PER_MODEL_MS = 45_000;
 const DAILY_LIMIT = 20;
 
 Deno.serve(async (req) => {
