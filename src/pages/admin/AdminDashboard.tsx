@@ -222,13 +222,13 @@ export default function AdminDashboard() {
 
       {/* ─── Top Stat Cards ─── */}
       {loading ? (
-        <div className="grid grid-cols-4 gap-4 mb-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
           {[1, 2, 3, 4].map((i) => (
             <SkeletonCard key={i} />
           ))}
         </div>
       ) : analytics ? (
-        <div className="grid grid-cols-4 gap-4 mb-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
           <StatCard
             title="Total Users"
             value={analytics.totalUsers}
@@ -265,14 +265,14 @@ export default function AdminDashboard() {
       ) : null}
 
       {/* ─── Charts Row ─── */}
-      <div className="grid grid-cols-5 gap-4 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
         {/* Project Status Donut — 3 columns */}
         {loading ? (
-          <div className="col-span-3">
+          <div className="col-span-1 lg:col-span-3">
             <SkeletonChart />
           </div>
         ) : analytics ? (
-          <div className="col-span-3 bg-white rounded-2xl border border-gray-100 p-6">
+          <div className="col-span-1 lg:col-span-3 bg-white rounded-2xl border border-gray-100 p-6">
             <div className="flex items-center justify-between mb-5">
               <div>
                 <h2 className="text-sm font-semibold text-gray-900">
@@ -341,11 +341,11 @@ export default function AdminDashboard() {
 
         {/* User Breakdown Bar Chart — 2 columns */}
         {loading ? (
-          <div className="col-span-2">
+          <div className="col-span-1 lg:col-span-2">
             <SkeletonChart />
           </div>
         ) : analytics ? (
-          <div className="col-span-2 bg-white rounded-2xl border border-gray-100 p-6">
+          <div className="col-span-1 lg:col-span-2 bg-white rounded-2xl border border-gray-100 p-6">
             <div className="mb-5">
               <h2 className="text-sm font-semibold text-gray-900">
                 User Breakdown
@@ -414,13 +414,13 @@ export default function AdminDashboard() {
 
       {/* ─── Activity Cards Row ─── */}
       {loading ? (
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {[1, 2, 3].map((i) => (
             <SkeletonCard key={i} />
           ))}
         </div>
       ) : analytics ? (
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           <StatCard
             title="Total Offers"
             value={analytics.totalOffers}
@@ -486,7 +486,7 @@ export default function AdminDashboard() {
 
           {/* Loading state */}
           {ga4Loading && !ga4 && (
-            <div className="grid grid-cols-5 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
               {[1, 2, 3, 4, 5].map((i) => (
                 <div key={i} className="text-center p-4 rounded-xl bg-gray-50/80 border border-gray-100/50">
                   <div className="animate-pulse space-y-2">
@@ -569,7 +569,7 @@ export default function AdminDashboard() {
               </div>
 
               {/* Bottom row: Top Pages + Top Sources + New vs Returning */}
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {/* Top Pages */}
                 <div className="rounded-xl bg-gray-50/80 border border-gray-100/50 p-4">
                   <h3 className="text-xs font-semibold text-gray-900 mb-3 flex items-center gap-1.5">
