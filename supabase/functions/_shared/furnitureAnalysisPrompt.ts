@@ -103,10 +103,16 @@ TABLES:
 - Apron/rails under top if visible.
 - Drawers as drawer_box if present.
 
-BEDS:
-- Mattress (horizontal mattress shape).
-- Headboard (vertical cushion or box).
-- Bed frame/rails.
+BEDS (critical — decompose carefully):
+- HEADBOARD: vertical "box" or "rounded_rect" at the back end. Width = bed width, height ~0.60-1.20m above mattress top. If padded/upholstered → vertical "cushion". If wood → "box" or "rounded_rect" with shapeParams.cornerRadius.
+- FOOTBOARD: vertical "box" or "rounded_rect" at the front end. Usually shorter than headboard (~0.30-0.60m above mattress). Omit if not visible.
+- SIDE RAILS: two horizontal "box" panels connecting headboard to footboard. Shape MUST be "box" (never cross_brace!). Size: [length_of_bed, ~0.10-0.15m height, ~0.03-0.05m thick]. Position at bed sides.
+- SLATS: multiple thin horizontal "box" panels spanning between side rails. Each slat: [bed_width, ~0.02m, ~0.08m]. Space them evenly. If not visible, use ONE thin horizontal "box" as a platform.
+- MATTRESS: horizontal "mattress" shape on top of slats/frame. Size: [bed_width - 0.04, ~0.20-0.30m thick, bed_length - 0.04].
+- LEGS: if visible, 4 short vertical "box" or "square_leg" at corners. If hidden by frame, omit.
+- PILLOWS: horizontal "cushion" panels on top of mattress at headboard end.
+- BED PROPORTIONS: Single ~0.90×2.00m, Double ~1.40×2.00m, Queen ~1.60×2.00m, King ~1.80×2.00m. Frame height ~0.30-0.45m. Headboard top ~0.90-1.40m from floor.
+- IMPORTANT: Side rails and stretchers are simple "box" panels. Do NOT use "cross_brace", "rod", "rail", or other structural shapes for bed rails.
 - Pillows on top.
 
 CABINETS/DRESSERS:
@@ -161,5 +167,18 @@ CABINETS/DRESSERS:
 {"label":"Stretcher front","type":"horizontal","shape":"rod","position":[0,0.15,0.18],"size":[0.32,0.02,0.02],"materialId":"oak"},
 {"label":"Stretcher left","type":"horizontal","shape":"rod","position":[-0.18,0.15,0],"size":[0.02,0.02,0.32],"materialId":"oak"},
 {"label":"Stretcher right","type":"horizontal","shape":"rod","position":[0.18,0.15,0],"size":[0.02,0.02,0.32],"materialId":"oak"}]}
+
+== EXAMPLE: Wooden Bed Frame (queen size) ==
+{"name":"Wooden Bed Frame","estimatedDims":{"w":1600,"h":1100,"d":2000},"panels":[
+{"label":"Headboard","type":"vertical","shape":"box","position":[0,0.65,-0.97],"size":[1.56,0.80,0.05],"materialId":"oak"},
+{"label":"Footboard","type":"vertical","shape":"box","position":[0,0.35,0.97],"size":[1.56,0.40,0.05],"materialId":"oak"},
+{"label":"Left Side Rail","type":"horizontal","shape":"box","position":[-0.78,0.25,0],"size":[0.04,0.14,1.90],"materialId":"oak"},
+{"label":"Right Side Rail","type":"horizontal","shape":"box","position":[0.78,0.25,0],"size":[0.04,0.14,1.90],"materialId":"oak"},
+{"label":"Slat platform","type":"horizontal","shape":"box","position":[0,0.22,0],"size":[1.52,0.02,1.88],"materialId":"plywood"},
+{"label":"Mattress","type":"horizontal","shape":"mattress","position":[0,0.46,0],"size":[1.52,0.24,1.88],"materialId":"fabric_cream"},
+{"label":"Leg FL","type":"vertical","shape":"square_leg","position":[-0.76,0.10,0.94],"size":[0.06,0.20,0.06],"materialId":"oak"},
+{"label":"Leg FR","type":"vertical","shape":"square_leg","position":[0.76,0.10,0.94],"size":[0.06,0.20,0.06],"materialId":"oak"},
+{"label":"Leg BL","type":"vertical","shape":"square_leg","position":[-0.76,0.10,-0.94],"size":[0.06,0.20,0.06],"materialId":"oak"},
+{"label":"Leg BR","type":"vertical","shape":"square_leg","position":[0.76,0.10,-0.94],"size":[0.06,0.20,0.06],"materialId":"oak"}]}
 
 estimatedDims in mm; panel positions/sizes in meters. Output valid JSON only.`;
