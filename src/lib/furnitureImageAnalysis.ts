@@ -360,18 +360,22 @@ function repairSeatingGeometry(panels: PanelData[], name: string, nextId: () => 
     }
   }
 
-  // === Fix 4: Arms — force to padded_block shape, correct position ===
+  // === Fix 4: Arms — force to padded_block, correct material, RESET rotation ===
   if (isSofa) {
     for (const arm of arms) {
-      // Arms should be padded_block, not cylinder or box
       if ((arm.shape ?? "box") === "cylinder" || (arm.shape ?? "box") === "box") {
         arm.shape = "padded_block";
       }
-      // Arms use sofa material
       if (!UPHOLSTERY_MAT_RE.test(arm.materialId)) {
         arm.materialId = dominantMat;
       }
+      arm.rotation = [0, 0, 0]; // Arms should NEVER be rotated
     }
+  }
+
+  // === Fix 4b: Seat cushions — RESET rotation (must be flat) ===
+  for (const sc of seatCushions) {
+    sc.rotation = [0, 0, 0];
   }
 
   // === Fix 5: Compact seat cushions between arms ===
@@ -399,7 +403,7 @@ function repairSeatingGeometry(panels: PanelData[], name: string, nextId: () => 
     }
   }
 
-  // === Fix 6: Back cushions — FORCE position: same X as seats, directly above+behind ===
+  // === Fix 6: Back cushions — FORCE position + FIX rotation ===
   if (seatCushions.length > 0 && backCushions.length > 0) {
     const seatTopY = Math.max(...seatCushions.map(p => p.position[1] + p.size[1] / 2));
     const seatBackZ = Math.min(...seatCushions.map(p => p.position[2] - p.size[2] / 2));
@@ -408,13 +412,18 @@ function repairSeatingGeometry(panels: PanelData[], name: string, nextId: () => 
 
     for (let i = 0; i < sortedBacks.length; i++) {
       const bc = sortedBacks[i];
-      // Match X to corresponding seat (or nearest)
       const matchSeat = sortedSeats[Math.min(i, sortedSeats.length - 1)];
       bc.position = [
-        matchSeat.position[0],                                    // Same X as seat
-        seatTopY + bc.size[1] / 2,                               // Directly above seat top (no gap)
-        seatBackZ - bc.size[2] / 2 + 0.01,                      // Flush against seat back edge
+        matchSeat.position[0],
+        seatTopY + bc.size[1] / 2,
+        seatBackZ - bc.size[2] / 2 + 0.01,
       ];
+      // FORCE sane rotation — only allow slight backward tilt on X axis
+      // Remove any wild Y/Z rotation the AI set
+      const rx = bc.rotation?.[0] ?? 0;
+      const clampedRx = Math.max(-0.25, Math.min(0, rx)); // only backward tilt, max ~15°
+      bc.rotation = [clampedRx, 0, 0];
+
       // Match width to seat width
       if (bc.size[0] > matchSeat.size[0] * 1.2) {
         bc.size = [matchSeat.size[0], bc.size[1], bc.size[2]];
