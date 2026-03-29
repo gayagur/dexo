@@ -2890,9 +2890,9 @@ function FurniturePanel({
   const groupRef = useRef<THREE.Group>(null!);
   const animProgress = useRef(isOpen ? 1 : 0);
 
-  // Door direction: detect if right door should swing the other way
+  // Door direction: left-hinged swings outward counterclockwise (+Y rot), right-hinged clockwise (-Y rot)
   const isRight = isRightDoor(panel.label);
-  const swingDirection = isRight ? 1 : -1; // +1 = clockwise (right hinge), -1 = counterclockwise (left hinge)
+  const swingDirection = isRight ? -1 : 1; // +1 = outward left (CCW from above), -1 = outward right (CW from above)
 
   useFrame((_, delta) => {
     const target = isOpen ? 1 : 0;
