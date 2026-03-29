@@ -11,13 +11,13 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from '@/components/ui/sheet';
-import { User, Settings, LogOut, ChevronDown, Shield, Menu } from 'lucide-react';
+import { User, Settings, LogOut, ChevronDown, Shield, Menu, ArrowRightLeft } from 'lucide-react';
 import { NotificationBell } from './NotificationBell';
 
 export function AppHeader() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, activeRole, isAdmin, signOut } = useAuth();
+  const { user, activeRole, isAdmin, isCreator, creatorApproved, switchRole, signOut } = useAuth();
   const [scrolled, setScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -39,7 +39,12 @@ export function AppHeader() {
 
   const homePath = '/home';
 
-  const navLinks = activeRole === 'business'
+  const navLinks = activeRole === 'creator'
+    ? [
+        { to: '/home', label: 'Home' },
+        { to: '/creator/dashboard', label: 'Dashboard' },
+      ]
+    : activeRole === 'business'
     ? [
         { to: '/home', label: 'Home' },
         { to: '/business', label: 'Dashboard' },
@@ -158,7 +163,7 @@ export function AppHeader() {
                     {userEmail}
                   </span>
                   <span className="text-[10px] text-primary font-medium mt-0.5 uppercase tracking-wider">
-                    {activeRole === 'business' ? 'Creator mode' : 'Client mode'}
+                    {activeRole === 'creator' ? 'Creator mode' : activeRole === 'business' ? 'Business mode' : 'Client mode'}
                   </span>
                 </div>
               </DropdownMenuLabel>
@@ -180,6 +185,27 @@ export function AppHeader() {
                 <Settings className="w-4 h-4 text-muted-foreground" />
                 <span>Settings</span>
               </DropdownMenuItem>
+
+              {isCreator && creatorApproved && (
+                <>
+                  <DropdownMenuSeparator className="my-1" />
+                  <DropdownMenuItem
+                    onClick={async () => {
+                      if (activeRole === 'creator') {
+                        await switchRole('customer');
+                        navigate('/dashboard');
+                      } else {
+                        await switchRole('creator');
+                        navigate('/creator/dashboard');
+                      }
+                    }}
+                    className="px-3 py-2 rounded-lg cursor-pointer gap-2.5"
+                  >
+                    <ArrowRightLeft className="w-4 h-4 text-muted-foreground" />
+                    <span>{activeRole === 'creator' ? 'Switch to Client' : 'Switch to Creator'}</span>
+                  </DropdownMenuItem>
+                </>
+              )}
 
               {isAdmin && (
                 <>

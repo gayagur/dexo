@@ -42,6 +42,8 @@ import AdminBlogEditorPage from "./pages/admin/AdminBlogEditorPage";
 import AdminBlogPreviewPage from "./pages/admin/AdminBlogPreviewPage";
 import BlogIndexPage from "./pages/BlogIndexPage";
 import BlogPostPage from "./pages/BlogPostPage";
+import ChooseRolePage from "./pages/ChooseRolePage";
+import CreatorDashboard from "./pages/creator/CreatorDashboard";
 import { Loader2 } from "lucide-react";
 import { isSupabaseConfigured } from "@/lib/supabase";
 
@@ -105,6 +107,16 @@ const App = () => (
             <Route path="/auth" element={<AuthPage />} />
             <Route path="/blog" element={<BlogIndexPage />} />
             <Route path="/blog/:slug" element={<BlogPostPage />} />
+            <Route path="/choose-role" element={
+              <ProtectedRoute>
+                <ChooseRolePage />
+              </ProtectedRoute>
+            } />
+            <Route path="/creator/dashboard" element={
+              <ProtectedRoute>
+                <CreatorDashboard />
+              </ProtectedRoute>
+            } />
             <Route path="/home" element={
               <ProtectedRoute>
                 <AuthenticatedHome />

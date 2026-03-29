@@ -20,11 +20,12 @@ CREATE TABLE IF NOT EXISTS public.milestones (
 ALTER TABLE public.milestones ENABLE ROW LEVEL SECURITY;
 
 -- Indexes
-CREATE INDEX idx_milestones_project ON public.milestones(project_id, milestone_number);
+CREATE INDEX IF NOT EXISTS idx_milestones_project ON public.milestones(project_id, milestone_number);
 
 -- RLS Policies
 
 -- Project owner (customer) can read milestones for their projects
+DROP POLICY IF EXISTS "Customers can read own project milestones" ON public.milestones;
 CREATE POLICY "Customers can read own project milestones"
   ON public.milestones FOR SELECT
   USING (
@@ -36,6 +37,7 @@ CREATE POLICY "Customers can read own project milestones"
   );
 
 -- Business owners can read milestones for projects they have accepted offers on
+DROP POLICY IF EXISTS "Creators can read milestones for their projects" ON public.milestones;
 CREATE POLICY "Creators can read milestones for their projects"
   ON public.milestones FOR SELECT
   USING (
@@ -50,15 +52,18 @@ CREATE POLICY "Creators can read milestones for their projects"
   );
 
 -- Admins can do everything
+DROP POLICY IF EXISTS "Admins can read all milestones" ON public.milestones;
 CREATE POLICY "Admins can read all milestones"
   ON public.milestones FOR SELECT
   USING (public.is_admin());
 
+DROP POLICY IF EXISTS "Admins can update all milestones" ON public.milestones;
 CREATE POLICY "Admins can update all milestones"
   ON public.milestones FOR UPDATE
   USING (public.is_admin());
 
 -- System inserts (via service role or authenticated users creating for their own projects)
+DROP POLICY IF EXISTS "Customers can insert milestones for own projects" ON public.milestones;
 CREATE POLICY "Customers can insert milestones for own projects"
   ON public.milestones FOR INSERT
   WITH CHECK (
@@ -70,6 +75,7 @@ CREATE POLICY "Customers can insert milestones for own projects"
   );
 
 -- Customers and creators can update milestone status
+DROP POLICY IF EXISTS "Project participants can update milestones" ON public.milestones;
 CREATE POLICY "Project participants can update milestones"
   ON public.milestones FOR UPDATE
   USING (
