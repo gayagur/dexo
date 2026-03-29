@@ -1,4 +1,4 @@
-import { useNavigate } from "react-router-dom";
+import { Navigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/lib/supabase";
 import { Home, Hammer, Loader2 } from "lucide-react";
@@ -6,7 +6,6 @@ import { useState } from "react";
 
 export default function ChooseRolePage() {
   const { user, isCreator, creatorApproved, loading } = useAuth();
-  const navigate = useNavigate();
   const [switching, setSwitching] = useState(false);
 
   if (loading) {
@@ -18,14 +17,12 @@ export default function ChooseRolePage() {
   }
 
   if (!user) {
-    navigate("/auth");
-    return null;
+    return <Navigate to="/auth" replace />;
   }
 
   // If not a creator, skip role picker — straight to client dashboard
   if (!isCreator || !creatorApproved) {
-    navigate("/dashboard");
-    return null;
+    return <Navigate to="/dashboard" replace />;
   }
 
   const handleChoose = async (role: "customer" | "creator") => {

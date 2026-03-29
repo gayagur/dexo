@@ -77,7 +77,7 @@ Deno.serve(async (req) => {
         const basePayload = {
           model,
           messages,
-          max_tokens: 6000,
+          max_tokens: 8192,
           temperature: 0.15,
         };
 

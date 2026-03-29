@@ -40,8 +40,14 @@ export const ProtectedRoute = ({ children, requiredRole, requireAdmin }: Protect
   }
 
   // Active role mismatch — redirect to correct dashboard
+  // Exception: "customer" routes are also accessible to "business" role users
+  // (they can browse, create projects, etc. regardless of their registered role)
   if (requiredRole && activeRole && activeRole !== requiredRole) {
-    return <Navigate to={activeRole === "creator" ? "/creator/dashboard" : activeRole === "business" ? "/business" : "/dashboard"} replace />;
+    if (requiredRole === "customer" && (activeRole === "business" || activeRole === "creator")) {
+      // Allow business/creator users to access customer routes (browsing, projects, etc.)
+    } else {
+      return <Navigate to={activeRole === "creator" ? "/creator/dashboard" : activeRole === "business" ? "/business" : "/dashboard"} replace />;
+    }
   }
 
   return <>{children}</>;

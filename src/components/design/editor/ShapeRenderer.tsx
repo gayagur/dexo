@@ -221,6 +221,16 @@ function SingleGeometry({
     case "mattress":
       return <CushionGeometry w={w + pad * 2} h={h + pad * 2} depth={d + pad * 2} puff={0.45} />;
 
+    case "slat_group": {
+      const count = Math.max(2, Math.round(shapeParams?.slatCount ?? 10));
+      const gapRatio = shapeParams?.slatGap ?? 0.4; // gap as fraction of slat width
+      const slatW = w + pad * 2;
+      const totalH = h + pad * 2;
+      const slatThick = totalH / (count + (count - 1) * gapRatio);
+      const gap = slatThick * gapRatio;
+      return <SlatGroupGeometry slatWidth={slatW} slatThickness={slatThick} slatDepth={d + pad * 2} count={count} gap={gap} />;
+    }
+
     case "vase":
       return <VaseGeometry radius={radius + pad} height={h + pad * 2} />;
 
@@ -402,6 +412,62 @@ function CushionGeometry({ w, h, depth, puff }: { w: number; h: number; depth: n
     g.computeVertexNormals();
     return g;
   }, [w, h, depth, puff]);
+
+  return <primitive object={geo} attach="geometry" />;
+}
+
+// ─── Slat Group (multiple evenly-spaced slats) ──────────
+
+function SlatGroupGeometry({ slatWidth, slatThickness, slatDepth, count, gap }: {
+  slatWidth: number; slatThickness: number; slatDepth: number; count: number; gap: number;
+}) {
+  const geo = useMemo(() => {
+    const merged = new THREE.BufferGeometry();
+    const geometries: THREE.BufferGeometry[] = [];
+    const totalH = count * slatThickness + (count - 1) * gap;
+    const startY = -totalH / 2 + slatThickness / 2;
+
+    for (let i = 0; i < count; i++) {
+      const slatGeo = new THREE.BoxGeometry(slatWidth, slatThickness, slatDepth);
+      slatGeo.translate(0, startY + i * (slatThickness + gap), 0);
+      geometries.push(slatGeo);
+    }
+
+    if (geometries.length > 0) {
+      merged.copy(geometries[0]);
+      if (geometries.length > 1) {
+        // Merge all slat geometries into one for performance
+        const positions: number[] = [];
+        const normals: number[] = [];
+        const indices: number[] = [];
+        let indexOffset = 0;
+
+        for (const g of geometries) {
+          const pos = g.getAttribute("position");
+          const norm = g.getAttribute("normal");
+          const idx = g.getIndex();
+          for (let j = 0; j < pos.count; j++) {
+            positions.push(pos.getX(j), pos.getY(j), pos.getZ(j));
+            normals.push(norm.getX(j), norm.getY(j), norm.getZ(j));
+          }
+          if (idx) {
+            for (let j = 0; j < idx.count; j++) {
+              indices.push(idx.getX(j) + indexOffset);
+            }
+          }
+          indexOffset += pos.count;
+          g.dispose();
+        }
+
+        merged.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+        merged.setAttribute("normal", new THREE.Float32BufferAttribute(normals, 3));
+        if (indices.length > 0) {
+          merged.setIndex(indices);
+        }
+      }
+    }
+    return merged;
+  }, [slatWidth, slatThickness, slatDepth, count, gap]);
 
   return <primitive object={geo} attach="geometry" />;
 }

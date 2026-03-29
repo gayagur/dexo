@@ -269,7 +269,9 @@ export type PanelShape =
   // Decorative & Upholstery
   | "cushion" | "cushion_firm" | "cushion_bolster" | "padded_block"
   | "mattress" | "books" | "vase" | "basket" | "picture_frame" | "lamp_shade"
-  | "potted_plant";
+  | "potted_plant"
+  // Parametric
+  | "slat_group";
 
 export interface PanelData {
   id: string;

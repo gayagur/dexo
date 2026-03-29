@@ -64,6 +64,7 @@ export const FURNITURE_ANALYSIS_SHAPES = [
   "picture_frame",
   "lamp_shade",
   "potted_plant",
+  "slat_group",
 ] as const satisfies readonly PanelShape[];
 
 const VALID_SHAPES = new Set<string>(FURNITURE_ANALYSIS_SHAPES);
@@ -75,6 +76,8 @@ const SHAPE_PARAM_KEYS = new Set([
   "tubeRadius",
   "thickness",
   "knobSign",
+  "slatCount",
+  "slatGap",
 ]);
 
 function num3(v: unknown, fallback: [number, number, number]): [number, number, number] {
