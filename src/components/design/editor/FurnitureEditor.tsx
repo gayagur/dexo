@@ -204,6 +204,7 @@ export function FurnitureEditor({
   const [mobileLibraryOpen, setMobileLibraryOpen] = useState(false);
   const [mobilePropsOpen, setMobilePropsOpen] = useState(false);
   const [mobileChatOpen, setMobileChatOpen] = useState(false);
+  const [mobileLibraryTab, setMobileLibraryTab] = useState<"templates" | "elements">("templates");
 
   const mobileActiveSheet = mobileLibraryOpen ? "library" as const
     : mobilePropsOpen ? "properties" as const
@@ -1681,7 +1682,7 @@ export function FurnitureEditor({
 
         {/* Bottom action bar */}
         <MobileEditorBar
-          onOpenLibrary={() => { setShowLibrary(true); openMobileSheet("library"); }}
+          onOpenLibrary={() => openMobileSheet("library")}
           onOpenProperties={() => openMobileSheet("properties")}
           onOpenChat={() => openMobileSheet("chat")}
           editingGroupId={editingGroupId}
@@ -1691,12 +1692,35 @@ export function FurnitureEditor({
           activeSheet={mobileActiveSheet}
         />
 
-        {/* Library bottom sheet */}
+        {/* Library bottom sheet — with Templates / Elements tabs */}
         <MobileDrawer isOpen={mobileLibraryOpen} onClose={closeMobileSheets} title="Library" height="half">
-          {showLibrary ? (
+          {/* Tab switcher */}
+          <div className="flex gap-1 mb-3 bg-gray-100 rounded-lg p-1">
+            <button
+              onClick={() => setMobileLibraryTab("templates")}
+              className={`flex-1 py-2 text-xs font-medium rounded-md transition-colors ${
+                mobileLibraryTab === "templates"
+                  ? "bg-white text-gray-900 shadow-sm"
+                  : "text-gray-500"
+              }`}
+            >
+              Templates
+            </button>
+            <button
+              onClick={() => setMobileLibraryTab("elements")}
+              className={`flex-1 py-2 text-xs font-medium rounded-md transition-colors ${
+                mobileLibraryTab === "elements"
+                  ? "bg-white text-gray-900 shadow-sm"
+                  : "text-gray-500"
+              }`}
+            >
+              Elements
+            </button>
+          </div>
+          {mobileLibraryTab === "templates" ? (
             <LibraryBrowser
               onSelectTemplate={(t) => { handleLoadTemplate(t); closeMobileSheets(); }}
-              onClose={() => setShowLibrary(false)}
+              onClose={() => setMobileLibraryTab("elements")}
               communityTemplates={communityTemplates}
             />
           ) : (
