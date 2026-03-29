@@ -335,17 +335,19 @@ function CategoryExplorer() {
 // ═════════════════════════════════════════════════════════════
 
 const AuthenticatedHome = () => {
-  const { user, activeRole } = useAuth();
+  const { user, activeRole, isCreator: hasCreatorAccess, creatorApproved } = useAuth();
   const firstName =
     user?.user_metadata?.name?.split(' ')[0] ||
     user?.user_metadata?.full_name?.split(' ')[0] ||
     'there';
-  const isCreator = activeRole === 'business' || activeRole === 'creator';
+  // Only show creator home if actively in creator/business mode AND approved
+  // Customer role ALWAYS goes to customer dashboard — no detours
+  const showCreatorHome = (activeRole === 'business' || activeRole === 'creator') && hasCreatorAccess && creatorApproved;
 
   return (
     <AppLayout>
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.35 }}>
-        {isCreator ? <CreatorHome firstName={firstName} /> : <CustomerHome firstName={firstName} />}
+        {showCreatorHome ? <CreatorHome firstName={firstName} /> : <CustomerHome firstName={firstName} />}
       </motion.div>
     </AppLayout>
   );
