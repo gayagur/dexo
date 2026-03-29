@@ -495,6 +495,85 @@ function repairOfficeChairBase(panels: PanelData[], name: string, nextId: () => 
 }
 
 /**
+ * Fix bed geometry — AI often swaps width/depth making beds vertical.
+ * Ensures bed is wider than tall and longer than wide.
+ */
+function repairBedGeometry(panels: PanelData[], name: string): PanelData[] {
+  if (!/\b(bed|bunk|crib|cot|daybed)\b/i.test(name)) return panels;
+
+  // Check if the overall shape is wrong — bed should be wide and long, not tall
+  const allX = panels.flatMap(p => [p.position[0] - p.size[0] / 2, p.position[0] + p.size[0] / 2]);
+  const allY = panels.flatMap(p => [p.position[1] - p.size[1] / 2, p.position[1] + p.size[1] / 2]);
+  const allZ = panels.flatMap(p => [p.position[2] - p.size[2] / 2, p.position[2] + p.size[2] / 2]);
+  const spanX = Math.max(...allX) - Math.min(...allX);
+  const spanY = Math.max(...allY) - Math.min(...allY);
+  const spanZ = Math.max(...allZ) - Math.min(...allZ);
+
+  // A bed should have: spanX (width) > spanY (height), spanZ (depth/length) > spanX (width)
+  // If spanY > spanX, the bed is vertical — parts need fixing
+  if (spanY > spanX * 1.5) {
+    // The AI made it too tall — swap Y and Z for all panels
+    for (const p of panels) {
+      // Swap position Y and Z
+      const oldY = p.position[1];
+      const oldZ = p.position[2];
+      p.position = [p.position[0], Math.abs(oldZ) + 0.01, oldY];
+      // Swap size height and depth for non-vertical parts
+      if (p.type === "horizontal") {
+        const oldSH = p.size[1];
+        const oldSD = p.size[2];
+        p.size = [p.size[0], Math.min(oldSH, oldSD), Math.max(oldSH, oldSD)];
+      }
+    }
+  }
+
+  // Fix slats — ensure they're horizontal thin panels
+  const slats = panels.filter(p => /slat/i.test(p.label));
+  for (const slat of slats) {
+    // Slats should be thin horizontally
+    const [w, h, d] = slat.size;
+    if (h > 0.05) {
+      // Too thick — fix: width should be large, height thin, depth medium
+      const sorted = [w, h, d].sort((a, b) => a - b);
+      slat.size = [sorted[2], sorted[0], sorted[1]]; // widest, thinnest, medium
+    }
+    slat.type = "horizontal";
+    slat.rotation = [0, 0, 0];
+  }
+
+  // Fix headboard — should be vertical, at the back (most negative Z)
+  const headboards = panels.filter(p => /headboard/i.test(p.label));
+  for (const hb of headboards) {
+    hb.type = "vertical";
+    // Headboard should be wide and tall, thin depth
+    const dims = [...hb.size].sort((a, b) => a - b);
+    hb.size = [dims[2], dims[1], dims[0]]; // widest, medium (height), thinnest (depth)
+    hb.rotation = [0, 0, 0];
+  }
+
+  // Fix footboard — same as headboard but shorter
+  const footboards = panels.filter(p => /footboard/i.test(p.label));
+  for (const fb of footboards) {
+    fb.type = "vertical";
+    const dims = [...fb.size].sort((a, b) => a - b);
+    fb.size = [dims[2], dims[1], dims[0]];
+    fb.rotation = [0, 0, 0];
+  }
+
+  // Fix side rails — horizontal, long, thin
+  const sideRails = panels.filter(p => /side.*rail|side.*panel/i.test(p.label));
+  for (const rail of sideRails) {
+    rail.type = "horizontal";
+    const dims = [...rail.size].sort((a, b) => a - b);
+    // Longest dimension = depth (along bed length), medium = height, thinnest = width (thickness)
+    rail.size = [dims[0], dims[1], dims[2]];
+    rail.rotation = [0, 0, 0];
+  }
+
+  return panels;
+}
+
+/**
  * General geometry validation — runs on ALL furniture types.
  * Fixes common AI mistakes regardless of category.
  */
@@ -572,5 +651,6 @@ export function panelsFromFurnitureAnalysis(
   const refined = refineSeatingImportPanels(panels, analysis.name ?? "");
   const repaired = repairSeatingGeometry(refined, analysis.name ?? "", nextId);
   const withBase = repairOfficeChairBase(repaired, analysis.name ?? "", nextId);
-  return validateAndRepairGeometry(withBase);
+  const bedFixed = repairBedGeometry(withBase, analysis.name ?? "");
+  return validateAndRepairGeometry(bedFixed);
 }
