@@ -12,7 +12,6 @@ import {
 const VISION_MODELS = [
   "Qwen/Qwen3-VL-8B-Instruct",
   "moonshotai/Kimi-K2.5",
-  "meta-llama/Llama-3.2-90B-Vision-Instruct-Turbo",
 ];
 /** Per-model timeout — must leave room for fallbacks within edge function's ~150s limit */
 const PER_MODEL_MS = 45_000;
