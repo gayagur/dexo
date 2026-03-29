@@ -1,4 +1,4 @@
-export type Role = "customer" | "business";
+export type Role = "customer" | "business" | "creator";
 export type ProjectStatus = "draft" | "sent" | "offers_received" | "in_progress" | "completed";
 export type OfferStatus = "pending" | "accepted" | "declined";
 export type SenderType = "customer" | "business";
@@ -14,7 +14,43 @@ export interface Profile {
   email: string;
   avatar_url: string | null;
   is_admin: boolean;
+  is_creator: boolean;
+  creator_approved: boolean;
+  creator_profile: Record<string, unknown> | null;
   created_at: string;
+}
+
+export type OrderStatus = "quote_requested" | "quoted" | "accepted" | "in_production" | "completed" | "cancelled";
+
+export interface CreatorProfile {
+  id: string;
+  user_id: string;
+  business_name: string;
+  description: string;
+  location: string;
+  specialties: string[];
+  portfolio_images: string[];
+  min_order_value: number | null;
+  lead_time_days: number | null;
+  rating: number;
+  total_orders: number;
+  verified: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface DesignOrder {
+  id: string;
+  design_id: string | null;
+  client_id: string;
+  creator_id: string | null;
+  status: OrderStatus;
+  quote_amount: number | null;
+  quote_currency: string;
+  quote_message: string | null;
+  client_message: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface Business {
@@ -221,6 +257,8 @@ export interface Database {
         Partial<Omit<BusinessPageView, "id">>
       >;
       furniture_designs: PublicTable<FurnitureDesign, Omit<FurnitureDesign, "id" | "created_at">, Partial<Omit<FurnitureDesign, "id">>>;
+      creator_profiles: PublicTable<CreatorProfile, Omit<CreatorProfile, "id" | "created_at" | "updated_at" | "rating" | "total_orders">, Partial<Omit<CreatorProfile, "id">>>;
+      design_orders: PublicTable<DesignOrder, Omit<DesignOrder, "id" | "created_at" | "updated_at">, Partial<Omit<DesignOrder, "id">>>;
       blog_posts: PublicTable<
         BlogPost,
         Omit<BlogPost, "id" | "created_at" | "updated_at"> & { id?: string },

@@ -21,6 +21,8 @@ interface AuthState {
   /** Currently active role (what the UI branches on) */
   activeRole: Role | null;
   isAdmin: boolean;
+  isCreator: boolean;
+  creatorApproved: boolean;
   loading: boolean;
 }
 
@@ -87,14 +89,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     role: null,
     activeRole: null,
     isAdmin: false,
+    isCreator: false,
+    creatorApproved: false,
     loading: true,
   });
 
-  const fetchRole = useCallback(async (user: User): Promise<{ role: Role | null; activeRole: Role | null; isAdmin: boolean }> => {
+  const fetchRole = useCallback(async (user: User): Promise<{ role: Role | null; activeRole: Role | null; isAdmin: boolean; isCreator: boolean; creatorApproved: boolean }> => {
     // 1. Check profiles table — try with active_role first, fall back without it
     const { data, error } = await supabase
       .from("profiles")
-      .select("role, active_role, is_admin")
+      .select("role, active_role, is_admin, is_creator, creator_approved")
       .eq("id", user.id)
       .single();
 
@@ -103,6 +107,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         role: data.role as Role,
         activeRole: (data.active_role as Role) ?? (data.role as Role),
         isAdmin: data.is_admin ?? false,
+        isCreator: data.is_creator ?? false,
+        creatorApproved: data.creator_approved ?? false,
       };
     }
 
@@ -119,13 +125,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           role: fallback.role as Role,
           activeRole: fallback.role as Role,
           isAdmin: fallback.is_admin ?? false,
+          isCreator: false,
+          creatorApproved: false,
         };
       }
     }
 
     // 2. Check user_metadata (set during email signUp)
     const metaRole = user.user_metadata?.role as Role | undefined;
-    if (metaRole) return { role: metaRole, activeRole: metaRole, isAdmin: false };
+    if (metaRole) return { role: metaRole, activeRole: metaRole, isAdmin: false, isCreator: false, creatorApproved: false };
 
     // 3. Check localStorage (Google OAuth flow stashes role here)
     const savedRole = localStorage.getItem(OAUTH_ROLE_KEY) as Role | null;
@@ -147,11 +155,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           { onConflict: "id" }
         )
         .then(() => {});
-      return { role: savedRole, activeRole: savedRole, isAdmin: false };
+      return { role: savedRole, activeRole: savedRole, isAdmin: false, isCreator: false, creatorApproved: false };
     }
 
     // 4. Default
-    return { role: "customer", activeRole: "customer", isAdmin: false };
+    return { role: "customer", activeRole: "customer", isAdmin: false, isCreator: false, creatorApproved: false };
   }, []);
 
   useEffect(() => {
@@ -169,20 +177,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         let role: Role | null = null;
         let activeRole: Role | null = null;
         let isAdmin = false;
+        let isCreator = false;
+        let creatorApproved = false;
         if (session?.user) {
           try {
             const result = await withTimeout(fetchRole(session.user), 8000);
             role = result.role;
             activeRole = result.activeRole;
             isAdmin = result.isAdmin;
+            isCreator = result.isCreator;
+            creatorApproved = result.creatorApproved;
           } catch {
             /* use defaults — role will resolve via onAuthStateChange */
           }
         }
-        setState({ session, user: session?.user ?? null, role, activeRole, isAdmin, loading: false });
+        setState({ session, user: session?.user ?? null, role, activeRole, isAdmin, isCreator, creatorApproved, loading: false });
       } catch {
         if (mounted) {
-          setState({ session: null, user: null, role: null, activeRole: null, isAdmin: false, loading: false });
+          setState({ session: null, user: null, role: null, activeRole: null, isAdmin: false, isCreator: false, creatorApproved: false, loading: false });
         }
       }
       initDone = true;
@@ -215,7 +227,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       // For SIGNED_OUT, clear everything immediately — no fetch needed
       if (!session?.user) {
-        setState({ session: null, user: null, role: null, activeRole: null, isAdmin: false, loading: false });
+        setState({ session: null, user: null, role: null, activeRole: null, isAdmin: false, isCreator: false, creatorApproved: false, loading: false });
         return;
       }
 
@@ -229,20 +241,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       let role: Role | null = null;
       let activeRole: Role | null = null;
       let isAdmin = false;
+      let isCreator = false;
+      let creatorApproved = false;
       try {
         const result = await withTimeout(fetchRole(session.user), 8000);
         role = result.role;
         activeRole = result.activeRole;
         isAdmin = result.isAdmin;
+        isCreator = result.isCreator;
+        creatorApproved = result.creatorApproved;
       } catch {
-        // On timeout/error, preserve existing isAdmin to prevent flicker
         setState((prev) => ({
           session, user: session.user, role: prev.role, activeRole: prev.activeRole,
-          isAdmin: prev.isAdmin, loading: false,
+          isAdmin: prev.isAdmin, isCreator: prev.isCreator, creatorApproved: prev.creatorApproved, loading: false,
         }));
         return;
       }
-      setState({ session, user: session.user, role, activeRole, isAdmin, loading: false });
+      setState({ session, user: session.user, role, activeRole, isAdmin, isCreator, creatorApproved, loading: false });
     });
 
     return () => {
