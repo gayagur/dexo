@@ -403,10 +403,12 @@ function repairSeatingGeometry(panels: PanelData[], name: string, nextId: () => 
     }
   }
 
-  // === Fix 6: Back cushions — FORCE position + FIX rotation ===
+  // === Fix 6: Back cushions — FORCE position flush against seat back ===
   if (seatCushions.length > 0 && backCushions.length > 0) {
     const seatTopY = Math.max(...seatCushions.map(p => p.position[1] + p.size[1] / 2));
+    // Back edge of seat cushions — where back cushions should lean
     const seatBackZ = Math.min(...seatCushions.map(p => p.position[2] - p.size[2] / 2));
+    const seatCenterZ = seatCushions.reduce((s, p) => s + p.position[2], 0) / seatCushions.length;
     const sortedSeats = [...seatCushions].sort((a, b) => a.position[0] - b.position[0]);
     const sortedBacks = [...backCushions].sort((a, b) => a.position[0] - b.position[0]);
 
@@ -414,19 +416,28 @@ function repairSeatingGeometry(panels: PanelData[], name: string, nextId: () => 
       const bc = sortedBacks[i];
       const matchSeat = sortedSeats[Math.min(i, sortedSeats.length - 1)];
       bc.position = [
-        matchSeat.position[0],
-        seatTopY + bc.size[1] / 2,
-        seatBackZ - bc.size[2] / 2 + 0.01,
+        matchSeat.position[0],                       // Same X as seat
+        seatTopY + bc.size[1] / 2,                  // Directly above seat (no gap)
+        seatBackZ + bc.size[2] / 2,                 // Flush AT the back edge of seat (not behind!)
       ];
-      // FORCE sane rotation — only allow slight backward tilt on X axis
-      // Remove any wild Y/Z rotation the AI set
+      // Only allow slight backward tilt
       const rx = bc.rotation?.[0] ?? 0;
-      const clampedRx = Math.max(-0.25, Math.min(0, rx)); // only backward tilt, max ~15°
-      bc.rotation = [clampedRx, 0, 0];
-
-      // Match width to seat width
+      bc.rotation = [Math.max(-0.20, Math.min(0, rx)), 0, 0];
+      // Width matches seat
       if (bc.size[0] > matchSeat.size[0] * 1.2) {
         bc.size = [matchSeat.size[0], bc.size[1], bc.size[2]];
+      }
+      // Use dominant material
+      bc.materialId = dominantMat;
+    }
+  }
+
+  // === Fix 7: Force ALL upholstered parts to dominant material ===
+  for (const p of result) {
+    if (UPHOLSTERY_MAT_RE.test(p.materialId) && p.materialId !== dominantMat) {
+      // Only override if it's a generic gray that's probably wrong
+      if (p.materialId === "fabric_gray" || p.materialId === "fabric_charcoal") {
+        p.materialId = dominantMat;
       }
     }
   }
