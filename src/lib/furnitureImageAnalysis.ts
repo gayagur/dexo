@@ -300,144 +300,141 @@ function fixHorizontalRoundDisk(panel: PanelData): PanelData {
  */
 function repairSeatingGeometry(panels: PanelData[], name: string, nextId: () => string): PanelData[] {
   if (!SEATING_NAME_RE.test(name)) return panels;
-  const isSofa = /\b(sofa|couch|sectional|loveseat|divan|settee|chesterfield|recliner)\b/i.test(name);
 
   const result = [...panels];
 
-  // Collect semantic groups
+  // Collect semantic groups — match any cushion variant + boxes with upholstery
   const isCushionShape = (s: string) => /^(cushion|cushion_firm|padded_block|mattress)$/.test(s);
   const isUpholstered = (p: PanelData) => isCushionShape(p.shape ?? "box") || ((p.shape ?? "box") === "box" && UPHOLSTERY_MAT_RE.test(p.materialId));
+  // Seat = horizontal upholstered part at seat height, excluding back/pillow/arm/throw
   const seatCushions = result.filter(p => isUpholstered(p) && p.type === "horizontal" && p.position[1] > 0.15 && p.position[1] < 0.55 && !/back|pillow|throw|arm/i.test(p.label));
   const backCushions = result.filter(p => isUpholstered(p) && p.type === "vertical" && !/arm|leg|pillow|throw/i.test(p.label) && /back|rest|cushion/i.test(p.label));
-  const arms = result.filter(p => /arm/i.test(p.label) && !/leg|back/i.test(p.label));
-  const legs = result.filter(p => /leg|foot|feet|caster/i.test(p.label));
-  const plinths = result.filter(p => (p.shape ?? "box") === "plinth" || /plinth|base\b|frame\b/i.test(p.label));
+  const legs = result.filter(p => /leg|foot|feet/i.test(p.label));
+  const plinths = result.filter(p => (p.shape ?? "box") === "plinth" || /plinth|base\b/i.test(p.label));
 
-  // === Determine dominant sofa material (most common among upholstered parts) ===
-  const allUpholstered = result.filter(p => UPHOLSTERY_MAT_RE.test(p.materialId));
-  const matCounts = new Map<string, number>();
-  for (const p of allUpholstered) {
-    matCounts.set(p.materialId, (matCounts.get(p.materialId) ?? 0) + 1);
-  }
-  let dominantMat = "fabric_cream";
-  let maxCount = 0;
-  for (const [mat, count] of matCounts) {
-    if (count > maxCount) { maxCount = count; dominantMat = mat; }
-  }
-
-  // === Fix 1: Legs touch floor ===
+  // === Fix 1: Ensure legs touch floor ===
   for (const leg of legs) {
     const legH = leg.size[1];
-    leg.position = [leg.position[0], legH / 2, leg.position[2]];
-  }
-
-  // === Fix 2: Plinth/base uses SOFA material, not black ===
-  for (const p of plinths) {
-    if (p.materialId === "melamine_black" || p.materialId === "black_metal") {
-      p.materialId = dominantMat;
+    const expectedY = legH / 2;
+    if (Math.abs(leg.position[1] - expectedY) > 0.03) {
+      leg.position = [leg.position[0], expectedY, leg.position[2]];
     }
   }
 
-  // === Fix 3: Add missing base for sofas (in sofa material, not black) ===
+  // === Fix 2: Add missing plinth/base for sofas only (not dining chairs) ===
+  const isSofa = /\b(sofa|couch|sectional|loveseat|divan|settee|chesterfield|recliner)\b/i.test(name);
   if (isSofa && seatCushions.length > 0 && plinths.length === 0) {
+    // Find the lowest seat cushion bottom
     const seatBottoms = seatCushions.map(p => p.position[1] - p.size[1] / 2);
     const lowestSeatBottom = Math.min(...seatBottoms);
+
+    // Find furniture footprint
+    const allX = result.map(p => [p.position[0] - p.size[0] / 2, p.position[0] + p.size[0] / 2]).flat();
+    const allZ = result.map(p => [p.position[2] - p.size[2] / 2, p.position[2] + p.size[2] / 2]).flat();
+    const minX = Math.min(...allX), maxX = Math.max(...allX);
+    const minZ = Math.min(...allZ), maxZ = Math.max(...allZ);
+    const footW = maxX - minX;
+    const footD = maxZ - minZ;
+
+    // Determine plinth height — fill the gap between floor and seat cushion bottom
     const legTopY = legs.length > 0 ? Math.max(...legs.map(l => l.position[1] + l.size[1] / 2)) : 0;
     const plinthH = Math.max(0.06, lowestSeatBottom - legTopY);
+    const plinthY = legTopY + plinthH / 2;
 
+    // Only add if there's a meaningful gap
     if (plinthH > 0.04 && plinthH < 0.5) {
-      const allX = result.map(p => [p.position[0] - p.size[0] / 2, p.position[0] + p.size[0] / 2]).flat();
-      const allZ = result.map(p => [p.position[2] - p.size[2] / 2, p.position[2] + p.size[2] / 2]).flat();
+      // Match material to seat cushions
+      const seatMat = seatCushions[0]?.materialId ?? "melamine_black";
+      const plinthMat = UPHOLSTERY_MAT_RE.test(seatMat) ? seatMat : "melamine_black";
+
       result.push({
         id: nextId(),
         type: "horizontal",
         label: "Base",
-        position: [(Math.min(...allX) + Math.max(...allX)) / 2, legTopY + plinthH / 2, (Math.min(...allZ) + Math.max(...allZ)) / 2],
-        size: [(Math.max(...allX) - Math.min(...allX)) * 0.95, plinthH, (Math.max(...allZ) - Math.min(...allZ)) * 0.95],
-        materialId: dominantMat, // Same as sofa, NOT black
-        shape: "padded_block",
+        position: [(minX + maxX) / 2, plinthY, (minZ + maxZ) / 2],
+        size: [footW * 0.95, plinthH, footD * 0.95],
+        materialId: plinthMat,
+        shape: "rounded_rect",
+        shapeParams: { cornerRadius: 0.02 },
       });
     }
   }
 
-  // === Fix 4: Arms — force to padded_block, correct material, RESET rotation ===
-  if (isSofa) {
-    for (const arm of arms) {
-      if ((arm.shape ?? "box") === "cylinder" || (arm.shape ?? "box") === "box") {
-        arm.shape = "padded_block";
-      }
-      if (!UPHOLSTERY_MAT_RE.test(arm.materialId)) {
-        arm.materialId = dominantMat;
-      }
-      arm.rotation = [0, 0, 0]; // Arms should NEVER be rotated
-    }
-  }
-
-  // === Fix 4b: Seat cushions — RESET rotation (must be flat) ===
-  for (const sc of seatCushions) {
-    sc.rotation = [0, 0, 0];
-  }
-
-  // === Fix 5: Compact seat cushions between arms ===
+  // === Fix 3: Compact seat cushions (remove gaps between them) ===
+  // AI often spaces seat cushions too far apart. Pack them side-by-side within the arm boundaries.
   if (isSofa && seatCushions.length >= 2) {
+    // Find arm positions to determine inner width
+    const arms = result.filter(p => /arm/i.test(p.label));
     let innerLeft: number, innerRight: number;
     if (arms.length >= 2) {
-      const sortedArms = [...arms].sort((a, b) => a.position[0] - b.position[0]);
-      innerLeft = sortedArms[0].position[0] + sortedArms[0].size[0] / 2;
-      innerRight = sortedArms[sortedArms.length - 1].position[0] - sortedArms[sortedArms.length - 1].size[0] / 2;
+      const armXs = arms.map(a => a.position[0]).sort((a, b) => a - b);
+      const leftArm = arms.find(a => a.position[0] === armXs[0])!;
+      const rightArm = arms.find(a => a.position[0] === armXs[armXs.length - 1])!;
+      innerLeft = leftArm.position[0] + leftArm.size[0] / 2;
+      innerRight = rightArm.position[0] - rightArm.size[0] / 2;
     } else {
+      // No arms — use total footprint
       const allX = result.map(p => [p.position[0] - p.size[0] / 2, p.position[0] + p.size[0] / 2]).flat();
       innerLeft = Math.min(...allX) + 0.05;
       innerRight = Math.max(...allX) - 0.05;
     }
+
     const innerWidth = innerRight - innerLeft;
     if (innerWidth > 0.3) {
-      const n = seatCushions.length;
-      const gap = 0.012;
-      const cushW = (innerWidth - gap * (n - 1)) / n;
+      const cushCount = seatCushions.length;
+      const gap = 0.015; // small gap between cushions
+      const cushW = (innerWidth - gap * (cushCount - 1)) / cushCount;
+
+      // Sort cushions by current X and reassign evenly
       const sorted = [...seatCushions].sort((a, b) => a.position[0] - b.position[0]);
       for (let i = 0; i < sorted.length; i++) {
-        sorted[i].position = [innerLeft + cushW / 2 + i * (cushW + gap), sorted[i].position[1], sorted[i].position[2]];
+        const newX = innerLeft + cushW / 2 + i * (cushW + gap);
+        sorted[i].position = [newX, sorted[i].position[1], sorted[i].position[2]];
         sorted[i].size = [cushW, sorted[i].size[1], sorted[i].size[2]];
       }
     }
   }
 
-  // === Fix 6: Back cushions — FORCE position flush against seat back ===
+  // === Fix 4: Validate back cushion positions ===
   if (seatCushions.length > 0 && backCushions.length > 0) {
     const seatTopY = Math.max(...seatCushions.map(p => p.position[1] + p.size[1] / 2));
-    // Back edge of seat cushions — where back cushions should lean
     const seatBackZ = Math.min(...seatCushions.map(p => p.position[2] - p.size[2] / 2));
-    const seatCenterZ = seatCushions.reduce((s, p) => s + p.position[2], 0) / seatCushions.length;
+    const seatCenterX = seatCushions.reduce((s, p) => s + p.position[0], 0) / seatCushions.length;
+
+    // Sort seat cushions by X to match with back cushions
     const sortedSeats = [...seatCushions].sort((a, b) => a.position[0] - b.position[0]);
-    const sortedBacks = [...backCushions].sort((a, b) => a.position[0] - b.position[0]);
 
-    for (let i = 0; i < sortedBacks.length; i++) {
-      const bc = sortedBacks[i];
-      const matchSeat = sortedSeats[Math.min(i, sortedSeats.length - 1)];
-      bc.position = [
-        matchSeat.position[0],                       // Same X as seat
-        seatTopY + bc.size[1] / 2,                  // Directly above seat (no gap)
-        seatBackZ + bc.size[2] / 2,                 // Flush AT the back edge of seat (not behind!)
-      ];
-      // Only allow slight backward tilt
-      const rx = bc.rotation?.[0] ?? 0;
-      bc.rotation = [Math.max(-0.20, Math.min(0, rx)), 0, 0];
-      // Width matches seat
-      if (bc.size[0] > matchSeat.size[0] * 1.2) {
-        bc.size = [matchSeat.size[0], bc.size[1], bc.size[2]];
+    for (let i = 0; i < backCushions.length; i++) {
+      const bc = backCushions[i];
+
+      // Back cushion Y: must be above seat top
+      if (bc.position[1] < seatTopY) {
+        bc.position = [bc.position[0], seatTopY + bc.size[1] / 2, bc.position[2]];
       }
-      // Use dominant material
-      bc.materialId = dominantMat;
-    }
-  }
 
-  // === Fix 7: Force ALL upholstered parts to dominant material ===
-  for (const p of result) {
-    if (UPHOLSTERY_MAT_RE.test(p.materialId) && p.materialId !== dominantMat) {
-      // Only override if it's a generic gray that's probably wrong
-      if (p.materialId === "fabric_gray" || p.materialId === "fabric_charcoal") {
-        p.materialId = dominantMat;
+      // Back cushion Z: must be behind seats
+      if (bc.position[2] > seatBackZ + 0.05) {
+        bc.position = [bc.position[0], bc.position[1], seatBackZ - bc.size[2] / 2 + 0.02];
+      }
+
+      // Back cushion X: if counts match, align X with corresponding seat cushion
+      if (backCushions.length === seatCushions.length && sortedSeats[i]) {
+        const seatX = sortedSeats[i].position[0];
+        // If back cushion X is far from its matching seat, snap it
+        if (Math.abs(bc.position[0] - seatX) > 0.15) {
+          bc.position = [seatX, bc.position[1], bc.position[2]];
+        }
+      }
+
+      // Back cushion X: if too far from sofa center, it's misplaced (probably at arm position)
+      const allSeatMinX = Math.min(...seatCushions.map(p => p.position[0] - p.size[0] / 2));
+      const allSeatMaxX = Math.max(...seatCushions.map(p => p.position[0] + p.size[0] / 2));
+      if (bc.position[0] < allSeatMinX - 0.10 || bc.position[0] > allSeatMaxX + 0.10) {
+        // Back cushion is outside seat area — snap to nearest seat X
+        const nearest = sortedSeats.reduce((best, s) =>
+          Math.abs(s.position[0] - bc.position[0]) < Math.abs(best.position[0] - bc.position[0]) ? s : best
+        );
+        bc.position = [nearest.position[0], bc.position[1], bc.position[2]];
       }
     }
   }
@@ -500,85 +497,6 @@ function repairOfficeChairBase(panels: PanelData[], name: string, nextId: () => 
         });
       }
     }
-  }
-
-  return panels;
-}
-
-/**
- * Fix bed geometry — AI often swaps width/depth making beds vertical.
- * Ensures bed is wider than tall and longer than wide.
- */
-function repairBedGeometry(panels: PanelData[], name: string): PanelData[] {
-  if (!/\b(bed|bunk|crib|cot|daybed)\b/i.test(name)) return panels;
-
-  // Check if the overall shape is wrong — bed should be wide and long, not tall
-  const allX = panels.flatMap(p => [p.position[0] - p.size[0] / 2, p.position[0] + p.size[0] / 2]);
-  const allY = panels.flatMap(p => [p.position[1] - p.size[1] / 2, p.position[1] + p.size[1] / 2]);
-  const allZ = panels.flatMap(p => [p.position[2] - p.size[2] / 2, p.position[2] + p.size[2] / 2]);
-  const spanX = Math.max(...allX) - Math.min(...allX);
-  const spanY = Math.max(...allY) - Math.min(...allY);
-  const spanZ = Math.max(...allZ) - Math.min(...allZ);
-
-  // A bed should have: spanX (width) > spanY (height), spanZ (depth/length) > spanX (width)
-  // If spanY > spanX, the bed is vertical — parts need fixing
-  if (spanY > spanX * 1.5) {
-    // The AI made it too tall — swap Y and Z for all panels
-    for (const p of panels) {
-      // Swap position Y and Z
-      const oldY = p.position[1];
-      const oldZ = p.position[2];
-      p.position = [p.position[0], Math.abs(oldZ) + 0.01, oldY];
-      // Swap size height and depth for non-vertical parts
-      if (p.type === "horizontal") {
-        const oldSH = p.size[1];
-        const oldSD = p.size[2];
-        p.size = [p.size[0], Math.min(oldSH, oldSD), Math.max(oldSH, oldSD)];
-      }
-    }
-  }
-
-  // Fix slats — ensure they're horizontal thin panels
-  const slats = panels.filter(p => /slat/i.test(p.label));
-  for (const slat of slats) {
-    // Slats should be thin horizontally
-    const [w, h, d] = slat.size;
-    if (h > 0.05) {
-      // Too thick — fix: width should be large, height thin, depth medium
-      const sorted = [w, h, d].sort((a, b) => a - b);
-      slat.size = [sorted[2], sorted[0], sorted[1]]; // widest, thinnest, medium
-    }
-    slat.type = "horizontal";
-    slat.rotation = [0, 0, 0];
-  }
-
-  // Fix headboard — should be vertical, at the back (most negative Z)
-  const headboards = panels.filter(p => /headboard/i.test(p.label));
-  for (const hb of headboards) {
-    hb.type = "vertical";
-    // Headboard should be wide and tall, thin depth
-    const dims = [...hb.size].sort((a, b) => a - b);
-    hb.size = [dims[2], dims[1], dims[0]]; // widest, medium (height), thinnest (depth)
-    hb.rotation = [0, 0, 0];
-  }
-
-  // Fix footboard — same as headboard but shorter
-  const footboards = panels.filter(p => /footboard/i.test(p.label));
-  for (const fb of footboards) {
-    fb.type = "vertical";
-    const dims = [...fb.size].sort((a, b) => a - b);
-    fb.size = [dims[2], dims[1], dims[0]];
-    fb.rotation = [0, 0, 0];
-  }
-
-  // Fix side rails — horizontal, long, thin
-  const sideRails = panels.filter(p => /side.*rail|side.*panel/i.test(p.label));
-  for (const rail of sideRails) {
-    rail.type = "horizontal";
-    const dims = [...rail.size].sort((a, b) => a - b);
-    // Longest dimension = depth (along bed length), medium = height, thinnest = width (thickness)
-    rail.size = [dims[0], dims[1], dims[2]];
-    rail.rotation = [0, 0, 0];
   }
 
   return panels;
@@ -662,6 +580,5 @@ export function panelsFromFurnitureAnalysis(
   const refined = refineSeatingImportPanels(panels, analysis.name ?? "");
   const repaired = repairSeatingGeometry(refined, analysis.name ?? "", nextId);
   const withBase = repairOfficeChairBase(repaired, analysis.name ?? "", nextId);
-  const bedFixed = repairBedGeometry(withBase, analysis.name ?? "");
-  return validateAndRepairGeometry(bedFixed);
+  return validateAndRepairGeometry(withBase);
 }

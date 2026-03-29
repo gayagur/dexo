@@ -4,26 +4,11 @@
  */
 export const FURNITURE_ANALYSIS_PROMPT = `You are a furniture decomposition engine. Look at this furniture image VERY CAREFULLY. Break it down into EVERY visible component — do NOT simplify.
 
-CRITICAL COLOR RULE: LOOK at the actual colors in the image. DO NOT default to gray.
-- Light/cream/beige/off-white sofa → fabric_cream or fabric_beige or fabric_ivory
-- Gray sofa → fabric_gray
-- Dark gray/charcoal → fabric_charcoal
-- Brown leather → leather_brown or leather_tan
-- Green → fabric_green or fabric_sage
-- Blue → fabric_blue or velvet_navy
-ALL fabric parts of the same piece should use the SAME material unless clearly different colors in the image.
+If you see 12 slats, return 12 slat panels. If you see handles on drawers, return each handle separately. If you see mesh/rattan texture, use the correct material. If you see curved edges, set cornerRadius. If parts are angled/tilted, set rotation values.
 
-CRITICAL POSITIONING RULE: Parts must TOUCH — no floating gaps.
-- Seat cushions sit directly ON the base (gap = 0)
-- Back cushions lean directly AGAINST the back/seat (gap = 0)
-- Arms connect to BOTH base and back — no floating
-- Base/frame is HIDDEN under cushions and uses the SAME material as the sofa (NOT black!)
+The goal is to reproduce this EXACT piece of furniture as closely as possible. More parts = better result. Minimum 10 components for simple furniture, 15+ for complex pieces.
 
-If you see 12 slats, return 12 slat panels. If you see handles on drawers, return each handle separately. If you see curved edges, set cornerRadius.
-
-The goal is to reproduce this EXACT piece of furniture as closely as possible. More parts = better. Minimum 10 components for simple, 15+ for complex.
-
-IMPORTANT: If multiple pieces visible, analyze ONLY the main/largest one.
+IMPORTANT: If multiple furniture pieces are visible, analyze ONLY the main/largest one.
 
 Output one JSON object only — no markdown fences, no commentary.
 
