@@ -41,7 +41,7 @@ export const ProtectedRoute = ({ children, requiredRole, requireAdmin }: Protect
 
   // Active role mismatch — redirect to correct dashboard
   if (requiredRole && activeRole && activeRole !== requiredRole) {
-    return <Navigate to={activeRole === "business" ? "/business" : "/dashboard"} replace />;
+    return <Navigate to={activeRole === "creator" ? "/creator/dashboard" : activeRole === "business" ? "/business" : "/dashboard"} replace />;
   }
 
   return <>{children}</>;

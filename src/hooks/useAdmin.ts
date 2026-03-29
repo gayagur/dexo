@@ -230,6 +230,12 @@ export function useAdmin() {
       return { error: error.message };
     }
 
+    // Set creator flags on profile so role switcher and creator dashboard work
+    await supabase
+      .from("profiles")
+      .update({ is_creator: true, creator_approved: true })
+      .eq("id", userId);
+
     await createNotification({
       userId,
       type: "creator_approved",

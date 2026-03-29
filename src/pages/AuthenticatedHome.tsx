@@ -340,7 +340,7 @@ const AuthenticatedHome = () => {
     user?.user_metadata?.name?.split(' ')[0] ||
     user?.user_metadata?.full_name?.split(' ')[0] ||
     'there';
-  const isCreator = activeRole === 'business';
+  const isCreator = activeRole === 'business' || activeRole === 'creator';
 
   return (
     <AppLayout>
