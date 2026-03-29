@@ -191,13 +191,10 @@ export function AppHeader() {
                   <DropdownMenuSeparator className="my-1" />
                   <DropdownMenuItem
                     onClick={async () => {
-                      if (activeRole === 'creator') {
-                        await switchRole('customer');
-                        navigate('/dashboard');
-                      } else {
-                        await switchRole('creator');
-                        navigate('/creator/dashboard');
-                      }
+                      const newRole = activeRole === 'creator' ? 'customer' : 'creator';
+                      await switchRole(newRole);
+                      // Full reload to ensure auth state picks up the new role
+                      window.location.href = newRole === 'creator' ? '/creator/dashboard' : '/dashboard';
                     }}
                     className="px-3 py-2 rounded-lg cursor-pointer gap-2.5"
                   >

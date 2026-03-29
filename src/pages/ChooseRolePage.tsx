@@ -1,10 +1,13 @@
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/lib/supabase";
 import { Home, Hammer, Loader2 } from "lucide-react";
+import { useState } from "react";
 
 export default function ChooseRolePage() {
-  const { user, isCreator, creatorApproved, switchRole, loading } = useAuth();
+  const { user, isCreator, creatorApproved, loading } = useAuth();
   const navigate = useNavigate();
+  const [switching, setSwitching] = useState(false);
 
   if (loading) {
     return (
@@ -19,20 +22,36 @@ export default function ChooseRolePage() {
     return null;
   }
 
-  // If not a creator, skip role picker
+  // If not a creator, skip role picker — straight to client dashboard
   if (!isCreator || !creatorApproved) {
     navigate("/dashboard");
     return null;
   }
 
   const handleChoose = async (role: "customer" | "creator") => {
-    await switchRole(role);
+    setSwitching(true);
+
+    // Update active_role in DB first, THEN navigate
+    await supabase
+      .from("profiles")
+      .update({ active_role: role })
+      .eq("id", user.id);
+
+    // Use window.location for a full reload so auth state picks up the new role
     if (role === "creator") {
-      navigate("/creator/dashboard");
+      window.location.href = "/creator/dashboard";
     } else {
-      navigate("/dashboard");
+      window.location.href = "/dashboard";
     }
   };
+
+  if (switching) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <Loader2 className="w-8 h-8 animate-spin text-[#C87D5A]" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
