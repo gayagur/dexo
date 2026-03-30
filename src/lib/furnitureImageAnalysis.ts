@@ -129,9 +129,163 @@ export type RawAnalysisPanel = {
   cornerRadius?: unknown;
 };
 
+/** Vision models often emit mm in panel fields; normalize before clamping (which capped 1800→10m). */
+function scaleRawAnalysisPanelsToMeters(rawPanels: RawAnalysisPanel[]): RawAnalysisPanel[] {
+  if (rawPanels.length === 0) return rawPanels;
+  let maxPos = 0;
+  let maxSize = 0;
+  for (const p of rawPanels) {
+    if (Array.isArray(p.position)) {
+      for (const x of p.position) {
+        const n = Math.abs(Number(x));
+        if (Number.isFinite(n)) maxPos = Math.max(maxPos, n);
+      }
+    }
+    if (Array.isArray(p.size)) {
+      for (const x of p.size) {
+        const n = Math.abs(Number(x));
+        if (Number.isFinite(n)) maxSize = Math.max(maxSize, n);
+      }
+    }
+  }
+  const scalePos = maxPos > 14 ? 0.001 : 1;
+  const scaleSize = maxSize > 5 ? 0.001 : 1;
+  if (scalePos === 1 && scaleSize === 1) return rawPanels;
+
+  return rawPanels.map((p) => {
+    const out: RawAnalysisPanel = { ...p };
+    if (scalePos !== 1 && Array.isArray(p.position)) {
+      out.position = p.position.map((x) => Number(x) * scalePos) as unknown;
+    }
+    if (scaleSize !== 1 && Array.isArray(p.size)) {
+      out.size = p.size.map((x) => Number(x) * scaleSize) as unknown;
+    }
+    return out;
+  });
+}
+
+/**
+ * Clamp absurd UI dims from vision (e.g. coffee table height 1600mm).
+ */
+export function sanitizeEstimatedDims(
+  name: string,
+  dims: { w: number; h: number; d: number } | undefined,
+): { w: number; h: number; d: number } | undefined {
+  if (!dims) return undefined;
+  let { w, h, d } = { ...dims };
+  if (![w, h, d].every((n) => Number.isFinite(n))) return dims;
+  const maxAny = Math.max(Math.abs(w), Math.abs(h), Math.abs(d));
+  if (maxAny > 8000) {
+    w /= 1000;
+    h /= 1000;
+    d /= 1000;
+  }
+  const n = name.toLowerCase();
+  if (/\bcoffee\b|\bside\s*table\b|\bend\s*table\b|\btea\s*table\b/i.test(n)) {
+    h = Math.min(h, 650);
+    w = Math.min(w, 3500);
+    d = Math.min(d, 2200);
+  }
+  if (/\b(nightstand|bedside)\b/i.test(n)) {
+    h = Math.min(h, 900);
+  }
+  if (/\bbed\s*frame\b|\bplatform\s*bed\b|\bbed\b/i.test(n) && !/\b(sofa|couch|daybed)\b/i.test(n)) {
+    h = Math.min(h, 2400);
+  }
+  return { w, h, d };
+}
+
 function normalizeType(t: unknown): PanelData["type"] {
   if (t === "horizontal" || t === "vertical" || t === "back") return t;
   return "vertical";
+}
+
+/**
+ * Vision models often use fat size[1] for flat shelves or put thickness on the wrong axis.
+ * Editor box = [X width, Y height, Y-up]; horizontal boards should be thin on Y.
+ */
+function clampRealisticThickness(panel: PanelData): PanelData {
+  const sh = panel.shape ?? "box";
+  if (sh !== "box" && sh !== "rounded_rect") return panel;
+
+  let [w, h, d] = panel.size;
+  const L = panel.label.toLowerCase();
+
+  if (panel.type === "horizontal") {
+    const noSwap = /\b(seat|cushion|mattress|drawer|block|step|plinth|pedestal|bun|foam|tread)\b/i.test(L);
+    if (!noSwap && h > Math.max(w, d) * 0.42) {
+      const sorted = [w, h, d].slice().sort((a, b) => a - b);
+      const t = Math.max(sorted[0], 0.014);
+      const mid = sorted[1];
+      const lo = sorted[2];
+      w = lo;
+      h = t;
+      d = mid;
+    }
+
+    const shelfLike =
+      /\b(shelf|slat|tier|apron|stretcher|rail|plank|board|bar)\b/i.test(L) ||
+      (!/\b(seat|cushion|mattress|drawer|top\b|counter|block|step|plinth|pedestal|tread)\b/i.test(L) &&
+        Math.max(w, d) > h * 2.5);
+
+    if (shelfLike && h > 0.055) {
+      h = Math.min(h, 0.048);
+    }
+    return { ...panel, size: [w, h, d] };
+  }
+
+  if (panel.type === "back") {
+    const m = Math.min(w, h, d);
+    if (m > 0.052) {
+      const target = 0.024;
+      const f = target / m;
+      if (m === w) w *= f;
+      else if (m === h) h *= f;
+      else d *= f;
+    }
+    return { ...panel, size: [w, h, d] };
+  }
+
+  if (panel.type === "vertical") {
+    const sheet =
+      /\b(side|stile|end\s*panel|divider|partition|upright|head\b|foot\b|headboard|footboard)\b/i.test(L) ||
+      (/\b(panel|board)\b/i.test(L) && !/\b(back|circuit)\b/i.test(L));
+    const minXZ = Math.min(w, d);
+    if (sheet && h > 0.18 && minXZ > 0.055 && minXZ < h * 0.45) {
+      const target = 0.034;
+      if (minXZ > target) {
+        const f = target / minXZ;
+        if (w <= d) w *= f;
+        else d *= f;
+      }
+    }
+    return { ...panel, size: [w, h, d] };
+  }
+
+  return panel;
+}
+
+/** Drop tiny meaningless rotations; clamp extreme values from bad JSON. */
+function sanitizeImportRotation(panel: PanelData): PanelData {
+  const r = panel.rotation;
+  if (!r) return panel;
+  const [rx, ry, rz] = r;
+  const allowTilt = /\b(back|cushion|pillow|headrest|tilt|lean|recline|bolster)\b/i.test(panel.label);
+
+  if (!allowTilt && Math.abs(rx) + Math.abs(ry) + Math.abs(rz) < 0.055) {
+    const { rotation: _r, ...rest } = panel;
+    return rest as PanelData;
+  }
+
+  const c = (v: number, lim: number) => Math.max(-lim, Math.min(lim, v));
+  return {
+    ...panel,
+    rotation: [c(rx, allowTilt ? 0.65 : 0.4), c(ry, Math.PI), c(rz, allowTilt ? 0.5 : 0.4)] as [
+      number,
+      number,
+      number,
+    ],
+  };
 }
 
 /**
@@ -503,16 +657,105 @@ function repairOfficeChairBase(panels: PanelData[], name: string, nextId: () => 
 }
 
 /**
+ * Bookcases / open shelving: AI often stacks shelf boards almost coplanar (Z-fighting) or too tight in Y.
+ */
+function repairBookcaseShelfSpacing(panels: PanelData[], furnitureName: string): void {
+  if (!/\b(bookcase|bookshelf|shelv|rack|étagère|etagere|display\s*shelf|open\s*shelf|storage\s*shelf|wall\s*shelf)/i.test(furnitureName)) {
+    return;
+  }
+
+  const isShelfLike = (p: PanelData) => {
+    if (p.type !== "horizontal") return false;
+    if (/\b(drawer|counter|worktop|desktop|seat|mattress|cushion)/i.test(p.label)) return false;
+    const [w, h, d] = p.size;
+    const thick = Math.min(w, h, d);
+    const span = Math.max(w, d);
+    if (thick > 0.085 || span < 0.18) return false;
+    if (/\b(shelf|tier|level|board|plank|rail)\b/i.test(p.label)) return true;
+    return span / Math.max(thick, 0.001) >= 4;
+  };
+
+  const shelves = panels.filter(isShelfLike);
+  if (shelves.length < 2) return;
+
+  shelves.sort((a, b) => a.position[1] - b.position[1]);
+  const MIN_CLEAR = 0.11;
+  for (let i = 1; i < shelves.length; i++) {
+    const low = shelves[i - 1];
+    const hi = shelves[i];
+    const topLow = low.position[1] + low.size[1] / 2;
+    const botHi = hi.position[1] - hi.size[1] / 2;
+    const clear = botHi - topLow;
+    if (clear < MIN_CLEAR) {
+      hi.position = [hi.position[0], hi.position[1] + (MIN_CLEAR - clear), hi.position[2]];
+    }
+  }
+}
+
+/**
+ * Nudge nearly-coincident vertical panels apart in X to reduce black Z-fighting stripes.
+ */
+function nudgeCoplanarVerticalPanels(panels: PanelData[]): void {
+  const verticals = panels.filter(
+    (p) =>
+      p.type === "vertical" &&
+      (p.shape ?? "box") === "box" &&
+      p.size[0] > 0.004 &&
+      p.size[0] < 0.35,
+  );
+  const EPS = 0.003;
+  for (let i = 0; i < verticals.length; i++) {
+    for (let j = i + 1; j < verticals.length; j++) {
+      const a = verticals[i];
+      const b = verticals[j];
+      if (Math.abs(a.position[2] - b.position[2]) > 0.02) continue;
+      if (Math.abs(a.position[1] - b.position[1]) > 0.08) continue;
+      const ax0 = a.position[0] - a.size[0] / 2;
+      const ax1 = a.position[0] + a.size[0] / 2;
+      const bx0 = b.position[0] - b.size[0] / 2;
+      const bx1 = b.position[0] + b.size[0] / 2;
+      const overlap = Math.min(ax1, bx1) - Math.max(ax0, bx0);
+      if (overlap > a.size[0] * 0.55 && overlap > b.size[0] * 0.55) {
+        b.position = [b.position[0] + EPS, b.position[1], b.position[2]];
+      }
+    }
+  }
+}
+
+/**
  * General geometry validation — runs on ALL furniture types.
  * Fixes common AI mistakes regardless of category.
  */
-function validateAndRepairGeometry(panels: PanelData[]): PanelData[] {
+function validateAndRepairGeometry(panels: PanelData[], furnitureName: string): PanelData[] {
   if (panels.length === 0) return panels;
 
   const result = [...panels];
 
-  // === Fix: Remove duplicate/near-identical panels ===
-  // AI sometimes outputs the same part twice with nearly identical positions
+  // === Slats / legs stacked at identical centers → spread along Z before dedupe ===
+  const isStructuralRepeat = (label: string) =>
+    /\bslat\b/i.test(label) || (/\bleg\b/i.test(label) && !/arm|back/i.test(label));
+  const bucket = (v: number) => Math.round(v / 0.025) * 0.025;
+  const groupKey = (p: PanelData) =>
+    `${bucket(p.position[0])}|${bucket(p.position[1])}|${bucket(p.position[2])}`;
+  const repeatGroups = new Map<string, PanelData[]>();
+  for (const p of result) {
+    if (!isStructuralRepeat(p.label)) continue;
+    const k = groupKey(p);
+    const arr = repeatGroups.get(k) ?? [];
+    arr.push(p);
+    repeatGroups.set(k, arr);
+  }
+  for (const arr of repeatGroups.values()) {
+    if (arr.length < 2) continue;
+    arr.sort((a, b) => a.label.localeCompare(b.label));
+    const step = Math.max(0.016, Math.min(...arr.map((x) => x.size[2])) * 0.9);
+    const mid = (arr.length - 1) / 2;
+    arr.forEach((p, i) => {
+      p.position = [p.position[0], p.position[1], p.position[2] + (i - mid) * step];
+    });
+  }
+
+  // === Remove duplicate/near-identical panels (keep distinct slat/leg labels) ===
   const toRemove = new Set<number>();
   for (let i = 0; i < result.length; i++) {
     if (toRemove.has(i)) continue;
@@ -525,10 +768,14 @@ function validateAndRepairGeometry(panels: PanelData[]): PanelData[] {
       const sw = Math.abs(a.size[0] - b.size[0]);
       const sh = Math.abs(a.size[1] - b.size[1]);
       const sd = Math.abs(a.size[2] - b.size[2]);
-      // If position AND size are nearly identical, it's a duplicate
-      if (dx < 0.02 && dy < 0.02 && dz < 0.02 && sw < 0.02 && sh < 0.02 && sd < 0.02) {
-        toRemove.add(j);
-      }
+      if (dx >= 0.02 || dy >= 0.02 || dz >= 0.02 || sw >= 0.02 || sh >= 0.02 || sd >= 0.02) continue;
+
+      const la = a.label.toLowerCase().trim();
+      const lb = b.label.toLowerCase().trim();
+      if (la !== lb && /\bslat\b/i.test(la) && /\bslat\b/i.test(lb)) continue;
+      if (la !== lb && /\bleg\b/i.test(la) && /\bleg\b/i.test(lb)) continue;
+
+      toRemove.add(j);
     }
   }
   if (toRemove.size > 0) {
@@ -567,6 +814,9 @@ function validateAndRepairGeometry(panels: PanelData[]): PanelData[] {
     }
   }
 
+  repairBookcaseShelfSpacing(result, furnitureName);
+  nudgeCoplanarVerticalPanels(result);
+
   return result;
 }
 
@@ -574,11 +824,16 @@ export function panelsFromFurnitureAnalysis(
   analysis: FurnitureAnalysis,
   nextId: () => string
 ): PanelData[] {
-  const panels = analysis.panels
-    .map((p) => normalizeAnalysisPanel(p as RawAnalysisPanel, nextId()))
+  const rawScaled = scaleRawAnalysisPanelsToMeters(
+    (analysis.panels ?? []) as unknown as RawAnalysisPanel[],
+  );
+  const panels = rawScaled
+    .map((p) => normalizeAnalysisPanel(p, nextId()))
+    .map(clampRealisticThickness)
+    .map(sanitizeImportRotation)
     .map(fixHorizontalRoundDisk);
   const refined = refineSeatingImportPanels(panels, analysis.name ?? "");
   const repaired = repairSeatingGeometry(refined, analysis.name ?? "", nextId);
   const withBase = repairOfficeChairBase(repaired, analysis.name ?? "", nextId);
-  return validateAndRepairGeometry(withBase);
+  return validateAndRepairGeometry(withBase, analysis.name ?? "");
 }

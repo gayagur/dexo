@@ -411,6 +411,43 @@ export async function analyzeFurnitureImage(imageUrl: string): Promise<{ data?: 
 }
 
 /**
+ * Classify a furniture image — returns structured metadata (category, style, material, color)
+ * instead of trying to decompose into geometry. Used by the template-matching system.
+ */
+export async function classifyFurnitureImage(imageUrl: string): Promise<{ data?: Record<string, unknown>; error?: string }> {
+  try {
+    const headers = await getAuthHeaders();
+    const response = await fetch(`${FUNCTIONS_URL}/classify-furniture`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ imageUrl }),
+    });
+
+    let result: Record<string, unknown> = {};
+    try {
+      result = (await response.json()) as Record<string, unknown>;
+    } catch {
+      if (!response.ok) {
+        return { error: `Classification failed (HTTP ${response.status}).` };
+      }
+    }
+
+    if (!response.ok) {
+      const msg = typeof result.error === "string" ? result.error : `Classification failed (HTTP ${response.status})`;
+      return { error: msg };
+    }
+
+    return { data: result };
+  } catch (err) {
+    const msg = (err as Error).message;
+    if (msg === "Failed to fetch" || msg.includes("NetworkError")) {
+      return { error: "Classification timed out or network error." };
+    }
+    return { error: msg };
+  }
+}
+
+/**
  * Generate a 3D model (GLB) + part segmentation from a furniture image.
  * Runs FAL.ai 3D generation and Together.ai vision analysis in parallel.
  * Returns GLB URL for visual mesh and analysis for editable parts.

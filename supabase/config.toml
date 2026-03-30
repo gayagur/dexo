@@ -26,5 +26,8 @@ verify_jwt = false
 [functions.analyze-furniture]
 verify_jwt = false
 
+[functions.classify-furniture]
+verify_jwt = false
+
 [functions.generate-3d]
 verify_jwt = false

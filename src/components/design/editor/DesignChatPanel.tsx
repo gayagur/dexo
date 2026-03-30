@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { streamChat, type ChatMessage, uploadFurnitureImage, analyzeFurnitureImage, type FurnitureAnalysis } from "@/lib/ai";
+import { streamChat, type ChatMessage, uploadFurnitureImage, classifyFurnitureImage, type FurnitureAnalysis } from "@/lib/ai";
+import { sanitizeEstimatedDims } from "@/lib/furnitureImageAnalysis";
 import { MATERIALS, STYLES, type PanelData, type FurnitureOption } from "@/lib/furnitureData";
 import { Sparkles, Send, Loader2, X, ImagePlus } from "lucide-react";
 
@@ -27,6 +28,7 @@ interface DesignChatPanelProps {
   onRemovePanel: (panelLabel: string) => void;
   onAddPanel: (panel: { label: string; type: PanelData["type"]; position: [number, number, number]; size: [number, number, number]; materialId: string }) => void;
   onBuildFromImage: (analysis: FurnitureAnalysis, mode: "replace" | "add") => void;
+  onBuildFromClassification?: (classification: Record<string, unknown>, mode: "replace" | "add") => void;
   onClose: () => void;
 }
 
@@ -105,6 +107,7 @@ export function DesignChatPanel({
   onRemovePanel,
   onAddPanel,
   onBuildFromImage,
+  onBuildFromClassification,
   onClose,
 }: DesignChatPanelProps) {
   const [messages, setMessages] = useState<DisplayMessage[]>([
@@ -279,7 +282,9 @@ export function DesignChatPanel({
     setStreamingText("");
   };
 
-  // ─── Image upload & analysis ───────────────────────────
+  // ─── Image upload & classification ───────────────────────
+  const [pendingClassification, setPendingClassification] = useState<Record<string, unknown> | null>(null);
+
   const handleImageUpload = useCallback(async (file: File) => {
     if (isAnalyzing || isStreaming) return;
 
@@ -291,7 +296,7 @@ export function DesignChatPanel({
     }]);
     setMessages((prev) => [...prev, {
       role: "assistant",
-      content: "Analyzing the furniture in your image... This may take a moment.",
+      content: "Analyzing the furniture in your image...",
     }]);
 
     const { url, error: uploadErr } = await uploadFurnitureImage(file);
@@ -301,28 +306,45 @@ export function DesignChatPanel({
       return;
     }
 
-    const { data: analysis, error: analysisErr } = await analyzeFurnitureImage(url);
+    // Primary: classify → template match
+    const { data: classification, error: classErr } = await classifyFurnitureImage(url);
     setIsAnalyzing(false);
 
-    if (analysisErr || !analysis) {
-      const errMsg = analysisErr || "Analysis failed";
-      setError(errMsg);
+    if (classErr || !classification) {
+      setError(classErr || "Classification failed");
       setMessages((prev) => [...prev, {
         role: "assistant",
-        content: `Analysis failed: ${errMsg}`,
+        content: `Analysis failed: ${classErr || "Unknown error"}`,
       }]);
       return;
     }
 
-    const panelList = analysis.panels.map((p: { label: string; shape: string }) => `• ${p.label} (${p.shape})`).join("\n");
+    const name = (classification.name as string) ?? "Furniture";
+    const category = (classification.category as string) ?? "";
+    const subtype = (classification.subtype as string) ?? "";
+    const style = (classification.style as string) ?? "";
+    const material = (classification.material as string) ?? "";
+
     setMessages((prev) => [...prev, {
       role: "assistant",
-      content: `I identified **${analysis.name}** with ${analysis.panels.length} components:\n${panelList}\n\nEstimated size: ${analysis.estimatedDims.w}×${analysis.estimatedDims.h}×${analysis.estimatedDims.d}mm\n\nWould you like to **replace** the current design or **add** it alongside?`,
+      content: `I identified **${name}**\n\n• Category: ${category}\n• Type: ${subtype}\n• Style: ${style}\n• Material: ${material}\n\nWould you like to **replace** the current design or **add** it alongside?`,
     }]);
-    setPendingAnalysis(analysis);
+    setPendingClassification(classification);
+    setPendingAnalysis(null);
   }, [isAnalyzing, isStreaming]);
 
   const handleAnalysisAction = useCallback((mode: "replace" | "add") => {
+    // Primary: use classification → template matching
+    if (pendingClassification && onBuildFromClassification) {
+      onBuildFromClassification(pendingClassification, mode);
+      setMessages((prev) => [...prev, {
+        role: "assistant",
+        content: `Done! ${mode === "replace" ? "Replaced" : "Added"} furniture from template.`,
+      }]);
+      setPendingClassification(null);
+      return;
+    }
+    // Fallback: use legacy analysis
     if (!pendingAnalysis) return;
     onBuildFromImage(pendingAnalysis, mode);
     setMessages((prev) => [...prev, {
@@ -454,7 +476,7 @@ export function DesignChatPanel({
         )}
 
         {/* Pending analysis: Replace/Add buttons */}
-        {pendingAnalysis && (
+        {(pendingAnalysis || pendingClassification) && (
           <div className="flex gap-2 px-1">
             <button
               onClick={() => handleAnalysisAction("replace")}

@@ -48,8 +48,9 @@ import { MobileEditorToolbar } from "./MobileEditorToolbar";
 import { MobileEditorBar } from "./MobileEditorBar";
 import type { ViewMode, EditorLightMode, EditorFloorPreset } from "./EditorViewport";
 import { EDITOR_FLOOR_OPTIONS } from "./EditorViewport";
-import { uploadFurnitureImage, analyzeFurnitureImage, type FurnitureAnalysis } from "@/lib/ai";
-import { panelsFromFurnitureAnalysis } from "@/lib/furnitureImageAnalysis";
+import { uploadFurnitureImage, analyzeFurnitureImage, classifyFurnitureImage, type FurnitureAnalysis } from "@/lib/ai";
+import { panelsFromFurnitureAnalysis, sanitizeEstimatedDims } from "@/lib/furnitureImageAnalysis";
+import { matchTemplate, type FurnitureClassification } from "@/lib/furnitureTemplateLibrary";
 
 interface FurnitureEditorProps {
   furnitureType: FurnitureOption;
@@ -626,14 +627,44 @@ export function FurnitureEditor({
     setContextMenu({ x, y, panelId, groupId });
   }, []);
 
-  // ─── Build from image analysis ────────────────────────
+  // ─── Build from image analysis (legacy fallback) ──────
   const handleBuildFromImage = useCallback((analysis: FurnitureAnalysis, mode: "replace" | "add") => {
     const newPanels = panelsFromFurnitureAnalysis(analysis, () => `p${++nextPanelId}`);
 
     const newGroup = createGroupFromPanels(analysis.name ?? "Imported", newPanels);
 
     if (mode === "replace") {
-      setDims(analysis.estimatedDims);
+      const dims = sanitizeEstimatedDims(analysis.name ?? "", analysis.estimatedDims);
+      if (dims) setDims(dims);
+      const nextGroups = [newGroup];
+      setGroups(nextGroups);
+      setUngroupedPanels([]);
+      pushHistory(nextGroups, []);
+    } else {
+      const offset = computeGroupXOffset(groupsRef.current);
+      const offsetGroup: GroupData = {
+        ...newGroup,
+        position: [newGroup.position[0] + offset, newGroup.position[1], newGroup.position[2]],
+      };
+      updateScene((prev) => [...prev, offsetGroup]);
+    }
+    setSelectedPanelId(null);
+  }, [pushHistory, updateScene]);
+
+  // ─── Build from template classification (primary path) ──
+  const handleBuildFromClassification = useCallback((classification: Record<string, unknown>, mode: "replace" | "add") => {
+    const cls = classification as unknown as FurnitureClassification;
+    const { panels: templatePanels, dims: templateDims } = matchTemplate(cls);
+
+    const name = (classification.name as string) ?? "Imported Furniture";
+    const newGroup = createGroupFromPanels(name, templatePanels);
+
+    if (mode === "replace") {
+      setDims({
+        w: Math.round(templateDims.w * 1000),
+        h: Math.round(templateDims.h * 1000),
+        d: Math.round(templateDims.d * 1000),
+      });
       const nextGroups = [newGroup];
       setGroups(nextGroups);
       setUngroupedPanels([]);
@@ -659,9 +690,8 @@ export function FurnitureEditor({
       const analysisPanels = panelsFromFurnitureAnalysis(analysis, () => `p${++nextPanelId}`);
       group = createGroupFromPanels(analysis.name ?? name, analysisPanels);
       group = { ...group, glbUrl, preserveGlbDiffuseMaps: false };
-      if (analysis.estimatedDims) {
-        setDims(analysis.estimatedDims);
-      }
+      const dims = sanitizeEstimatedDims(analysis.name ?? "", analysis.estimatedDims);
+      if (dims) setDims(dims);
     } else {
       // GLB-only mode: load mesh and extract panels from geometry
       group = await loadGLBAsGroup(glbUrl, name, undefined, { preserveOriginalMaterials: false });
@@ -692,17 +722,24 @@ export function FurnitureEditor({
       alert(uploadErr || "Upload failed");
       return;
     }
-    const { data: analysis, error: analysisErr } = await analyzeFurnitureImage(url);
+
+    // Primary path: classify → match template
+    const { data: classification, error: classErr } = await classifyFurnitureImage(url);
     setIsToolbarAnalyzing(false);
-    if (analysisErr || !analysis) {
-      alert(analysisErr || "Analysis failed");
+
+    if (classErr || !classification) {
+      alert(classErr || "Classification failed");
       return;
     }
+
+    const name = (classification.name as string) ?? "Detected Furniture";
+    const category = (classification.category as string) ?? "";
+    const subtype = (classification.subtype as string) ?? "";
     const action = window.confirm(
-      `Detected: ${analysis.name} (${analysis.panels.length} components)\n\nOK = Replace current design\nCancel = Add alongside`
+      `Detected: ${name} (${category} / ${subtype})\n\nOK = Replace current design\nCancel = Add alongside`
     );
-    handleBuildFromImage(analysis, action ? "replace" : "add");
-  }, [handleBuildFromImage]);
+    handleBuildFromClassification(classification, action ? "replace" : "add");
+  }, [handleBuildFromClassification]);
 
   const handleSave = useCallback(async () => {
     if (!onSave || saveStatus === "saving") return;
@@ -1623,6 +1660,7 @@ export function FurnitureEditor({
             onRemovePanel={handleChatRemovePanel}
             onAddPanel={handleChatAddPanel}
             onBuildFromImage={handleBuildFromImage}
+            onBuildFromClassification={handleBuildFromClassification}
             onClose={() => setChatOpen(false)}
           />
         )}
@@ -1783,6 +1821,7 @@ export function FurnitureEditor({
             onRemovePanel={handleChatRemovePanel}
             onAddPanel={handleChatAddPanel}
             onBuildFromImage={handleBuildFromImage}
+            onBuildFromClassification={handleBuildFromClassification}
             onClose={closeMobileSheets}
           />
         </MobileDrawer>

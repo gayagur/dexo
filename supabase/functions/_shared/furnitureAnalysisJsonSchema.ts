@@ -36,12 +36,14 @@ export const FURNITURE_ANALYSIS_RESPONSE_FORMAT = {
               shape: { type: "string" },
               position: {
                 type: "array",
+                description: "Center x,y,z in METERS (e.g. seat at y=0.42 NOT 420)",
                 items: { type: "number" },
                 minItems: 3,
                 maxItems: 3,
               },
               size: {
                 type: "array",
+                description: "width,height,depth in METERS (e.g. slat [0.048,0.02,1.9] NOT mm)",
                 items: { type: "number" },
                 minItems: 3,
                 maxItems: 3,
@@ -50,6 +52,7 @@ export const FURNITURE_ANALYSIS_RESPONSE_FORMAT = {
               shapeParams: { type: "object", additionalProperties: { type: "number" } },
               rotation: {
                 type: "array",
+                description: "Radians [rx,ry,rz]; prefer [0,0,0] unless clear tilt in photo",
                 items: { type: "number" },
                 minItems: 3,
                 maxItems: 3,

@@ -15,9 +15,26 @@ Output one JSON object only — no markdown fences, no commentary.
 == OUTPUT FORMAT ==
 { "name": "string", "estimatedDims": { "w": mm, "h": mm, "d": mm }, "panels": [...] }
 
-== COORDINATES (meters) ==
-Furniture centered at X=0, Z=0. Y=0 = floor. position = CENTER of each part. size = [width, height, depth].
+== COORDINATES — METERS ONLY (most common failure = using mm) ==
+Furniture centered at X=0, Z=0. Y=0 = floor. position = CENTER of each part. size = [width, height, depth] in meters.
+- WRONG: size [1800, 40, 900] or position [0, 450, 0]  (those are millimeters)
+- RIGHT: size [1.8, 0.04, 0.9] or position [0, 0.45, 0]
+- A 40mm-thick slat: size about [0.045, 0.02, 1.85] — never use hundreds for thin parts.
+- Round leg diameter 50mm: cylinder size [0.05, 0.72, 0.05] not [50, 720, 50]
+
+estimatedDims {w,h,d} are in MILLIMETERS for UI only. Panel position/size are ALWAYS meters.
+
 type: "horizontal" (tops/shelves/seats), "vertical" (sides/legs/posts), "back" (thin rear panels).
+
+== EDITOR 3D AXES — placement & rotation (read carefully) ==
+- World: Y is UP, floor is Y=0. X = left/right, Z = depth (negative Z = toward back of typical product photo).
+- Furniture group is centered near X=0,Z=0. Parts must TOUCH (no floating); align backs toward -Z, fronts toward +Z when the photo is a front 3/4 view.
+- Box size is ALWAYS [width along X, height along Y, depth along Z] BEFORE rotation.
+- type "horizontal" = board lying flat in the XZ plane (tabletop, shelf board, slat). Its VERTICAL thickness is size[1] (the middle number) and MUST be thin: real wood shelves/slats/aprons use ~0.016–0.045m (16–45mm). NEVER use 0.12–0.40m for a flat shelf — that is a common mistake (looks like a fat block).
+- type "vertical" = panel standing on the floor, tall along Y. Side panels: thin thickness along X OR Z only (~0.018–0.05m for sheet goods), height = size[1].
+- type "back" = thin panel across the back; smallest size component is depth (often Z), typically 0.012–0.028m.
+- rotation [rx,ry,rz] is radians around local X then Y then Z. Default [0,0,0] for almost all parts. Use SMALL tilts only when the photo clearly shows lean (e.g. back cushion rx ≈ -0.12 to -0.22). Do NOT apply huge rotations to compensate for wrong sizes — fix size axes instead.
+- Legs/cylinders: vertical, rotation [0,0,0] unless clearly splayed in the image.
 
 == SHAPES (use the best match for what you SEE) ==
 BASIC: box, cylinder (size [d,h,d]), sphere, cone (tapered legs!), rounded_rect (shapeParams.cornerRadius — USE THIS for panels with visible rounded edges)
@@ -61,10 +78,11 @@ EACH PART gets its OWN material based on what you see. Headboard=oak, legs=black
 7. MATERIALS PER PART: Don't use one material for everything. Look at each part — wood frame gets wood, metal legs get metal, fabric cushion gets fabric, rattan panel gets cane_natural.
 
 == SOFA POSITIONING ==
+- Include a rigid back: at least one vertical "box" or "rounded_rect" frame/rail behind seat cushions (wood or same fabric as sides) connecting seat level to back cushions — do NOT leave back cushions floating with no support structure.
 - Base/plinth: Y ~0.04m. Full width/depth.
 - Seat cushions: horizontal, Y ~0.30-0.38m. Spread evenly on X axis between arms.
-- Back cushions: vertical, Y ~0.55-0.70m. SAME X as matching seat cushion. Z at back edge. Tilted: rotation [-0.15, 0, 0].
-- Arms: vertical at left/right edges. Full depth.
+- Back cushions: vertical, Y ~0.55-0.70m. SAME X as matching seat cushion. Z just behind that frame. Tilted: rotation [-0.15, 0, 0].
+- Arms: vertical at left/right edges. Full depth; use padded_block or rounded_rect with cornerRadius for soft arms.
 - Throw pillows: small cushions ON TOP of seats, tilted casually.
 
 == BED RULES ==
@@ -80,8 +98,9 @@ EACH PART gets its OWN material based on what you see. Headboard=oak, legs=black
 - Detect if seat is padded (cushion) or hard wood (rounded_rect with wood material).
 
 == TABLE RULES ==
+- Coffee / side table: total height usually 0.35–0.52m. If you output estimatedDims, height must match — not dining-table or bed scale.
 - Top: box/rounded_rect/circle_panel with appropriate material.
-- EACH leg separate. Detect shape: round=cylinder, square=square_leg, tapered=tapered_leg/cone.
+- EACH leg separate. Round legs in photo = shape "cylinder" (NOT box). Square legs = square_leg or box.
 - Apron rails under top if visible: thin horizontal boxes between legs.
 - Drawers: drawer_box + handle for each.
 
@@ -91,5 +110,14 @@ EACH PART gets its OWN material based on what you see. Headboard=oak, legs=black
 - EACH drawer front as drawer_box + EACH handle as knob/bar_handle/cup_pull.
 - EACH door as shaker_door/glass_insert_door + handle.
 - Legs or plinth at bottom.
+
+== BOOKCASE / OPEN SHELVING / RACK (critical) ==
+- Do NOT use one tall vertical "box" that pierces through every shelf in the middle unless the photo clearly shows a solid fixed partition there. Most bookcases: two SIDE vertical panels (left/right), optional thin BACK panel at the REAR (max Z), and shelves as separate thin horizontals only.
+- Shelves need READABLE vertical spacing: at least ~0.22–0.35m between shelf centers for book storage (match the photo if visible). Never stack 5+ shelves in the height of a single book — that is wrong scale.
+- A central upright that only holds shelf ends should STOP between shelf tiers OR be drawn as narrow posts at the front corners — not a full-height slab through all shelves (causes clipping/Z-fighting in 3D).
+- Use shape "rounded_rect" + small cornerRadius on shelf fronts and verticals when edges look soft in the photo.
+
+== BED — SLAT COUNT ==
+- Count slats in the image. Queen/full frames usually show many narrow slats (often 10–16+). If you only output ~5 thin slats for a wide bed, the model is probably wrong unless the photo clearly shows ~5.
 
 estimatedDims in mm; panel positions/sizes in meters. Output valid JSON only.`;
