@@ -1,6 +1,6 @@
 import { useMemo, useRef } from "react";
 import * as THREE from "three";
-import type { PanelShape } from "@/lib/furnitureData";
+import type { DrapedControlPoint, PanelShape } from "@/lib/furnitureData";
 
 // ─── Types ─────────────────────────────────────────────
 
@@ -18,6 +18,8 @@ interface ShapeRendererProps {
   envMapIntensity?: number;
   /** SH3D / external color map (cushions, trims, etc.) */
   map?: THREE.Texture;
+  /** User-placed folds on draped fabric (editor). */
+  drapedControlPoints?: readonly DrapedControlPoint[];
 }
 
 // ─── Composite shape check ──────────────────────────────
@@ -38,6 +40,7 @@ export function ShapeRenderer({
   shape, size, shapeParams, color, roughness, metalness, transparent, opacity, isOutline,
   envMapIntensity,
   map,
+  drapedControlPoints,
 }: ShapeRendererProps) {
   const matProps = {
     color: isOutline ? "#C87D5A" : color,
@@ -58,7 +61,13 @@ export function ShapeRenderer({
 
   return (
     <mesh castShadow receiveShadow>
-      <SingleGeometry shape={shape} size={size} shapeParams={shapeParams} isOutline={isOutline} />
+      <SingleGeometry
+        shape={shape}
+        size={size}
+        shapeParams={shapeParams}
+        isOutline={isOutline}
+        drapedControlPoints={drapedControlPoints}
+      />
       <meshStandardMaterial {...matProps} />
     </mesh>
   );
@@ -67,12 +76,13 @@ export function ShapeRenderer({
 // ─── Single geometry component (can use hooks) ──────────
 
 function SingleGeometry({
-  shape, size, shapeParams, isOutline,
+  shape, size, shapeParams, isOutline, drapedControlPoints,
 }: {
   shape: PanelShape;
   size: [number, number, number];
   shapeParams?: Record<string, number>;
   isOutline?: boolean;
+  drapedControlPoints?: readonly DrapedControlPoint[];
 }) {
   const [w, h, d] = size;
   const pad = isOutline ? 0.003 : 0;
@@ -233,9 +243,18 @@ function SingleGeometry({
     }
 
     case "draped": {
-      // Thin fabric with procedural wave folds
-      const foldIntensity = shapeParams?.softness ?? 0.5;
-      return <DrapedGeometry w={w + pad * 2} h={h + pad * 2} depth={d + pad * 2} foldIntensity={foldIntensity} />;
+      const foldIntensity = shapeParams?.softness ?? 0.62;
+      const foldSpread = shapeParams?.foldSpread ?? 0.14;
+      return (
+        <DrapedGeometry
+          w={w + pad * 2}
+          h={h + pad * 2}
+          depth={d + pad * 2}
+          foldIntensity={foldIntensity}
+          foldSpread={THREE.MathUtils.clamp(foldSpread, 0.06, 0.32)}
+          controlPoints={drapedControlPoints ?? []}
+        />
+      );
     }
 
     case "vase":
@@ -434,55 +453,87 @@ function CushionGeometry({ w, h, depth, puff }: { w: number; h: number; depth: n
   return <primitive object={geo} attach="geometry" />;
 }
 
-// ─── Draped Fabric (thin plane with wave folds) ─────────
+// ─── Draped Fabric (thin volume with creases + optional user pinches) ─────────
 
-function DrapedGeometry({ w, h, depth, foldIntensity }: { w: number; h: number; depth: number; foldIntensity: number }) {
+function creaseWave(t: number, power = 0.52) {
+  return Math.sign(t) * Math.pow(Math.min(1, Math.abs(t)), power);
+}
+
+function DrapedGeometry({
+  w,
+  h,
+  depth,
+  foldIntensity,
+  foldSpread,
+  controlPoints,
+}: {
+  w: number;
+  h: number;
+  depth: number;
+  foldIntensity: number;
+  foldSpread: number;
+  controlPoints: readonly DrapedControlPoint[];
+}) {
+  const cpKey =
+    controlPoints.length === 0
+      ? ""
+      : controlPoints.map((p) => `${p.u.toFixed(4)}_${p.v.toFixed(4)}_${p.lift.toFixed(5)}`).join("|");
+
   const geo = useMemo(() => {
-    // Subdivided thin box — enough vertices for smooth waves
-    const segsW = Math.min(24, Math.max(8, Math.round(w * 16)));
-    const segsD = Math.min(24, Math.max(8, Math.round(depth * 16)));
-    const g = new THREE.BoxGeometry(w, h, depth, segsW, 2, segsD);
+    const segsW = Math.min(44, Math.max(14, Math.round(w * 26)));
+    const segsD = Math.min(44, Math.max(14, Math.round(depth * 26)));
+    const plan = Math.max(w, depth, 1e-6);
+    const segsY = Math.max(2, Math.min(5, Math.ceil((h / plan) * 5) + 1));
+    const g = new THREE.BoxGeometry(w, h, depth, segsW, segsY, segsD);
 
     const pos = g.attributes.position;
     const hw = w / 2;
     const hd = depth / 2;
-    const maxFold = h * foldIntensity * 2; // fold height relative to thickness
+    const minPlan = Math.min(w, depth);
+    const amp = Math.max(h * (0.85 + foldIntensity * 2.4), minPlan * (0.055 + foldIntensity * 0.07));
+
+    const sigma = foldSpread;
 
     for (let i = 0; i < pos.count; i++) {
       const x = pos.getX(i);
       let y = pos.getY(i);
       const z = pos.getZ(i);
 
-      // Normalized position (0-1)
       const nx = (x + hw) / w;
       const nz = (z + hd) / depth;
 
-      // Multiple sine waves for natural-looking folds
-      // Primary fold — broad diagonal waves
-      const fold1 = Math.sin(nx * Math.PI * 3.2 + nz * 1.5) * 0.4;
-      // Secondary fold — perpendicular
-      const fold2 = Math.sin(nz * Math.PI * 2.8 + nx * 0.8) * 0.25;
-      // Tertiary — fine wrinkles
-      const fold3 = Math.sin(nx * Math.PI * 7 + nz * 5) * 0.1;
-      // Edge droop — edges hang lower
+      const s1 = Math.sin(nx * Math.PI * 4.1 + nz * 1.85);
+      const s2 = Math.sin(nz * Math.PI * 3.6 - nx * 2.05);
+      const s3 = Math.sin(nx * Math.PI * 12 + nz * 8.3) * 0.22;
+      const s4 = Math.sin(nx * Math.PI * 19 + nz * 14) * 0.08;
+
       const edgeFade = Math.sin(nx * Math.PI) * Math.sin(nz * Math.PI);
-      const edgeDroop = (1 - edgeFade) * -0.15;
+      const edgeDroop = (1 - edgeFade) * -0.22;
+      const sag = Math.sin(nx * Math.PI * 2.1) * Math.sin(nz * Math.PI * 2.1) * -0.12;
 
-      const totalFold = (fold1 + fold2 + fold3 + edgeDroop) * maxFold;
+      let total =
+        (creaseWave(s1) * 0.52 + creaseWave(s2) * 0.38 + s3 + s4 + edgeDroop + sag) *
+        amp *
+        (0.42 + foldIntensity * 0.58);
 
-      // Only deform top surface significantly, bottom stays flatter
-      if (y > 0) {
-        y += totalFold;
-      } else {
-        y += totalFold * 0.3; // bottom follows slightly
+      for (const cp of controlPoints) {
+        const du = nx - cp.u;
+        const dv = nz - cp.v;
+        const dist2 = du * du + dv * dv;
+        total += cp.lift * Math.exp(-dist2 / (2 * sigma * sigma));
       }
+
+      const yn = (y + h / 2) / h;
+      const topWeight = Math.pow(Math.max(0, Math.min(1, yn)), 0.85);
+      const bottomWeight = 1 - topWeight;
+      y += total * (topWeight + bottomWeight * 0.34);
 
       pos.setXYZ(i, x, y, z);
     }
 
     g.computeVertexNormals();
     return g;
-  }, [w, h, depth, foldIntensity]);
+  }, [w, h, depth, foldIntensity, foldSpread, cpKey]);
 
   return <primitive object={geo} attach="geometry" />;
 }

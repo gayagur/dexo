@@ -33,8 +33,13 @@ type: "horizontal" (tops/shelves/seats), "vertical" (sides/legs/posts), "back" (
 - type "horizontal" = board lying flat in the XZ plane (tabletop, shelf board, slat). Its VERTICAL thickness is size[1] (the middle number) and MUST be thin: real wood shelves/slats/aprons use ~0.016–0.045m (16–45mm). NEVER use 0.12–0.40m for a flat shelf — that is a common mistake (looks like a fat block).
 - type "vertical" = panel standing on the floor, tall along Y. Side panels: thin thickness along X OR Z only (~0.018–0.05m for sheet goods), height = size[1].
 - type "back" = thin panel across the back; smallest size component is depth (often Z), typically 0.012–0.028m.
-- rotation [rx,ry,rz] is radians around local X then Y then Z. Default [0,0,0] for almost all parts. Use SMALL tilts only when the photo clearly shows lean (e.g. back cushion rx ≈ -0.12 to -0.22). Do NOT apply huge rotations to compensate for wrong sizes — fix size axes instead.
-- Legs/cylinders: vertical, rotation [0,0,0] unless clearly splayed in the image.
+- ROTATION [rx,ry,rz] — RADIANS ONLY, Euler order XYZ (same as Three.js). NEVER output degrees as plain numbers.
+  WRONG: [90, 0, 0] or [45, 0, -15]  (those are degrees and will look broken)
+  RIGHT: [0, 0, 0] for almost everything; or small tilts like [-0.18, 0, 0] (~10° back lean); π/2 ≈ 1.5708 only if you truly need a quarter turn (rare — prefer fixing size axes instead).
+- Typical furniture tilts per axis stay below ~0.35 rad. If you are tempted to use values like 30, 60, 90 on an axis, you are using degrees — convert: degrees × (π/180), or set rotation to [0,0,0] and correct width/height/depth instead.
+- Do NOT rotate legs, slats, aprons, stretchers, shelf boards, or side stiles to "fix" swapped dimensions — always fix size [w,h,d] so the part is correct with rotation [0,0,0].
+- Cylinder / cone / tapered_leg in type "vertical": height MUST be size[1] (middle value); diameter on X and Z should match (e.g. [0.05, 0.72, 0.05]). The renderer draws the cylinder axis along Y — do not use rotation.x ≈ 1.57 to stand a leg up; use proper size instead.
+- Legs/cylinders: rotation [0,0,0] unless the photo clearly shows splayed legs (then small rx/rz only, under ~0.25 rad each).
 
 == SHAPES (use the best match for what you SEE) ==
 BASIC: box, cylinder (size [d,h,d]), sphere, cone (tapered legs!), rounded_rect (shapeParams.cornerRadius — USE THIS for panels with visible rounded edges)

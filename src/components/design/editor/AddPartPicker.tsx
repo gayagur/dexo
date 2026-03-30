@@ -152,7 +152,7 @@ const PART_CATEGORIES: PartCategory[] = [
         type: "horizontal",
         size: [0.50, 0.015, 0.35],
         materialId: "fabric_charcoal",
-        shapeParams: { cornerRadius: 0.005 },
+        shapeParams: { cornerRadius: 0.005, softness: 0.62, foldSpread: 0.14 },
         placeOnSelected: true,
       },
       {
@@ -164,7 +164,7 @@ const PART_CATEGORIES: PartCategory[] = [
         type: "horizontal",
         size: [0.80, 0.01, 0.60],
         materialId: "fabric_taupe",
-        shapeParams: { cornerRadius: 0.005 },
+        shapeParams: { cornerRadius: 0.005, softness: 0.65, foldSpread: 0.14 },
         placeOnSelected: true,
       },
       {
@@ -831,19 +831,19 @@ const PART_CATEGORIES: PartCategory[] = [
     icon: "🧶",
     items: [
       // Folded throws — thin, like a real folded blanket (3 fabric layers = ~15mm)
-      { id: "throw_folded_cream", label: "Folded Cream Throw", icon: "☰", description: "Neatly folded blanket", shape: "draped", type: "horizontal", size: [0.50, 0.015, 0.35], materialId: "fabric_cream", placeOnFloor: true, shapeParams: { cornerRadius: 0.005 } },
-      { id: "throw_folded_gray", label: "Folded Gray Throw", icon: "☰", description: "Neatly folded blanket", shape: "draped", type: "horizontal", size: [0.50, 0.015, 0.35], materialId: "fabric_gray", placeOnFloor: true, shapeParams: { cornerRadius: 0.005 } },
-      { id: "throw_folded_charcoal", label: "Folded Charcoal Throw", icon: "☰", description: "Neatly folded blanket", shape: "draped", type: "horizontal", size: [0.50, 0.015, 0.35], materialId: "fabric_charcoal", placeOnFloor: true, shapeParams: { cornerRadius: 0.005 } },
-      { id: "throw_folded_taupe", label: "Folded Taupe Throw", icon: "☰", description: "Neatly folded blanket", shape: "draped", type: "horizontal", size: [0.50, 0.015, 0.35], materialId: "fabric_taupe", placeOnFloor: true, shapeParams: { cornerRadius: 0.005 } },
+      { id: "throw_folded_cream", label: "Folded Cream Throw", icon: "☰", description: "Neatly folded blanket", shape: "draped", type: "horizontal", size: [0.50, 0.015, 0.35], materialId: "fabric_cream", placeOnFloor: true, shapeParams: { cornerRadius: 0.005, softness: 0.62, foldSpread: 0.14 } },
+      { id: "throw_folded_gray", label: "Folded Gray Throw", icon: "☰", description: "Neatly folded blanket", shape: "draped", type: "horizontal", size: [0.50, 0.015, 0.35], materialId: "fabric_gray", placeOnFloor: true, shapeParams: { cornerRadius: 0.005, softness: 0.62, foldSpread: 0.14 } },
+      { id: "throw_folded_charcoal", label: "Folded Charcoal Throw", icon: "☰", description: "Neatly folded blanket", shape: "draped", type: "horizontal", size: [0.50, 0.015, 0.35], materialId: "fabric_charcoal", placeOnFloor: true, shapeParams: { cornerRadius: 0.005, softness: 0.62, foldSpread: 0.14 } },
+      { id: "throw_folded_taupe", label: "Folded Taupe Throw", icon: "☰", description: "Neatly folded blanket", shape: "draped", type: "horizontal", size: [0.50, 0.015, 0.35], materialId: "fabric_taupe", placeOnFloor: true, shapeParams: { cornerRadius: 0.005, softness: 0.62, foldSpread: 0.14 } },
       // Draped throws — thin flat panels
-      { id: "throw_draped_cream", label: "Draped Cream Throw", icon: "≈", description: "Casually draped blanket", shape: "draped", type: "horizontal", size: [0.80, 0.01, 0.60], materialId: "fabric_cream", placeOnFloor: true, shapeParams: { cornerRadius: 0.005 } },
-      { id: "throw_draped_gray", label: "Draped Gray Throw", icon: "≈", description: "Casually draped blanket", shape: "draped", type: "horizontal", size: [0.80, 0.01, 0.60], materialId: "fabric_gray", placeOnFloor: true, shapeParams: { cornerRadius: 0.005 } },
+      { id: "throw_draped_cream", label: "Draped Cream Throw", icon: "≈", description: "Casually draped blanket", shape: "draped", type: "horizontal", size: [0.80, 0.01, 0.60], materialId: "fabric_cream", placeOnFloor: true, shapeParams: { cornerRadius: 0.005, softness: 0.65, foldSpread: 0.14 } },
+      { id: "throw_draped_gray", label: "Draped Gray Throw", icon: "≈", description: "Casually draped blanket", shape: "draped", type: "horizontal", size: [0.80, 0.01, 0.60], materialId: "fabric_gray", placeOnFloor: true, shapeParams: { cornerRadius: 0.005, softness: 0.65, foldSpread: 0.14 } },
       // Duvets — puffy but not as thick as a mattress
       { id: "duvet_white", label: "White Duvet", icon: "▓", description: "Bed comforter", shape: "cushion", type: "horizontal", size: [1.50, 0.10, 1.90], materialId: "fabric_cream", placeOnFloor: true },
       { id: "duvet_charcoal", label: "Charcoal Duvet", icon: "▓", description: "Dark bed comforter", shape: "cushion", type: "horizontal", size: [1.50, 0.10, 1.90], materialId: "fabric_charcoal", placeOnFloor: true },
       { id: "duvet_brown", label: "Brown Duvet", icon: "▓", description: "Brown bed comforter", shape: "cushion", type: "horizontal", size: [1.50, 0.10, 1.90], materialId: "fabric_brown", placeOnFloor: true },
-      { id: "bed_runner_brown", label: "Brown Bed Runner", icon: "━", description: "Decorative bed strip", shape: "draped", type: "horizontal", size: [1.50, 0.015, 0.50], materialId: "fabric_brown", placeOnFloor: true },
-      { id: "bed_runner_gray", label: "Gray Bed Runner", icon: "━", description: "Decorative bed strip", shape: "draped", type: "horizontal", size: [1.50, 0.015, 0.50], materialId: "fabric_gray", placeOnFloor: true },
+      { id: "bed_runner_brown", label: "Brown Bed Runner", icon: "━", description: "Decorative bed strip", shape: "draped", type: "horizontal", size: [1.50, 0.015, 0.50], materialId: "fabric_brown", placeOnFloor: true, shapeParams: { softness: 0.55, foldSpread: 0.16 } },
+      { id: "bed_runner_gray", label: "Gray Bed Runner", icon: "━", description: "Decorative bed strip", shape: "draped", type: "horizontal", size: [1.50, 0.015, 0.50], materialId: "fabric_gray", placeOnFloor: true, shapeParams: { softness: 0.55, foldSpread: 0.16 } },
     ],
   },
 

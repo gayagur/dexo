@@ -52,7 +52,8 @@ export const FURNITURE_ANALYSIS_RESPONSE_FORMAT = {
               shapeParams: { type: "object", additionalProperties: { type: "number" } },
               rotation: {
                 type: "array",
-                description: "Radians [rx,ry,rz]; prefer [0,0,0] unless clear tilt in photo",
+                description:
+                  "Euler XYZ in RADIANS only (not degrees). Prefer [0,0,0]. Small tilts ~0.1–0.25; never use 30,90,180 as values (those are degrees).",
                 items: { type: "number" },
                 minItems: 3,
                 maxItems: 3,

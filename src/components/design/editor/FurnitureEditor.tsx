@@ -1698,7 +1698,7 @@ export function FurnitureEditor({
             floorPreset={floorPreset}
             initialCameraPosition={boot.cameraPosition}
             onCameraMove={(pos) => { cameraPositionRef.current = pos; }}
-            suspendPointerEvents={showAddPicker}
+            suspendPointerEvents={showAddPicker || mobileChatOpen}
           />
           {/* Mobile hints */}
           {hintsVisible && (

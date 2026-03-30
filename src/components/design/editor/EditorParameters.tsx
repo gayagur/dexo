@@ -752,6 +752,138 @@ export function EditorParameters({
           </CollapsibleSection>
         )}
 
+        {/* Draped blanket / throw — folds */}
+        {panel.shape === "draped" && (
+          <CollapsibleSection
+            label="Blanket folds"
+            icon={<span className="text-[11px]">〰️</span>}
+            defaultOpen={true}
+          >
+            <p className="text-[10px] text-gray-500 leading-relaxed mb-2">
+              Double-click the blanket in the 3D view to add a pinch. Drag the handles to move it; hold{" "}
+              <kbd className="px-1 py-0.5 rounded bg-gray-100 text-[9px]">Shift</kbd> while dragging to deepen or flatten the fold.
+            </p>
+            <div className="mt-2 space-y-2">
+              <button
+                type="button"
+                onClick={() => {
+                  const pts = panel.drapedControlPoints ?? [];
+                  if (pts.length >= 16) return;
+                  onUpdatePanel(panel.id, {
+                    drapedControlPoints: [...pts, { u: 0.5, v: 0.5, lift: 0.04 }],
+                  });
+                }}
+                className="w-full h-8 rounded-lg bg-[#C87D5A]/15 hover:bg-[#C87D5A]/25 text-[11px] font-medium text-[#8b5a3c] transition-colors"
+              >
+                Add fold at center
+              </button>
+              <button
+                type="button"
+                onClick={() => onUpdatePanel(panel.id, { drapedControlPoints: [] })}
+                className="w-full h-8 rounded-lg bg-gray-100 hover:bg-gray-200 text-[11px] font-medium text-gray-600 transition-colors"
+              >
+                Clear hand-placed folds
+              </button>
+            </div>
+            {(panel.drapedControlPoints?.length ?? 0) > 0 && (
+              <div className="mt-3 space-y-2 max-h-40 overflow-y-auto pr-0.5">
+                <p className="text-[10px] text-gray-400 uppercase tracking-wider">Pinches</p>
+                <div className="grid grid-cols-[1.5rem_1fr_1fr_1fr_auto] gap-1.5 text-[9px] text-gray-400 px-0.5">
+                  <span />
+                  <span>U</span>
+                  <span>V</span>
+                  <span>Lift</span>
+                  <span />
+                </div>
+                {(panel.drapedControlPoints ?? []).map((pt, i) => (
+                  <div key={i} className="grid grid-cols-[1.5rem_1fr_1fr_1fr_auto] gap-1.5 items-center text-[10px]">
+                    <span className="text-gray-400">#{i + 1}</span>
+                    <Input
+                      type="number"
+                      step={0.05}
+                      min={0}
+                      max={1}
+                      className="h-7 text-[10px]"
+                      title="U"
+                      value={pt.u}
+                      onChange={(e) => {
+                        const u = Math.min(1, Math.max(0, parseFloat(e.target.value) || 0));
+                        const next = (panel.drapedControlPoints ?? []).map((p, j) =>
+                          j === i ? { ...p, u } : p,
+                        );
+                        onUpdatePanel(panel.id, { drapedControlPoints: next });
+                      }}
+                    />
+                    <Input
+                      type="number"
+                      step={0.05}
+                      min={0}
+                      max={1}
+                      className="h-7 text-[10px]"
+                      title="V"
+                      value={pt.v}
+                      onChange={(e) => {
+                        const v = Math.min(1, Math.max(0, parseFloat(e.target.value) || 0));
+                        const next = (panel.drapedControlPoints ?? []).map((p, j) =>
+                          j === i ? { ...p, v } : p,
+                        );
+                        onUpdatePanel(panel.id, { drapedControlPoints: next });
+                      }}
+                    />
+                    <Input
+                      type="number"
+                      step={1}
+                      className="h-7 text-[10px]"
+                      title="Lift mm"
+                      value={Math.round(pt.lift * 1000)}
+                      onChange={(e) => {
+                        const lift = Math.min(140, Math.max(-120, (parseInt(e.target.value, 10) || 0) / 1000));
+                        const next = (panel.drapedControlPoints ?? []).map((p, j) =>
+                          j === i ? { ...p, lift } : p,
+                        );
+                        onUpdatePanel(panel.id, { drapedControlPoints: next });
+                      }}
+                    />
+                    <button
+                      type="button"
+                      className="h-7 rounded bg-red-50 text-red-600 text-[10px] hover:bg-red-100 px-1"
+                      onClick={() => {
+                        const next = (panel.drapedControlPoints ?? []).filter((_, j) => j !== i);
+                        onUpdatePanel(panel.id, { drapedControlPoints: next });
+                      }}
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+            <div className="mt-3 pt-2 border-t border-gray-100">
+              <div className="flex items-center justify-between mb-1">
+                <Label className="text-[11px] text-gray-500">Fold spread</Label>
+                <span className="text-[10px] text-gray-400 font-mono">
+                  {Math.round((panel.shapeParams?.foldSpread ?? 0.14) * 1000)} mm
+                </span>
+              </div>
+              <input
+                type="range"
+                min={60}
+                max={280}
+                step={5}
+                value={Math.round((panel.shapeParams?.foldSpread ?? 0.14) * 1000)}
+                onChange={(e) => {
+                  const foldSpread = parseInt(e.target.value, 10) / 1000;
+                  onUpdatePanel(panel.id, {
+                    shapeParams: { ...(panel.shapeParams ?? {}), foldSpread },
+                  });
+                }}
+                className="w-full h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-[#C87D5A]"
+              />
+              <p className="text-[9px] text-gray-400 mt-1">Wider = softer, narrower hill for each pinch</p>
+            </div>
+          </CollapsibleSection>
+        )}
+
         {/* Softness slider — available on all panels */}
         <CollapsibleSection
           label="Softness"
@@ -762,7 +894,7 @@ export function EditorParameters({
             <div className="flex items-center justify-between mb-2">
               <Label className="text-[11px] text-gray-500">Surface softness</Label>
               <span className="text-[10px] text-gray-400 font-mono">
-                {Math.round((panel.shapeParams?.softness ?? (panel.shape === "cushion" ? 0.85 : panel.shape === "cushion_firm" ? 0.35 : panel.shape === "padded_block" ? 0.18 : 0)) * 100)}%
+                {Math.round((panel.shapeParams?.softness ?? (panel.shape === "cushion" ? 0.85 : panel.shape === "cushion_firm" ? 0.35 : panel.shape === "padded_block" ? 0.18 : panel.shape === "draped" ? 0.62 : 0)) * 100)}%
               </span>
             </div>
             <input
@@ -770,7 +902,7 @@ export function EditorParameters({
               min={0}
               max={100}
               step={1}
-              value={Math.round((panel.shapeParams?.softness ?? (panel.shape === "cushion" ? 0.85 : panel.shape === "cushion_firm" ? 0.35 : panel.shape === "padded_block" ? 0.18 : 0)) * 100)}
+              value={Math.round((panel.shapeParams?.softness ?? (panel.shape === "cushion" ? 0.85 : panel.shape === "cushion_firm" ? 0.35 : panel.shape === "padded_block" ? 0.18 : panel.shape === "draped" ? 0.62 : 0)) * 100)}
               onChange={(e) => {
                 const val = parseInt(e.target.value, 10) / 100;
                 // When softness > 0 on a plain box, convert to cushion_firm for deformation

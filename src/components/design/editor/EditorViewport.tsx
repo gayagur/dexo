@@ -5,6 +5,7 @@ import { OrbitControls, Grid, GizmoHelper, GizmoViewport, Environment, Lightform
 import type { PanelData, GroupData } from "@/lib/furnitureData";
 import { MATERIALS } from "@/lib/furnitureData";
 import { ShapeRenderer, isCompositeShape } from "./ShapeRenderer";
+import { DrapedFoldHandles, DRAPED_MAX_FOLD_POINTS } from "./DrapedFoldHandles";
 import { getFabricRenderingParams, getMaterialTextures } from "@/lib/materialTextures";
 import {
   cloneFabricTexturesWithTufting,
@@ -932,6 +933,8 @@ export function EditorViewport({
                       }
                     }}
                     onDragStart={(intersectionPoint, clientX) => startDrag(panel.id, intersectionPoint, clientX)}
+                    onPanelUpdate={(u) => onUpdatePanel(panel.id, u)}
+                    onPanelUpdateLive={(u) => (onUpdatePanelLive ?? onUpdatePanel)(panel.id, u)}
                   />
                 ))}
               </React.Fragment>
@@ -983,6 +986,8 @@ export function EditorViewport({
                       }
                     }}
                     onDragStart={(intersectionPoint, clientX) => { if (!isDimmed) startGroupDrag(g.id, intersectionPoint, clientX); }}
+                    onPanelUpdate={(u) => { if (!isDimmed) onUpdatePanel(panel.id, u); }}
+                    onPanelUpdateLive={(u) => { if (!isDimmed) (onUpdatePanelLive ?? onUpdatePanel)(panel.id, u); }}
                   />
                 ))
               )}
@@ -1018,6 +1023,8 @@ export function EditorViewport({
                 }
               }}
               onDragStart={(intersectionPoint, clientX) => { if (!isDimmed) startDrag(panel.id, intersectionPoint, clientX); }}
+              onPanelUpdate={(u) => { if (!isDimmed) onUpdatePanel(panel.id, u); }}
+              onPanelUpdateLive={(u) => { if (!isDimmed) (onUpdatePanelLive ?? onUpdatePanel)(panel.id, u); }}
             />
           );
         })}
@@ -2769,6 +2776,8 @@ function FurniturePanel({
   onDoubleClick,
   onContextMenu,
   onDragStart,
+  onPanelUpdate,
+  onPanelUpdateLive,
 }: {
   panel: PanelData;
   lightMode: EditorLightMode;
@@ -2781,7 +2790,10 @@ function FurniturePanel({
   onDoubleClick: (e?: any) => void;
   onContextMenu: (screenX: number, screenY: number) => void;
   onDragStart: (intersectionPoint: THREE.Vector3, clientX: number) => void;
+  onPanelUpdate?: (updates: Partial<PanelData>) => void;
+  onPanelUpdateLive?: (updates: Partial<PanelData>) => void;
 }) {
+  const panelRootRef = useRef<THREE.Group>(null);
   const mat = MATERIALS.find((m) => m.id === panel.materialId);
   const color = panel.customColor ?? mat?.color ?? "#C4A265";
   const surfacePbr = panel.surfaceType && panel.textureUrl ? SURFACE_PBR[panel.surfaceType] : null;
@@ -3359,10 +3371,35 @@ function FurniturePanel({
   }
 
   // Advanced shapes — use ShapeRenderer
+  const drapedPoints = panel.drapedControlPoints;
+  const addDrapedPinchAtEvent = (e: ThreeEvent) => {
+    e.stopPropagation();
+    const pts = panel.drapedControlPoints ?? [];
+    if (!onPanelUpdate || pts.length >= DRAPED_MAX_FOLD_POINTS) return;
+    const root = panelRootRef.current;
+    if (!root) return;
+    const inv = new THREE.Matrix4().copy(root.matrixWorld).invert();
+    const local = new THREE.Vector3().copy(e.point).applyMatrix4(inv);
+    const [pw, , pd] = panel.size;
+    const u = THREE.MathUtils.clamp(local.x / pw + 0.5, 0.02, 0.98);
+    const v = THREE.MathUtils.clamp(local.z / pd + 0.5, 0.02, 0.98);
+    onPanelUpdate({
+      drapedControlPoints: [...pts, { u, v, lift: 0.038 }],
+    });
+  };
+
   return (
-    <group position={panel.position} rotation={panelRotation as any}>
+    <group ref={panelRootRef} position={panel.position} rotation={panelRotation as any}>
       <group
-        onClick={handleClick} onPointerDown={handlePointerDown}
+        onClick={handleClick}
+        onPointerDown={handlePointerDown}
+        onDoubleClick={(e) => {
+          if (shape === "draped" && selected && onPanelUpdate && !dimmed && !rotationMode) {
+            addDrapedPinchAtEvent(e);
+            return;
+          }
+          onDoubleClick(e);
+        }}
         onPointerEnter={() => { if (!dimmed) document.body.style.cursor = cursorStyle; }}
         onPointerLeave={() => { document.body.style.cursor = ""; }}
       >
@@ -3370,6 +3407,7 @@ function FurniturePanel({
           shape={shape}
           size={panel.size}
           shapeParams={panel.shapeParams}
+          drapedControlPoints={drapedPoints}
           {...shapeMatProps}
           envMapIntensity={isMetal ? envMetal : envDefault}
         />
@@ -3379,10 +3417,25 @@ function FurniturePanel({
           shape={shape}
           size={panel.size}
           shapeParams={panel.shapeParams}
+          drapedControlPoints={drapedPoints}
           {...shapeMatProps}
           isOutline
         />
       )}
+      {shape === "draped" &&
+        selected &&
+        !dimmed &&
+        !rotationMode &&
+        onPanelUpdate &&
+        onPanelUpdateLive &&
+        (panel.drapedControlPoints?.length ?? 0) > 0 && (
+          <DrapedFoldHandles
+            panel={panel}
+            rootRef={panelRootRef}
+            onLive={onPanelUpdateLive}
+            onCommit={onPanelUpdate}
+          />
+        )}
     </group>
   );
 }

@@ -275,6 +275,13 @@ export type PanelShape =
   // Fabric
   | "draped";
 
+/** User-placed pinch on draped fabric: UV on top face (0–1), lift in meters (positive = bump, negative = pinch). */
+export interface DrapedControlPoint {
+  u: number;
+  v: number;
+  lift: number;
+}
+
 export interface PanelData {
   id: string;
   type: "vertical" | "horizontal" | "back";
@@ -292,6 +299,8 @@ export interface PanelData {
   surfaceType?: string;
   /** Corner radius in meters for RoundedBox box panels only; cushion/mattress shapes use ShapeRenderer defaults */
   cornerRadius?: number;
+  /** Hand-tuned folds for shape "draped" (max ~16 in editor). */
+  drapedControlPoints?: DrapedControlPoint[];
 }
 
 export interface FurnitureTemplate {

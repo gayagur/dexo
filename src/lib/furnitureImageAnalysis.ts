@@ -80,6 +80,7 @@ const SHAPE_PARAM_KEYS = new Set([
   "slatCount",
   "slatGap",
   "softness",
+  "foldSpread",
 ]);
 
 function num3(v: unknown, fallback: [number, number, number]): [number, number, number] {
@@ -91,12 +92,39 @@ function num3(v: unknown, fallback: [number, number, number]): [number, number, 
   return [a, b, c];
 }
 
+/**
+ * Vision models often emit degrees (90, -45) or huge "radians" that are actually degrees.
+ * Three.js / R3F use Euler XYZ in radians; values like 15–360 on an axis almost always mean degrees.
+ */
 function optionalRotation(v: unknown): [number, number, number] | undefined {
   if (!Array.isArray(v) || v.length < 3) return undefined;
-  const a = Number(v[0]);
-  const b = Number(v[1]);
-  const c = Number(v[2]);
+  let a = Number(v[0]);
+  let b = Number(v[1]);
+  let c = Number(v[2]);
   if (![a, b, c].every((n) => Number.isFinite(n))) return undefined;
+
+  const maxAbs = Math.max(Math.abs(a), Math.abs(b), Math.abs(c));
+  // Clear mistake: degrees written as numbers 6.5..360 (π/2≈1.57 is valid; 90 is not)
+  if (maxAbs > 6.5 && maxAbs <= 360) {
+    const k = Math.PI / 180;
+    a *= k;
+    b *= k;
+    c *= k;
+  } else {
+    const nearIntDeg =
+      maxAbs >= 8 &&
+      maxAbs <= 360 &&
+      [a, b, c].every(
+        (x) => Math.abs(x) < 0.01 || Math.abs(x - Math.round(x)) < 0.2,
+      );
+    if (nearIntDeg) {
+      const k = Math.PI / 180;
+      a *= k;
+      b *= k;
+      c *= k;
+    }
+  }
+
   const clamp = (x: number) => Math.max(-12.56, Math.min(12.56, x));
   return [clamp(a), clamp(b), clamp(c)];
 }
@@ -287,6 +315,104 @@ function sanitizeImportRotation(panel: PanelData): PanelData {
       number,
       number,
     ],
+  };
+}
+
+const RIGID_STRUCTURE_LABEL =
+  /\b(leg|feet|foot|slat|apron|rail|stretcher|post|stile|plinth|pedestal|column|spindle)\b/i;
+const SPLAY_OR_ANGLE_LABEL = /\b(splay|splayed|angled\s*leg|tilted\s*frame)\b/i;
+
+/**
+ * Models often add small random Euler angles to "fix" wrong axes — makes rigid parts look twisted.
+ * Legs/slats/aprons: drop noise; keep real tilts only for upholstery / named splay.
+ */
+function stabilizeStructuralRotation(panel: PanelData): PanelData {
+  if (!panel.rotation) return panel;
+  if (SPLAY_OR_ANGLE_LABEL.test(panel.label)) return panel;
+
+  const allowTilt =
+    /\b(back|cushion|pillow|headrest|tilt|lean|recline|bolster|seat|arm|wedge|slope)\b/i.test(
+      panel.label,
+    );
+
+  let [rx, ry, rz] = panel.rotation;
+
+  const snapSmall = (v: number, eps: number) => (Math.abs(v) < eps ? 0 : v);
+  const sum = Math.abs(rx) + Math.abs(ry) + Math.abs(rz);
+
+  if (panel.type === "back" && sum < 0.14) {
+    const { rotation: _r, ...rest } = panel;
+    return rest as PanelData;
+  }
+
+  if (!allowTilt && RIGID_STRUCTURE_LABEL.test(panel.label) && sum < 0.2) {
+    const { rotation: _r, ...rest } = panel;
+    return rest as PanelData;
+  }
+
+  if (
+    /\b(leg|post|column)\b/i.test(panel.label) &&
+    !/\barm\b/i.test(panel.label) &&
+    !allowTilt
+  ) {
+    if (Math.abs(rx) < 0.38 && Math.abs(rz) < 0.38) {
+      rx = snapSmall(rx, 0.12);
+      rz = snapSmall(rz, 0.12);
+    }
+    ry = snapSmall(ry, 0.1);
+  }
+
+  if (panel.type === "horizontal" && RIGID_STRUCTURE_LABEL.test(panel.label) && !allowTilt) {
+    rx = snapSmall(rx, 0.1);
+    ry = snapSmall(ry, 0.1);
+    rz = snapSmall(rz, 0.1);
+  }
+
+  if (Math.abs(rx) + Math.abs(ry) + Math.abs(rz) < 0.045) {
+    const { rotation: _r, ...rest } = panel;
+    return rest as PanelData;
+  }
+
+  return { ...panel, rotation: [rx, ry, rz] };
+}
+
+/**
+ * Vertical box/rounded_rect should be tall on Y. Models often put board thickness on size[1] by mistake.
+ * When Y is clearly the thinnest dimension, remap to [midSpan, tallSpan, thickness] (thin on Z).
+ */
+function normalizeVerticalBoxHeightAxis(panel: PanelData): PanelData {
+  if (panel.type !== "vertical") return panel;
+  const sh = panel.shape ?? "box";
+  if (sh !== "box" && sh !== "rounded_rect") return panel;
+  const [w, h, d] = panel.size;
+  const M = Math.max(w, h, d);
+  if (!(h < w && h < d)) return panel;
+  if (h >= M * 0.28 || M < 0.08) return panel;
+  const sorted = [w, h, d].slice().sort((a, b) => a - b);
+  const [t, mid, tall] = sorted;
+  const { rotation: _r, ...rest } = panel;
+  return { ...rest, size: [mid, tall, t] as [number, number, number] };
+}
+
+/** Cylinder/cone in ShapeRenderer use Y as height; vertical parts must have size[1] as the tall axis. */
+function normalizeVerticalAxisymmetricPanel(panel: PanelData): PanelData {
+  const sh = panel.shape ?? "box";
+  if (panel.type !== "vertical") return panel;
+  if (sh !== "cylinder" && sh !== "cone" && sh !== "tapered_leg") return panel;
+
+  let [w, h, d] = panel.size;
+  if (h >= w - 1e-6 && h >= d - 1e-6) {
+    const diam = Math.max(0.008, (w + d) / 2);
+    return { ...panel, size: [diam, h, diam] };
+  }
+
+  const sorted = [w, h, d].slice().sort((x, y) => x - y);
+  const H = sorted[2];
+  const D = Math.max(sorted[0], sorted[1], 0.008);
+  const { rotation: _drop, ...rest } = panel;
+  return {
+    ...rest,
+    size: [D, H, D] as [number, number, number],
   };
 }
 
@@ -831,8 +957,11 @@ export function panelsFromFurnitureAnalysis(
   );
   const panels = rawScaled
     .map((p) => normalizeAnalysisPanel(p, nextId()))
+    .map(normalizeVerticalBoxHeightAxis)
+    .map(normalizeVerticalAxisymmetricPanel)
     .map(clampRealisticThickness)
     .map(sanitizeImportRotation)
+    .map(stabilizeStructuralRotation)
     .map(fixHorizontalRoundDisk);
   const refined = refineSeatingImportPanels(panels, analysis.name ?? "");
   const repaired = repairSeatingGeometry(refined, analysis.name ?? "", nextId);
