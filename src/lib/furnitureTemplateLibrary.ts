@@ -339,7 +339,47 @@ export const TEMPLATE_REGISTRY: TemplateVariant[] = [
   { id: "dining_chair_upholstered", name: "Upholstered Dining Chair", category: "chair", subtypes: ["dining_chair"], styles: ["modern", "contemporary"], tags: ["dining"], defaultDims: { w: 0.48, h: 0.85, d: 0.52 }, defaultMaterial: "fabric_cream", buildPanels: (w, h, d, m) => { resetPid(); return [p("Seat", "horizontal", "cushion_firm", [0, 0.46, 0.02], [0.42, 0.06, 0.40], m), p("Back", "vertical", "cushion_firm", [0, 0.72, -0.20], [0.40, 0.36, 0.06], m), p("Leg FL", "vertical", "tapered_leg", [-0.18, 0.22, 0.18], [0.03, 0.44, 0.03], "oak"), p("Leg FR", "vertical", "tapered_leg", [0.18, 0.22, 0.18], [0.03, 0.44, 0.03], "oak"), p("Leg BL", "vertical", "tapered_leg", [-0.18, 0.22, -0.18], [0.03, 0.44, 0.03], "oak"), p("Leg BR", "vertical", "tapered_leg", [0.18, 0.22, -0.18], [0.03, 0.44, 0.03], "oak")]; } },
   { id: "wood_dining_chair", name: "Wood Dining Chair", category: "chair", subtypes: ["dining_chair"], styles: ["scandinavian", "classic"], tags: ["wood", "dining"], defaultDims: { w: 0.45, h: 0.82, d: 0.50 }, defaultMaterial: "oak", buildPanels: (w, h, d, m) => { resetPid(); return [p("Seat", "horizontal", "rounded_rect", [0, 0.44, 0], [0.40, 0.03, 0.38], m, { shapeParams: { cornerRadius: 0.03 } }), p("Back", "vertical", "rounded_rect", [0, 0.70, -0.18], [0.36, 0.36, 0.02], m, { shapeParams: { cornerRadius: 0.02 } }), p("Leg FL", "vertical", "tapered_leg", [-0.17, 0.22, 0.16], [0.03, 0.44, 0.03], m), p("Leg FR", "vertical", "tapered_leg", [0.17, 0.22, 0.16], [0.03, 0.44, 0.03], m), p("Leg BL", "vertical", "cylinder", [-0.16, 0.34, -0.16], [0.03, 0.68, 0.03], m), p("Leg BR", "vertical", "cylinder", [0.16, 0.34, -0.16], [0.03, 0.68, 0.03], m)]; } },
   { id: "barrel_chair", name: "Barrel Chair", category: "chair", subtypes: ["accent_chair", "barrel_chair"], styles: ["modern", "contemporary"], tags: ["curved", "accent"], defaultDims: { w: 0.75, h: 0.78, d: 0.72 }, defaultMaterial: "fabric_sage", buildPanels: (w, h, d, m) => buildSofa(w, h, d, m, { ...SOFA_MODERN, seats: 1, armW: 0.12 }) },
-  { id: "wingback_chair", name: "Wingback Chair", category: "chair", subtypes: ["wingback", "armchair"], styles: ["classic", "traditional"], tags: ["wingback", "tall_back"], defaultDims: { w: 0.80, h: 1.05, d: 0.85 }, defaultMaterial: "fabric_taupe", buildPanels: (w, h, d, m) => buildSofa(w, h, d, m, { ...SOFA_MODERN, seats: 1, armW: 0.16 }) },
+  { id: "wingback_chair", name: "Mid-Century Wingback Chair", category: "chair", subtypes: ["wingback", "armchair", "accent_chair"], styles: ["mid_century", "modern", "classic", "scandinavian"], tags: ["wingback", "tall_back", "tapered_legs", "tufted"],
+    defaultDims: { w: 0.72, h: 0.95, d: 0.74 }, defaultMaterial: "fabric_sage",
+    buildPanels: (w, h, d, mat) => {
+      resetPid();
+      const legH = 0.16;
+      const seatH = 0.06;
+      const seatTopY = 0.42;
+      const seatY = seatTopY - seatH / 2;
+      const seatD = d * 0.72;
+      const seatW = w * 0.70;
+      const armW = 0.10;
+      const armH = 0.32;
+      const armTop = seatTopY + armH;
+      const backH = h - seatTopY + 0.04;
+      const backT = 0.08;
+      const backW = w * 0.78;
+      const wingD = d * 0.35; // wing depth (how far forward the wings come)
+
+      return [
+        // Seat cushion — firm, sits inside the frame
+        p("Seat cushion", "horizontal", "cushion_firm", [0, seatY, 0.04], [seatW, seatH, seatD], mat),
+        // Back — tall, slightly tilted, tufted look
+        p("Backrest", "vertical", "cushion_firm", [0, seatTopY + backH / 2 - 0.02, -d / 2 + backT / 2 + 0.02], [backW, backH, backT], mat, { rotation: [-0.10, 0, 0] }),
+        // Left arm — wraps from back to front, integrated wing
+        p("Left Arm", "vertical", "padded_block", [-w / 2 + armW / 2 + 0.01, seatTopY + armH / 2 - 0.02, -0.02], [armW, armH, wingD], mat),
+        // Right arm — mirror
+        p("Right Arm", "vertical", "padded_block", [w / 2 - armW / 2 - 0.01, seatTopY + armH / 2 - 0.02, -0.02], [armW, armH, wingD], mat),
+        // Left wing extension (upper, wraps around back)
+        p("Left Wing", "vertical", "padded_block", [-w / 2 + 0.04, armTop + 0.06, -d / 2 + 0.12], [0.06, 0.18, 0.16], mat),
+        // Right wing extension
+        p("Right Wing", "vertical", "padded_block", [w / 2 - 0.04, armTop + 0.06, -d / 2 + 0.12], [0.06, 0.18, 0.16], mat),
+        // Seat frame (hidden under cushion)
+        p("Frame", "horizontal", "rounded_rect", [0, seatTopY - seatH - 0.04, 0], [w - 0.06, 0.06, d - 0.06], mat, { shapeParams: { cornerRadius: 0.005 } }),
+        // 4 tapered wood legs — splayed outward slightly
+        p("Leg FL", "vertical", "tapered_leg", [-w / 2 + 0.10, legH / 2, d / 2 - 0.10], [0.04, legH, 0.04], "walnut"),
+        p("Leg FR", "vertical", "tapered_leg", [w / 2 - 0.10, legH / 2, d / 2 - 0.10], [0.04, legH, 0.04], "walnut"),
+        p("Leg BL", "vertical", "tapered_leg", [-w / 2 + 0.10, legH / 2, -d / 2 + 0.10], [0.04, legH, 0.04], "walnut"),
+        p("Leg BR", "vertical", "tapered_leg", [w / 2 - 0.10, legH / 2, -d / 2 + 0.10], [0.04, legH, 0.04], "walnut"),
+      ];
+    },
+  },
   { id: "lounge_chair", name: "Lounge Chair", category: "chair", subtypes: ["lounge_chair", "accent_chair"], styles: ["mid_century", "modern"], tags: ["low", "lounge"], defaultDims: { w: 0.78, h: 0.78, d: 0.80 }, defaultMaterial: "leather_tan", buildPanels: (w, h, d, m) => buildSofa(w, h, d, m, { ...SOFA_SCANDI, seats: 1 }) },
   { id: "office_chair", name: "Office Chair", category: "chair", subtypes: ["office_chair", "desk_chair", "task_chair"], styles: ["modern", "ergonomic"], tags: ["swivel", "office"], defaultDims: { w: 0.65, h: 1.10, d: 0.65 }, defaultMaterial: "fabric_charcoal", buildPanels: (w, h, d, m) => { resetPid(); return [p("Seat", "horizontal", "cushion_firm", [0, 0.48, 0.02], [0.50, 0.10, 0.48], m), p("Back", "vertical", "cushion_firm", [0, 0.80, -0.18], [0.46, 0.50, 0.08], m), p("Arm L", "horizontal", "padded_block", [-0.26, 0.52, 0], [0.06, 0.04, 0.22], m), p("Arm R", "horizontal", "padded_block", [0.26, 0.52, 0], [0.06, 0.04, 0.22], m), p("Lift", "vertical", "cylinder", [0, 0.28, 0], [0.06, 0.30, 0.06], "black_metal"), p("Base", "horizontal", "x_base", [0, 0.04, 0], [0.58, 0.04, 0.58], "chrome")]; } },
   { id: "bench_upholstered", name: "Upholstered Bench", category: "chair", subtypes: ["bench", "dining_bench"], styles: ["modern", "contemporary"], tags: ["bench", "seating"], defaultDims: { w: 1.20, h: 0.48, d: 0.40 }, defaultMaterial: "fabric_cream", buildPanels: (w, h, d, m) => { resetPid(); return [p("Seat", "horizontal", "cushion_firm", [0, h - 0.06, 0], [w, 0.08, d], m), p("Frame", "horizontal", "rounded_rect", [0, h / 2 - 0.04, 0], [w - 0.04, h - 0.10, d - 0.04], "oak", { shapeParams: { cornerRadius: 0.01 } })]; } },

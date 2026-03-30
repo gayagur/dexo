@@ -1405,6 +1405,42 @@ export const LIBRARY_TEMPLATES: LibraryTemplate[] = [
   },
 
   {
+    id: "wingback_chair",
+    name: "Mid-Century Wingback Chair",
+    category: "chairs",
+    icon: "💺",
+    description: "Compact wingback armchair with tapered walnut legs, tufted back, and wrap-around arms",
+    dims: { w: 720, h: 950, d: 740 },
+    buildPanels: (dims) => {
+      _pid = 0;
+      const w = dims.w / 1000, h = dims.h / 1000, d = dims.d / 1000;
+      const mat = "fabric_sage";
+      const legH = 0.16;
+      const seatH = 0.06, seatTopY = 0.42;
+      const seatY = seatTopY - seatH / 2;
+      const seatD = d * 0.72, seatW = w * 0.70;
+      const armW = 0.10, armH = 0.32;
+      const armTop = seatTopY + armH;
+      const backH = h - seatTopY + 0.04, backT = 0.08;
+      const backW = w * 0.78;
+      const wingD = d * 0.35;
+      return [
+        firmCushion("Seat cushion", "horizontal", [0, seatY, 0.04], [seatW, seatH, seatD], mat),
+        firmCushion("Backrest", "vertical", [0, seatTopY + backH / 2 - 0.02, -d / 2 + backT / 2 + 0.02], [backW, backH, backT], mat, [-0.10, 0, 0]),
+        padded("Left Arm", "vertical", [-w / 2 + armW / 2 + 0.01, seatTopY + armH / 2 - 0.02, -0.02], [armW, armH, wingD], mat),
+        padded("Right Arm", "vertical", [w / 2 - armW / 2 - 0.01, seatTopY + armH / 2 - 0.02, -0.02], [armW, armH, wingD], mat),
+        padded("Left Wing", "vertical", [-w / 2 + 0.04, armTop + 0.06, -d / 2 + 0.12], [0.06, 0.18, 0.16], mat),
+        padded("Right Wing", "vertical", [w / 2 - 0.04, armTop + 0.06, -d / 2 + 0.12], [0.06, 0.18, 0.16], mat),
+        plinth("Frame", [0, seatTopY - seatH - 0.04, 0], [w - 0.06, 0.06, d - 0.06], mat),
+        cyl("Leg FL", [-w / 2 + 0.10, legH / 2, d / 2 - 0.10], 0.04, legH, "walnut"),
+        cyl("Leg FR", [w / 2 - 0.10, legH / 2, d / 2 - 0.10], 0.04, legH, "walnut"),
+        cyl("Leg BL", [-w / 2 + 0.10, legH / 2, -d / 2 + 0.10], 0.04, legH, "walnut"),
+        cyl("Leg BR", [w / 2 - 0.10, legH / 2, -d / 2 + 0.10], 0.04, legH, "walnut"),
+      ];
+    },
+  },
+
+  {
     id: "armchair_bamboo_lounge",
     name: "Bamboo Frame Lounge Chair",
     category: "chairs",
