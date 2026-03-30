@@ -515,5 +515,18 @@ export function matchTemplate(classification: FurnitureClassification): {
 
   const panels = bestTemplate.buildPanels(dims.w, dims.h, dims.d, mat);
 
+  // Apply softness from classification to all upholstery panels
+  const softnessStr = (classification as Record<string, unknown>).softness as string | undefined;
+  if (softnessStr) {
+    const softnessMap: Record<string, number> = { firm: 0.15, medium: 0.45, plush: 0.85 };
+    const softnessVal = softnessMap[softnessStr] ?? 0.45;
+    for (const panel of panels) {
+      const shape = panel.shape ?? "box";
+      if (shape === "cushion" || shape === "cushion_firm" || shape === "padded_block") {
+        panel.shapeParams = { ...(panel.shapeParams ?? {}), softness: softnessVal };
+      }
+    }
+  }
+
   return { template: bestTemplate, panels, dims };
 }

@@ -199,23 +199,24 @@ function SingleGeometry({
       return <CasterGeometry radius={radius + pad} />;
 
     // ── Decorative / Upholstery ─────────────────────
-    case "cushion":
-      // Plush/pillow cushion — very rounded, puffy (loose sofa cushions, pillows)
-      return <CushionGeometry w={w + pad * 2} h={h + pad * 2} depth={d + pad * 2} puff={0.85} />;
+    // shapeParams.softness overrides the default puff level (0-1)
+    case "cushion": {
+      const softness = shapeParams?.softness ?? 0.85;
+      return <CushionGeometry w={w + pad * 2} h={h + pad * 2} depth={d + pad * 2} puff={softness} />;
+    }
 
     case "cushion_firm": {
-      // Firm/tight cushion — subtle rounding, structured (modern sofa seats, firm pads)
-      return <CushionGeometry w={w + pad * 2} h={h + pad * 2} depth={d + pad * 2} puff={0.35} />;
+      const softness = shapeParams?.softness ?? 0.35;
+      return <CushionGeometry w={w + pad * 2} h={h + pad * 2} depth={d + pad * 2} puff={softness} />;
     }
 
     case "cushion_bolster": {
-      // Bolster/roll pillow — cylindrical cushion (arm rolls, neck rolls)
       return <cylinderGeometry args={[h / 2 + pad, h / 2 + pad, w + pad * 2, 16]} />;
     }
 
     case "padded_block": {
-      // Padded block — box with just slightly rounded edges (sofa arms, firm backrests, ottomans)
-      return <CushionGeometry w={w + pad * 2} h={h + pad * 2} depth={d + pad * 2} puff={0.18} />;
+      const softness = shapeParams?.softness ?? 0.18;
+      return <CushionGeometry w={w + pad * 2} h={h + pad * 2} depth={d + pad * 2} puff={softness} />;
     }
 
     case "mattress":

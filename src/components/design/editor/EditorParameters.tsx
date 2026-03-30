@@ -752,6 +752,42 @@ export function EditorParameters({
           </CollapsibleSection>
         )}
 
+        {/* Softness slider — only for cushion/upholstery shapes */}
+        {(panel.shape === "cushion" || panel.shape === "cushion_firm" || panel.shape === "padded_block") && (
+          <CollapsibleSection
+            label="Softness"
+            icon={<span className="text-[11px]">🧸</span>}
+            defaultOpen={false}
+          >
+            <div className="mt-1">
+              <div className="flex items-center justify-between mb-2">
+                <Label className="text-[11px] text-gray-500">Surface softness</Label>
+                <span className="text-[10px] text-gray-400 font-mono">
+                  {Math.round((panel.shapeParams?.softness ?? (panel.shape === "cushion" ? 0.85 : panel.shape === "cushion_firm" ? 0.35 : 0.18)) * 100)}%
+                </span>
+              </div>
+              <input
+                type="range"
+                min={0}
+                max={100}
+                step={1}
+                value={Math.round((panel.shapeParams?.softness ?? (panel.shape === "cushion" ? 0.85 : panel.shape === "cushion_firm" ? 0.35 : 0.18)) * 100)}
+                onChange={(e) => {
+                  const val = parseInt(e.target.value, 10) / 100;
+                  onUpdatePanel(panel.id, {
+                    shapeParams: { ...(panel.shapeParams ?? {}), softness: val },
+                  });
+                }}
+                className="w-full h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-[#C87D5A]"
+              />
+              <div className="flex justify-between text-[9px] text-gray-300 mt-0.5">
+                <span>Firm</span>
+                <span>Plush</span>
+              </div>
+            </div>
+          </CollapsibleSection>
+        )}
+
         {/* Size (collapsed by default) */}
         <CollapsibleSection
           label="Size"

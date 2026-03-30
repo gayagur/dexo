@@ -16,9 +16,15 @@ Look at the image carefully and identify:
   "baseStyle": "legs" | "recessed" | "pedestal" | "sled" | "none",
   "material": "closest materialId from the list below",
   "dominantColor": "#hex color you see in the image",
+  "softness": "firm" | "medium" | "plush" (how soft/puffy the upholstery looks),
   "seatCount": number (for sofas only, how many seat positions),
   "estimatedDims": { "w": width_mm, "h": height_mm, "d": depth_mm }
 }
+
+SOFTNESS DETECTION:
+- Leather furniture, tight upholstery, structured seats → "firm"
+- Standard woven fabric, moderate padding → "medium"
+- Boucle, deep padding, very puffy/rounded cushions → "plush"
 
 SUBTYPES by category:
 - sofa: "2_seat", "3_seat", "loveseat", "l_sectional", "chaise_sectional", "sofa_bed"

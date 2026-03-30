@@ -78,6 +78,7 @@ const SHAPE_PARAM_KEYS = new Set([
   "knobSign",
   "slatCount",
   "slatGap",
+  "softness",
 ]);
 
 function num3(v: unknown, fallback: [number, number, number]): [number, number, number] {
