@@ -70,13 +70,14 @@ Deno.serve(async (req) => {
                   { type: "image_url", image_url: { url: imageUrl } },
                 ],
               }],
-              max_tokens: 1024, // Classification is short
+              max_tokens: 2048,
               temperature: 0.1,
             }),
           });
 
           if (!response.ok) {
-            console.warn(`[classify] ${model} failed: ${response.status}`);
+            const errBody = await response.text().catch(() => "");
+            console.warn(`[classify] ${model} failed: ${response.status} ${errBody.slice(0, 200)}`);
             continue;
           }
 
