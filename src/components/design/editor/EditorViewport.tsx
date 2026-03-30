@@ -466,7 +466,7 @@ function AdaptivePerformance() {
 function EditorToneExposure({ lightMode }: { lightMode: EditorLightMode }) {
   const gl = useThree((s) => s.gl);
   useLayoutEffect(() => {
-    gl.toneMappingExposure = lightMode === "night" ? 0.68 : 1.12;
+    gl.toneMappingExposure = lightMode === "night" ? 0.72 : 1.05;
   }, [gl, lightMode]);
   return null;
 }
@@ -793,9 +793,9 @@ export function EditorViewport({
           powerPreference: "high-performance",
           alpha: false,
           stencil: false,
-          antialias: false,
+          antialias: true,
           toneMapping: THREE.ACESFilmicToneMapping,
-          toneMappingExposure: 1.12,
+          toneMappingExposure: 1.05,
         }}
         onCreated={(state) => {
           requestAnimationFrame(() => state.invalidate());
@@ -817,54 +817,73 @@ export function EditorViewport({
         {/* Lighting — night is intentionally dim (no fake dark floor plane) */}
         {lightMode === "night" ? (
           <>
-            <Environment resolution={512} environmentIntensity={0.26}>
-              <Lightformer form="rect" intensity={0.35} color="#2a2d48" scale={[10, 4]} position={[0, 6, -2]} rotation={[Math.PI / 2, 0, 0]} />
-              <Lightformer form="circle" intensity={0.55} color="#ffd4a8" scale={2} position={[3, 2.5, -2]} />
-              <Lightformer form="circle" intensity={0.35} color="#ffc9a0" scale={1.5} position={[-3, 2, 1]} />
+            {/* Night: warm interior mood — soft amber key, cool blue fill */}
+            <Environment resolution={1024} environmentIntensity={0.30}>
+              <Lightformer form="rect" intensity={0.30} color="#1a1d30" scale={[12, 5]} position={[0, 7, -2]} rotation={[Math.PI / 2, 0, 0]} />
+              <Lightformer form="circle" intensity={0.60} color="#ffd4a8" scale={2.5} position={[3, 3, -3]} />
+              <Lightformer form="circle" intensity={0.40} color="#ffc088" scale={1.8} position={[-3, 2.5, 1]} />
+              <Lightformer form="rect" intensity={0.15} color="#c0d0f0" scale={[4, 2]} position={[0, 1, 4]} rotation={[0, Math.PI, 0]} />
             </Environment>
-            <hemisphereLight skyColor="#1e1e2e" groundColor="#121018" intensity={0.22} />
+            <hemisphereLight skyColor="#1a1a2e" groundColor="#0e0a14" intensity={0.18} />
+            {/* Key light — warm amber from upper left */}
             <directionalLight
               position={[-4, 8, 4]}
-              intensity={0.28}
+              intensity={0.32}
               castShadow
               shadow-mapSize-width={2048}
               shadow-mapSize-height={2048}
-              shadow-bias={-0.0001}
+              shadow-bias={-0.00015}
+              shadow-normalBias={0.02}
               shadow-camera-left={-5}
               shadow-camera-right={5}
               shadow-camera-top={5}
               shadow-camera-bottom={-5}
-              color="#a8b8d8"
+              color="#b8a88a"
             />
-            <ambientLight intensity={0.06} color="#3a3f55" />
-            <pointLight position={[1, 2.5, -1]} intensity={0.55} color="#ffd699" distance={7} decay={2} />
-            <pointLight position={[-1.5, 2, 1]} intensity={0.4} color="#ffccaa" distance={6} decay={2} />
-            <directionalLight position={[4.5, 3.5, -3.5]} intensity={0.22} color="#c8d2e8" />
+            <ambientLight intensity={0.05} color="#2a2d48" />
+            {/* Practical lights — warm pools */}
+            <pointLight position={[1.2, 2.5, -1]} intensity={0.50} color="#ffd699" distance={6} decay={2} />
+            <pointLight position={[-1.5, 2, 1.2]} intensity={0.35} color="#ffccaa" distance={5} decay={2} />
+            {/* Cool rim from behind */}
+            <directionalLight position={[3, 3, -4]} intensity={0.18} color="#8899cc" />
           </>
         ) : (
           <>
-            <Environment resolution={512} environmentIntensity={0.95}>
-              <Lightformer form="rect" intensity={2.2} color="white" scale={[10, 4]} position={[0, 6, -2]} rotation={[Math.PI / 2, 0, 0]} />
-              <Lightformer form="rect" intensity={0.65} color="#eef4ff" scale={[5, 5]} position={[-6, 2, 2]} rotation={[0, Math.PI / 2, 0]} />
-              <Lightformer form="circle" intensity={2.2} color="#fffaf0" scale={3} position={[4, 3, -4]} />
+            {/* Day: premium studio lighting — soft diffused key, warm fill, cool rim */}
+            <Environment resolution={1024} environmentIntensity={1.05}>
+              {/* Large overhead softbox — main diffused light */}
+              <Lightformer form="rect" intensity={2.0} color="#faf8f5" scale={[14, 6]} position={[0, 8, -1]} rotation={[Math.PI / 2, 0, 0]} />
+              {/* Left fill — slightly cool for depth */}
+              <Lightformer form="rect" intensity={0.80} color="#e8eeff" scale={[5, 6]} position={[-7, 3, 2]} rotation={[0, Math.PI / 2, 0]} />
+              {/* Right warm accent — adds warmth to highlights */}
+              <Lightformer form="circle" intensity={1.8} color="#fff5e6" scale={3.5} position={[5, 3.5, -4]} />
+              {/* Ground bounce — subtle uplight for under-furniture detail */}
+              <Lightformer form="rect" intensity={0.25} color="#f0ebe4" scale={[8, 8]} position={[0, -1, 0]} rotation={[-Math.PI / 2, 0, 0]} />
+              {/* Rear rim — subtle backlight for edge definition */}
+              <Lightformer form="rect" intensity={0.50} color="#dde4f0" scale={[6, 3]} position={[0, 4, 6]} rotation={[0, Math.PI, 0]} />
             </Environment>
-            <hemisphereLight skyColor="#ffffff" groundColor="#e8eaef" intensity={0.38} />
+            <hemisphereLight skyColor="#f8f6f2" groundColor="#ddd8d0" intensity={0.40} />
+            {/* Key light — warm sun from upper-left, soft shadows */}
             <directionalLight
-              position={[-4, 8, 4]}
-              intensity={1.48}
+              position={[-5, 9, 5]}
+              intensity={1.35}
               castShadow
               shadow-mapSize-width={2048}
               shadow-mapSize-height={2048}
-              shadow-bias={-0.0001}
-              shadow-camera-left={-5}
-              shadow-camera-right={5}
-              shadow-camera-top={5}
-              shadow-camera-bottom={-5}
-              color="#ffffff"
+              shadow-bias={-0.00012}
+              shadow-normalBias={0.025}
+              shadow-camera-left={-6}
+              shadow-camera-right={6}
+              shadow-camera-top={6}
+              shadow-camera-bottom={-6}
+              color="#fff8f0"
             />
-            <ambientLight intensity={0.36} color="#ffffff" />
-            {/* Low rake fill — reveals fabric normal detail without washing shadows */}
-            <directionalLight position={[5.5, 4.2, -4]} intensity={0.44} color="#fff6ec" />
+            {/* Ambient base — very subtle, prevents pure black */}
+            <ambientLight intensity={0.25} color="#f5f0ea" />
+            {/* Fill from right — cooler, reveals fabric texture and normal maps */}
+            <directionalLight position={[6, 4, -3]} intensity={0.40} color="#eef2ff" />
+            {/* Low back fill — gentle warmth from behind for rim separation */}
+            <directionalLight position={[-2, 2, -5]} intensity={0.20} color="#fff0e0" />
           </>
         )}
 
