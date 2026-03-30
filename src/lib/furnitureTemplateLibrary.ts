@@ -411,7 +411,35 @@ export const TEMPLATE_REGISTRY: TemplateVariant[] = [
     },
   },
   { id: "lounge_chair", name: "Lounge Chair", category: "chair", subtypes: ["lounge_chair", "accent_chair"], styles: ["mid_century", "modern"], tags: ["low", "lounge"], defaultDims: { w: 0.78, h: 0.78, d: 0.80 }, defaultMaterial: "leather_tan", buildPanels: (w, h, d, m) => buildSofa(w, h, d, m, { ...SOFA_SCANDI, seats: 1 }) },
-  { id: "office_chair", name: "Office Chair", category: "chair", subtypes: ["office_chair", "desk_chair", "task_chair"], styles: ["modern", "ergonomic"], tags: ["swivel", "office"], defaultDims: { w: 0.65, h: 1.10, d: 0.65 }, defaultMaterial: "fabric_charcoal", buildPanels: (w, h, d, m) => { resetPid(); return [p("Seat", "horizontal", "cushion_firm", [0, 0.48, 0.02], [0.50, 0.10, 0.48], m), p("Back", "vertical", "cushion_firm", [0, 0.80, -0.18], [0.46, 0.50, 0.08], m), p("Arm L", "horizontal", "padded_block", [-0.26, 0.52, 0], [0.06, 0.04, 0.22], m), p("Arm R", "horizontal", "padded_block", [0.26, 0.52, 0], [0.06, 0.04, 0.22], m), p("Lift", "vertical", "cylinder", [0, 0.28, 0], [0.06, 0.30, 0.06], "black_metal"), p("Base", "horizontal", "x_base", [0, 0.04, 0], [0.58, 0.04, 0.58], "chrome")]; } },
+  { id: "executive_office_chair", name: "Executive Office Chair", category: "chair",
+    subtypes: ["office_chair", "desk_chair", "task_chair", "executive_chair", "gaming_chair"],
+    styles: ["modern", "ergonomic", "executive"], tags: ["swivel", "office", "headrest", "chrome_base", "casters"],
+    defaultDims: { w: 0.68, h: 1.25, d: 0.70 }, defaultMaterial: "leather_black",
+    buildPanels: (w, h, d, m) => {
+      resetPid();
+      const dark = "black_metal";
+      const chrome = "chrome";
+      const seatY = 0.48, seatT = 0.10;
+      const backH = 0.52, backT = 0.08, backY = seatY + seatT / 2 + backH / 2 + 0.02, backZ = -0.20;
+      const headH = 0.14, headY = backY + backH / 2 + headH / 2 + 0.02;
+      const armX = 0.28, armSY = seatY - 0.02, armPY = seatY + 0.06;
+      const liftH = 0.22, liftY = seatY - seatT / 2 - liftH / 2;
+      const baseY = liftY - liftH / 2 - 0.02, baseR = 0.31;
+      const cAngles = [0, 72, 144, 216, 288].map(a => a * Math.PI / 180);
+      return [
+        p("Seat", "horizontal", "cushion_firm", [0, seatY, 0.02], [0.52, seatT, 0.50], m),
+        p("Backrest", "vertical", "cushion_firm", [0, backY, backZ], [0.48, backH, backT], m, { rotation: [-0.12, 0, 0] }),
+        p("Headrest", "horizontal", "cushion", [0, headY, backZ + 0.02], [0.30, headH, 0.07], m),
+        p("L arm post", "vertical", undefined, [-armX, armSY, 0.02], [0.04, 0.22, 0.28], dark),
+        p("L arm pad", "horizontal", "cushion_firm", [-armX, armPY, 0.02], [0.08, 0.04, 0.24], m),
+        p("R arm post", "vertical", undefined, [armX, armSY, 0.02], [0.04, 0.22, 0.28], dark),
+        p("R arm pad", "horizontal", "cushion_firm", [armX, armPY, 0.02], [0.08, 0.04, 0.24], m),
+        p("Gas lift", "vertical", "cylinder", [0, liftY, 0], [0.06, liftH, 0.06], dark),
+        p("Star base", "horizontal", "x_base", [0, baseY, 0], [0.62, 0.04, 0.62], chrome),
+        ...cAngles.map((a, i) => p(`Caster ${i + 1}`, "vertical", "caster", [Math.cos(a) * baseR, 0.025, Math.sin(a) * baseR], [0.05, 0.05, 0.05], dark)),
+      ];
+    },
+  },
   { id: "bench_upholstered", name: "Upholstered Bench", category: "chair", subtypes: ["bench", "dining_bench"], styles: ["modern", "contemporary"], tags: ["bench", "seating"], defaultDims: { w: 1.20, h: 0.48, d: 0.40 }, defaultMaterial: "fabric_cream", buildPanels: (w, h, d, m) => { resetPid(); return [p("Seat", "horizontal", "cushion_firm", [0, h - 0.06, 0], [w, 0.08, d], m), p("Frame", "horizontal", "rounded_rect", [0, h / 2 - 0.04, 0], [w - 0.04, h - 0.10, d - 0.04], "oak", { shapeParams: { cornerRadius: 0.01 } })]; } },
   { id: "pouf_round", name: "Round Pouf", category: "chair", subtypes: ["pouf", "ottoman"], styles: ["modern", "bohemian"], tags: ["round", "floor"], defaultDims: { w: 0.50, h: 0.35, d: 0.50 }, defaultMaterial: "fabric_taupe", buildPanels: (w, h, d, m) => { resetPid(); return [p("Pouf", "horizontal", "cushion", [0, h / 2, 0], [w, h, d], m)]; } },
   { id: "bar_stool", name: "Bar Stool", category: "chair", subtypes: ["bar_stool", "counter_stool"], styles: ["modern", "industrial"], tags: ["tall", "bar"], defaultDims: { w: 0.42, h: 0.75, d: 0.42 }, defaultMaterial: "black_metal", buildPanels: (w, h, d, m) => { resetPid(); return [p("Seat", "horizontal", "cushion_firm", [0, h - 0.04, 0], [0.38, 0.05, 0.35], "fabric_charcoal"), p("Leg FL", "vertical", "cylinder", [-0.14, h / 2 - 0.02, 0.14], [0.025, h - 0.06, 0.025], m), p("Leg FR", "vertical", "cylinder", [0.14, h / 2 - 0.02, 0.14], [0.025, h - 0.06, 0.025], m), p("Leg BL", "vertical", "cylinder", [-0.14, h / 2 - 0.02, -0.14], [0.025, h - 0.06, 0.025], m), p("Leg BR", "vertical", "cylinder", [0.14, h / 2 - 0.02, -0.14], [0.025, h - 0.06, 0.025], m), p("Footrest", "horizontal", "cylinder", [0, 0.25, 0.14], [0.28, 0.02, 0.02], m)]; } },
