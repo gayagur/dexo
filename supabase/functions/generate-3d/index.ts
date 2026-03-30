@@ -1,45 +1,24 @@
 /**
- * generate-3d — Restored original AI decomposition (from e4789a3).
- * Exact same logic, just swapped deprecated Llama model for Qwen/Kimi.
+ * generate-3d — EXACT copy of analyze-furniture from commit 442e15e.
+ * Uses shared prompt, JSON schema, robust parsing.
+ * Only change: removed deprecated Llama-3.2-90B model.
  */
 import { corsHeaders } from "../_shared/cors.ts";
 import { verifyAuth } from "../_shared/auth.ts";
 import { logUsage, getDailyUsageCount } from "../_shared/usage.ts";
+import { FURNITURE_ANALYSIS_PROMPT } from "../_shared/furnitureAnalysisPrompt.ts";
+import { parseFurnitureAnalysisFromLlmText } from "../_shared/extractFurnitureAnalysisJson.ts";
+import {
+  FURNITURE_ANALYSIS_RESPONSE_FORMAT,
+  VISION_MODELS_SUPPORTING_JSON_SCHEMA,
+} from "../_shared/furnitureAnalysisJsonSchema.ts";
 
-const MODELS = ["Qwen/Qwen3-VL-8B-Instruct", "moonshotai/Kimi-K2.5"];
+const VISION_MODELS = [
+  "Qwen/Qwen3-VL-8B-Instruct",
+  "moonshotai/Kimi-K2.5",
+];
 const PER_MODEL_MS = 50_000;
 const DAILY_LIMIT = 20;
-
-const ANALYSIS_PROMPT = `You are a furniture analysis AI. Analyze this image of a furniture piece and break it down into simple 3D components that can be recreated in a furniture editor.
-
-For each component, output a JSON object with:
-- label: descriptive name (e.g. "Tabletop", "Left Leg", "Back Panel", "Shelf 1")
-- type: "horizontal" (shelves, seats, tops), "vertical" (sides, backs, legs), or "back" (back panels)
-- shape: "box" for rectangular parts, "cylinder" for round legs/rods
-- position: [x, y, z] in meters, centered at origin. Y=0 is the floor. Positive Y is up.
-- size: [width, height, depth] in meters
-- materialId: best match from: oak, walnut, pine, cherry, maple, birch, plywood, mdf, melamine_white, melamine_black, black_metal, steel, brass, chrome, glass, leather_brown, leather_black, fabric_gray, fabric_cream, fabric_beige, fabric_charcoal, fabric_sage, fabric_taupe, velvet_navy, cane_natural, marble_white, concrete
-
-CRITICAL RULES:
-- Estimate realistic dimensions based on the furniture type (e.g. dining table ~0.75m tall, chair seat ~0.45m)
-- Position components relative to each other so they form the complete piece
-- Use "cylinder" shape for round legs, rods, and tubes
-- All positions are in meters from the center. The furniture should be centered at X=0, Z=0
-- Y position is the CENTER of each component, not the bottom
-- Include ALL visible components: top, sides, shelves, legs, backs, doors, drawers, handles
-- Output 5-20 components typically
-- LOOK at the colors in the image and pick the closest materialId
-
-Respond with ONLY a JSON object in this exact format, no other text:
-{
-  "name": "Furniture Name",
-  "estimatedDims": { "w": 1200, "h": 750, "d": 600 },
-  "panels": [
-    { "label": "...", "type": "...", "shape": "box", "position": [0, 0, 0], "size": [0, 0, 0], "materialId": "..." }
-  ]
-}
-
-estimatedDims are in millimeters. positions and sizes in the panels array are in meters.`;
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -51,59 +30,107 @@ Deno.serve(async (req) => {
     const { imageUrl } = await req.json();
 
     if (!imageUrl || typeof imageUrl !== "string") {
-      return new Response(JSON.stringify({ error: "imageUrl is required" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      return new Response(
+        JSON.stringify({ error: "imageUrl is required" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
     const todayCount = await getDailyUsageCount(userId, "generate-3d");
     if (todayCount >= DAILY_LIMIT) {
-      return new Response(JSON.stringify({ error: "Daily limit reached (20/day)." }),
-        { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      return new Response(
+        JSON.stringify({ error: "Daily limit reached (20/day)." }),
+        { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
     const togetherApiKey = Deno.env.get("TOGETHER_API_KEY");
     if (!togetherApiKey) {
-      return new Response(JSON.stringify({ error: "AI service not configured" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      return new Response(
+        JSON.stringify({ error: "AI service not configured" }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
     let content = "";
-    let usedModel = MODELS[0];
+    let usedModel = VISION_MODELS[0];
     let lastError = "";
 
-    for (const model of MODELS) {
+    for (const model of VISION_MODELS) {
       console.log(`[generate-3d] Trying: ${model}`);
       usedModel = model;
+
       try {
         const ac = new AbortController();
         const timer = setTimeout(() => ac.abort(), PER_MODEL_MS);
+        let response: Response;
+
+        const messages = [
+          {
+            role: "user" as const,
+            content: [
+              { type: "text" as const, text: FURNITURE_ANALYSIS_PROMPT },
+              { type: "image_url" as const, image_url: { url: imageUrl } },
+            ],
+          },
+        ];
+
+        const basePayload = {
+          model,
+          messages,
+          max_tokens: 4096,
+          temperature: 0.2,
+        };
+
+        const useSchema = VISION_MODELS_SUPPORTING_JSON_SCHEMA.has(model);
+
         try {
-          const response = await fetch("https://api.together.xyz/v1/chat/completions", {
+          response = await fetch("https://api.together.xyz/v1/chat/completions", {
             method: "POST",
             signal: ac.signal,
             headers: {
               "Authorization": `Bearer ${togetherApiKey}`,
               "Content-Type": "application/json",
             },
-            body: JSON.stringify({
-              model,
-              messages: [{ role: "user", content: [
-                { type: "text", text: ANALYSIS_PROMPT },
-                { type: "image_url", image_url: { url: imageUrl } },
-              ]}],
-              max_tokens: 4096,
-              temperature: 0.3,
-            }),
+            body: JSON.stringify(
+              useSchema
+                ? { ...basePayload, response_format: FURNITURE_ANALYSIS_RESPONSE_FORMAT }
+                : basePayload,
+            ),
           });
-          if (!response.ok) {
-            lastError = `${model}: ${response.status}`;
-            console.warn("[generate-3d]", lastError);
-            continue;
+
+          if (!response.ok && useSchema && response.status === 400) {
+            console.warn(`${model}: schema rejected, retrying without`);
+            response = await fetch("https://api.together.xyz/v1/chat/completions", {
+              method: "POST",
+              signal: ac.signal,
+              headers: {
+                "Authorization": `Bearer ${togetherApiKey}`,
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify(basePayload),
+            });
           }
-          const result = await response.json();
-          content = result.choices?.[0]?.message?.content || "";
-          if (content) break;
-        } finally { clearTimeout(timer); }
+        } finally {
+          clearTimeout(timer);
+        }
+
+        if (!response.ok) {
+          lastError = `${model}: ${response.status}`;
+          console.warn("[generate-3d]", lastError);
+          continue;
+        }
+
+        const result = await response.json();
+        content = result.choices?.[0]?.message?.content || "";
+        const finishReason = result.choices?.[0]?.finish_reason;
+        console.log(`[generate-3d] ${model} ok. len=${content.length} finish=${finishReason}`);
+
+        if (finishReason === "length") {
+          lastError = `${model}: truncated`;
+          continue;
+        }
+        if (content) break;
       } catch (err) {
         lastError = `${model}: ${(err as Error).message}`;
         continue;
@@ -111,42 +138,50 @@ Deno.serve(async (req) => {
     }
 
     if (!content) {
-      return new Response(JSON.stringify({ error: `All models failed. ${lastError}` }),
-        { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      return new Response(
+        JSON.stringify({ error: `All models failed. ${lastError}` }),
+        { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
-    // Extract JSON
-    let jsonStr = content;
-    const mdMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/);
-    if (mdMatch) jsonStr = mdMatch[1].trim();
-    else {
-      const braceMatch = content.match(/\{[\s\S]*\}/);
-      if (braceMatch) jsonStr = braceMatch[0];
+    const parsed = parseFurnitureAnalysisFromLlmText(content);
+    if (!parsed.ok) {
+      console.error("[generate-3d] Parse failed. Head:", content.slice(0, 400));
+      return new Response(
+        JSON.stringify({ error: "AI returned invalid format." }),
+        { status: 422, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
-    let analysis;
-    try { analysis = JSON.parse(jsonStr); }
-    catch {
-      console.error("[generate-3d] Parse failed:", content.slice(0, 400));
-      return new Response(JSON.stringify({ error: "AI returned invalid format." }),
-        { status: 422, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    const raw = parsed.data as Record<string, unknown>;
+    const panelsRaw = Array.isArray(raw.panels) ? raw.panels
+      : Array.isArray(raw.components) ? raw.components
+      : Array.isArray(raw.parts) ? raw.parts : null;
+
+    if (!panelsRaw || panelsRaw.length === 0) {
+      return new Response(
+        JSON.stringify({ error: "No furniture components found." }),
+        { status: 422, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
-    if (!analysis.panels || !Array.isArray(analysis.panels)) {
-      return new Response(JSON.stringify({ error: "No furniture components found." }),
-        { status: 422, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-    }
+    const analysis = { ...raw, panels: panelsRaw };
 
-    logUsage({ userId, functionName: "generate-3d", model: usedModel,
-      tokensIn: 0, tokensOut: Math.ceil(content.length / 4), costUsd: 0.01 }).catch(() => {});
+    logUsage({
+      userId, functionName: "generate-3d", model: usedModel,
+      tokensIn: 0, tokensOut: Math.ceil(content.length / 4), costUsd: 0.01,
+    }).catch(() => {});
 
-    return new Response(JSON.stringify(analysis),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    return new Response(JSON.stringify(analysis), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
 
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";
-    return new Response(JSON.stringify({ error: message }),
+    return new Response(
+      JSON.stringify({ error: message }),
       { status: message.includes("Authorization") ? 401 : 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
   }
 });
