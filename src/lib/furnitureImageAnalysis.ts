@@ -65,6 +65,7 @@ export const FURNITURE_ANALYSIS_SHAPES = [
   "lamp_shade",
   "potted_plant",
   "slat_group",
+  "draped",
 ] as const satisfies readonly PanelShape[];
 
 const VALID_SHAPES = new Set<string>(FURNITURE_ANALYSIS_SHAPES);

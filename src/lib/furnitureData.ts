@@ -271,7 +271,9 @@ export type PanelShape =
   | "mattress" | "books" | "vase" | "basket" | "picture_frame" | "lamp_shade"
   | "potted_plant"
   // Parametric
-  | "slat_group";
+  | "slat_group"
+  // Fabric
+  | "draped";
 
 export interface PanelData {
   id: string;

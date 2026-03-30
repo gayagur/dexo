@@ -232,6 +232,12 @@ function SingleGeometry({
       return <SlatGroupGeometry slatWidth={slatW} slatThickness={slatThick} slatDepth={d + pad * 2} count={count} gap={gap} />;
     }
 
+    case "draped": {
+      // Thin fabric with procedural wave folds
+      const foldIntensity = shapeParams?.softness ?? 0.5;
+      return <DrapedGeometry w={w + pad * 2} h={h + pad * 2} depth={d + pad * 2} foldIntensity={foldIntensity} />;
+    }
+
     case "vase":
       return <VaseGeometry radius={radius + pad} height={h + pad * 2} />;
 
@@ -413,6 +419,59 @@ function CushionGeometry({ w, h, depth, puff }: { w: number; h: number; depth: n
     g.computeVertexNormals();
     return g;
   }, [w, h, depth, puff]);
+
+  return <primitive object={geo} attach="geometry" />;
+}
+
+// ─── Draped Fabric (thin plane with wave folds) ─────────
+
+function DrapedGeometry({ w, h, depth, foldIntensity }: { w: number; h: number; depth: number; foldIntensity: number }) {
+  const geo = useMemo(() => {
+    // Subdivided thin box — enough vertices for smooth waves
+    const segsW = Math.min(24, Math.max(8, Math.round(w * 16)));
+    const segsD = Math.min(24, Math.max(8, Math.round(depth * 16)));
+    const g = new THREE.BoxGeometry(w, h, depth, segsW, 2, segsD);
+
+    const pos = g.attributes.position;
+    const hw = w / 2;
+    const hd = depth / 2;
+    const maxFold = h * foldIntensity * 2; // fold height relative to thickness
+
+    for (let i = 0; i < pos.count; i++) {
+      const x = pos.getX(i);
+      let y = pos.getY(i);
+      const z = pos.getZ(i);
+
+      // Normalized position (0-1)
+      const nx = (x + hw) / w;
+      const nz = (z + hd) / depth;
+
+      // Multiple sine waves for natural-looking folds
+      // Primary fold — broad diagonal waves
+      const fold1 = Math.sin(nx * Math.PI * 3.2 + nz * 1.5) * 0.4;
+      // Secondary fold — perpendicular
+      const fold2 = Math.sin(nz * Math.PI * 2.8 + nx * 0.8) * 0.25;
+      // Tertiary — fine wrinkles
+      const fold3 = Math.sin(nx * Math.PI * 7 + nz * 5) * 0.1;
+      // Edge droop — edges hang lower
+      const edgeFade = Math.sin(nx * Math.PI) * Math.sin(nz * Math.PI);
+      const edgeDroop = (1 - edgeFade) * -0.15;
+
+      const totalFold = (fold1 + fold2 + fold3 + edgeDroop) * maxFold;
+
+      // Only deform top surface significantly, bottom stays flatter
+      if (y > 0) {
+        y += totalFold;
+      } else {
+        y += totalFold * 0.3; // bottom follows slightly
+      }
+
+      pos.setXYZ(i, x, y, z);
+    }
+
+    g.computeVertexNormals();
+    return g;
+  }, [w, h, depth, foldIntensity]);
 
   return <primitive object={geo} attach="geometry" />;
 }
