@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { streamChat, type ChatMessage, uploadFurnitureImage, classifyFurnitureImage, type FurnitureAnalysis } from "@/lib/ai";
+import { streamChat, type ChatMessage, uploadFurnitureImage, classifyFurnitureImage, aiDecomposeFromImage, type FurnitureAnalysis } from "@/lib/ai";
 import { sanitizeEstimatedDims } from "@/lib/furnitureImageAnalysis";
 import { MATERIALS, STYLES, type PanelData, type FurnitureOption } from "@/lib/furnitureData";
 import { Sparkles, Send, Loader2, X, ImagePlus } from "lucide-react";
@@ -282,7 +282,9 @@ export function DesignChatPanel({
     setStreamingText("");
   };
 
-  // ─── Image upload & classification ───────────────────────
+  // ─── Image upload — two modes ───────────────────────────
+  type AnalysisMode = "template" | "ai_decompose";
+  const [analysisMode, setAnalysisMode] = useState<AnalysisMode>("template");
   const [pendingClassification, setPendingClassification] = useState<Record<string, unknown> | null>(null);
 
   const handleImageUpload = useCallback(async (file: File) => {
@@ -296,7 +298,9 @@ export function DesignChatPanel({
     }]);
     setMessages((prev) => [...prev, {
       role: "assistant",
-      content: "Analyzing the furniture in your image...",
+      content: analysisMode === "template"
+        ? "Classifying furniture and matching template..."
+        : "AI decomposing furniture into components...",
     }]);
 
     const { url, error: uploadErr } = await uploadFurnitureImage(file);
@@ -306,32 +310,49 @@ export function DesignChatPanel({
       return;
     }
 
-    // Primary: classify → template match
-    const { data: classification, error: classErr } = await classifyFurnitureImage(url);
-    setIsAnalyzing(false);
+    if (analysisMode === "ai_decompose") {
+      // ─── AI Decompose mode (original pipeline from bd487a9) ───
+      const { data: analysis, error: analysisErr } = await aiDecomposeFromImage(url);
+      setIsAnalyzing(false);
 
-    if (classErr || !classification) {
-      setError(classErr || "Classification failed");
+      if (analysisErr || !analysis) {
+        setError(analysisErr || "AI decomposition failed");
+        setMessages((prev) => [...prev, { role: "assistant", content: `Analysis failed: ${analysisErr || "Unknown error"}` }]);
+        return;
+      }
+
+      const panelList = analysis.panels?.map((p: { label: string; shape: string }) => `• ${p.label} (${p.shape})`).join("\n") ?? "";
       setMessages((prev) => [...prev, {
         role: "assistant",
-        content: `Analysis failed: ${classErr || "Unknown error"}`,
+        content: `**AI Decompose** — ${analysis.name} with ${analysis.panels?.length ?? 0} components:\n${panelList}\n\n**Replace** or **Add**?`,
       }]);
-      return;
+      setPendingAnalysis(analysis);
+      setPendingClassification(null);
+    } else {
+      // ─── Template match mode (primary) ───
+      const { data: classification, error: classErr } = await classifyFurnitureImage(url);
+      setIsAnalyzing(false);
+
+      if (classErr || !classification) {
+        setError(classErr || "Classification failed");
+        setMessages((prev) => [...prev, { role: "assistant", content: `Analysis failed: ${classErr || "Unknown error"}` }]);
+        return;
+      }
+
+      const name = (classification.name as string) ?? "Furniture";
+      const category = (classification.category as string) ?? "";
+      const subtype = (classification.subtype as string) ?? "";
+      const style = (classification.style as string) ?? "";
+      const material = (classification.material as string) ?? "";
+
+      setMessages((prev) => [...prev, {
+        role: "assistant",
+        content: `**Template Match** — ${name}\n\n• Category: ${category}\n• Type: ${subtype}\n• Style: ${style}\n• Material: ${material}\n\n**Replace** or **Add**?`,
+      }]);
+      setPendingClassification(classification);
+      setPendingAnalysis(null);
     }
-
-    const name = (classification.name as string) ?? "Furniture";
-    const category = (classification.category as string) ?? "";
-    const subtype = (classification.subtype as string) ?? "";
-    const style = (classification.style as string) ?? "";
-    const material = (classification.material as string) ?? "";
-
-    setMessages((prev) => [...prev, {
-      role: "assistant",
-      content: `I identified **${name}**\n\n• Category: ${category}\n• Type: ${subtype}\n• Style: ${style}\n• Material: ${material}\n\nWould you like to **replace** the current design or **add** it alongside?`,
-    }]);
-    setPendingClassification(classification);
-    setPendingAnalysis(null);
-  }, [isAnalyzing, isStreaming]);
+  }, [isAnalyzing, isStreaming, analysisMode]);
 
   const handleAnalysisAction = useCallback((mode: "replace" | "add") => {
     // Primary: use classification → template matching
@@ -508,13 +529,25 @@ export function DesignChatPanel({
         </div>
       )}
 
-      {/* Upload photo row */}
-      <div className="flex items-center gap-2 px-3 py-1.5 border-t border-gray-100 bg-gray-50/50 shrink-0">
+      {/* Upload photo row + mode toggle */}
+      <div className="flex items-center justify-between px-3 py-1.5 border-t border-gray-100 bg-gray-50/50 shrink-0">
         <label className="flex items-center gap-1.5 px-2 py-1 text-[10px] text-gray-500 hover:text-[#C87D5A] hover:bg-[#C87D5A]/5 rounded cursor-pointer transition-colors">
           <ImagePlus className="w-3 h-3" />
           Upload photo
           <input type="file" accept="image/*" className="hidden" onChange={handleFileChange} />
         </label>
+        <button
+          type="button"
+          onClick={() => setAnalysisMode(prev => prev === "template" ? "ai_decompose" : "template")}
+          className={`text-[9px] px-2 py-0.5 rounded-full transition-colors ${
+            analysisMode === "ai_decompose"
+              ? "bg-blue-100 text-blue-700"
+              : "bg-gray-100 text-gray-400 hover:text-gray-600"
+          }`}
+          title={analysisMode === "template" ? "Click to switch to AI Decompose mode" : "Click to switch to Template Match mode"}
+        >
+          {analysisMode === "template" ? "Template" : "AI Decompose"}
+        </button>
       </div>
 
       {/* Input area */}

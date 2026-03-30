@@ -448,9 +448,42 @@ export async function classifyFurnitureImage(imageUrl: string): Promise<{ data?:
 }
 
 /**
- * Generate a 3D model (GLB) + part segmentation from a furniture image.
- * Runs FAL.ai 3D generation and Together.ai vision analysis in parallel.
- * Returns GLB URL for visual mesh and analysis for editable parts.
+ * AI Decompose — original pipeline restored from bd487a9.
+ * Uses vision model to decompose image directly into geometric panels.
+ * Returns same format as analyzeFurnitureImage (FurnitureAnalysis).
+ */
+export async function aiDecomposeFromImage(imageUrl: string): Promise<{ data?: FurnitureAnalysis; error?: string }> {
+  try {
+    const headers = await getAuthHeaders();
+    const response = await fetch(`${FUNCTIONS_URL}/generate-3d`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ imageUrl }),
+    });
+
+    let result: Record<string, unknown> = {};
+    try {
+      result = (await response.json()) as Record<string, unknown>;
+    } catch {
+      if (!response.ok) return { error: `AI decomposition failed (HTTP ${response.status}).` };
+    }
+
+    if (!response.ok) {
+      return { error: typeof result.error === "string" ? result.error : "AI decomposition failed" };
+    }
+
+    return { data: result as unknown as FurnitureAnalysis };
+  } catch (err) {
+    const msg = (err as Error).message;
+    if (msg === "Failed to fetch" || msg.includes("NetworkError")) {
+      return { error: "AI decomposition timed out or network error." };
+    }
+    return { error: msg };
+  }
+}
+
+/**
+ * @deprecated Use aiDecomposeFromImage or classifyFurnitureImage instead.
  */
 export async function generate3DFromImage(imageUrl: string): Promise<{
   glbUrl?: string;
