@@ -413,6 +413,17 @@ function CushionGeometry({ w, h, depth, puff }: { w: number; h: number; depth: n
         y += bulge * sinNx * sinNz * Math.sign(y) * 0.25;
       }
 
+      // === Micro surface variation — subtle fabric-like irregularity ===
+      if (puff > 0.1) {
+        const microAmp = minDim * puff * 0.008; // very subtle
+        const microX = Math.sin(x * 31.7 + z * 17.3) * Math.sin(y * 23.1 + x * 13.7) * microAmp;
+        const microY = Math.sin(z * 27.4 + x * 19.1) * Math.sin(y * 29.3 + z * 11.2) * microAmp;
+        const microZ = Math.sin(y * 22.8 + z * 15.6) * Math.sin(x * 25.9 + y * 18.4) * microAmp;
+        x += microX;
+        y += microY;
+        z += microZ;
+      }
+
       pos.setXYZ(i, x, y, z);
     }
 
