@@ -28,7 +28,7 @@ interface DesignChatPanelProps {
   onRemovePanel: (panelLabel: string) => void;
   onAddPanel: (panel: { label: string; type: PanelData["type"]; position: [number, number, number]; size: [number, number, number]; materialId: string }) => void;
   onBuildFromImage: (analysis: FurnitureAnalysis, mode: "replace" | "add") => void;
-  onBuildFromClassification?: (classification: Record<string, unknown>, mode: "replace" | "add") => void;
+  onBuildFromClassification: (classification: Record<string, unknown>, mode: "replace" | "add") => void;
   onClose: () => void;
 }
 
@@ -335,8 +335,13 @@ export function DesignChatPanel({
 
   const handleAnalysisAction = useCallback((mode: "replace" | "add") => {
     // Primary: use classification → template matching
-    if (pendingClassification && onBuildFromClassification) {
-      onBuildFromClassification(pendingClassification, mode);
+    if (pendingClassification) {
+      try {
+        onBuildFromClassification(pendingClassification, mode);
+      } catch (err) {
+        console.error("Template build failed:", err);
+        setError(`Build failed: ${(err as Error).message}`);
+      }
       setMessages((prev) => [...prev, {
         role: "assistant",
         content: `Done! ${mode === "replace" ? "Replaced" : "Added"} furniture from template.`,
@@ -354,7 +359,7 @@ export function DesignChatPanel({
         : `Done! Added ${pendingAnalysis.panels.length} components to the scene.`,
     }]);
     setPendingAnalysis(null);
-  }, [pendingAnalysis, onBuildFromImage]);
+  }, [pendingAnalysis, pendingClassification, onBuildFromImage, onBuildFromClassification]);
 
   const handleFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -475,24 +480,6 @@ export function DesignChatPanel({
           </div>
         )}
 
-        {/* Pending analysis: Replace/Add buttons */}
-        {(pendingAnalysis || pendingClassification) && (
-          <div className="flex gap-2 px-1">
-            <button
-              onClick={() => handleAnalysisAction("replace")}
-              className="flex-1 py-2 rounded-lg bg-[#C87D5A] hover:bg-[#B06B4A] text-white text-xs font-medium transition-colors"
-            >
-              Replace current
-            </button>
-            <button
-              onClick={() => handleAnalysisAction("add")}
-              className="flex-1 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-medium border border-gray-200 transition-colors"
-            >
-              Add to scene
-            </button>
-          </div>
-        )}
-
         {/* Error */}
         {error && (
           <div className="px-3 py-2 rounded-lg bg-red-50 border border-red-200 text-red-600 text-xs">
@@ -500,6 +487,26 @@ export function DesignChatPanel({
           </div>
         )}
       </div>
+
+      {/* Replace/Add — outside scroll so handler always sees fresh state; avoids scroll/touch quirks */}
+      {(pendingAnalysis || pendingClassification) && (
+        <div className="flex gap-2 px-3 py-2 border-t border-gray-100 bg-white shrink-0 z-10">
+          <button
+            type="button"
+            onClick={() => handleAnalysisAction("replace")}
+            className="flex-1 touch-manipulation py-2.5 rounded-lg bg-[#C87D5A] hover:bg-[#B06B4A] text-white text-xs font-medium transition-colors"
+          >
+            Replace current
+          </button>
+          <button
+            type="button"
+            onClick={() => handleAnalysisAction("add")}
+            className="flex-1 touch-manipulation py-2.5 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-medium border border-gray-200 transition-colors"
+          >
+            Add to scene
+          </button>
+        </div>
+      )}
 
       {/* Upload photo row */}
       <div className="flex items-center gap-2 px-3 py-1.5 border-t border-gray-100 bg-gray-50/50 shrink-0">
