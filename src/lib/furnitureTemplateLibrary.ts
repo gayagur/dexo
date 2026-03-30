@@ -338,7 +338,27 @@ export const TEMPLATE_REGISTRY: TemplateVariant[] = [
   // ════ B. CHAIRS & ACCENT SEATING (30) ══════════════════
   { id: "dining_chair_upholstered", name: "Upholstered Dining Chair", category: "chair", subtypes: ["dining_chair"], styles: ["modern", "contemporary"], tags: ["dining"], defaultDims: { w: 0.48, h: 0.85, d: 0.52 }, defaultMaterial: "fabric_cream", buildPanels: (w, h, d, m) => { resetPid(); return [p("Seat", "horizontal", "cushion_firm", [0, 0.46, 0.02], [0.42, 0.06, 0.40], m), p("Back", "vertical", "cushion_firm", [0, 0.72, -0.20], [0.40, 0.36, 0.06], m), p("Leg FL", "vertical", "tapered_leg", [-0.18, 0.22, 0.18], [0.03, 0.44, 0.03], "oak"), p("Leg FR", "vertical", "tapered_leg", [0.18, 0.22, 0.18], [0.03, 0.44, 0.03], "oak"), p("Leg BL", "vertical", "tapered_leg", [-0.18, 0.22, -0.18], [0.03, 0.44, 0.03], "oak"), p("Leg BR", "vertical", "tapered_leg", [0.18, 0.22, -0.18], [0.03, 0.44, 0.03], "oak")]; } },
   { id: "wood_dining_chair", name: "Wood Dining Chair", category: "chair", subtypes: ["dining_chair"], styles: ["scandinavian", "classic"], tags: ["wood", "dining"], defaultDims: { w: 0.45, h: 0.82, d: 0.50 }, defaultMaterial: "oak", buildPanels: (w, h, d, m) => { resetPid(); return [p("Seat", "horizontal", "rounded_rect", [0, 0.44, 0], [0.40, 0.03, 0.38], m, { shapeParams: { cornerRadius: 0.03 } }), p("Back", "vertical", "rounded_rect", [0, 0.70, -0.18], [0.36, 0.36, 0.02], m, { shapeParams: { cornerRadius: 0.02 } }), p("Leg FL", "vertical", "tapered_leg", [-0.17, 0.22, 0.16], [0.03, 0.44, 0.03], m), p("Leg FR", "vertical", "tapered_leg", [0.17, 0.22, 0.16], [0.03, 0.44, 0.03], m), p("Leg BL", "vertical", "cylinder", [-0.16, 0.34, -0.16], [0.03, 0.68, 0.03], m), p("Leg BR", "vertical", "cylinder", [0.16, 0.34, -0.16], [0.03, 0.68, 0.03], m)]; } },
-  { id: "barrel_chair", name: "Barrel Chair", category: "chair", subtypes: ["accent_chair", "barrel_chair"], styles: ["modern", "contemporary"], tags: ["curved", "accent"], defaultDims: { w: 0.75, h: 0.78, d: 0.72 }, defaultMaterial: "fabric_sage", buildPanels: (w, h, d, m) => buildSofa(w, h, d, m, { ...SOFA_MODERN, seats: 1, armW: 0.12 }) },
+  { id: "barrel_tub_chair", name: "Curved Barrel/Tub Chair", category: "chair", subtypes: ["accent_chair", "barrel_chair", "tub_chair", "club_chair"], styles: ["modern", "contemporary", "scandinavian"], tags: ["curved", "wraparound", "tub", "barrel"],
+    defaultDims: { w: 0.75, h: 0.75, d: 0.72 }, defaultMaterial: "fabric_cream",
+    buildPanels: (w, h, d, m) => {
+      resetPid();
+      const legH = 0.18;
+      const shellH = h - legH;
+      const seatTopY = legH + shellH * 0.35;
+      return [
+        p("Shell", "vertical", "padded_block", [0, legH + shellH / 2, -0.02], [w - 0.02, shellH, d - 0.04], m),
+        p("Seat", "horizontal", "cushion", [0, seatTopY, 0.04], [w * 0.65, 0.07, d * 0.70], m),
+        p("Leg FL", "vertical", "cylinder", [-w / 2 + 0.08, legH / 2, d / 2 - 0.08], [0.03, legH, 0.03], "oak"),
+        p("Leg FR", "vertical", "cylinder", [w / 2 - 0.08, legH / 2, d / 2 - 0.08], [0.03, legH, 0.03], "oak"),
+        p("Leg BL", "vertical", "cylinder", [-w / 2 + 0.08, legH / 2, -d / 2 + 0.08], [0.03, legH, 0.03], "oak"),
+        p("Leg BR", "vertical", "cylinder", [w / 2 - 0.08, legH / 2, -d / 2 + 0.08], [0.03, legH, 0.03], "oak"),
+        p("Stretcher F", "horizontal", undefined, [0, legH * 0.5, d / 2 - 0.08], [w - 0.20, 0.02, 0.02], "oak"),
+        p("Stretcher L", "horizontal", undefined, [-w / 2 + 0.08, legH * 0.5, 0], [0.02, 0.02, d - 0.20], "oak"),
+        p("Stretcher R", "horizontal", undefined, [w / 2 - 0.08, legH * 0.5, 0], [0.02, 0.02, d - 0.20], "oak"),
+        p("Stretcher B", "horizontal", undefined, [0, legH * 0.5, -d / 2 + 0.08], [w - 0.20, 0.02, 0.02], "oak"),
+      ];
+    },
+  },
   { id: "wingback_chair", name: "Mid-Century Wingback Chair", category: "chair", subtypes: ["wingback", "armchair", "accent_chair"], styles: ["mid_century", "modern", "classic", "scandinavian"], tags: ["wingback", "tall_back", "tapered_legs", "tufted"],
     defaultDims: { w: 0.72, h: 0.95, d: 0.74 }, defaultMaterial: "fabric_sage",
     buildPanels: (w, h, d, mat) => {

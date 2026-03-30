@@ -1405,6 +1405,47 @@ export const LIBRARY_TEMPLATES: LibraryTemplate[] = [
   },
 
   {
+    id: "barrel_tub_chair",
+    name: "Curved Barrel Chair",
+    category: "chairs",
+    icon: "💺",
+    description: "Wraparound upholstered tub chair with exposed wood legs and stretchers",
+    dims: { w: 750, h: 750, d: 720 },
+    buildPanels: (dims) => {
+      _pid = 0;
+      const w = dims.w / 1000, h = dims.h / 1000, d = dims.d / 1000;
+      const mat = "fabric_cream";
+      const woodMat = "oak";
+      const legH = 0.18;
+      const shellH = h - legH;
+      const shellT = 0.06; // shell thickness
+      const seatH = 0.07;
+      const seatTopY = legH + shellH * 0.35;
+      const seatD = d * 0.70;
+      const seatW = w * 0.65;
+
+      return [
+        // Wraparound shell — the curved back+sides as one padded block
+        padded("Shell", "vertical", [0, legH + shellH / 2, -0.02], [w - 0.02, shellH, d - 0.04], mat),
+        // Inner cavity cutout effect — darker recessed interior
+        padded("Inner back", "vertical", [0, legH + shellH * 0.55, -d / 2 + shellT + 0.10], [w - shellT * 2 - 0.06, shellH * 0.65, 0.04], mat),
+        // Seat cushion — thick, deep
+        cushion("Seat cushion", "horizontal", [0, seatTopY, 0.04], [seatW, seatH, seatD], mat),
+        // Wood frame — 4 legs
+        cyl("Leg FL", [-w / 2 + 0.08, legH / 2, d / 2 - 0.08], 0.03, legH, woodMat),
+        cyl("Leg FR", [w / 2 - 0.08, legH / 2, d / 2 - 0.08], 0.03, legH, woodMat),
+        cyl("Leg BL", [-w / 2 + 0.08, legH / 2, -d / 2 + 0.08], 0.03, legH, woodMat),
+        cyl("Leg BR", [w / 2 - 0.08, legH / 2, -d / 2 + 0.08], 0.03, legH, woodMat),
+        // Stretcher rails connecting legs
+        box("Stretcher front", "horizontal", [0, legH * 0.5, d / 2 - 0.08], [w - 0.20, 0.02, 0.02], woodMat),
+        box("Stretcher left", "horizontal", [-w / 2 + 0.08, legH * 0.5, 0], [0.02, 0.02, d - 0.20], woodMat),
+        box("Stretcher right", "horizontal", [w / 2 - 0.08, legH * 0.5, 0], [0.02, 0.02, d - 0.20], woodMat),
+        box("Stretcher back", "horizontal", [0, legH * 0.5, -d / 2 + 0.08], [w - 0.20, 0.02, 0.02], woodMat),
+      ];
+    },
+  },
+
+  {
     id: "wingback_chair",
     name: "Mid-Century Wingback Chair",
     category: "chairs",
