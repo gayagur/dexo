@@ -422,21 +422,21 @@ export const TEMPLATE_REGISTRY: TemplateVariant[] = [
       const seatY = 0.48, seatT = 0.10;
       const backH = 0.52, backT = 0.08, backY = seatY + seatT / 2 + backH / 2 + 0.02, backZ = -0.20;
       const headH = 0.14, headY = backY + backH / 2 + headH / 2 + 0.02;
-      const armX = 0.28, armSY = seatY - 0.02, armPY = seatY + 0.06;
+      const armX = 0.27, armSY = seatY + 0.02, armPY = seatY + seatT / 2 + 0.02;
       const liftH = 0.22, liftY = seatY - seatT / 2 - liftH / 2;
-      const baseY = liftY - liftH / 2 - 0.02, baseR = 0.31;
+      const baseY = liftY - liftH / 2 - 0.02, baseR = 0.33;
       const cAngles = [0, 72, 144, 216, 288].map(a => a * Math.PI / 180);
       return [
         p("Seat", "horizontal", "cushion_firm", [0, seatY, 0.02], [0.52, seatT, 0.50], m),
         p("Backrest", "vertical", "cushion_firm", [0, backY, backZ], [0.48, backH, backT], m, { rotation: [-0.12, 0, 0] }),
         p("Headrest", "horizontal", "cushion", [0, headY, backZ + 0.02], [0.30, headH, 0.07], m),
-        p("L arm post", "vertical", undefined, [-armX, armSY, 0.02], [0.04, 0.22, 0.28], dark),
-        p("L arm pad", "horizontal", "cushion_firm", [-armX, armPY, 0.02], [0.08, 0.04, 0.24], m),
-        p("R arm post", "vertical", undefined, [armX, armSY, 0.02], [0.04, 0.22, 0.28], dark),
-        p("R arm pad", "horizontal", "cushion_firm", [armX, armPY, 0.02], [0.08, 0.04, 0.24], m),
+        p("L arm post", "vertical", undefined, [-armX, armSY, 0.04], [0.035, 0.16, 0.04], dark),
+        p("L arm pad", "horizontal", "padded_block", [-armX, armPY, 0.04], [0.07, 0.035, 0.30], m),
+        p("R arm post", "vertical", undefined, [armX, armSY, 0.04], [0.035, 0.16, 0.04], dark),
+        p("R arm pad", "horizontal", "padded_block", [armX, armPY, 0.04], [0.07, 0.035, 0.30], m),
         p("Gas lift", "vertical", "cylinder", [0, liftY, 0], [0.06, liftH, 0.06], dark),
         p("Star base", "horizontal", "x_base", [0, baseY, 0], [0.62, 0.04, 0.62], chrome),
-        ...cAngles.map((a, i) => p(`Caster ${i + 1}`, "vertical", "caster", [Math.cos(a) * baseR, 0.025, Math.sin(a) * baseR], [0.05, 0.05, 0.05], dark)),
+        ...cAngles.map((a, i) => p(`Caster ${i + 1}`, "vertical", "sphere", [Math.cos(a) * baseR, 0.035, Math.sin(a) * baseR], [0.06, 0.06, 0.06], dark)),
       ];
     },
   },

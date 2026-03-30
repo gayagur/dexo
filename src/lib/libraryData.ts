@@ -1430,11 +1430,11 @@ export const LIBRARY_TEMPLATES: LibraryTemplate[] = [
       const headW = 0.30, headH = 0.14, headT = 0.07;
       const headY = backY + backH / 2 + headH / 2 + 0.02;
 
-      // Arms — support rod + padded top
-      const armX = 0.28;
-      const armSupportH = 0.22;
-      const armSupportY = seatY - 0.02;
-      const armPadY = seatY + 0.06;
+      // Arms — angled support + long padded top
+      const armX = 0.27;
+      const armSupportH = 0.16;
+      const armSupportY = seatY + 0.02;
+      const armPadY = seatY + seatT / 2 + 0.02;
 
       // Gas lift
       const liftH = 0.22;
@@ -1445,8 +1445,8 @@ export const LIBRARY_TEMPLATES: LibraryTemplate[] = [
       const baseSize = 0.62;
 
       // Caster positions (5-point star)
-      const casterR = baseSize / 2;
-      const casterY = 0.025;
+      const casterR = baseSize / 2 + 0.02;
+      const casterY = 0.035;
       const casterAngles = [0, 72, 144, 216, 288].map(a => a * Math.PI / 180);
 
       return [
@@ -1456,21 +1456,19 @@ export const LIBRARY_TEMPLATES: LibraryTemplate[] = [
         firmCushion("Backrest", "vertical", [0, backY, backZ], [backW, backH, backT], mat, [-0.12, 0, 0]),
         // Headrest
         cushion("Headrest", "horizontal", [0, headY, backZ + 0.02], [headW, headH, headT], mat),
-        // Left arm support (metal post)
-        box("Left arm support", "vertical", [-armX, armSupportY, 0.02], [0.04, armSupportH, 0.28], darkMat),
-        // Left arm pad
-        firmCushion("Left arm pad", "horizontal", [-armX, armPadY, 0.02], [0.08, 0.04, 0.24], mat),
-        // Right arm support
-        box("Right arm support", "vertical", [armX, armSupportY, 0.02], [0.04, armSupportH, 0.28], darkMat),
-        // Right arm pad
-        firmCushion("Right arm pad", "horizontal", [armX, armPadY, 0.02], [0.08, 0.04, 0.24], mat),
+        // Left arm — curved support + long padded rest
+        box("Left arm support", "vertical", [-armX, armSupportY, 0.04], [0.035, armSupportH, 0.04], darkMat),
+        padded("Left arm pad", "horizontal", [-armX, armPadY, 0.04], [0.07, 0.035, 0.30], mat),
+        // Right arm
+        box("Right arm support", "vertical", [armX, armSupportY, 0.04], [0.035, armSupportH, 0.04], darkMat),
+        padded("Right arm pad", "horizontal", [armX, armPadY, 0.04], [0.07, 0.035, 0.30], mat),
         // Gas lift cylinder
         cyl("Gas lift", [0, liftY, 0], 0.06, liftH, darkMat),
         // Chrome star base
         { id: pid(), type: "horizontal" as const, shape: "x_base" as PanelShape, label: "Star base", position: [0, baseY, 0] as [number,number,number], size: [baseSize, 0.04, baseSize] as [number,number,number], materialId: metalMat },
         // 5 casters
         ...casterAngles.map((angle, i) => (
-          { id: pid(), type: "vertical" as const, shape: "caster" as PanelShape, label: `Caster ${i + 1}`, position: [Math.cos(angle) * casterR, casterY, Math.sin(angle) * casterR] as [number,number,number], size: [0.05, 0.05, 0.05] as [number,number,number], materialId: darkMat }
+          { id: pid(), type: "vertical" as const, shape: "sphere" as PanelShape, label: `Caster ${i + 1}`, position: [Math.cos(angle) * casterR, casterY, Math.sin(angle) * casterR] as [number,number,number], size: [0.06, 0.06, 0.06] as [number,number,number], materialId: darkMat }
         )),
       ];
     },
