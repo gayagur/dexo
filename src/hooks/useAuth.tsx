@@ -5,6 +5,7 @@ import {
   useEffect,
   useCallback,
   useMemo,
+  useRef,
   type ReactNode,
 } from "react";
 import { supabase } from "@/lib/supabase";
@@ -93,6 +94,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     creatorApproved: false,
     loading: true,
   });
+
+  // Skip next onAuthStateChange fetchRole if signIn already handled it
+  const skipNextFetchRef = useRef(false);
 
   const fetchRole = useCallback(async (user: User): Promise<{ role: Role | null; activeRole: Role | null; isAdmin: boolean; isCreator: boolean; creatorApproved: boolean }> => {
     // 1. Check profiles table — try with active_role first, fall back without it
@@ -234,7 +238,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // For real auth changes (SIGNED_IN, TOKEN_REFRESHED, etc.),
       // wait for initSession to finish first to avoid overwriting its result.
       if (!initDone) {
-        // initSession is still in-flight — it will handle this session.
+        return;
+      }
+
+      // If signIn already set the correct state (role mismatch case), skip this fetch
+      if (skipNextFetchRef.current) {
+        skipNextFetchRef.current = false;
         return;
       }
 
@@ -332,15 +341,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // Handle role mismatch: user selected a different role than their DB role
         // Update active_role in DB immediately so onAuthStateChange reads the correct value
         if (data.user && selectedRole) {
-          const { role: actualRole } = await fetchRole(data.user);
+          const result = await fetchRole(data.user);
+          const actualRole = result.role;
           if (actualRole && actualRole !== selectedRole) {
-            // Switch active_role in DB before onAuthStateChange fires
+            // Switch active_role in DB
             await supabase
               .from("profiles")
               .update({ active_role: selectedRole })
               .eq("id", data.user.id);
-            // Update local state immediately
-            setState((prev) => ({ ...prev, activeRole: selectedRole }));
+            // Force full state update with new activeRole + all other fields
+            // Set flag so onAuthStateChange doesn't overwrite with stale data
+            skipNextFetchRef.current = true;
+            setState((prev) => ({
+              ...prev,
+              session: data.session,
+              user: data.user,
+              role: actualRole,
+              activeRole: selectedRole,
+              isAdmin: result.isAdmin,
+              isCreator: result.isCreator,
+              creatorApproved: result.creatorApproved,
+              loading: false,
+            }));
             return { error: null, roleMismatch: { actualRole } };
           }
         }
