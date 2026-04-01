@@ -5,7 +5,6 @@ import {
   useEffect,
   useCallback,
   useMemo,
-  useRef,
   type ReactNode,
 } from "react";
 import { supabase } from "@/lib/supabase";
@@ -23,7 +22,9 @@ interface AuthState {
   activeRole: Role | null;
   isAdmin: boolean;
   isCreator: boolean;
+  isBusiness: boolean;
   creatorApproved: boolean;
+  needsRoleSelection: boolean;
   loading: boolean;
 }
 
@@ -34,8 +35,8 @@ export interface AuthResult {
 }
 
 interface AuthContextValue extends AuthState {
-  signUp: (email: string, password: string, name: string, role: Role) => Promise<AuthResult>;
-  signIn: (email: string, password: string, selectedRole?: Role) => Promise<AuthResult>;
+  signUp: (email: string, password: string, name: string) => Promise<AuthResult>;
+  signIn: (email: string, password: string) => Promise<AuthResult>;
   signInWithGoogle: () => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
   /** Switch the active role. Returns error string or null. */
@@ -77,7 +78,26 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
   ]);
 }
 
+function getUnknownErrorMessage(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message;
+  }
+  return "Something went wrong, please try again.";
+}
+
 const OAUTH_ROLE_KEY = "dexo_oauth_role";
+const ROLE_SELECTION_KEY_PREFIX = "dexo_needs_role_selection:";
+
+function getRoleSelectionKey(userId: string) {
+  return `${ROLE_SELECTION_KEY_PREFIX}${userId}`;
+}
+
+function normalizeRole(value: unknown): Role | null {
+  if (value === "customer" || value === "business" || value === "creator") {
+    return value;
+  }
+  return null;
+}
 
 // ─── Context ────────────────────────────────────────────────
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -91,108 +111,95 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     activeRole: null,
     isAdmin: false,
     isCreator: false,
+    isBusiness: false,
     creatorApproved: false,
+    needsRoleSelection: false,
     loading: true,
   });
-
-  // Skip next onAuthStateChange fetchRole if signIn already handled it
-  const skipNextFetchRef = useRef(false);
-
-  const fetchRole = useCallback(async (user: User): Promise<{ role: Role | null; activeRole: Role | null; isAdmin: boolean; isCreator: boolean; creatorApproved: boolean }> => {
-    // 1. Check profiles table — try with active_role first, fall back without it
+  const fetchRole = useCallback(async (user: User): Promise<{
+    role: Role | null;
+    activeRole: Role | null;
+    isAdmin: boolean;
+    isCreator: boolean;
+    isBusiness: boolean;
+    creatorApproved: boolean;
+    needsRoleSelection: boolean;
+  }> => {
     const { data, error } = await supabase
       .from("profiles")
-      .select("role, active_role, is_admin, is_creator, creator_approved")
+      .select("*")
       .eq("id", user.id)
-      .single();
+      .maybeSingle();
 
-    if (data?.role) {
-      return {
-        role: data.role as Role,
-        activeRole: (data.active_role as Role) ?? (data.role as Role),
-        isAdmin: data.is_admin ?? false,
-        isCreator: data.is_creator ?? false,
-        creatorApproved: data.creator_approved ?? false,
-      };
-    }
-
-    // If query failed (e.g. active_role column doesn't exist yet), retry without it
     if (error) {
-      const { data: fallback } = await supabase
-        .from("profiles")
-        .select("role, is_admin")
-        .eq("id", user.id)
-        .single();
-
-      if (fallback?.role) {
-        return {
-          role: fallback.role as Role,
-          activeRole: fallback.role as Role,
-          isAdmin: fallback.is_admin ?? false,
-          isCreator: false,
-          creatorApproved: false,
-        };
-      }
+      throw error;
     }
 
-    // 2. Check user_metadata (set during email signUp)
-    const metaRole = user.user_metadata?.role as Role | undefined;
-    if (metaRole) return { role: metaRole, activeRole: metaRole, isAdmin: false, isCreator: false, creatorApproved: false };
-
-    // 3. Check localStorage (Google OAuth flow stashes role here)
-    // Only use if the CURRENT login was via Google OAuth — prevents stale role
-    // from a previous user's session from applying to a different user
-    const savedRole = localStorage.getItem(OAUTH_ROLE_KEY) as Role | null;
-    localStorage.removeItem(OAUTH_ROLE_KEY); // ALWAYS clear immediately regardless
-    const isOAuthLogin = user.app_metadata?.provider === "google" ||
-      (user.app_metadata?.providers as string[] | undefined)?.includes("google");
-    if (savedRole && isOAuthLogin) {
-      console.log("[fetchRole] Google OAuth return — applying saved role:", savedRole);
-
-      // AWAIT the DB update — don't fire-and-forget
-      supabase.auth.updateUser({ data: { role: savedRole } }).catch(() => {});
-
-      // For EXISTING users: just update active_role (don't overwrite other fields)
-      // For NEW users: upsert the full profile
-      const { data: existing } = await supabase
+    if (!data) {
+      const defaultRole: Role = "customer";
+      const { error: insertError } = await supabase
         .from("profiles")
-        .select("id, is_creator, creator_approved, is_admin")
-        .eq("id", user.id)
-        .single();
+        .insert({
+          id: user.id,
+          email: user.email ?? "",
+          name: user.user_metadata?.full_name || user.user_metadata?.name || "",
+          avatar_url: user.user_metadata?.avatar_url || null,
+          role: defaultRole,
+          active_role: defaultRole,
+          is_admin: false,
+          is_creator: false,
+          is_business: false,
+          creator_approved: false,
+          creator_profile: null,
+        });
 
-      if (existing) {
-        // Existing user — only update active_role
-        console.log("[fetchRole] Existing user — updating active_role to:", savedRole);
-        await supabase
-          .from("profiles")
-          .update({ active_role: savedRole })
-          .eq("id", user.id);
-      } else {
-        // New user — create profile
-        console.log("[fetchRole] New user — creating profile with role:", savedRole);
-        await supabase
-          .from("profiles")
-          .insert({
-            id: user.id,
-            email: user.email ?? "",
-            name: user.user_metadata?.full_name || user.user_metadata?.name || "",
-            role: savedRole,
-            active_role: savedRole,
-            is_admin: false,
-          });
+      if (insertError) {
+        throw insertError;
       }
 
+      localStorage.setItem(getRoleSelectionKey(user.id), "true");
+
       return {
-        role: existing ? (data?.role as Role ?? savedRole) : savedRole,
-        activeRole: savedRole,
-        isAdmin: existing?.is_admin ?? false,
-        isCreator: existing?.is_creator ?? false,
-        creatorApproved: existing?.creator_approved ?? false,
+        role: defaultRole,
+        activeRole: defaultRole,
+        isAdmin: false,
+        isCreator: false,
+        isBusiness: false,
+        creatorApproved: false,
+        needsRoleSelection: true,
       };
     }
 
-    // 4. Default
-    return { role: "customer", activeRole: "customer", isAdmin: false, isCreator: false, creatorApproved: false };
+    const role = normalizeRole(data.role) ?? "customer";
+    let activeRole = normalizeRole(data.active_role) ?? role;
+    const isAdmin = Boolean(data.is_admin);
+    const isCreator = Boolean(data.is_creator);
+    const creatorApproved = Boolean(data.creator_approved);
+    const isBusiness = Boolean((data as { is_business?: boolean }).is_business ?? data.is_creator ?? role === "business");
+    let needsRoleSelection = localStorage.getItem(getRoleSelectionKey(user.id)) === "true";
+
+    if (activeRole !== role && !isBusiness) {
+      await supabase
+        .from("profiles")
+        .update({ active_role: role })
+        .eq("id", user.id);
+      activeRole = role;
+    }
+
+    if (needsRoleSelection && (isBusiness || role !== "customer" || activeRole !== "customer")) {
+      localStorage.removeItem(getRoleSelectionKey(user.id));
+      needsRoleSelection = false;
+    }
+
+    return {
+      role,
+      activeRole,
+      isAdmin,
+      isCreator,
+      isBusiness,
+      creatorApproved,
+      needsRoleSelection,
+    };
   }, []);
 
   useEffect(() => {
@@ -211,7 +218,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         let activeRole: Role | null = null;
         let isAdmin = false;
         let isCreator = false;
+        let isBusiness = false;
         let creatorApproved = false;
+        let needsRoleSelection = false;
         if (session?.user) {
           try {
             const result = await withTimeout(fetchRole(session.user), 8000);
@@ -219,15 +228,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             activeRole = result.activeRole;
             isAdmin = result.isAdmin;
             isCreator = result.isCreator;
+            isBusiness = result.isBusiness;
             creatorApproved = result.creatorApproved;
+            needsRoleSelection = result.needsRoleSelection;
           } catch {
             /* use defaults — role will resolve via onAuthStateChange */
           }
         }
-        setState({ session, user: session?.user ?? null, role, activeRole, isAdmin, isCreator, creatorApproved, loading: false });
+        setState({
+          session,
+          user: session?.user ?? null,
+          role,
+          activeRole,
+          isAdmin,
+          isCreator,
+          isBusiness,
+          creatorApproved,
+          needsRoleSelection,
+          loading: false,
+        });
       } catch {
         if (mounted) {
-          setState({ session: null, user: null, role: null, activeRole: null, isAdmin: false, isCreator: false, creatorApproved: false, loading: false });
+          setState({
+            session: null,
+            user: null,
+            role: null,
+            activeRole: null,
+            isAdmin: false,
+            isCreator: false,
+            isBusiness: false,
+            creatorApproved: false,
+            needsRoleSelection: false,
+            loading: false,
+          });
         }
       }
       initDone = true;
@@ -260,7 +293,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       // For SIGNED_OUT, clear everything immediately — no fetch needed
       if (!session?.user) {
-        setState({ session: null, user: null, role: null, activeRole: null, isAdmin: false, isCreator: false, creatorApproved: false, loading: false });
+        setState({
+          session: null,
+          user: null,
+          role: null,
+          activeRole: null,
+          isAdmin: false,
+          isCreator: false,
+          isBusiness: false,
+          creatorApproved: false,
+          needsRoleSelection: false,
+          loading: false,
+        });
         return;
       }
 
@@ -270,35 +314,49 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      // If signIn already set the correct state, skip this fetch
-      if (skipNextFetchRef.current) {
-        skipNextFetchRef.current = false;
-        console.log("[onAuthStateChange] Skipping fetchRole — signIn already set state");
-        return;
-      }
       console.log("[onAuthStateChange] event:", event, "— fetching role...");
 
       let role: Role | null = null;
       let activeRole: Role | null = null;
       let isAdmin = false;
       let isCreator = false;
+      let isBusiness = false;
       let creatorApproved = false;
+      let needsRoleSelection = false;
       try {
         const result = await withTimeout(fetchRole(session.user), 8000);
         role = result.role;
         activeRole = result.activeRole;
         isAdmin = result.isAdmin;
         isCreator = result.isCreator;
+        isBusiness = result.isBusiness;
         creatorApproved = result.creatorApproved;
+        needsRoleSelection = result.needsRoleSelection;
       } catch {
         setState((prev) => ({
           session, user: session.user, role: prev.role, activeRole: prev.activeRole,
-          isAdmin: prev.isAdmin, isCreator: prev.isCreator, creatorApproved: prev.creatorApproved, loading: false,
+          isAdmin: prev.isAdmin,
+          isCreator: prev.isCreator,
+          isBusiness: prev.isBusiness,
+          creatorApproved: prev.creatorApproved,
+          needsRoleSelection: prev.needsRoleSelection,
+          loading: false,
         }));
         return;
       }
       console.log("[onAuthStateChange] Setting state: role=", role, "activeRole=", activeRole);
-      setState({ session, user: session.user, role, activeRole, isAdmin, isCreator, creatorApproved, loading: false });
+      setState({
+        session,
+        user: session.user,
+        role,
+        activeRole,
+        isAdmin,
+        isCreator,
+        isBusiness,
+        creatorApproved,
+        needsRoleSelection,
+        loading: false,
+      });
     });
 
     return () => {
@@ -310,13 +368,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // ─── Auth Methods ───────────────────────────────────────
   const signUp = useCallback(
-    async (email: string, password: string, name: string, role: Role): Promise<AuthResult> => {
+    async (email: string, password: string, name: string): Promise<AuthResult> => {
       try {
         const { data, error } = await withTimeout(
           supabase.auth.signUp({
             email,
             password,
-            options: { data: { name, role } },
+            options: { data: { name } },
           }),
           30000
         );
@@ -340,94 +398,63 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (data.user) {
           await supabase
             .from("profiles")
-            .upsert({ id: data.user.id, email, name, role, active_role: role, is_admin: false }, { onConflict: "id" });
+            .upsert(
+              {
+                id: data.user.id,
+                email,
+                name,
+                avatar_url: data.user.user_metadata?.avatar_url || null,
+                role: "customer",
+                active_role: "customer",
+                is_admin: false,
+                is_creator: false,
+                is_business: false,
+                creator_approved: false,
+                creator_profile: null,
+              },
+              { onConflict: "id" }
+            );
+          localStorage.setItem(getRoleSelectionKey(data.user.id), "true");
         }
 
-        analytics.userSignedUp('email', role);
+        analytics.userSignedUp('email', 'customer');
         return { error: null };
-      } catch (e: any) {
-        if (e.message === "TIMEOUT") return { error: "TIMEOUT" };
-        if (e.message?.toLowerCase().includes("fetch") || e.message?.toLowerCase().includes("network")) {
+      } catch (e: unknown) {
+        const message = getUnknownErrorMessage(e);
+        if (message === "TIMEOUT") return { error: "TIMEOUT" };
+        if (message.toLowerCase().includes("fetch") || message.toLowerCase().includes("network")) {
           return { error: "NETWORK_ERROR" };
         }
-        return { error: e.message || "Something went wrong, please try again." };
+        return { error: message };
       }
     },
     []
   );
 
   const signIn = useCallback(
-    async (email: string, password: string, selectedRole?: Role): Promise<AuthResult> => {
+    async (email: string, password: string): Promise<AuthResult> => {
       try {
-        // Set skip BEFORE signIn — onAuthStateChange fires immediately
-        // when signInWithPassword resolves, before our code continues
-        if (selectedRole) {
-          skipNextFetchRef.current = true;
-        }
-
-        const { data, error } = await withTimeout(
+        const { error } = await withTimeout(
           supabase.auth.signInWithPassword({ email, password }),
           30000
         );
         if (error) {
-          skipNextFetchRef.current = false;
           const msg = getAuthErrorMessage(error);
           if (msg === "RATE_LIMIT") return { error: "RATE_LIMIT" };
           if (msg === "NETWORK_ERROR") return { error: "NETWORK_ERROR" };
           return { error: msg };
         }
-
-        // ALWAYS set active_role to selectedRole on login
-        if (data.user && selectedRole) {
-          const result = await fetchRole(data.user);
-          const actualRole = result.role;
-          const currentActiveRole = result.activeRole;
-
-          console.log("[signIn] selectedRole:", selectedRole, "| DB role:", actualRole, "| DB active_role:", currentActiveRole);
-
-          // ALWAYS force update active_role — no conditional check
-          console.log("[signIn] Force-updating active_role to:", selectedRole);
-          const { error: updateErr, data: updateData } = await supabase
-            .from("profiles")
-            .update({ active_role: selectedRole })
-            .eq("id", data.user.id)
-            .select("active_role");
-
-          if (updateErr) {
-            console.error("[signIn] DB UPDATE FAILED:", updateErr.message, updateErr.details, updateErr.hint);
-          } else {
-            console.log("[signIn] DB UPDATE SUCCESS:", updateData);
-          }
-
-          // Force full state update with correct activeRole
-          console.log("[signIn] Setting state activeRole =", selectedRole);
-          setState((prev) => ({
-            ...prev,
-            session: data.session,
-            user: data.user,
-            role: actualRole,
-            activeRole: selectedRole,
-            isAdmin: result.isAdmin,
-            isCreator: result.isCreator,
-            creatorApproved: result.creatorApproved,
-            loading: false,
-          }));
-
-          if (actualRole && actualRole !== selectedRole) {
-            return { error: null, roleMismatch: { actualRole } };
-          }
-        }
-
         return { error: null };
-      } catch (e: any) {
-        if (e.message === "TIMEOUT") return { error: "TIMEOUT" };
-        if (e.message?.toLowerCase().includes("fetch") || e.message?.toLowerCase().includes("network")) {
+      } catch (e: unknown) {
+        const message = getUnknownErrorMessage(e);
+        if (message === "TIMEOUT") return { error: "TIMEOUT" };
+        if (message.toLowerCase().includes("fetch") || message.toLowerCase().includes("network")) {
           return { error: "NETWORK_ERROR" };
         }
-        return { error: e.message || "Something went wrong, please try again." };
+        return { error: message };
       }
     },
-    [fetchRole]
+    []
   );
 
   const signInWithGoogle = useCallback(async (): Promise<{ error: string | null }> => {
@@ -448,20 +475,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (error) return { error: error.message };
       analytics.userSignedUp('google', 'unknown');
       return { error: null };
-    } catch (e: any) {
-      return { error: e.message || "Something went wrong, please try again." };
+    } catch (e: unknown) {
+      return { error: getUnknownErrorMessage(e) };
     }
   }, []);
 
   const signOut = useCallback(async () => {
-    skipNextFetchRef.current = false;
-    // Clear stale OAuth role — prevents it from applying to the NEXT user
     localStorage.removeItem(OAUTH_ROLE_KEY);
+    localStorage.removeItem("dexo_pending_design");
     await supabase.auth.signOut();
+    setState({
+      session: null,
+      user: null,
+      role: null,
+      activeRole: null,
+      isAdmin: false,
+      isCreator: false,
+      isBusiness: false,
+      creatorApproved: false,
+      needsRoleSelection: false,
+      loading: false,
+    });
   }, []);
 
   const switchRole = useCallback(async (newRole: Role): Promise<{ error: string | null }> => {
     if (!state.user) return { error: "Not authenticated" };
+    if (newRole === "business" && !state.isBusiness) {
+      return { error: "Business profile not available" };
+    }
 
     console.log("[switchRole] Updating active_role to:", newRole, "for user:", state.user.id);
     const { error, data: updateData } = await supabase
@@ -477,9 +518,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     console.log("[switchRole] SUCCESS:", updateData);
 
     analytics.roleSwitch(state.activeRole || 'unknown', newRole);
-    setState((prev) => ({ ...prev, activeRole: newRole }));
+    localStorage.setItem(OAUTH_ROLE_KEY, newRole);
+    setState((prev) => ({
+      ...prev,
+      activeRole: newRole,
+      needsRoleSelection: false,
+    }));
     return { error: null };
-  }, [state.user]);
+  }, [state.activeRole, state.isBusiness, state.user]);
+
+  useEffect(() => {
+    if (state.user?.id && state.activeRole) {
+      localStorage.setItem(OAUTH_ROLE_KEY, state.activeRole);
+      return;
+    }
+
+    localStorage.removeItem(OAUTH_ROLE_KEY);
+  }, [state.activeRole, state.user?.id]);
 
   // ─── Memoised context value ─────────────────────────────
   const value = useMemo<AuthContextValue>(

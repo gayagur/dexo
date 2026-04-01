@@ -15,6 +15,7 @@ export interface Profile {
   avatar_url: string | null;
   is_admin: boolean;
   is_creator: boolean;
+  is_business: boolean;
   creator_approved: boolean;
   creator_profile: Record<string, unknown> | null;
   created_at: string;

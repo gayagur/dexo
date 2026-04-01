@@ -1,54 +1,47 @@
 import { useState, useEffect, useRef } from 'react';
 import { Helmet } from 'react-helmet-async';
-import { useNavigate, useSearchParams, Link, Navigate } from 'react-router-dom';
+import { Link, Navigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useAuth } from '@/hooks/useAuth';
-import type { Role } from '@/lib/database.types';
-import { ArrowLeft, User, Briefcase, Loader2 } from 'lucide-react';
+import { ArrowLeft, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const AuthPage = () => {
-  const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
   const { toast } = useToast();
-  const { user, role, loading: authLoading, signIn, signUp, signInWithGoogle, switchRole } = useAuth();
+  const { user, activeRole, loading: authLoading, needsRoleSelection, signIn, signUp, signInWithGoogle } = useAuth();
 
   const [isSignUp, setIsSignUp] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [selectedRole, setSelectedRole] = useState<Role | null>(
-    (searchParams.get('role') as Role) || null
-  );
   const [formData, setFormData] = useState({
     name: '',
     email: '',
     password: '',
   });
 
-  // Inline validation errors
   const [fieldErrors, setFieldErrors] = useState<{
     name?: string;
     email?: string;
     password?: string;
-    role?: string;
   }>({});
 
-  // Rate limit countdown
   const [rateLimitSeconds, setRateLimitSeconds] = useState(0);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
-    return () => { if (timerRef.current) clearInterval(timerRef.current); };
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
   }, []);
 
   const startRateLimitCountdown = () => {
     setRateLimitSeconds(120);
     if (timerRef.current) clearInterval(timerRef.current);
     timerRef.current = setInterval(() => {
-      setRateLimitSeconds(prev => {
+      setRateLimitSeconds((prev) => {
         if (prev <= 1) {
           if (timerRef.current) clearInterval(timerRef.current);
           return 0;
@@ -58,37 +51,35 @@ const AuthPage = () => {
     }, 1000);
   };
 
-  // If already logged in, redirect to home
-  if (!authLoading && user && role) {
-    return <Navigate to="/home" replace />;
+  if (!authLoading && user) {
+    if (needsRoleSelection) {
+      return <Navigate to="/choose-role" replace />;
+    }
+
+    return <Navigate to={activeRole === 'business' ? '/business' : '/dashboard'} replace />;
   }
 
   const clearFieldError = (field: string) => {
-    setFieldErrors(prev => ({ ...prev, [field]: undefined }));
+    setFieldErrors((prev) => ({ ...prev, [field]: undefined }));
   };
 
-  /** Returns true if all fields are valid */
   const validateFields = (): boolean => {
     const errors: typeof fieldErrors = {};
 
-    if (!selectedRole) {
-      errors.role = "Please select a role";
-    }
-
     if (isSignUp && !formData.name.trim()) {
-      errors.name = "Please enter your name";
+      errors.name = 'Please enter your name';
     }
 
     if (!formData.email.trim()) {
-      errors.email = "Please enter your email";
+      errors.email = 'Please enter your email';
     } else if (!EMAIL_REGEX.test(formData.email)) {
-      errors.email = "Please enter a valid email address";
+      errors.email = 'Please enter a valid email address';
     }
 
     if (!formData.password) {
-      errors.password = "Please enter your password";
+      errors.password = 'Please enter your password';
     } else if (formData.password.length < 6) {
-      errors.password = "Password must be at least 6 characters";
+      errors.password = 'Password must be at least 6 characters';
     }
 
     setFieldErrors(errors);
@@ -97,70 +88,62 @@ const AuthPage = () => {
 
   const handleError = (errorCode: string) => {
     switch (errorCode) {
-      case "RATE_LIMIT":
+      case 'RATE_LIMIT':
         startRateLimitCountdown();
         toast({
-          title: "Too many attempts",
-          description: "Please wait 2 minutes and try again.",
-          variant: "destructive",
+          title: 'Too many attempts',
+          description: 'Please wait 2 minutes and try again.',
+          variant: 'destructive',
         });
         break;
-      case "TIMEOUT":
+      case 'TIMEOUT':
         toast({
-          title: "Request timed out",
-          description: "This is taking too long. Please try again.",
-          variant: "destructive",
+          title: 'Request timed out',
+          description: 'This is taking too long. Please try again.',
+          variant: 'destructive',
         });
         break;
-      case "NETWORK_ERROR":
+      case 'NETWORK_ERROR':
         toast({
-          title: "Connection problem",
-          description: "Check your internet and try again.",
-          variant: "destructive",
+          title: 'Connection problem',
+          description: 'Check your internet and try again.',
+          variant: 'destructive',
         });
         break;
-      case "ALREADY_REGISTERED":
+      case 'ALREADY_REGISTERED':
         toast({
-          title: "Account exists",
-          description: "This email is already registered. Please sign in instead.",
-          variant: "destructive",
+          title: 'Account exists',
+          description: 'This email is already registered. Please sign in instead.',
+          variant: 'destructive',
         });
         setIsSignUp(false);
         break;
       default:
         toast({
-          title: isSignUp ? "Sign up failed" : "Sign in failed",
+          title: isSignUp ? 'Sign up failed' : 'Sign in failed',
           description: errorCode,
-          variant: "destructive",
+          variant: 'destructive',
         });
     }
   };
 
   const handleGoogleSignIn = async () => {
-    if (!selectedRole) {
-      setFieldErrors(prev => ({ ...prev, role: "Please select a role first" }));
-      return;
-    }
-    // Persist role before OAuth redirect — useAuth picks it up on return
-    localStorage.setItem('dexo_oauth_role', selectedRole);
     const { error } = await signInWithGoogle();
     if (error) {
-      localStorage.removeItem('dexo_oauth_role');
-      toast({ title: "Google sign-in failed", description: error, variant: "destructive" });
+      toast({ title: 'Google sign-in failed', description: error, variant: 'destructive' });
     }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Client-side validation first — no Supabase call if invalid
     if (!validateFields()) return;
 
     if (rateLimitSeconds > 0) {
       toast({
-        title: "Please wait",
+        title: 'Please wait',
         description: `Try again in ${rateLimitSeconds} seconds.`,
-        variant: "destructive",
+        variant: 'destructive',
       });
       return;
     }
@@ -169,32 +152,28 @@ const AuthPage = () => {
 
     try {
       if (isSignUp) {
-        const result = await signUp(formData.email, formData.password, formData.name, selectedRole!);
-        if (result.error) {
-          handleError(result.error);
-          return;
-        }
-        toast({
-          title: "Welcome to DEXO!",
-          description: "Your account has been created.",
-        });
-        navigate('/home');
-      } else {
-        const result = await signIn(formData.email, formData.password, selectedRole!);
+        const result = await signUp(formData.email, formData.password, formData.name);
         if (result.error) {
           handleError(result.error);
           return;
         }
 
-        // Force full page reload to ensure auth state is fresh from DB
-        // This bypasses all React state race conditions
-        window.location.href = '/home';
+        toast({
+          title: 'Welcome to DEXO!',
+          description: 'Your account has been created. Choose how you want to use DEXO next.',
+        });
+      } else {
+        const result = await signIn(formData.email, formData.password);
+        if (result.error) {
+          handleError(result.error);
+          return;
+        }
       }
     } catch {
       toast({
-        title: "Something went wrong",
-        description: "Please try again.",
-        variant: "destructive",
+        title: 'Something went wrong',
+        description: 'Please try again.',
+        variant: 'destructive',
       });
     } finally {
       setSubmitting(false);
@@ -205,9 +184,12 @@ const AuthPage = () => {
     <div className="min-h-screen bg-background flex">
       <Helmet>
         <title>{isSignUp ? 'Sign Up' : 'Sign In'} | DEXO</title>
-        <meta name="description" content="Sign in or create your DEXO account to design spaces with AI and connect with interior design professionals." />
+        <meta
+          name="description"
+          content="Sign in or create your DEXO account to design spaces with AI and connect with interior design professionals."
+        />
       </Helmet>
-      {/* Left side - Form */}
+
       <div className="flex-1 flex items-center justify-center p-8">
         <div className="w-full max-w-md space-y-8">
           <div>
@@ -220,52 +202,11 @@ const AuthPage = () => {
             </h1>
             <p className="text-muted-foreground">
               {isSignUp
-                ? 'Join DEXO and start designing your perfect space.'
-                : 'Sign in to continue your design journey.'}
+                ? 'Create your account, then choose how you want to use DEXO.'
+                : 'Sign in first, then continue to the right experience for you.'}
             </p>
           </div>
 
-          {/* Role Selection */}
-          <div className="space-y-3">
-            <Label>I am a...</Label>
-            <div className="grid grid-cols-2 gap-4">
-              <button
-                type="button"
-                onClick={() => { setSelectedRole('customer'); clearFieldError('role'); }}
-                className={`p-6 rounded-xl border-2 transition-all duration-200 text-left ${
-                  selectedRole === 'customer'
-                    ? 'border-primary bg-primary/5 shadow-md'
-                    : fieldErrors.role
-                      ? 'border-destructive'
-                      : 'border-border hover:border-primary/50'
-                }`}
-              >
-                <User className={`w-8 h-8 mb-3 ${selectedRole === 'customer' ? 'text-primary' : 'text-muted-foreground'}`} />
-                <div className="font-medium">Customer</div>
-                <div className="text-sm text-muted-foreground">I want to transform my space</div>
-              </button>
-              <button
-                type="button"
-                onClick={() => { setSelectedRole('business'); clearFieldError('role'); }}
-                className={`p-6 rounded-xl border-2 transition-all duration-200 text-left ${
-                  selectedRole === 'business'
-                    ? 'border-primary bg-primary/5 shadow-md'
-                    : fieldErrors.role
-                      ? 'border-destructive'
-                      : 'border-border hover:border-primary/50'
-                }`}
-              >
-                <Briefcase className={`w-8 h-8 mb-3 ${selectedRole === 'business' ? 'text-primary' : 'text-muted-foreground'}`} />
-                <div className="font-medium">Creator</div>
-                <div className="text-sm text-muted-foreground">I design and create spaces</div>
-              </button>
-            </div>
-            {fieldErrors.role && (
-              <p className="text-sm text-destructive">{fieldErrors.role}</p>
-            )}
-          </div>
-
-          {/* Google Sign-In */}
           <Button
             type="button"
             variant="outline"
@@ -291,7 +232,6 @@ const AuthPage = () => {
             </div>
           </div>
 
-          {/* Rate limit banner */}
           {rateLimitSeconds > 0 && (
             <div className="rounded-lg bg-destructive/10 border border-destructive/20 p-4 text-center">
               <p className="text-sm font-medium text-destructive">
@@ -309,14 +249,16 @@ const AuthPage = () => {
                   type="text"
                   placeholder="Your name"
                   value={formData.name}
-                  onChange={(e) => { setFormData({ ...formData, name: e.target.value }); clearFieldError('name'); }}
+                  onChange={(e) => {
+                    setFormData({ ...formData, name: e.target.value });
+                    clearFieldError('name');
+                  }}
                   className={`h-12 ${fieldErrors.name ? 'border-destructive' : ''}`}
                 />
-                {fieldErrors.name && (
-                  <p className="text-sm text-destructive">{fieldErrors.name}</p>
-                )}
+                {fieldErrors.name && <p className="text-sm text-destructive">{fieldErrors.name}</p>}
               </div>
             )}
+
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
               <Input
@@ -324,13 +266,15 @@ const AuthPage = () => {
                 type="email"
                 placeholder="you@example.com"
                 value={formData.email}
-                onChange={(e) => { setFormData({ ...formData, email: e.target.value }); clearFieldError('email'); }}
+                onChange={(e) => {
+                  setFormData({ ...formData, email: e.target.value });
+                  clearFieldError('email');
+                }}
                 className={`h-12 ${fieldErrors.email ? 'border-destructive' : ''}`}
               />
-              {fieldErrors.email && (
-                <p className="text-sm text-destructive">{fieldErrors.email}</p>
-              )}
+              {fieldErrors.email && <p className="text-sm text-destructive">{fieldErrors.email}</p>}
             </div>
+
             <div className="space-y-2">
               <Label htmlFor="password">Password</Label>
               <Input
@@ -338,12 +282,13 @@ const AuthPage = () => {
                 type="password"
                 placeholder="••••••••"
                 value={formData.password}
-                onChange={(e) => { setFormData({ ...formData, password: e.target.value }); clearFieldError('password'); }}
+                onChange={(e) => {
+                  setFormData({ ...formData, password: e.target.value });
+                  clearFieldError('password');
+                }}
                 className={`h-12 ${fieldErrors.password ? 'border-destructive' : ''}`}
               />
-              {fieldErrors.password && (
-                <p className="text-sm text-destructive">{fieldErrors.password}</p>
-              )}
+              {fieldErrors.password && <p className="text-sm text-destructive">{fieldErrors.password}</p>}
             </div>
 
             <Button type="submit" className="w-full" size="lg" disabled={submitting || rateLimitSeconds > 0}>
@@ -361,18 +306,18 @@ const AuthPage = () => {
           <div className="text-center">
             <button
               type="button"
-              onClick={() => { setIsSignUp(!isSignUp); setFieldErrors({}); }}
+              onClick={() => {
+                setIsSignUp(!isSignUp);
+                setFieldErrors({});
+              }}
               className="text-sm text-muted-foreground hover:text-foreground transition-colors"
             >
-              {isSignUp
-                ? 'Already have an account? Sign in'
-                : "Don't have an account? Sign up"}
+              {isSignUp ? 'Already have an account? Sign in' : "Don't have an account? Sign up"}
             </button>
           </div>
         </div>
       </div>
 
-      {/* Right side - Visual */}
       <div className="hidden lg:flex flex-1 bg-gradient-to-br from-primary/10 via-accent/10 to-secondary items-center justify-center p-12">
         <div className="max-w-lg text-center space-y-6">
           <div className="text-6xl font-serif text-primary">DEXO</div>

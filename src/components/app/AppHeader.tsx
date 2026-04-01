@@ -17,7 +17,7 @@ import { NotificationBell } from './NotificationBell';
 export function AppHeader() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, activeRole, isAdmin, isCreator, creatorApproved, switchRole, signOut } = useAuth();
+  const { user, activeRole, isAdmin, isBusiness, switchRole, signOut } = useAuth();
   const [scrolled, setScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -163,7 +163,7 @@ export function AppHeader() {
                     {userEmail}
                   </span>
                   <span className="text-[10px] text-primary font-medium mt-0.5 uppercase tracking-wider">
-                    {activeRole === 'creator' ? 'Creator mode' : activeRole === 'business' ? 'Business mode' : 'Client mode'}
+                    {activeRole === 'business' ? 'Business mode' : 'Customer mode'}
                   </span>
                 </div>
               </DropdownMenuLabel>
@@ -186,20 +186,31 @@ export function AppHeader() {
                 <span>Settings</span>
               </DropdownMenuItem>
 
-              {isCreator && creatorApproved && (
+              {isBusiness ? (
                 <>
                   <DropdownMenuSeparator className="my-1" />
                   <DropdownMenuItem
                     onClick={async () => {
-                      const newRole = activeRole === 'creator' ? 'customer' : 'creator';
-                      await switchRole(newRole);
-                      // Full reload to ensure auth state picks up the new role
-                      window.location.href = newRole === 'creator' ? '/creator/dashboard' : '/dashboard';
+                      const newRole = activeRole === 'business' ? 'customer' : 'business';
+                      const result = await switchRole(newRole);
+                      if (result.error) return;
+                      navigate(newRole === 'business' ? '/business' : '/dashboard');
                     }}
                     className="px-3 py-2 rounded-lg cursor-pointer gap-2.5"
                   >
                     <ArrowRightLeft className="w-4 h-4 text-muted-foreground" />
-                    <span>{activeRole === 'creator' ? 'Switch to Client' : 'Switch to Creator'}</span>
+                    <span>{activeRole === 'business' ? 'Switch to Customer' : 'Switch to Business'}</span>
+                  </DropdownMenuItem>
+                </>
+              ) : (
+                <>
+                  <DropdownMenuSeparator className="my-1" />
+                  <DropdownMenuItem
+                    onClick={() => navigate('/settings/become-a-creator')}
+                    className="px-3 py-2 rounded-lg cursor-pointer gap-2.5"
+                  >
+                    <ArrowRightLeft className="w-4 h-4 text-muted-foreground" />
+                    <span>Open a Business Profile</span>
                   </DropdownMenuItem>
                 </>
               )}

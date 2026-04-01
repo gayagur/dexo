@@ -239,6 +239,27 @@ const BusinessOnboarding = () => {
         variant: "destructive",
       });
     } else {
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .update({
+          is_business: true,
+          is_creator: true,
+          active_role: 'business',
+          creator_profile: profileData,
+        })
+        .eq('id', user.id);
+
+      if (profileError) {
+        toast({
+          title: "Profile saved, but role update failed",
+          description: profileError.message,
+          variant: "destructive",
+        });
+        setSubmitting(false);
+        return;
+      }
+
+      localStorage.setItem('dexo_oauth_role', 'business');
       toast({
         title: isEditing ? "Profile updated!" : "Welcome to DEXO!",
         description: isEditing

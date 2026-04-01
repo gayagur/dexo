@@ -193,6 +193,11 @@ const App = () => (
                 <BusinessOnboarding />
               </ProtectedRoute>
             } />
+            <Route path="/settings/become-a-creator" element={
+              <ProtectedRoute>
+                <BusinessOnboarding />
+              </ProtectedRoute>
+            } />
             <Route path="/business" element={
               <ProtectedRoute requiredRole="business">
                 <BusinessOverview />
