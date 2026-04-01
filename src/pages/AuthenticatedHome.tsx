@@ -335,14 +335,34 @@ function CategoryExplorer() {
 // ═════════════════════════════════════════════════════════════
 
 const AuthenticatedHome = () => {
+  const navigate = useNavigate();
   const { user, activeRole, isCreator: hasCreatorAccess, creatorApproved } = useAuth();
   const firstName =
     user?.user_metadata?.name?.split(' ')[0] ||
     user?.user_metadata?.full_name?.split(' ')[0] ||
     'there';
-  // Only show creator home if actively in creator/business mode AND approved
-  // Customer role ALWAYS goes to customer dashboard — no detours
-  const showCreatorHome = (activeRole === 'business' || activeRole === 'creator') && hasCreatorAccess && creatorApproved;
+
+  // Business/creator users always go to /business — whether approved or pending
+  // /business already handles the status gate (pending/rejected/suspended)
+  const isBusinessUser = activeRole === 'business' || activeRole === 'creator';
+
+  useEffect(() => {
+    if (isBusinessUser) {
+      navigate('/business', { replace: true });
+    }
+  }, [isBusinessUser, navigate]);
+
+  // Show creator home only if approved AND still on this page (shouldn't happen after redirect)
+  const showCreatorHome = isBusinessUser && hasCreatorAccess && creatorApproved;
+
+  // While redirecting, show nothing
+  if (isBusinessUser) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+      </div>
+    );
+  }
 
   return (
     <AppLayout>
