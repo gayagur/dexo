@@ -140,10 +140,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (metaRole) return { role: metaRole, activeRole: metaRole, isAdmin: false, isCreator: false, creatorApproved: false };
 
     // 3. Check localStorage (Google OAuth flow stashes role here)
+    // Only use if the CURRENT login was via Google OAuth — prevents stale role
+    // from a previous user's session from applying to a different user
     const savedRole = localStorage.getItem(OAUTH_ROLE_KEY) as Role | null;
-    if (savedRole) {
-      localStorage.removeItem(OAUTH_ROLE_KEY);
-      console.log("[fetchRole] Google OAuth return — saved role:", savedRole);
+    localStorage.removeItem(OAUTH_ROLE_KEY); // ALWAYS clear immediately regardless
+    const isOAuthLogin = user.app_metadata?.provider === "google" ||
+      (user.app_metadata?.providers as string[] | undefined)?.includes("google");
+    if (savedRole && isOAuthLogin) {
+      console.log("[fetchRole] Google OAuth return — applying saved role:", savedRole);
 
       // AWAIT the DB update — don't fire-and-forget
       supabase.auth.updateUser({ data: { role: savedRole } }).catch(() => {});
@@ -451,6 +455,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signOut = useCallback(async () => {
     skipNextFetchRef.current = false;
+    // Clear stale OAuth role — prevents it from applying to the NEXT user
+    localStorage.removeItem(OAUTH_ROLE_KEY);
     await supabase.auth.signOut();
   }, []);
 
