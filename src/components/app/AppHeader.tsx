@@ -43,18 +43,20 @@ export function AppHeader() {
     ? [
         { to: '/home', label: 'Home' },
         { to: '/creator/dashboard', label: 'Dashboard' },
+        { to: '/inbox', label: 'Messages' },
       ]
     : activeRole === 'business'
     ? [
         { to: '/business', label: 'Home' },
         { to: '/business', label: 'Dashboard' },
         { to: '/business/projects', label: 'Projects' },
-        { to: '/business/conversations', label: 'Messages' },
+        { to: '/inbox', label: 'Messages' },
       ]
     : [
         { to: '/home', label: 'Home' },
         { to: '/dashboard', label: 'Projects' },
         { to: '/browse-businesses', label: 'Creators' },
+        { to: '/inbox', label: 'Messages' },
       ];
 
   const handleLogout = async () => {

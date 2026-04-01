@@ -953,7 +953,8 @@ function inferPositionsFromLabels(
 }
 
 function debugPositions(stage: string, panels: Array<RawAnalysisPanel | PanelData>): void {
-  if (!import.meta.env.DEV) return;
+  const metaEnv = (import.meta as ImportMeta & { env?: { DEV?: boolean } }).env;
+  if (!metaEnv?.DEV) return;
   const rows = panels.map((panel, index) => {
     const raw = panel as RawAnalysisPanel;
     const cooked = panel as PanelData;

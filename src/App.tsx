@@ -38,6 +38,7 @@ const BusinessProfilePage = lazy(() => import("./pages/BusinessProfilePage"));
 const ProfilePage = lazy(() => import("./pages/ProfilePage"));
 const NewProjectChoice = lazy(() => import("./pages/NewProjectChoice"));
 const SavedDesignsPage = lazy(() => import("./pages/SavedDesignsPage"));
+const InboxPage = lazy(() => import("./pages/InboxPage"));
 const ChooseRolePage = lazy(() => import("./pages/ChooseRolePage"));
 const CreatorDashboard = lazy(() => import("./pages/creator/CreatorDashboard"));
 // Admin (heavy — Tiptap, DataTable, etc.)
@@ -187,6 +188,11 @@ const App = () => (
             <Route path="/saved-designs" element={
               <ProtectedRoute requiredRole="customer">
                 <SavedDesignsPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/inbox" element={
+              <ProtectedRoute>
+                <InboxPage />
               </ProtectedRoute>
             } />
             <Route path="/browse-businesses" element={
