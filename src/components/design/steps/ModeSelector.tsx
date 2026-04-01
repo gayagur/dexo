@@ -17,14 +17,14 @@ export function ModeSelector({ onSelect }: ModeSelectorProps) {
           icon="🪑"
           label="Custom Furniture"
           description="Tables, shelves, cabinets, desks and more. Design from scratch with our 3D editor."
-          imageUrl="https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=600&q=80"
+          imageUrl="https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=400&q=75&auto=format&fit=crop"
           onClick={() => onSelect("furniture")}
         />
         <SelectionCard
           icon="🎨"
           label="Decorative Items"
           description="Wall art, lighting, planters, home accessories. Upload inspiration or describe your vision."
-          imageUrl="https://images.unsplash.com/photo-1586023492125-27b2c045efd7?w=600&q=80"
+          imageUrl="https://images.unsplash.com/photo-1586023492125-27b2c045efd7?w=400&q=75&auto=format&fit=crop"
           onClick={() => onSelect("decorative")}
         />
       </div>

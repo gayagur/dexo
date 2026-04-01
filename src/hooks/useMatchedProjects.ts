@@ -28,7 +28,7 @@ export function useMatchedProjects() {
     const { data: biz, error: bizError } = await timed("useMatchedProjects.business", () =>
       supabase
         .from("businesses")
-        .select("*")
+        .select("id, customer_id, title, description, category, style_tags, budget_min, budget_max, status, ai_concept, created_at")
         .eq("user_id", user.id)
         .maybeSingle()
     );
@@ -51,7 +51,7 @@ export function useMatchedProjects() {
     const { data, error } = await timed("useMatchedProjects.projects", () =>
       supabase
         .from("projects")
-        .select("*")
+        .select("id, customer_id, title, description, category, style_tags, budget_min, budget_max, status, ai_concept, created_at")
         .in("category", categories)
         .neq("status", "draft")
         .order("created_at", { ascending: false })

@@ -17,7 +17,7 @@ export function useOffers(projectId?: string) {
       const { data, error } = await timed("useOffers.fetch", () =>
         supabase
           .from("offers")
-          .select("*")
+          .select("id, project_id, business_id, price, timeline, note, status, created_at")
           .eq("project_id", id)
           .order("created_at", { ascending: false })
           .limit(50)
@@ -85,7 +85,7 @@ export function useBusinessOffers(businessId: string | undefined) {
       const { data, error } = await timed("useBusinessOffers.fetch", () =>
         supabase
           .from("offers")
-          .select("*")
+          .select("id, project_id, business_id, price, timeline, note, status, created_at")
           .eq("business_id", businessId)
           .order("created_at", { ascending: false })
           .limit(100)

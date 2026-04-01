@@ -10,7 +10,7 @@ const METHODS = [
   {
     id: "editor" as const,
     imageUrl:
-      "https://images.unsplash.com/photo-1631679706909-1844bbd07221?w=600&q=80",
+      "https://images.unsplash.com/photo-1631679706909-1844bbd07221?w=400&q=75&auto=format&fit=crop",
     title: "Design It Myself",
     description:
       "Use our visual 3D editor to build your furniture piece — choose dimensions, materials, and style with full control.",
@@ -18,7 +18,7 @@ const METHODS = [
   {
     id: "ai" as const,
     imageUrl:
-      "https://images.unsplash.com/photo-1618221195710-dd6b41faaea6?w=600&q=80",
+      "https://images.unsplash.com/photo-1618221195710-dd6b41faaea6?w=400&q=75&auto=format&fit=crop",
     title: "Let AI Help Me",
     description:
       "Chat with our AI assistant to describe your vision. Upload inspiration images and get a detailed project brief.",

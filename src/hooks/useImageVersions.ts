@@ -23,7 +23,7 @@ export function useImageVersions(
     setLoading(true);
     const { data, error } = await supabase
       .from("image_versions")
-      .select("*")
+      .select("id, project_id, image_url, prompt, version_number, is_current, created_at")
       .eq("project_id", projectId)
       .order("version_number", { ascending: true });
 

@@ -16,7 +16,7 @@ export function useMessages(projectId: string | undefined) {
     const { data, error } = await timed("useMessages.fetch", () =>
       supabase
         .from("messages")
-        .select("*")
+        .select("id, project_id, sender_id, sender_type, content, created_at")
         .eq("project_id", projectId)
         .order("created_at", { ascending: true })
         .limit(200)
