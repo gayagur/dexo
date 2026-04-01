@@ -850,6 +850,185 @@ function nudgeCoplanarVerticalPanels(panels: PanelData[]): void {
   }
 }
 
+function spreadEvenly<T>(items: T[], start: number, end: number, set: (item: T, value: number) => void): void {
+  if (items.length === 0) return;
+  if (items.length === 1) {
+    set(items[0], (start + end) / 2);
+    return;
+  }
+  const span = end - start;
+  items.forEach((item, i) => {
+    const t = i / (items.length - 1);
+    set(item, start + span * t);
+  });
+}
+
+/**
+ * When the vision model identifies the right parts but puts many of them on nearly the same center,
+ * the canvas shows a dense black block. This pass spreads obvious semantic parts into a plausible
+ * furniture layout, but ONLY when the import is clearly collapsed.
+ */
+function repairCollapsedLayout(panels: PanelData[], furnitureName: string): void {
+  if (panels.length < 5) return;
+
+  const bottoms = panels.map((p) => p.position[1] - p.size[1] / 2);
+  const tops = panels.map((p) => p.position[1] + p.size[1] / 2);
+  const lefts = panels.map((p) => p.position[0] - p.size[0] / 2);
+  const rights = panels.map((p) => p.position[0] + p.size[0] / 2);
+  const backs = panels.map((p) => p.position[2] - p.size[2] / 2);
+  const fronts = panels.map((p) => p.position[2] + p.size[2] / 2);
+
+  const minX = Math.min(...lefts);
+  const maxX = Math.max(...rights);
+  const minY = Math.min(...bottoms);
+  const maxY = Math.max(...tops);
+  const minZ = Math.min(...backs);
+  const maxZ = Math.max(...fronts);
+  const spanX = maxX - minX;
+  const spanY = maxY - minY;
+  const spanZ = maxZ - minZ;
+  const cx = (minX + maxX) / 2;
+  const cz = (minZ + maxZ) / 2;
+
+  if (spanX < 0.12 && spanZ < 0.12) return;
+
+  const closePairs = (() => {
+    let close = 0;
+    let total = 0;
+    for (let i = 0; i < panels.length; i++) {
+      for (let j = i + 1; j < panels.length; j++) {
+        total++;
+        const a = panels[i];
+        const b = panels[j];
+        const dx = Math.abs(a.position[0] - b.position[0]);
+        const dy = Math.abs(a.position[1] - b.position[1]);
+        const dz = Math.abs(a.position[2] - b.position[2]);
+        if (dx < 0.09 && dy < 0.12 && dz < 0.09) close++;
+      }
+    }
+    return total > 0 ? close / total : 0;
+  })();
+
+  const meanDistXZ =
+    panels.reduce((sum, p) => {
+      const dx = p.position[0] - cx;
+      const dz = p.position[2] - cz;
+      return sum + Math.sqrt(dx * dx + dz * dz);
+    }, 0) / panels.length;
+  const expectedSpread = Math.max(spanX, spanZ) * 0.22;
+  const looksCollapsed = closePairs > 0.22 || meanDistXZ < expectedSpread;
+  if (!looksCollapsed) return;
+
+  const label = (p: PanelData) => p.label.toLowerCase();
+  const isBackLike = (p: PanelData) =>
+    /\b(back|backrest|headrest|head\s*rest|rear|headboard)\b/i.test(label(p)) || p.type === "back";
+  const isSeatLike = (p: PanelData) =>
+    /\b(seat|cushion|mattress|duvet|blanket|throw|top|surface|desktop|counter)\b/i.test(label(p)) ||
+    (p.type === "horizontal" && p.size[1] <= Math.max(p.size[0], p.size[2]) * 0.3);
+  const isLegLike = (p: PanelData) =>
+    /\b(leg|foot|feet|caster|wheel)\b/i.test(label(p)) || (p.shape ?? "box") === "caster";
+  const isSideLike = (p: PanelData) =>
+    /\b(side|arm|armrest|upright|panel|stile|post)\b/i.test(label(p)) && !isBackLike(p);
+  const isCenterColumn = (p: PanelData) =>
+    /\b(column|pedestal|gas\s*lift|center\s*post|base\s*post|spindle)\b/i.test(label(p)) ||
+    (p.shape ?? "box") === "pedestal";
+
+  const seatLikes = panels.filter(isSeatLike);
+  const backLikes = panels.filter(isBackLike);
+  const legLikes = panels.filter(isLegLike);
+  const sideLikes = panels.filter(isSideLike);
+  const centerColumns = panels.filter(isCenterColumn);
+
+  const planFromSeats = seatLikes.length > 0
+    ? {
+        w: Math.max(...seatLikes.map((p) => p.size[0])),
+        d: Math.max(...seatLikes.map((p) => p.size[2])),
+      }
+    : {
+        w: Math.max(...panels.map((p) => p.size[0])),
+        d: Math.max(...panels.map((p) => p.size[2])),
+      };
+
+  const footW = Math.max(spanX, planFromSeats.w, 0.35);
+  const footD = Math.max(spanZ, planFromSeats.d, 0.35);
+  const leftX = cx - footW / 2;
+  const rightX = cx + footW / 2;
+  const backZ = cz - footD / 2;
+  const frontZ = cz + footD / 2;
+
+  // Large horizontal parts become the main footprint anchors.
+  for (const p of seatLikes) {
+    const L = label(p);
+    const y = Math.max(minY + p.size[1] / 2, p.position[1]);
+    let z = cz;
+    if (/\b(back|rear)\b/i.test(L)) z = backZ + p.size[2] / 2 + 0.015;
+    else if (/\b(front|footrest)\b/i.test(L)) z = frontZ - p.size[2] / 2 - 0.015;
+    p.position = [cx, y, z];
+  }
+
+  // Put back / headrest parts behind the seat area.
+  for (const p of backLikes) {
+    const targetY = Math.max(
+      p.position[1],
+      ...seatLikes.map((s) => s.position[1] + s.size[1] / 2 + p.size[1] / 2 + 0.02),
+      minY + spanY * 0.55,
+    );
+    p.position = [cx, targetY, backZ + p.size[2] / 2 + 0.01];
+  }
+
+  // Center post / gas lift stays centered.
+  for (const p of centerColumns) {
+    p.position = [cx, Math.max(p.size[1] / 2, p.position[1]), cz];
+  }
+
+  // Spread legs / casters to footprint corners or around the perimeter.
+  if (legLikes.length > 0) {
+    const insetX = Math.max(0.03, footW * 0.12);
+    const insetZ = Math.max(0.03, footD * 0.12);
+    const corners: [number, number][] = [
+      [leftX + insetX, backZ + insetZ],
+      [rightX - insetX, backZ + insetZ],
+      [leftX + insetX, frontZ - insetZ],
+      [rightX - insetX, frontZ - insetZ],
+    ];
+    legLikes.forEach((p, i) => {
+      const [tx, tz] = corners[i % corners.length];
+      const y = /\b(caster|wheel)\b/i.test(label(p))
+        ? Math.max(p.size[1] / 2, minY + p.size[1] / 2)
+        : Math.max(p.size[1] / 2, minY + p.size[1] / 2);
+      p.position = [tx, y, tz];
+    });
+  }
+
+  // Spread left/right arms or side panels to the outside edges.
+  const sideCandidates = sideLikes.filter((p) => !legLikes.includes(p) && !centerColumns.includes(p));
+  const leftSide = sideCandidates.filter((_, i) => i % 2 === 0);
+  const rightSide = sideCandidates.filter((_, i) => i % 2 === 1);
+  spreadEvenly(leftSide, backZ + 0.08, frontZ - 0.08, (p, z) => {
+    p.position = [leftX + p.size[0] / 2 + 0.01, p.position[1], z];
+  });
+  spreadEvenly(rightSide, backZ + 0.08, frontZ - 0.08, (p, z) => {
+    p.position = [rightX - p.size[0] / 2 - 0.01, p.position[1], z];
+  });
+
+  // If many generic vertical pieces still sit at center, fan them across X to expose the structure.
+  const centralVerticals = panels
+    .filter((p) => p.type === "vertical" && !backLikes.includes(p) && !legLikes.includes(p) && !centerColumns.includes(p))
+    .filter((p) => Math.abs(p.position[0] - cx) < footW * 0.12);
+  centralVerticals.sort((a, b) => a.label.localeCompare(b.label));
+  spreadEvenly(centralVerticals, leftX + 0.08, rightX - 0.08, (p, x) => {
+    p.position = [x, p.position[1], p.position[2]];
+  });
+
+  // Keep floor contact sane after spreading.
+  for (const p of panels) {
+    const bottom = p.position[1] - p.size[1] / 2;
+    if (bottom < 0) {
+      p.position = [p.position[0], p.position[1] - bottom, p.position[2]];
+    }
+  }
+}
+
 /**
  * General geometry validation — runs on ALL furniture types.
  * Fixes common AI mistakes regardless of category.
@@ -942,6 +1121,7 @@ function validateAndRepairGeometry(panels: PanelData[], furnitureName: string): 
     }
   }
 
+  repairCollapsedLayout(result, furnitureName);
   repairBookcaseShelfSpacing(result, furnitureName);
   nudgeCoplanarVerticalPanels(result);
 

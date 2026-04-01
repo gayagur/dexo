@@ -13,6 +13,20 @@ function adjustBrightness(hex: string, amount: number): string {
   return `#${r.toString(16).padStart(2, "0")}${g.toString(16).padStart(2, "0")}${b.toString(16).padStart(2, "0")}`;
 }
 
+/** Duvets / thin throws as cushion or box — no draped mesh until user converts */
+function canOfferDrapedBlanketConversion(panel: PanelData): boolean {
+  if (panel.shape === "draped") return false;
+  if (panel.type !== "horizontal") return false;
+  const th = panel.size[1];
+  if (th > 0.18 || th <= 0) return false;
+  const mat = MATERIALS.find((m) => m.id === panel.materialId);
+  if (mat?.category !== "Fabric") return false;
+  const L = panel.label.toLowerCase();
+  if (/\b(rug|carpet|towel|curtain|doormat)\b/i.test(L)) return false;
+  if (/\b(blanket|throw|duvet|comforter|runner|coverlet|quilt|bed\s*scarf|spread)\b/i.test(L)) return true;
+  return th <= 0.07;
+}
+
 // ─── Material Swatch with 3D-style thumbnail ─────────────
 function MaterialSwatch({ material, selected, onClick }: {
   material: MaterialOption;
@@ -752,6 +766,39 @@ export function EditorParameters({
           </CollapsibleSection>
         )}
 
+        {/* Offer draped shape for duvets / flat fabric labeled as blanket */}
+        {canOfferDrapedBlanketConversion(panel) && (
+          <CollapsibleSection
+            label="Blanket folds"
+            icon={<span className="text-[11px]">〰️</span>}
+            defaultOpen={true}
+          >
+            <p className="text-[10px] text-gray-500 leading-relaxed mb-2">
+              This piece uses the <span className="font-medium text-gray-600">{panel.shape ?? "box"}</span> shape. Switch to{" "}
+              <span className="font-medium text-gray-600">draped</span> fabric to add pinch folds, wrinkles, and draggable
+              controls in the viewport.
+            </p>
+            <button
+              type="button"
+              onClick={() =>
+                onUpdatePanel(panel.id, {
+                  shape: "draped",
+                  shapeParams: {
+                    ...(panel.shapeParams ?? {}),
+                    softness:
+                      panel.shapeParams?.softness ??
+                      (panel.shape === "cushion" || panel.shape === "cushion_firm" ? 0.55 : 0.62),
+                    foldSpread: panel.shapeParams?.foldSpread ?? 0.14,
+                  },
+                })
+              }
+              className="w-full h-8 rounded-lg bg-[#C87D5A] hover:bg-[#B06B4A] text-white text-[11px] font-medium transition-colors"
+            >
+              Switch to draped blanket
+            </button>
+          </CollapsibleSection>
+        )}
+
         {/* Draped blanket / throw — folds */}
         {panel.shape === "draped" && (
           <CollapsibleSection
@@ -760,8 +807,8 @@ export function EditorParameters({
             defaultOpen={true}
           >
             <p className="text-[10px] text-gray-500 leading-relaxed mb-2">
-              Double-click the blanket in the 3D view to add a pinch. Drag the handles to move it; hold{" "}
-              <kbd className="px-1 py-0.5 rounded bg-gray-100 text-[9px]">Shift</kbd> while dragging to deepen or flatten the fold.
+              Double-click the fabric to add a pinch. Drag the gold handles (camera orbit pauses while dragging); hold{" "}
+              <kbd className="px-1 py-0.5 rounded bg-gray-100 text-[9px]">Shift</kbd> to adjust fold depth.
             </p>
             <div className="mt-2 space-y-2">
               <button

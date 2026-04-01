@@ -935,6 +935,7 @@ export function EditorViewport({
                     onDragStart={(intersectionPoint, clientX) => startDrag(panel.id, intersectionPoint, clientX)}
                     onPanelUpdate={(u) => onUpdatePanel(panel.id, u)}
                     onPanelUpdateLive={(u) => (onUpdatePanelLive ?? onUpdatePanel)(panel.id, u)}
+                    onFoldPointerLock={setInteractionActive}
                   />
                 ))}
               </React.Fragment>
@@ -988,6 +989,7 @@ export function EditorViewport({
                     onDragStart={(intersectionPoint, clientX) => { if (!isDimmed) startGroupDrag(g.id, intersectionPoint, clientX); }}
                     onPanelUpdate={(u) => { if (!isDimmed) onUpdatePanel(panel.id, u); }}
                     onPanelUpdateLive={(u) => { if (!isDimmed) (onUpdatePanelLive ?? onUpdatePanel)(panel.id, u); }}
+                    onFoldPointerLock={setInteractionActive}
                   />
                 ))
               )}
@@ -1025,6 +1027,7 @@ export function EditorViewport({
               onDragStart={(intersectionPoint, clientX) => { if (!isDimmed) startDrag(panel.id, intersectionPoint, clientX); }}
               onPanelUpdate={(u) => { if (!isDimmed) onUpdatePanel(panel.id, u); }}
               onPanelUpdateLive={(u) => { if (!isDimmed) (onUpdatePanelLive ?? onUpdatePanel)(panel.id, u); }}
+              onFoldPointerLock={setInteractionActive}
             />
           );
         })}
@@ -2778,6 +2781,7 @@ function FurniturePanel({
   onDragStart,
   onPanelUpdate,
   onPanelUpdateLive,
+  onFoldPointerLock,
 }: {
   panel: PanelData;
   lightMode: EditorLightMode;
@@ -2792,6 +2796,7 @@ function FurniturePanel({
   onDragStart: (intersectionPoint: THREE.Vector3, clientX: number) => void;
   onPanelUpdate?: (updates: Partial<PanelData>) => void;
   onPanelUpdateLive?: (updates: Partial<PanelData>) => void;
+  onFoldPointerLock?: (locked: boolean) => void;
 }) {
   const panelRootRef = useRef<THREE.Group>(null);
   const mat = MATERIALS.find((m) => m.id === panel.materialId);
@@ -3376,6 +3381,7 @@ function FurniturePanel({
     e.stopPropagation();
     const pts = panel.drapedControlPoints ?? [];
     if (!onPanelUpdate || pts.length >= DRAPED_MAX_FOLD_POINTS) return;
+    if (!e.point) return;
     const root = panelRootRef.current;
     if (!root) return;
     const inv = new THREE.Matrix4().copy(root.matrixWorld).invert();
@@ -3388,6 +3394,8 @@ function FurniturePanel({
     });
   };
 
+  // Main mesh + selection outline must share one parent so ray hits (esp. outline on top)
+  // still bubble onClick / onDoubleClick — otherwise double-click never reaches handlers.
   return (
     <group ref={panelRootRef} position={panel.position} rotation={panelRotation as any}>
       <group
@@ -3411,17 +3419,17 @@ function FurniturePanel({
           {...shapeMatProps}
           envMapIntensity={isMetal ? envMetal : envDefault}
         />
+        {selected && (
+          <ShapeRenderer
+            shape={shape}
+            size={panel.size}
+            shapeParams={panel.shapeParams}
+            drapedControlPoints={drapedPoints}
+            {...shapeMatProps}
+            isOutline
+          />
+        )}
       </group>
-      {selected && (
-        <ShapeRenderer
-          shape={shape}
-          size={panel.size}
-          shapeParams={panel.shapeParams}
-          drapedControlPoints={drapedPoints}
-          {...shapeMatProps}
-          isOutline
-        />
-      )}
       {shape === "draped" &&
         selected &&
         !dimmed &&
@@ -3434,6 +3442,7 @@ function FurniturePanel({
             rootRef={panelRootRef}
             onLive={onPanelUpdateLive}
             onCommit={onPanelUpdate}
+            onPointerInteractionLock={onFoldPointerLock}
           />
         )}
     </group>
