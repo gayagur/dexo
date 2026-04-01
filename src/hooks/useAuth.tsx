@@ -356,18 +356,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
           console.log("[signIn] selectedRole:", selectedRole, "| DB role:", actualRole, "| DB active_role:", currentActiveRole);
 
-          // Always update active_role in DB to match what user selected
-          if (currentActiveRole !== selectedRole) {
-            console.log("[signIn] Updating active_role in DB:", currentActiveRole, "→", selectedRole);
-            const { error: updateErr } = await supabase
-              .from("profiles")
-              .update({ active_role: selectedRole })
-              .eq("id", data.user.id);
-            if (updateErr) {
-              console.error("[signIn] Failed to update active_role:", updateErr.message);
-            }
+          // ALWAYS force update active_role — no conditional check
+          console.log("[signIn] Force-updating active_role to:", selectedRole);
+          const { error: updateErr, data: updateData } = await supabase
+            .from("profiles")
+            .update({ active_role: selectedRole })
+            .eq("id", data.user.id)
+            .select("active_role");
+
+          if (updateErr) {
+            console.error("[signIn] DB UPDATE FAILED:", updateErr.message, updateErr.details, updateErr.hint);
           } else {
-            console.log("[signIn] active_role already matches, no DB update needed");
+            console.log("[signIn] DB UPDATE SUCCESS:", updateData);
           }
 
           // Force full state update with correct activeRole
@@ -432,12 +432,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const switchRole = useCallback(async (newRole: Role): Promise<{ error: string | null }> => {
     if (!state.user) return { error: "Not authenticated" };
 
-    const { error } = await supabase
+    console.log("[switchRole] Updating active_role to:", newRole, "for user:", state.user.id);
+    const { error, data: updateData } = await supabase
       .from("profiles")
       .update({ active_role: newRole })
-      .eq("id", state.user.id);
+      .eq("id", state.user.id)
+      .select("active_role");
 
-    if (error) return { error: error.message };
+    if (error) {
+      console.error("[switchRole] FAILED:", error.message, error.details, error.hint);
+      return { error: error.message };
+    }
+    console.log("[switchRole] SUCCESS:", updateData);
 
     analytics.roleSwitch(state.activeRole || 'unknown', newRole);
     setState((prev) => ({ ...prev, activeRole: newRole }));
