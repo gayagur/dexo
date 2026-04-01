@@ -335,34 +335,15 @@ function CategoryExplorer() {
 // ═════════════════════════════════════════════════════════════
 
 const AuthenticatedHome = () => {
-  const navigate = useNavigate();
   const { user, activeRole, isCreator: hasCreatorAccess, creatorApproved } = useAuth();
   const firstName =
     user?.user_metadata?.name?.split(' ')[0] ||
     user?.user_metadata?.full_name?.split(' ')[0] ||
     'there';
 
-  // Only business role redirects to /business dashboard
-  // Creator role stays on customer home (with creator section if approved)
-  const isBusinessRole = activeRole === 'business';
-
-  useEffect(() => {
-    if (isBusinessRole) {
-      navigate('/business', { replace: true });
-    }
-  }, [isBusinessRole, navigate]);
-
-  // Show creator home if actively in creator/business mode AND approved
+  // Show creator home ONLY if actively in creator/business mode AND approved
+  // No auto-redirect — let user stay on /home and see the appropriate view
   const showCreatorHome = (activeRole === 'business' || activeRole === 'creator') && hasCreatorAccess && creatorApproved;
-
-  // While redirecting business users, show spinner
-  if (isBusinessRole) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
-      </div>
-    );
-  }
 
   return (
     <AppLayout>
