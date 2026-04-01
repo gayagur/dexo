@@ -186,24 +186,9 @@ const AuthPage = () => {
           return;
         }
 
-        // Role mismatch: user's DB role differs from selected role
-        // signIn already switched active_role in DB, just navigate
-        if (result.roleMismatch) {
-          toast({
-            title: "Welcome back!",
-            description: selectedRole === 'business'
-              ? "Let's set up your creator profile."
-              : "Redirecting you to your dashboard.",
-          });
-          navigate('/home');
-          return;
-        }
-
-        toast({
-          title: "Welcome back!",
-          description: "Redirecting you to your dashboard...",
-        });
-        navigate('/home');
+        // Force full page reload to ensure auth state is fresh from DB
+        // This bypasses all React state race conditions
+        window.location.href = '/home';
       }
     } catch {
       toast({
