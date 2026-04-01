@@ -342,21 +342,21 @@ const AuthenticatedHome = () => {
     user?.user_metadata?.full_name?.split(' ')[0] ||
     'there';
 
-  // Business/creator users always go to /business — whether approved or pending
-  // /business already handles the status gate (pending/rejected/suspended)
-  const isBusinessUser = activeRole === 'business' || activeRole === 'creator';
+  // Only business role redirects to /business dashboard
+  // Creator role stays on customer home (with creator section if approved)
+  const isBusinessRole = activeRole === 'business';
 
   useEffect(() => {
-    if (isBusinessUser) {
+    if (isBusinessRole) {
       navigate('/business', { replace: true });
     }
-  }, [isBusinessUser, navigate]);
+  }, [isBusinessRole, navigate]);
 
-  // Show creator home only if approved AND still on this page (shouldn't happen after redirect)
-  const showCreatorHome = isBusinessUser && hasCreatorAccess && creatorApproved;
+  // Show creator home if actively in creator/business mode AND approved
+  const showCreatorHome = (activeRole === 'business' || activeRole === 'creator') && hasCreatorAccess && creatorApproved;
 
-  // While redirecting, show nothing
-  if (isBusinessUser) {
+  // While redirecting business users, show spinner
+  if (isBusinessRole) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
