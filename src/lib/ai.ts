@@ -472,6 +472,11 @@ export async function aiDecomposeFromImage(imageUrl: string): Promise<{ data?: F
       return { error: typeof result.error === "string" ? result.error : "AI decomposition failed" };
     }
 
+    if (import.meta.env.DEV) {
+      (window as typeof window & { __lastAiAnalysis?: unknown }).__lastAiAnalysis = result;
+      console.log("[aiDecomposeFromImage] raw analysis response", result);
+    }
+
     return { data: result as unknown as FurnitureAnalysis };
   } catch (err) {
     const msg = (err as Error).message;

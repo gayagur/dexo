@@ -10,6 +10,7 @@ import {
   fabricRepeatSpans,
   panelShouldHaveFabricTufting,
 } from "@/lib/fabricTufting";
+import { ShapeRenderer } from "@/components/design/editor/ShapeRenderer";
 import * as THREE from "three";
 
 // ─── Auto-fit camera to bounding box ────────────────────
@@ -67,9 +68,8 @@ function PreviewPanel({ panel }: { panel: PanelData }) {
   const roughness = mat?.roughness ?? (isMetal ? 0.3 : 0.7);
   const metalness = mat?.metalness ?? (isMetal ? 0.8 : 0.05);
   const shape = panel.shape ?? "box";
-  const radius = panel.size[0] / 2;
-  const cylHeight = panel.size[1];
   const rotation = panel.rotation ?? [0, 0, 0];
+  const isBasicShape = shape === "box" || shape === "cylinder" || shape === "sphere" || shape === "cone";
 
   // PBR textures (skip for custom colors and glass)
   const textures = useMemo(() => {
@@ -80,19 +80,9 @@ function PreviewPanel({ panel }: { panel: PanelData }) {
       return cloneFabricTexturesWithTufting(base, panel);
     }
     return base;
-  }, [
-    panel.customColor,
-    mat?.id,
-    mat?.color,
-    mat?.category,
-    panel.id,
-    panel.label,
-    panel.shape,
-    panel.type,
-    panel.size,
-  ]);
+  }, [mat, panel]);
 
-  useMemo(() => {
+  useEffect(() => {
     if (!textures) return;
     const [w, , d] = panel.size;
     let repX: number;
@@ -109,7 +99,7 @@ function PreviewPanel({ panel }: { panel: PanelData }) {
     [textures.map, textures.normalMap, textures.roughnessMap].forEach(t => {
       t.repeat.set(repX, repY);
     });
-  }, [textures, panel.size, panel.label, panel.shape, isFabric]);
+  }, [textures, panel, panel.size, panel.label, panel.shape, isFabric]);
 
   const normalScale = useMemo(() => {
     if (!mat) return new THREE.Vector2(0.3, 0.3);
@@ -126,7 +116,9 @@ function PreviewPanel({ panel }: { panel: PanelData }) {
     return getFabricRenderingParams(mat.id, color, "day");
   }, [isFabric, mat, color]);
 
-  function renderGeometry() {
+  function renderBasicGeometry() {
+    const radius = panel.size[0] / 2;
+    const cylHeight = panel.size[1];
     switch (shape) {
       case "cylinder":
         return <cylinderGeometry args={[radius, radius, cylHeight, 24]} />;
@@ -140,50 +132,63 @@ function PreviewPanel({ panel }: { panel: PanelData }) {
   }
 
   return (
-    <mesh
-      position={panel.position}
-      rotation={rotation as [number, number, number]}
-      castShadow
-      receiveShadow
-    >
-      {renderGeometry()}
-      {isGlass ? (
-        <meshStandardMaterial
-          color={color}
-          roughness={0.05}
-          metalness={0}
-          transparent
-          opacity={0.3}
-        />
-      ) : textures && (shape === "box" || shape === "cushion" || shape === "mattress") && isFabric && fabricParams ? (
-        <meshPhysicalMaterial
-          map={textures.map}
-          normalMap={textures.normalMap}
-          normalScale={normalScale}
-          roughnessMap={textures.roughnessMap}
-          roughness={roughness}
-          metalness={0}
-          {...fabricParams}
-        />
-      ) : textures && shape === "box" ? (
-        <meshStandardMaterial
-          map={textures.map}
-          normalMap={textures.normalMap}
-          normalScale={normalScale}
-          roughnessMap={textures.roughnessMap}
-          roughness={roughness}
-          metalness={metalness}
-          envMapIntensity={isMetal ? 1.5 : 0.8}
-        />
+    <group position={panel.position} rotation={rotation as [number, number, number]}>
+      {isBasicShape ? (
+        <mesh castShadow receiveShadow>
+          {renderBasicGeometry()}
+          {isGlass ? (
+            <meshStandardMaterial
+              color={color}
+              roughness={0.05}
+              metalness={0}
+              transparent
+              opacity={0.3}
+            />
+          ) : textures && (shape === "box" || shape === "cushion" || shape === "mattress") && isFabric && fabricParams ? (
+            <meshPhysicalMaterial
+              map={textures.map}
+              normalMap={textures.normalMap}
+              normalScale={normalScale}
+              roughnessMap={textures.roughnessMap}
+              roughness={roughness}
+              metalness={0}
+              {...fabricParams}
+            />
+          ) : textures && shape === "box" ? (
+            <meshStandardMaterial
+              map={textures.map}
+              normalMap={textures.normalMap}
+              normalScale={normalScale}
+              roughnessMap={textures.roughnessMap}
+              roughness={roughness}
+              metalness={metalness}
+              envMapIntensity={isMetal ? 1.5 : 0.8}
+            />
+          ) : (
+            <meshStandardMaterial
+              color={color}
+              roughness={roughness}
+              metalness={metalness}
+              envMapIntensity={isMetal ? 1.5 : 0.8}
+            />
+          )}
+        </mesh>
       ) : (
-        <meshStandardMaterial
+        <ShapeRenderer
+          shape={shape}
+          size={panel.size}
+          shapeParams={panel.shapeParams}
           color={color}
           roughness={roughness}
           metalness={metalness}
+          transparent={!!isGlass}
+          opacity={isGlass ? 0.3 : 1}
+          map={textures?.map}
           envMapIntensity={isMetal ? 1.5 : 0.8}
+          drapedControlPoints={panel.drapedControlPoints}
         />
       )}
-    </mesh>
+    </group>
   );
 }
 

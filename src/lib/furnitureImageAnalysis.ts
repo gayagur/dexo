@@ -69,6 +69,19 @@ export const FURNITURE_ANALYSIS_SHAPES = [
 ] as const satisfies readonly PanelShape[];
 
 const VALID_SHAPES = new Set<string>(FURNITURE_ANALYSIS_SHAPES);
+const SHAPE_ALIASES: Record<string, PanelShape> = {
+  roundedrect: "rounded_rect",
+  "rounded-rect": "rounded_rect",
+  "rounded rectangle": "rounded_rect",
+  roundedrectangle: "rounded_rect",
+  cushionfirm: "cushion_firm",
+  "firm cushion": "cushion_firm",
+  cushionblock: "cushion_firm",
+  softbox: "cushion_firm",
+  soft_box: "cushion_firm",
+  paddedblock: "padded_block",
+  "padded block": "padded_block",
+};
 
 const SHAPE_PARAM_KEYS = new Set([
   "cornerRadius",
@@ -153,6 +166,19 @@ export type RawAnalysisPanel = {
   shape?: unknown;
   position?: unknown;
   size?: unknown;
+  x?: unknown;
+  y?: unknown;
+  z?: unknown;
+  w?: unknown;
+  h?: unknown;
+  d?: unknown;
+  width?: unknown;
+  height?: unknown;
+  depth?: unknown;
+  offset?: unknown;
+  bounds?: unknown;
+  min?: unknown;
+  max?: unknown;
   materialId?: unknown;
   shapeParams?: unknown;
   rotation?: unknown;
@@ -162,33 +188,38 @@ export type RawAnalysisPanel = {
 /** Vision models often emit mm in panel fields; normalize before clamping (which capped 1800→10m). */
 function scaleRawAnalysisPanelsToMeters(rawPanels: RawAnalysisPanel[]): RawAnalysisPanel[] {
   if (rawPanels.length === 0) return rawPanels;
+  const extracted = rawPanels.map((raw) => {
+    const size = extractRawSize(raw);
+    const position = extractRawPosition(raw, size);
+    return { raw, size, position };
+  });
   let maxPos = 0;
   let maxSize = 0;
-  for (const p of rawPanels) {
-    if (Array.isArray(p.position)) {
-      for (const x of p.position) {
-        const n = Math.abs(Number(x));
-        if (Number.isFinite(n)) maxPos = Math.max(maxPos, n);
-      }
+  for (const item of extracted) {
+    if (item.position) {
+      for (const value of item.position) maxPos = Math.max(maxPos, Math.abs(value));
     }
-    if (Array.isArray(p.size)) {
-      for (const x of p.size) {
-        const n = Math.abs(Number(x));
-        if (Number.isFinite(n)) maxSize = Math.max(maxSize, n);
-      }
+    if (item.size) {
+      for (const value of item.size) maxSize = Math.max(maxSize, Math.abs(value));
     }
   }
   const scalePos = maxPos > 14 ? 0.001 : 1;
   const scaleSize = maxSize > 5 ? 0.001 : 1;
-  if (scalePos === 1 && scaleSize === 1) return rawPanels;
+  if (scalePos === 1 && scaleSize === 1) {
+    return extracted.map(({ raw, position, size }) => ({
+      ...raw,
+      ...(position ? { position } : {}),
+      ...(size ? { size } : {}),
+    }));
+  }
 
-  return rawPanels.map((p) => {
-    const out: RawAnalysisPanel = { ...p };
-    if (scalePos !== 1 && Array.isArray(p.position)) {
-      out.position = p.position.map((x) => Number(x) * scalePos) as unknown;
+  return extracted.map(({ raw, position, size }) => {
+    const out: RawAnalysisPanel = { ...raw };
+    if (position) {
+      out.position = position.map((x) => x * scalePos) as unknown;
     }
-    if (scaleSize !== 1 && Array.isArray(p.size)) {
-      out.size = p.size.map((x) => Number(x) * scaleSize) as unknown;
+    if (size) {
+      out.size = size.map((x) => x * scaleSize) as unknown;
     }
     return out;
   });
@@ -400,7 +431,7 @@ function normalizeVerticalAxisymmetricPanel(panel: PanelData): PanelData {
   if (panel.type !== "vertical") return panel;
   if (sh !== "cylinder" && sh !== "cone" && sh !== "tapered_leg") return panel;
 
-  let [w, h, d] = panel.size;
+  const [w, h, d] = panel.size;
   if (h >= w - 1e-6 && h >= d - 1e-6) {
     const diam = Math.max(0.008, (w + d) / 2);
     return { ...panel, size: [diam, h, diam] };
@@ -421,7 +452,10 @@ function normalizeVerticalAxisymmetricPanel(panel: PanelData): PanelData {
  */
 export function normalizeAnalysisPanel(raw: RawAnalysisPanel, id: string): PanelData {
   const shapeStr = typeof raw.shape === "string" ? raw.shape.trim() : "box";
-  const shapeOk = VALID_SHAPES.has(shapeStr) ? (shapeStr as PanelShape) : "box";
+  const shapeKey = shapeStr.toLowerCase().replace(/\s+/g, " ");
+  const aliasedShape = SHAPE_ALIASES[shapeKey] ?? SHAPE_ALIASES[shapeKey.replace(/[\s-]+/g, "")];
+  const normalizedShapeStr = aliasedShape ?? shapeStr;
+  const shapeOk = VALID_SHAPES.has(normalizedShapeStr) ? (normalizedShapeStr as PanelShape) : "box";
 
   const mat = typeof raw.materialId === "string" ? raw.materialId.trim() : "";
   const materialId = VALID_MATERIAL_IDS.has(mat) ? mat : "oak";
@@ -431,14 +465,22 @@ export function normalizeAnalysisPanel(raw: RawAnalysisPanel, id: string): Panel
       ? raw.label.trim().slice(0, 120)
       : "Part";
 
-  const position = num3(raw.position, [0, 0.5, 0]);
-  const size = num3(raw.size, [0.2, 0.2, 0.05]).map((n) => Math.max(0.008, Math.min(n, 10))) as [
+  const extractedSize = extractRawSize(raw) ?? num3(raw.size, [0.2, 0.2, 0.05]);
+  const extractedPosition = extractRawPosition(raw, extractedSize) ?? [0, 0.5, 0];
+  const position = extractedPosition.map((n) => Math.max(-10, Math.min(n, 10))) as [number, number, number];
+  const size = extractedSize.map((n) => Math.max(0.008, Math.min(n, 10))) as [
     number,
     number,
     number,
   ];
 
-  const shapeParams = sanitizeShapeParams(raw.shapeParams);
+  const shapeParams = enhanceImportedShapeParams(
+    shapeOk,
+    label,
+    materialId,
+    size,
+    sanitizeShapeParams(raw.shapeParams),
+  );
   const rotation = optionalRotation(raw.rotation);
 
   const cr = finite(raw.cornerRadius);
@@ -459,6 +501,394 @@ export function normalizeAnalysisPanel(raw: RawAnalysisPanel, id: string): Panel
   };
 
   return panel;
+}
+
+function enhanceImportedShapeParams(
+  shape: PanelShape,
+  label: string,
+  materialId: string,
+  size: [number, number, number],
+  shapeParams?: Record<string, number>,
+): Record<string, number> | undefined {
+  const next = { ...(shapeParams ?? {}) };
+  const lower = label.toLowerCase();
+  const upholstered = /^(fabric_|leather_|velvet_)/.test(materialId);
+  const isSeatLike = /\b(seat|cushion|back|backrest|arm|armrest|headrest|pad|pillow)\b/i.test(lower);
+  const minDim = Math.min(...size);
+  const planDim = Math.max(size[0], size[2]);
+
+  if (shape === "rounded_rect") {
+    const strongRadius = upholstered || isSeatLike
+      ? Math.min(Math.max(minDim * 0.22, 0.02), 0.08)
+      : Math.min(Math.max(minDim * 0.12, 0.008), 0.04);
+    next.cornerRadius = Math.max(next.cornerRadius ?? 0, strongRadius);
+  }
+
+  if (shape === "cushion_firm") {
+    const targetSoftness =
+      upholstered || isSeatLike
+        ? (planDim > size[1] * 1.6 ? 0.62 : 0.52)
+        : 0.42;
+    next.softness = Math.max(next.softness ?? 0, targetSoftness);
+  }
+
+  if (shape === "padded_block") {
+    next.softness = Math.max(next.softness ?? 0, 0.28);
+    next.cornerRadius = Math.max(next.cornerRadius ?? 0, Math.min(Math.max(minDim * 0.14, 0.015), 0.05));
+  }
+
+  if (shape === "cushion") {
+    next.softness = Math.max(next.softness ?? 0, 0.82);
+  }
+
+  return Object.keys(next).length > 0 ? next : undefined;
+}
+
+type PositionSource = "position" | "xyz" | "offset" | "bounds" | "fallback";
+
+function vec3FromObject(v: unknown): [number, number, number] | null {
+  if (!v || typeof v !== "object") return null;
+  const rec = v as Record<string, unknown>;
+  const x = finite(rec.x);
+  const y = finite(rec.y);
+  const z = finite(rec.z);
+  return x !== undefined && y !== undefined && z !== undefined ? [x, y, z] : null;
+}
+
+function vec3FromUnknown(v: unknown): [number, number, number] | null {
+  if (Array.isArray(v)) return num3(v, [NaN, NaN, NaN]).every(Number.isFinite) ? num3(v, [0, 0, 0]) : null;
+  return vec3FromObject(v);
+}
+
+function getBoundsMinMax(raw: RawAnalysisPanel): { min: [number, number, number]; max: [number, number, number] } | null {
+  const bounds = raw.bounds;
+  if (bounds && typeof bounds === "object") {
+    const rec = bounds as Record<string, unknown>;
+    const min = vec3FromUnknown(rec.min);
+    const max = vec3FromUnknown(rec.max);
+    if (min && max) return { min, max };
+  }
+  const min = vec3FromUnknown(raw.min);
+  const max = vec3FromUnknown(raw.max);
+  return min && max ? { min, max } : null;
+}
+
+function extractRawSize(raw: RawAnalysisPanel): [number, number, number] | null {
+  const size = vec3FromUnknown(raw.size);
+  if (size) return size;
+  const w = finite(raw.w) ?? finite(raw.width);
+  const h = finite(raw.h) ?? finite(raw.height);
+  const d = finite(raw.d) ?? finite(raw.depth);
+  if (w !== undefined && h !== undefined && d !== undefined) return [w, h, d];
+  const bounds = getBoundsMinMax(raw);
+  if (bounds) {
+    return [
+      Math.abs(bounds.max[0] - bounds.min[0]),
+      Math.abs(bounds.max[1] - bounds.min[1]),
+      Math.abs(bounds.max[2] - bounds.min[2]),
+    ];
+  }
+  return null;
+}
+
+function extractRawPosition(raw: RawAnalysisPanel, size?: [number, number, number] | null): [number, number, number] | null {
+  const position = vec3FromUnknown(raw.position);
+  if (position) return position;
+  const x = finite(raw.x);
+  const y = finite(raw.y);
+  const z = finite(raw.z);
+  if (x !== undefined && y !== undefined && z !== undefined) return [x, y, z];
+  const offset = vec3FromUnknown(raw.offset);
+  if (offset) return offset;
+  const bounds = getBoundsMinMax(raw);
+  if (bounds) {
+    return [
+      (bounds.min[0] + bounds.max[0]) / 2,
+      (bounds.min[1] + bounds.max[1]) / 2,
+      (bounds.min[2] + bounds.max[2]) / 2,
+    ];
+  }
+  if (position && size) {
+    return [position[0] + size[0] / 2, position[1] + size[1] / 2, position[2] + size[2] / 2];
+  }
+  return null;
+}
+
+function getPositionSource(raw: RawAnalysisPanel): PositionSource {
+  if (vec3FromUnknown(raw.position)) return "position";
+  if (finite(raw.x) !== undefined && finite(raw.y) !== undefined && finite(raw.z) !== undefined) return "xyz";
+  if (vec3FromUnknown(raw.offset)) return "offset";
+  if (getBoundsMinMax(raw)) return "bounds";
+  return "fallback";
+}
+
+function bucketPosition(position: [number, number, number]): string {
+  return position.map((v) => Math.round(v / 0.025)).join("|");
+}
+
+function shouldInferCollapsedLayout(panels: PanelData[]): boolean {
+  if (panels.length < 4) return false;
+  const buckets = new Map<string, number>();
+  for (const panel of panels) {
+    const key = bucketPosition(panel.position);
+    buckets.set(key, (buckets.get(key) ?? 0) + 1);
+  }
+  const uniqueCount = buckets.size;
+  const largestBucket = Math.max(...buckets.values());
+  return uniqueCount <= Math.max(2, Math.ceil(panels.length / 3)) || largestBucket >= Math.ceil(panels.length * 0.5);
+}
+
+function estimatedDimsToMeters(
+  dims: FurnitureAnalysis["estimatedDims"] | undefined,
+  panels: PanelData[],
+): { w: number; h: number; d: number } {
+  if (dims) {
+    const max = Math.max(Math.abs(dims.w), Math.abs(dims.h), Math.abs(dims.d));
+    const scale = max > 20 ? 0.001 : 1;
+    return {
+      w: Math.max(dims.w * scale, 0.25),
+      h: Math.max(dims.h * scale, 0.25),
+      d: Math.max(dims.d * scale, 0.25),
+    };
+  }
+  return {
+    w: Math.max(...panels.map((p) => p.size[0]), 0.6),
+    h: Math.max(...panels.map((p) => p.size[1]), 0.6),
+    d: Math.max(...panels.map((p) => p.size[2]), 0.6),
+  };
+}
+
+function inferPositionFromLabel(
+  label: string,
+  size: [number, number, number],
+  furnitureDims: { w: number; h: number; d: number },
+  index: number,
+  count: number,
+): [number, number, number] {
+  const l = label.toLowerCase();
+  const [pw, ph, pd] = size;
+  const frontZ = furnitureDims.d / 2 - pd / 2 - 0.02;
+  const backZ = -furnitureDims.d / 2 + pd / 2 + 0.02;
+  const leftX = -furnitureDims.w / 2 + pw / 2 + 0.02;
+  const rightX = furnitureDims.w / 2 - pw / 2 - 0.02;
+
+  if (/leg|foot|feet|caster|wheel/.test(l)) {
+    const corners: [number, number][] = [
+      [leftX, backZ],
+      [rightX, backZ],
+      [leftX, frontZ],
+      [rightX, frontZ],
+    ];
+    const corner = corners[index % corners.length];
+    const x = /left/.test(l) ? leftX : /right/.test(l) ? rightX : corner[0];
+    const z = /front/.test(l) ? frontZ : /back/.test(l) ? backZ : corner[1];
+    return [x, ph / 2, z];
+  }
+  if (/gas\s*lift|lift|column|pedestal|center\s*post|center\s*column/.test(l)) {
+    return [0, Math.max(furnitureDims.h * 0.28, ph / 2), 0];
+  }
+  if (/star\s*base|x[\s_-]*base|base/.test(l) && !/back|frame|arm/.test(l)) {
+    return [0, Math.max(ph / 2, 0.05), 0];
+  }
+  if ((/seat|cushion/.test(l) && !/back/.test(l)) || /mattress/.test(l)) {
+    const spread = count > 1 ? ((index / Math.max(count - 1, 1)) - 0.5) * (furnitureDims.w * 0.4) : 0;
+    return [spread, Math.max(furnitureDims.h * 0.45, ph / 2), 0];
+  }
+  if (/back|backrest/.test(l)) {
+    const spread = count > 1 ? ((index / Math.max(count - 1, 1)) - 0.5) * (furnitureDims.w * 0.35) : 0;
+    return [spread, Math.max(furnitureDims.h * 0.72, ph / 2), -furnitureDims.d * 0.35];
+  }
+  if (/armrest|arm/.test(l)) {
+    const x = /left/.test(l) || index % 2 === 0 ? leftX : rightX;
+    return [x, Math.max(furnitureDims.h * 0.55, ph / 2), -furnitureDims.d * 0.08];
+  }
+  if (/head/.test(l)) {
+    return [0, Math.max(furnitureDims.h * 0.92, ph / 2), -furnitureDims.d * 0.3];
+  }
+  if (/frame|rail|base|support|column|pedestal|post|stretcher/.test(l)) {
+    const x = /left/.test(l) ? leftX : /right/.test(l) ? rightX : 0;
+    const z = /front/.test(l) ? frontZ * 0.5 : /back/.test(l) ? backZ * 0.5 : 0;
+    return [x, Math.max(furnitureDims.h * 0.35, ph / 2), z];
+  }
+  return [0, Math.max(ph / 2, 0.05), 0];
+}
+
+function spreadRadially(
+  count: number,
+  radiusX: number,
+  radiusZ: number,
+  startAngle: number = -Math.PI / 2,
+): [number, number][] {
+  if (count <= 0) return [];
+  return Array.from({ length: count }, (_, i) => {
+    const angle = startAngle + (i * Math.PI * 2) / count;
+    return [Math.cos(angle) * radiusX, Math.sin(angle) * radiusZ];
+  });
+}
+
+function repairOfficeChairLayout(
+  panels: PanelData[],
+  name: string,
+): PanelData[] {
+  if (!/\b(office|task|desk|executive|swivel|ergonomic|gaming)\b/i.test(name) && !/\boffice_chair\b/i.test(name)) {
+    return panels;
+  }
+
+  const result = [...panels];
+  const byLabel = (re: RegExp) => result.filter((p) => re.test(p.label));
+  const seats = byLabel(/\bseat\b/i);
+  const backs = byLabel(/\bback(rest)?\b/i);
+  const heads = byLabel(/\bhead(rest)?\b/i);
+  const armPads = byLabel(/\barm(rest)?|arm\s*pad\b/i);
+  const armSupports = byLabel(/\barm\s*support|support\s*arm|arm\s*frame\b/i);
+  const casters = byLabel(/\bcaster|wheel\b/i);
+  const legs = byLabel(/\bleg\b/i).filter((p) => !/arm|back/.test(p.label));
+  const starBases = result.filter((p) => /star.*base|x[\s._-]*base|base.*star/i.test(p.label) || (p.shape ?? "box") === "x_base");
+  const liftColumns = result.filter((p) => /gas\s*lift|lift.*column|center\s*post|pedestal|column/i.test(p.label));
+
+  const seat = seats.sort((a, b) => b.size[0] * b.size[2] - a.size[0] * a.size[2])[0];
+  const seatY = seat ? Math.max(seat.position[1], 0.42) : 0.45;
+  const seatZ = 0;
+  const seatX = 0;
+  if (seat) {
+    seat.position = [seatX, seatY, seatZ];
+  }
+
+  const seatBackZ = seat ? seat.position[2] - seat.size[2] / 2 : -0.12;
+  const seatTopY = seat ? seat.position[1] + seat.size[1] / 2 : seatY + 0.08;
+  const chairHalfWidth = seat ? Math.max(seat.size[0] / 2, 0.26) : 0.28;
+
+  backs.forEach((back) => {
+    const targetY = Math.max(seatTopY + back.size[1] / 2 - Math.min(back.size[1] * 0.25, 0.16), back.position[1]);
+    const targetZ = Math.min(seatBackZ - back.size[2] / 2 + 0.03, -0.12);
+    back.position = [0, targetY, targetZ];
+  });
+
+  heads.forEach((head) => {
+    const back = backs[0];
+    const baseY = back ? back.position[1] + back.size[1] / 2 : seatTopY + 0.35;
+    const baseZ = back ? back.position[2] - Math.min(back.size[2] * 0.2, 0.05) : -0.18;
+    head.position = [0, baseY + head.size[1] / 2 - 0.05, baseZ];
+  });
+
+  armPads.forEach((arm, index) => {
+    const x = /left/i.test(arm.label) || (!/right/i.test(arm.label) && index % 2 === 0)
+      ? -chairHalfWidth + arm.size[0] / 2
+      : chairHalfWidth - arm.size[0] / 2;
+    arm.position = [x, Math.max(seatY + seat.size[1] * 0.45, 0.58), -0.04];
+  });
+
+  armSupports.forEach((support, index) => {
+    const x = /left/i.test(support.label) || (!/right/i.test(support.label) && index % 2 === 0)
+      ? -chairHalfWidth + support.size[0] / 2
+      : chairHalfWidth - support.size[0] / 2;
+    support.position = [x, Math.max(seatY * 0.78, support.size[1] / 2 + 0.2), -0.02];
+  });
+
+  const wheelParts = casters.length > 0 ? casters : legs;
+  const wheelRadiusX = Math.max(chairHalfWidth * 0.95, 0.22);
+  const wheelRadiusZ = Math.max((seat?.size[2] ?? 0.5) * 0.48, 0.22);
+  const radialPositions = spreadRadially(wheelParts.length, wheelRadiusX, wheelRadiusZ);
+  wheelParts.forEach((part, index) => {
+    const [x, z] = radialPositions[index] ?? [0, 0];
+    part.position = [x, Math.max(part.size[1] / 2, 0.03), z];
+  });
+
+  starBases.forEach((base) => {
+    base.position = [0, Math.max(base.size[1] / 2, 0.07), 0];
+    base.size = [Math.max(base.size[0], wheelRadiusX * 2), base.size[1], Math.max(base.size[2], wheelRadiusZ * 2)];
+  });
+
+  liftColumns.forEach((lift) => {
+    const bottomY = starBases[0]
+      ? starBases[0].position[1] + starBases[0].size[1] / 2
+      : 0.08;
+    const topY = seat ? seat.position[1] - seat.size[1] / 2 : 0.32;
+    const liftH = Math.max(0.14, topY - bottomY);
+    lift.position = [0, bottomY + liftH / 2, 0];
+    lift.size = [Math.min(lift.size[0], 0.08), liftH, Math.min(lift.size[2], 0.08)];
+  });
+
+  return result;
+}
+
+function inferPositionsFromLabels(
+  panels: PanelData[],
+  furnitureDims: { w: number; h: number; d: number },
+  inferMask?: boolean[],
+): PanelData[] {
+  const categoryMatchers: Array<[RegExp, PanelData[]]> = [
+    [/\b(leg|foot|feet|caster|wheel)\b/i, []],
+    [/\b(seat|cushion|mattress)\b/i, []],
+    [/\b(back|backrest|headrest)\b/i, []],
+    [/\b(arm|armrest)\b/i, []],
+    [/\b(head|headrest)\b/i, []],
+    [/\b(frame|rail|base|support|column|pedestal|post|stretcher)\b/i, []],
+  ];
+
+  const groupedCounts = new Map<string, number>();
+  const groupedIndex = new Map<string, number>();
+
+  panels.forEach((panel, idx) => {
+    if (inferMask && !inferMask[idx]) return;
+    const key =
+      categoryMatchers.find(([re]) => re.test(panel.label))?.[0].source ??
+      "__default__";
+    groupedCounts.set(key, (groupedCounts.get(key) ?? 0) + 1);
+  });
+
+  return panels.map((panel, idx) => {
+    if (inferMask && !inferMask[idx]) return panel;
+    const key =
+      categoryMatchers.find(([re]) => re.test(panel.label))?.[0].source ??
+      "__default__";
+    const index = groupedIndex.get(key) ?? 0;
+    groupedIndex.set(key, index + 1);
+    return {
+      ...panel,
+      position: inferPositionFromLabel(
+        panel.label,
+        panel.size,
+        furnitureDims,
+        index,
+        groupedCounts.get(key) ?? 1,
+      ),
+    };
+  });
+}
+
+function debugPositions(stage: string, panels: Array<RawAnalysisPanel | PanelData>): void {
+  if (!import.meta.env.DEV) return;
+  const rows = panels.map((panel, index) => {
+    const raw = panel as RawAnalysisPanel;
+    const cooked = panel as PanelData;
+    const size =
+      "id" in cooked
+        ? cooked.size
+        : extractRawSize(raw);
+    const position =
+      "id" in cooked
+        ? cooked.position
+        : extractRawPosition(raw, extractRawSize(raw)) ?? null;
+    const shape =
+      "id" in cooked
+        ? (cooked.shape ?? "box")
+        : (typeof raw.shape === "string" ? raw.shape : "box");
+    const type =
+      "id" in cooked
+        ? cooked.type
+        : normalizeType(raw.type);
+    return {
+      i: index,
+      label: typeof raw.label === "string" ? raw.label : cooked.label,
+      type,
+      shape,
+      position,
+      size,
+      source: "id" in cooked ? "panel" : getPositionSource(raw),
+    };
+  });
+  console.log(`[furnitureImageAnalysis] ${stage}`, rows);
 }
 
 const SEATING_NAME_RE =
@@ -1135,16 +1565,52 @@ export function panelsFromFurnitureAnalysis(
   const rawScaled = scaleRawAnalysisPanelsToMeters(
     (analysis.panels ?? []) as unknown as RawAnalysisPanel[],
   );
-  const panels = rawScaled
-    .map((p) => normalizeAnalysisPanel(p, nextId()))
-    .map(normalizeVerticalBoxHeightAxis)
-    .map(normalizeVerticalAxisymmetricPanel)
-    .map(clampRealisticThickness)
-    .map(sanitizeImportRotation)
-    .map(stabilizeStructuralRotation)
-    .map(fixHorizontalRoundDisk);
+  debugPositions("after scaleRawAnalysisPanelsToMeters", rawScaled);
+
+  let panels = rawScaled.map((p) => normalizeAnalysisPanel(p, nextId()));
+  debugPositions("after normalizeAnalysisPanel", panels);
+
+  panels = panels.map(normalizeVerticalBoxHeightAxis);
+  debugPositions("after normalizeVerticalBoxHeightAxis", panels);
+
+  panels = panels.map(normalizeVerticalAxisymmetricPanel);
+  debugPositions("after normalizeVerticalAxisymmetricPanel", panels);
+
+  panels = panels.map(clampRealisticThickness);
+  debugPositions("after clampRealisticThickness", panels);
+
+  panels = panels.map(sanitizeImportRotation);
+  debugPositions("after sanitizeImportRotation", panels);
+
+  panels = panels.map(stabilizeStructuralRotation);
+  debugPositions("after stabilizeStructuralRotation", panels);
+
+  panels = panels.map(fixHorizontalRoundDisk);
+  debugPositions("after fixHorizontalRoundDisk", panels);
+
+  const positionSources = rawScaled.map(getPositionSource);
+  const fallbackMask = positionSources.map((source) => source === "fallback");
+  const fallbackCount = fallbackMask.filter(Boolean).length;
+  const collapsedAfterNormalize = shouldInferCollapsedLayout(panels);
+  if (fallbackCount > 0 || collapsedAfterNormalize) {
+    const inferred = inferPositionsFromLabels(
+      panels,
+      estimatedDimsToMeters(analysis.estimatedDims, panels),
+      collapsedAfterNormalize ? undefined : fallbackMask,
+    );
+    panels = inferred;
+    debugPositions("after inferPositionsFromLabels", panels);
+  }
+
   const refined = refineSeatingImportPanels(panels, analysis.name ?? "");
+  debugPositions("after refineSeatingImportPanels", refined);
   const repaired = repairSeatingGeometry(refined, analysis.name ?? "", nextId);
-  const withBase = repairOfficeChairBase(repaired, analysis.name ?? "", nextId);
-  return validateAndRepairGeometry(withBase, analysis.name ?? "");
+  debugPositions("after repairSeatingGeometry", repaired);
+  const officeChairLayout = repairOfficeChairLayout(repaired, analysis.name ?? "");
+  debugPositions("after repairOfficeChairLayout", officeChairLayout);
+  const withBase = repairOfficeChairBase(officeChairLayout, analysis.name ?? "", nextId);
+  debugPositions("after repairOfficeChairBase", withBase);
+  const validated = validateAndRepairGeometry(withBase, analysis.name ?? "");
+  debugPositions("after validateAndRepairGeometry", validated);
+  return validated;
 }

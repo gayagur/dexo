@@ -17,7 +17,7 @@ const VISION_MODELS = [
   "Qwen/Qwen3-VL-8B-Instruct",
   "moonshotai/Kimi-K2.5",
 ];
-const PER_MODEL_MS = 50_000;
+const PER_MODEL_MS = 90_000;
 const DAILY_LIMIT = 20;
 
 Deno.serve(async (req) => {
@@ -55,6 +55,7 @@ Deno.serve(async (req) => {
     let content = "";
     let usedModel = VISION_MODELS[0];
     let lastError = "";
+    let timedOut = false;
 
     for (const model of VISION_MODELS) {
       console.log(`[generate-3d] Trying: ${model}`);
@@ -132,14 +133,23 @@ Deno.serve(async (req) => {
         }
         if (content) break;
       } catch (err) {
+        if (err instanceof Error && err.name === "AbortError") {
+          timedOut = true;
+          lastError = `${model}: timed out after ${Math.round(PER_MODEL_MS / 1000)}s`;
+          console.warn("[generate-3d]", lastError);
+          continue;
+        }
         lastError = `${model}: ${(err as Error).message}`;
         continue;
       }
     }
 
     if (!content) {
+      const errorMessage = timedOut
+        ? `All models timed out while analyzing the image. Last error: ${lastError}. Try a smaller / simpler image or retry in a moment.`
+        : `All models failed. ${lastError}`;
       return new Response(
-        JSON.stringify({ error: `All models failed. ${lastError}` }),
+        JSON.stringify({ error: errorMessage }),
         { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
