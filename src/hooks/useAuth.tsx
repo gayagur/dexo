@@ -338,31 +338,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           return { error: msg };
         }
 
-        // Handle role mismatch: user selected a different role than their DB role
-        // Update active_role in DB immediately so onAuthStateChange reads the correct value
+        // ALWAYS set active_role to selectedRole on login
+        // This fixes stale role cache: if user was "business" last session
+        // and logs in selecting "customer", active_role must update
         if (data.user && selectedRole) {
           const result = await fetchRole(data.user);
           const actualRole = result.role;
-          if (actualRole && actualRole !== selectedRole) {
-            // Switch active_role in DB
+          const currentActiveRole = result.activeRole;
+
+          // Always update active_role in DB to match what user selected
+          if (currentActiveRole !== selectedRole) {
             await supabase
               .from("profiles")
               .update({ active_role: selectedRole })
               .eq("id", data.user.id);
-            // Force full state update with new activeRole + all other fields
-            // Set flag so onAuthStateChange doesn't overwrite with stale data
-            skipNextFetchRef.current = true;
-            setState((prev) => ({
-              ...prev,
-              session: data.session,
-              user: data.user,
-              role: actualRole,
-              activeRole: selectedRole,
-              isAdmin: result.isAdmin,
-              isCreator: result.isCreator,
-              creatorApproved: result.creatorApproved,
-              loading: false,
-            }));
+          }
+
+          // Force full state update with correct activeRole
+          skipNextFetchRef.current = true;
+          setState((prev) => ({
+            ...prev,
+            session: data.session,
+            user: data.user,
+            role: actualRole,
+            activeRole: selectedRole,
+            isAdmin: result.isAdmin,
+            isCreator: result.isCreator,
+            creatorApproved: result.creatorApproved,
+            loading: false,
+          }));
+
+          if (actualRole && actualRole !== selectedRole) {
             return { error: null, roleMismatch: { actualRole } };
           }
         }
@@ -403,6 +409,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signOut = useCallback(async () => {
+    skipNextFetchRef.current = false;
     await supabase.auth.signOut();
   }, []);
 
