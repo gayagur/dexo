@@ -21,7 +21,7 @@ export function useBusinessProfile() {
     setFetching(true);
     const { data, error } = await supabase
       .from("businesses")
-      .select("*")
+      .select("id, user_id, name, description, location, categories, styles, portfolio, rating, min_price, max_price, status, rejection_reason, created_at")
       .eq("user_id", user.id)
       .single();
 

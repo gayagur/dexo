@@ -120,6 +120,7 @@ const App = () => (
         <AnalyticsTracker />
         <AuthProvider>
           <Suspense fallback={<PageSkeleton />}>
+          <div className="page-fade-in">
           <Routes>
             {/* Public routes */}
             <Route path="/" element={<HomeRoute />} />
@@ -293,6 +294,7 @@ const App = () => (
             {/* Catch-all */}
             <Route path="*" element={<NotFound />} />
           </Routes>
+          </div>
           </Suspense>
         </AuthProvider>
         </HelmetProvider>
