@@ -330,11 +330,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signIn = useCallback(
     async (email: string, password: string, selectedRole?: Role): Promise<AuthResult> => {
       try {
+        // Set skip BEFORE signIn — onAuthStateChange fires immediately
+        // when signInWithPassword resolves, before our code continues
+        if (selectedRole) {
+          skipNextFetchRef.current = true;
+        }
+
         const { data, error } = await withTimeout(
           supabase.auth.signInWithPassword({ email, password }),
           30000
         );
         if (error) {
+          skipNextFetchRef.current = false;
           const msg = getAuthErrorMessage(error);
           if (msg === "RATE_LIMIT") return { error: "RATE_LIMIT" };
           if (msg === "NETWORK_ERROR") return { error: "NETWORK_ERROR" };
@@ -364,7 +371,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           }
 
           // Force full state update with correct activeRole
-          skipNextFetchRef.current = true;
           console.log("[signIn] Setting state activeRole =", selectedRole);
           setState((prev) => ({
             ...prev,
