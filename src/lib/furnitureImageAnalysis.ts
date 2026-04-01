@@ -812,6 +812,101 @@ function repairOfficeChairLayout(
   return result;
 }
 
+function repairBedLayout(
+  panels: PanelData[],
+  name: string,
+): PanelData[] {
+  if (!/\b(bed|bedframe|bed_frame|platform bed|platform_bed|headboard|footboard)\b/i.test(name)) {
+    return panels;
+  }
+
+  const result = [...panels];
+  const byLabel = (re: RegExp) => result.filter((p) => re.test(p.label));
+  const mattresses = result.filter((p) => /\bmattress\b/i.test(p.label) || (p.shape ?? "box") === "mattress");
+  const headboards = result.filter((p) => /\bheadboard|head board|head\b/i.test(p.label) && !/\bleg\b/i.test(p.label));
+  const footboards = result.filter((p) => /\bfootboard|foot board|foot rail\b/i.test(p.label));
+  const sideRails = result.filter((p) => /\bside rail|bed side|left rail|right rail|side frame|bed rail\b/i.test(p.label));
+  const baseFrames = result.filter((p) => /\bbase frame|bed base|platform|foundation|support deck|frame\b/i.test(p.label) && !/\bhead|foot|rail|leg\b/i.test(p.label));
+  const slats = byLabel(/\bslat\b/i);
+  const legs = byLabel(/\bleg\b/i).filter((p) => !/head|arm|back/i.test(p.label));
+
+  const primaryBase =
+    mattresses.sort((a, b) => b.size[0] * b.size[2] - a.size[0] * a.size[2])[0] ??
+    baseFrames.sort((a, b) => b.size[0] * b.size[2] - a.size[0] * a.size[2])[0];
+
+  const bedWidth = primaryBase ? Math.max(primaryBase.size[0], 0.9) : Math.max(...result.map((p) => p.size[0]), 0.9);
+  const bedDepth = primaryBase ? Math.max(primaryBase.size[2], 1.8) : Math.max(...result.map((p) => p.size[2]), 1.8);
+  const deckTopY = primaryBase
+    ? Math.max(primaryBase.position[1], 0.22)
+    : 0.24;
+  const deckThickness = primaryBase
+    ? Math.min(primaryBase.size[1], 0.18)
+    : 0.08;
+  const deckCenterY = Math.max(deckTopY, deckThickness / 2 + 0.12);
+  const leftX = -bedWidth / 2;
+  const rightX = bedWidth / 2;
+  const headZ = -bedDepth / 2;
+  const footZ = bedDepth / 2;
+
+  if (primaryBase) {
+    primaryBase.position = [0, deckCenterY, 0];
+    primaryBase.size = [bedWidth, deckThickness, bedDepth];
+  }
+
+  mattresses.forEach((mattress) => {
+    const thickness = Math.min(Math.max(mattress.size[1], 0.12), 0.28);
+    mattress.position = [0, deckCenterY + deckThickness / 2 + thickness / 2 - 0.01, 0];
+    mattress.size = [Math.min(Math.max(mattress.size[0], bedWidth * 0.94), bedWidth * 0.98), thickness, Math.min(Math.max(mattress.size[2], bedDepth * 0.94), bedDepth * 0.98)];
+  });
+
+  headboards.forEach((headboard) => {
+    const depth = Math.min(Math.max(Math.min(headboard.size[0], headboard.size[2]), 0.03), 0.09);
+    const width = Math.max(headboard.size[0], bedWidth);
+    const height = Math.max(headboard.size[1], 0.6);
+    headboard.position = [0, Math.max(deckCenterY + height / 2 - 0.05, height / 2), headZ - depth / 2 + 0.01];
+    headboard.size = [width, height, depth];
+  });
+
+  footboards.forEach((footboard) => {
+    const depth = Math.min(Math.max(Math.min(footboard.size[0], footboard.size[2]), 0.025), 0.08);
+    const width = Math.max(footboard.size[0], bedWidth * 0.9);
+    const height = Math.min(Math.max(footboard.size[1], 0.2), 0.55);
+    footboard.position = [0, Math.max(deckCenterY + height / 2 - 0.12, height / 2), footZ + depth / 2 - 0.01];
+    footboard.size = [width, height, depth];
+  });
+
+  sideRails.forEach((rail, index) => {
+    const isLeft = /left/i.test(rail.label) || (!/right/i.test(rail.label) && index % 2 === 0);
+    const x = isLeft ? leftX + rail.size[0] / 2 : rightX - rail.size[0] / 2;
+    const height = Math.min(Math.max(rail.size[1], 0.12), 0.28);
+    const depth = Math.max(rail.size[2], bedDepth * 0.92);
+    rail.position = [x, Math.max(deckCenterY, height / 2 + 0.12), 0];
+    rail.size = [Math.min(Math.max(rail.size[0], 0.025), 0.08), height, depth];
+  });
+
+  slats.forEach((slat) => {
+    const height = Math.min(Math.max(slat.size[1], 0.012), 0.04);
+    slat.position = [0, deckCenterY + deckThickness / 2 - height / 2 - 0.005, 0];
+    slat.size = [Math.min(Math.max(slat.size[0], bedWidth * 0.9), bedWidth * 0.96), height, Math.min(Math.max(slat.size[2], bedDepth * 0.88), bedDepth * 0.94)];
+  });
+
+  const legPositions: [number, number][] = [
+    [leftX + 0.05, headZ + 0.08],
+    [rightX - 0.05, headZ + 0.08],
+    [leftX + 0.05, footZ - 0.08],
+    [rightX - 0.05, footZ - 0.08],
+  ];
+  legs.forEach((leg, index) => {
+    const [x, z] = legPositions[index % legPositions.length] ?? [0, 0];
+    const height = Math.min(Math.max(leg.size[1], 0.12), 0.32);
+    const thickness = Math.min(Math.max(Math.max(leg.size[0], leg.size[2]), 0.025), 0.08);
+    leg.position = [x, height / 2, z];
+    leg.size = [thickness, height, thickness];
+  });
+
+  return result;
+}
+
 function inferPositionsFromLabels(
   panels: PanelData[],
   furnitureDims: { w: number; h: number; d: number },
@@ -1649,7 +1744,9 @@ export function panelsFromFurnitureAnalysis(
   debugPositions("after repairSeatingGeometry", repaired);
   const officeChairLayout = repairOfficeChairLayout(repaired, analysis.name ?? "");
   debugPositions("after repairOfficeChairLayout", officeChairLayout);
-  const withBase = repairOfficeChairBase(officeChairLayout, analysis.name ?? "", nextId);
+  const bedLayout = repairBedLayout(officeChairLayout, analysis.name ?? "");
+  debugPositions("after repairBedLayout", bedLayout);
+  const withBase = repairOfficeChairBase(bedLayout, analysis.name ?? "", nextId);
   debugPositions("after repairOfficeChairBase", withBase);
   const validated = validateAndRepairGeometry(withBase, analysis.name ?? "");
   debugPositions("after validateAndRepairGeometry", validated);

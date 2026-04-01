@@ -56,3 +56,12 @@ export const scaleInVariants = {
     transition: { duration: DURATION.slow, ease: EASE.soft },
   },
 };
+
+/** Section divider — line draws from left */
+export const lineDrawVariants = {
+  hidden: { scaleX: 0 },
+  visible: {
+    scaleX: 1,
+    transition: { duration: 0.8, ease: EASE.entrance },
+  },
+};

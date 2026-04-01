@@ -1,12 +1,14 @@
 import { useState, useEffect, useRef } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { Link, Navigate } from 'react-router-dom';
+import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useAuth } from '@/hooks/useAuth';
 import { ArrowLeft, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { scaleInVariants, fadeUpVariants, staggerContainerVariants, EASE, DURATION } from '@/lib/animations';
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -191,9 +193,14 @@ const AuthPage = () => {
       </Helmet>
 
       <div className="flex-1 flex items-center justify-center p-8">
-        <div className="w-full max-w-md space-y-8">
-          <div>
-            <Link to="/" className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors mb-8">
+        <motion.div
+          className="w-full max-w-md space-y-8"
+          variants={scaleInVariants}
+          initial="hidden"
+          animate="visible"
+        >
+          <motion.div variants={fadeUpVariants} initial="hidden" animate="visible">
+            <Link to="/" className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors mb-8 luxury-link">
               <ArrowLeft className="w-4 h-4" />
               Back to home
             </Link>
@@ -205,7 +212,7 @@ const AuthPage = () => {
                 ? 'Create your account, then choose how you want to use DEXO.'
                 : 'Sign in first, then continue to the right experience for you.'}
             </p>
-          </div>
+          </motion.div>
 
           <Button
             type="button"
@@ -315,12 +322,22 @@ const AuthPage = () => {
               {isSignUp ? 'Already have an account? Sign in' : "Don't have an account? Sign up"}
             </button>
           </div>
-        </div>
+        </motion.div>
       </div>
 
-      <div className="hidden lg:flex flex-1 bg-gradient-to-br from-primary/10 via-accent/10 to-secondary items-center justify-center p-12">
+      <motion.div
+        className="hidden lg:flex flex-1 bg-gradient-to-br from-primary/10 via-accent/10 to-secondary items-center justify-center p-12"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: DURATION.verySlow, ease: EASE.luxury }}
+      >
         <div className="max-w-lg text-center space-y-6">
-          <div className="text-6xl font-serif text-primary">DEXO</div>
+          <motion.div
+            className="text-6xl font-serif text-primary"
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: DURATION.slow, delay: 0.2, ease: EASE.entrance }}
+          >DEXO</motion.div>
           <p className="text-xl text-muted-foreground leading-relaxed">
             "Every space deserves to feel like home.
             DEXO brings together dreamers and designers."
@@ -330,7 +347,7 @@ const AuthPage = () => {
             <span>Trusted by 500+ designers worldwide</span>
           </div>
         </div>
-      </div>
+      </motion.div>
     </div>
   );
 };
