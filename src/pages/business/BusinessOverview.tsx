@@ -48,11 +48,14 @@ export default function BusinessOverview() {
   const { kpis, activity, projects, pageViews, loading } = useBusinessDashboard();
   const { scoredProjects } = useMatchedProjects();
 
-  if (bizLoading || !business) return null;
-
   const attentionProjects = projects.filter(p => p.status === "in_progress");
   const newRequests = scoredProjects.length;
   const hasData = (kpis?.totalProjects ?? 0) > 0;
+
+  // Let BusinessDashboardLayout handle loading, missing profile redirect, and status gate
+  if (bizLoading || !business) {
+    return <BusinessDashboardLayout><div /></BusinessDashboardLayout>;
+  }
 
   return (
     <BusinessDashboardLayout newRequestsCount={newRequests}>
