@@ -34,7 +34,7 @@ export function BlogCoverImageField({ url, alt, onUrlChange, onAltChange, disabl
       <input ref={inputRef} type="file" accept="image/jpeg,image/png,image/webp,image/gif" className="hidden" onChange={onPick} />
       {url ? (
         <div className="rounded-xl border border-border/70 overflow-hidden bg-muted/20">
-          <img src={url} alt="" className="w-full aspect-video object-cover max-h-52" />
+          <img loading="lazy" src={url} alt="" className="w-full aspect-video object-cover max-h-52" />
         </div>
       ) : (
         <button

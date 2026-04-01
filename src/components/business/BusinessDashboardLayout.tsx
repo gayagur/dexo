@@ -94,7 +94,7 @@ export function BusinessDashboardLayout({ children, newRequestsCount = 0 }: Busi
               <div className="flex items-start gap-4">
                 <div className="w-16 h-16 rounded-xl bg-primary/10 flex items-center justify-center shrink-0 overflow-hidden">
                   {business.portfolio?.[0] ? (
-                    <img src={business.portfolio[0]} alt="" className="w-full h-full object-cover" />
+                    <img loading="lazy" src={business.portfolio[0]} alt="" className="w-full h-full object-cover" />
                   ) : (
                     <Image className="w-7 h-7 text-primary" />
                   )}
@@ -139,7 +139,7 @@ export function BusinessDashboardLayout({ children, newRequestsCount = 0 }: Busi
                 <div className="mt-4 grid grid-cols-4 gap-2">
                   {business.portfolio.slice(0, 4).map((img, i) => (
                     <div key={i} className="aspect-square rounded-lg overflow-hidden bg-muted">
-                      <img src={img} alt="" className="w-full h-full object-cover" />
+                      <img loading="lazy" src={img} alt="" className="w-full h-full object-cover" />
                     </div>
                   ))}
                 </div>

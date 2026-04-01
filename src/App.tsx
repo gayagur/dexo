@@ -4,50 +4,68 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { HelmetProvider } from "react-helmet-async";
-import { useEffect } from "react";
+import { lazy, Suspense, useEffect } from "react";
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import { initGA, trackPageView } from "@/lib/analytics";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
-import LandingPage from "./pages/LandingPage";
-import AuthPage from "./pages/AuthPage";
-import CustomerDashboard from "./pages/CustomerDashboard";
-import CreateProjectFlow from "./pages/CreateProjectFlow";
-import ProjectDetailPage from "./pages/ProjectDetailPage";
-import BusinessOnboarding from "./pages/BusinessOnboarding";
-import BusinessDashboard from "./pages/BusinessDashboard";
-import BusinessRequestPage from "./pages/BusinessRequestPage";
-import BusinessConversations from "./pages/BusinessConversations";
-import BusinessOffersSent from "./pages/BusinessOffersSent";
-import BusinessOverview from "./pages/business/BusinessOverview";
-import BusinessProjects from "./pages/business/BusinessProjects";
-import BusinessCustomers from "./pages/business/BusinessCustomers";
-import BusinessRevenue from "./pages/business/BusinessRevenue";
-import BusinessInsights from "./pages/business/BusinessInsights";
-import BrowseBusinesses from "./pages/BrowseBusinesses";
-import BusinessProfilePage from "./pages/BusinessProfilePage";
-import ProfilePage from "./pages/ProfilePage";
-import AuthenticatedHome from "./pages/AuthenticatedHome";
-import NewProjectChoice from "./pages/NewProjectChoice";
-import SavedDesignsPage from "./pages/SavedDesignsPage";
-import NotFound from "./pages/NotFound";
-import AdminDashboard from "./pages/admin/AdminDashboard";
-import PendingCreators from "./pages/admin/PendingCreators";
-import ManageCreators from "./pages/admin/ManageCreators";
-import ManageClients from "./pages/admin/ManageClients";
-import ManageProjects from "./pages/admin/ManageProjects";
-import ManageReviews from "./pages/admin/ManageReviews";
-import AdminBlogListPage from "./pages/admin/AdminBlogListPage";
-import AdminLibraryPage from "./pages/admin/AdminLibraryPage";
-import AdminBlogEditorPage from "./pages/admin/AdminBlogEditorPage";
-import AdminBlogPreviewPage from "./pages/admin/AdminBlogPreviewPage";
-import BlogIndexPage from "./pages/BlogIndexPage";
-import BlogPostPage from "./pages/BlogPostPage";
-import ChooseRolePage from "./pages/ChooseRolePage";
-import CreatorDashboard from "./pages/creator/CreatorDashboard";
 import { Loader2 } from "lucide-react";
 import { isSupabaseConfigured } from "@/lib/supabase";
 
+// ─── Eagerly loaded (landing, auth, home — first paint) ──
+import LandingPage from "./pages/LandingPage";
+import AuthPage from "./pages/AuthPage";
+import AuthenticatedHome from "./pages/AuthenticatedHome";
+import NotFound from "./pages/NotFound";
+
+// ─── Lazy-loaded (only when navigated to) ────────────────
+const CustomerDashboard = lazy(() => import("./pages/CustomerDashboard"));
+const CreateProjectFlow = lazy(() => import("./pages/CreateProjectFlow"));
+const ProjectDetailPage = lazy(() => import("./pages/ProjectDetailPage"));
+const BusinessOnboarding = lazy(() => import("./pages/BusinessOnboarding"));
+const BusinessDashboard = lazy(() => import("./pages/BusinessDashboard"));
+const BusinessRequestPage = lazy(() => import("./pages/BusinessRequestPage"));
+const BusinessConversations = lazy(() => import("./pages/BusinessConversations"));
+const BusinessOffersSent = lazy(() => import("./pages/BusinessOffersSent"));
+const BusinessOverview = lazy(() => import("./pages/business/BusinessOverview"));
+const BusinessProjects = lazy(() => import("./pages/business/BusinessProjects"));
+const BusinessCustomers = lazy(() => import("./pages/business/BusinessCustomers"));
+const BusinessRevenue = lazy(() => import("./pages/business/BusinessRevenue"));
+const BusinessInsights = lazy(() => import("./pages/business/BusinessInsights"));
+const BrowseBusinesses = lazy(() => import("./pages/BrowseBusinesses"));
+const BusinessProfilePage = lazy(() => import("./pages/BusinessProfilePage"));
+const ProfilePage = lazy(() => import("./pages/ProfilePage"));
+const NewProjectChoice = lazy(() => import("./pages/NewProjectChoice"));
+const SavedDesignsPage = lazy(() => import("./pages/SavedDesignsPage"));
+const ChooseRolePage = lazy(() => import("./pages/ChooseRolePage"));
+const CreatorDashboard = lazy(() => import("./pages/creator/CreatorDashboard"));
+// Admin (heavy — Tiptap, DataTable, etc.)
+const AdminDashboard = lazy(() => import("./pages/admin/AdminDashboard"));
+const PendingCreators = lazy(() => import("./pages/admin/PendingCreators"));
+const ManageCreators = lazy(() => import("./pages/admin/ManageCreators"));
+const ManageClients = lazy(() => import("./pages/admin/ManageClients"));
+const ManageProjects = lazy(() => import("./pages/admin/ManageProjects"));
+const ManageReviews = lazy(() => import("./pages/admin/ManageReviews"));
+const AdminBlogListPage = lazy(() => import("./pages/admin/AdminBlogListPage"));
+const AdminLibraryPage = lazy(() => import("./pages/admin/AdminLibraryPage"));
+const AdminBlogEditorPage = lazy(() => import("./pages/admin/AdminBlogEditorPage"));
+const AdminBlogPreviewPage = lazy(() => import("./pages/admin/AdminBlogPreviewPage"));
+// Blog (public, but not needed on first paint)
+const BlogIndexPage = lazy(() => import("./pages/BlogIndexPage"));
+const BlogPostPage = lazy(() => import("./pages/BlogPostPage"));
+
 const queryClient = new QueryClient();
+
+/** Lightweight page skeleton shown while lazy routes load */
+function PageSkeleton() {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="flex flex-col items-center gap-3">
+        <div className="text-xl font-bold text-gray-300 animate-pulse">DEXO</div>
+        <Loader2 className="w-5 h-5 animate-spin text-gray-300" />
+      </div>
+    </div>
+  );
+}
 
 function AnalyticsTracker() {
   const location = useLocation();
@@ -101,6 +119,7 @@ const App = () => (
         <HelmetProvider>
         <AnalyticsTracker />
         <AuthProvider>
+          <Suspense fallback={<PageSkeleton />}>
           <Routes>
             {/* Public routes */}
             <Route path="/" element={<HomeRoute />} />
@@ -274,6 +293,7 @@ const App = () => (
             {/* Catch-all */}
             <Route path="*" element={<NotFound />} />
           </Routes>
+          </Suspense>
         </AuthProvider>
         </HelmetProvider>
       </BrowserRouter>

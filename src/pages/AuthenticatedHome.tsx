@@ -484,7 +484,7 @@ function CustomerHome({ firstName }: { firstName: string }) {
                       <div className="flex flex-col sm:flex-row">
                         {lastProject.ai_concept && (
                           <div className="sm:w-48 h-36 sm:h-auto shrink-0 overflow-hidden">
-                            <img src={lastProject.ai_concept} alt={lastProject.title} className="w-full h-full object-cover" />
+                            <img loading="lazy" src={lastProject.ai_concept} alt={lastProject.title} className="w-full h-full object-cover" />
                           </div>
                         )}
                         <div className="p-5 flex-1 flex flex-col justify-center min-w-0">

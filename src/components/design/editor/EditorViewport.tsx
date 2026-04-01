@@ -786,7 +786,7 @@ export function EditorViewport({
       onContextMenu={(e) => e.preventDefault()}
     >
       <Canvas
-        frameloop="always"
+        frameloop="demand"
         dpr={[1, 2]}
         camera={{ position: initialCameraPosition ?? [2.5, 2, 3], fov: 45 }}
         shadows

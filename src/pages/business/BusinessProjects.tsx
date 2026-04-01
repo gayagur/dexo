@@ -121,7 +121,7 @@ export default function BusinessProjects() {
                     <CardContent className="p-5">
                       <div className="flex items-center gap-4">
                         {project.ai_concept ? (
-                          <img src={project.ai_concept} alt="" className="w-14 h-14 rounded-lg object-cover shrink-0" />
+                          <img loading="lazy" src={project.ai_concept} alt="" className="w-14 h-14 rounded-lg object-cover shrink-0" />
                         ) : (
                           <div className="w-14 h-14 rounded-lg bg-[#C87D5A]/10 flex items-center justify-center shrink-0">
                             <Sparkles className="w-6 h-6 text-[#C87D5A]" />
@@ -180,7 +180,7 @@ export default function BusinessProjects() {
                       <CardContent className="p-5">
                         <div className="flex items-center gap-4">
                           {p.ai_concept ? (
-                            <img src={p.ai_concept} alt="" className="w-12 h-12 rounded-lg object-cover shrink-0" />
+                            <img loading="lazy" src={p.ai_concept} alt="" className="w-12 h-12 rounded-lg object-cover shrink-0" />
                           ) : (
                             <div className="w-12 h-12 rounded-lg bg-gray-100 flex items-center justify-center shrink-0">
                               <FolderKanban className="w-5 h-5 text-gray-400" />
