@@ -80,7 +80,7 @@ function AnalyticsTracker() {
 
 /** Landing page with auth-aware redirect */
 function HomeRoute() {
-  const { user, loading } = useAuth();
+  const { user, activeRole, loading } = useAuth();
 
   if (loading) {
     return (
@@ -91,10 +91,28 @@ function HomeRoute() {
   }
 
   if (user) {
-    return <Navigate to="/home" replace />;
+    return <Navigate to={activeRole === "business" ? "/business" : "/home"} replace />;
   }
 
   return <LandingPage />;
+}
+
+function AuthenticatedHomeRoute() {
+  const { activeRole, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (activeRole === "business") {
+    return <Navigate to="/business" replace />;
+  }
+
+  return <AuthenticatedHome />;
 }
 
 const App = () => (
@@ -139,7 +157,7 @@ const App = () => (
             } />
             <Route path="/home" element={
               <ProtectedRoute>
-                <AuthenticatedHome />
+                <AuthenticatedHomeRoute />
               </ProtectedRoute>
             } />
 

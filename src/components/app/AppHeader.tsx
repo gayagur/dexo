@@ -37,7 +37,7 @@ export function AppHeader() {
     .toUpperCase()
     .slice(0, 2);
 
-  const homePath = '/home';
+  const homePath = activeRole === 'business' ? '/business' : '/home';
 
   const navLinks = activeRole === 'creator'
     ? [
@@ -46,7 +46,7 @@ export function AppHeader() {
       ]
     : activeRole === 'business'
     ? [
-        { to: '/home', label: 'Home' },
+        { to: '/business', label: 'Home' },
         { to: '/business', label: 'Dashboard' },
         { to: '/business/projects', label: 'Projects' },
         { to: '/business/conversations', label: 'Messages' },
