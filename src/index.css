@@ -6,6 +6,55 @@
 
 /* DEXO Design System - Warm Premium Aesthetic */
 
+/* ─── Luxury shimmer skeleton ────────────────── */
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+.skeleton {
+  background: linear-gradient(90deg, #f0ede8 25%, #e8e4de 50%, #f0ede8 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.8s ease-in-out infinite;
+  border-radius: 8px;
+}
+
+/* ─── Luxury link underline ──────────────────── */
+.luxury-link {
+  position: relative;
+}
+.luxury-link::after {
+  content: '';
+  position: absolute;
+  bottom: -2px;
+  left: 0;
+  width: 0;
+  height: 1px;
+  background: currentColor;
+  transition: width 0.3s cubic-bezier(0.25, 0.1, 0.25, 1);
+}
+.luxury-link:hover::after {
+  width: 100%;
+}
+
+/* ─── Luxury button hover (global) ───────────── */
+button, [role="button"], a.btn {
+  transition: transform 0.15s cubic-bezier(0.25, 0.1, 0.25, 1),
+              box-shadow 0.25s cubic-bezier(0.25, 0.1, 0.25, 1);
+}
+button:active, [role="button"]:active {
+  transform: scale(0.98);
+}
+
+/* ─── Luxury card hover ──────────────────────── */
+.luxury-card {
+  transition: transform 0.3s cubic-bezier(0.43, 0.13, 0.23, 0.96),
+              box-shadow 0.3s cubic-bezier(0.43, 0.13, 0.23, 0.96);
+}
+.luxury-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 20px 40px rgba(0,0,0,0.08);
+}
+
 /* Page transition fade-in */
 @keyframes page-fade-in {
   from { opacity: 0; transform: translateY(4px); }

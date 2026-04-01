@@ -978,6 +978,45 @@ function refineSeatingImportPanels(panels: PanelData[], furnitureName: string): 
   });
 }
 
+function normalizeImportedUpholsteryThickness(panel: PanelData): PanelData {
+  const shape = panel.shape ?? "box";
+  const upholsteryShape = /^(rounded_rect|cushion|cushion_firm|padded_block|mattress)$/.test(shape);
+  const upholsteryMaterial = UPHOLSTERY_MAT_RE.test(panel.materialId);
+  const cushionLike = isCushionLikeLabel(panel.label);
+  if (!upholsteryShape && !upholsteryMaterial && !cushionLike) return panel;
+
+  let [w, h, d] = panel.size;
+  const plan = Math.max(w, d);
+  const isArm = /\b(arm|armrest|arm\s*pad)\b/i.test(panel.label);
+  const isBackLike = /\b(back|backrest|headrest|rest|pillow|bolster)\b/i.test(panel.label) && !/\bseat\b/i.test(panel.label);
+
+  if (panel.type === "horizontal") {
+    const maxThickness = isArm
+      ? Math.min(Math.max(plan * 0.22, 0.05), 0.14)
+      : Math.min(Math.max(plan * 0.18, 0.045), 0.12);
+    if (h > maxThickness) {
+      h = maxThickness;
+    }
+    return { ...panel, size: [w, h, d] };
+  }
+
+  if (panel.type === "vertical" || panel.type === "back" || isBackLike) {
+    const thinAxis = w <= d ? "w" : "d";
+    const thickness = Math.min(w, d);
+    const span = Math.max(w, h, d);
+    const maxThickness = isArm
+      ? Math.min(Math.max(span * 0.16, 0.04), 0.11)
+      : Math.min(Math.max(span * 0.12, 0.035), 0.09);
+    if (thickness > maxThickness) {
+      if (thinAxis === "w") w = maxThickness;
+      else d = maxThickness;
+    }
+    return { ...panel, size: [w, h, d] };
+  }
+
+  return panel;
+}
+
 /**
  * CylinderGeometry / circle_panel use Y as disk axis: flat top in XZ. rotation.x ≈ π/2 turns it vertical (wrong for tabletops).
  * Size must be [diameter, thickness, diameter] for horizontal cylinder; circle_panel uses w and d similarly.
@@ -1604,7 +1643,9 @@ export function panelsFromFurnitureAnalysis(
 
   const refined = refineSeatingImportPanels(panels, analysis.name ?? "");
   debugPositions("after refineSeatingImportPanels", refined);
-  const repaired = repairSeatingGeometry(refined, analysis.name ?? "", nextId);
+  const tightenedUpholstery = refined.map(normalizeImportedUpholsteryThickness);
+  debugPositions("after normalizeImportedUpholsteryThickness", tightenedUpholstery);
+  const repaired = repairSeatingGeometry(tightenedUpholstery, analysis.name ?? "", nextId);
   debugPositions("after repairSeatingGeometry", repaired);
   const officeChairLayout = repairOfficeChairLayout(repaired, analysis.name ?? "");
   debugPositions("after repairOfficeChairLayout", officeChairLayout);

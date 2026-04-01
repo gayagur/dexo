@@ -80,7 +80,11 @@
       "Bash(bash \"C:\\\\Users\\\\gayag\\\\.claude\\\\plugins\\\\cache\\\\claude-plugins-official\\\\superpowers\\\\5.0.5\\\\scripts\\\\start-server.sh\" --project-dir \"C:\\\\Users\\\\gayag\\\\Desktop\\\\לימודים\\\\שנה ג\\\\DEXO\\\\dexo-main\")",
       "Bash(bash \"C:/Users/gayag/.claude/plugins/cache/claude-plugins-official/superpowers/5.0.5/skills/brainstorming/scripts/start-server.sh\" --project-dir \"C:/Users/gayag/Desktop/לימודים/שנה ג/DEXO/dexo-main\")",
       "Bash(grep '\"\"dev\"\"' package.json)",
-      "Bash(find '/c/Users/gayag/Desktop/לימודים/שנה ג/DEXO/dexo-main' -type f -name *AdminBlog* -o -name *AdminDash*)"
+      "Bash(find '/c/Users/gayag/Desktop/לימודים/שנה ג/DEXO/dexo-main' -type f -name *AdminBlog* -o -name *AdminDash*)",
+      "Read(//c/Users/gayag/.agents/skills/**)",
+      "Read(//c/Users/gayag/Desktop/לימודים/שנה ג/DEXO/dexo-main/$USERPROFILE/.agents/**)",
+      "Bash(for table:*)",
+      "Bash(do echo:*)"
     ]
   }
 }

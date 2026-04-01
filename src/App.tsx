@@ -5,9 +5,11 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { HelmetProvider } from "react-helmet-async";
 import { lazy, Suspense, useEffect } from "react";
+import { AnimatePresence } from "framer-motion";
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import { initGA, trackPageView } from "@/lib/analytics";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { PageWrapper } from "@/components/PageWrapper";
 import { Loader2 } from "lucide-react";
 import { isSupabaseConfigured } from "@/lib/supabase";
 
@@ -55,13 +57,13 @@ const BlogPostPage = lazy(() => import("./pages/BlogPostPage"));
 
 const queryClient = new QueryClient();
 
-/** Lightweight page skeleton shown while lazy routes load */
+/** Luxury page skeleton — shimmer effect while lazy routes load */
 function PageSkeleton() {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <div className="flex flex-col items-center gap-3">
-        <div className="text-xl font-bold text-gray-300 animate-pulse">DEXO</div>
-        <Loader2 className="w-5 h-5 animate-spin text-gray-300" />
+    <div className="min-h-screen flex items-center justify-center bg-[#FDFCF8]">
+      <div className="flex flex-col items-center gap-4">
+        <div className="text-2xl font-serif font-light text-[#C05621]/30 tracking-wider">DEXO</div>
+        <div className="w-8 h-8 border-2 border-[#C05621]/20 border-t-[#C05621] rounded-full animate-spin" />
       </div>
     </div>
   );
@@ -138,7 +140,7 @@ const App = () => (
         <AnalyticsTracker />
         <AuthProvider>
           <Suspense fallback={<PageSkeleton />}>
-          <div className="page-fade-in">
+          <AnimatePresence mode="wait">
           <Routes>
             {/* Public routes */}
             <Route path="/" element={<HomeRoute />} />
@@ -317,7 +319,7 @@ const App = () => (
             {/* Catch-all */}
             <Route path="*" element={<NotFound />} />
           </Routes>
-          </div>
+          </AnimatePresence>
           </Suspense>
         </AuthProvider>
         </HelmetProvider>
