@@ -241,11 +241,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      // If signIn already set the correct state (role mismatch case), skip this fetch
+      // If signIn already set the correct state, skip this fetch
       if (skipNextFetchRef.current) {
         skipNextFetchRef.current = false;
+        console.log("[onAuthStateChange] Skipping fetchRole — signIn already set state");
         return;
       }
+      console.log("[onAuthStateChange] event:", event, "— fetching role...");
 
       let role: Role | null = null;
       let activeRole: Role | null = null;
@@ -266,6 +268,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }));
         return;
       }
+      console.log("[onAuthStateChange] Setting state: role=", role, "activeRole=", activeRole);
       setState({ session, user: session.user, role, activeRole, isAdmin, isCreator, creatorApproved, loading: false });
     });
 
@@ -339,23 +342,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
 
         // ALWAYS set active_role to selectedRole on login
-        // This fixes stale role cache: if user was "business" last session
-        // and logs in selecting "customer", active_role must update
         if (data.user && selectedRole) {
           const result = await fetchRole(data.user);
           const actualRole = result.role;
           const currentActiveRole = result.activeRole;
 
+          console.log("[signIn] selectedRole:", selectedRole, "| DB role:", actualRole, "| DB active_role:", currentActiveRole);
+
           // Always update active_role in DB to match what user selected
           if (currentActiveRole !== selectedRole) {
-            await supabase
+            console.log("[signIn] Updating active_role in DB:", currentActiveRole, "→", selectedRole);
+            const { error: updateErr } = await supabase
               .from("profiles")
               .update({ active_role: selectedRole })
               .eq("id", data.user.id);
+            if (updateErr) {
+              console.error("[signIn] Failed to update active_role:", updateErr.message);
+            }
+          } else {
+            console.log("[signIn] active_role already matches, no DB update needed");
           }
 
           // Force full state update with correct activeRole
           skipNextFetchRef.current = true;
+          console.log("[signIn] Setting state activeRole =", selectedRole);
           setState((prev) => ({
             ...prev,
             session: data.session,
