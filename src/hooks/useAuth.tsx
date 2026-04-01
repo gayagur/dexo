@@ -143,23 +143,48 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const savedRole = localStorage.getItem(OAUTH_ROLE_KEY) as Role | null;
     if (savedRole) {
       localStorage.removeItem(OAUTH_ROLE_KEY);
-      // Persist for future logins (fire-and-forget)
+      console.log("[fetchRole] Google OAuth return — saved role:", savedRole);
+
+      // AWAIT the DB update — don't fire-and-forget
       supabase.auth.updateUser({ data: { role: savedRole } }).catch(() => {});
-      supabase
+
+      // For EXISTING users: just update active_role (don't overwrite other fields)
+      // For NEW users: upsert the full profile
+      const { data: existing } = await supabase
         .from("profiles")
-        .upsert(
-          {
+        .select("id, is_creator, creator_approved, is_admin")
+        .eq("id", user.id)
+        .single();
+
+      if (existing) {
+        // Existing user — only update active_role
+        console.log("[fetchRole] Existing user — updating active_role to:", savedRole);
+        await supabase
+          .from("profiles")
+          .update({ active_role: savedRole })
+          .eq("id", user.id);
+      } else {
+        // New user — create profile
+        console.log("[fetchRole] New user — creating profile with role:", savedRole);
+        await supabase
+          .from("profiles")
+          .insert({
             id: user.id,
             email: user.email ?? "",
             name: user.user_metadata?.full_name || user.user_metadata?.name || "",
             role: savedRole,
             active_role: savedRole,
             is_admin: false,
-          },
-          { onConflict: "id" }
-        )
-        .then(() => {});
-      return { role: savedRole, activeRole: savedRole, isAdmin: false, isCreator: false, creatorApproved: false };
+          });
+      }
+
+      return {
+        role: existing ? (data?.role as Role ?? savedRole) : savedRole,
+        activeRole: savedRole,
+        isAdmin: existing?.is_admin ?? false,
+        isCreator: existing?.is_creator ?? false,
+        creatorApproved: existing?.creator_approved ?? false,
+      };
     }
 
     // 4. Default
