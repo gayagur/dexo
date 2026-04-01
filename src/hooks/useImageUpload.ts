@@ -143,7 +143,7 @@ export function useImageUpload() {
           setError('File must be under 10 MB'); return null;
         }
 
-        const path = `ai-edited/${user.id}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+        const path = `${user.id}/ai-edited/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
 
         const { error: uploadError } = await supabase.storage
           .from(bucket)

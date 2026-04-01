@@ -439,8 +439,10 @@ function MaterialPickerSection({
                 if (!file) return;
                 try {
                   const { supabase } = await import("@/lib/supabase");
+                  const { data: { user: currentUser } } = await supabase.auth.getUser();
+                  const uid = currentUser?.id ?? "anon";
                   const ext = file.name.split(".").pop() || "jpg";
-                  const path = `textures/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
+                  const path = `${uid}/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
                   const { error } = await supabase.storage.from("project-images").upload(path, file);
                   if (error) { console.error("Upload failed:", error); return; }
                   const { data: urlData } = supabase.storage.from("project-images").getPublicUrl(path);
