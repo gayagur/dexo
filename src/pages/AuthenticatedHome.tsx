@@ -338,15 +338,16 @@ function CategoryExplorer() {
 // ═════════════════════════════════════════════════════════════
 
 const AuthenticatedHome = () => {
-  const { user, activeRole, isCreator: hasCreatorAccess, creatorApproved } = useAuth();
+  const { user, activeRole, isCreator: hasCreatorAccess, creatorApproved, isBusiness } = useAuth();
   const firstName =
     user?.user_metadata?.name?.split(' ')[0] ||
     user?.user_metadata?.full_name?.split(' ')[0] ||
     'there';
 
-  // Show creator home ONLY if actively in creator/business mode AND approved
-  // No auto-redirect — let user stay on /home and see the appropriate view
-  const showCreatorHome = (activeRole === 'business' || activeRole === 'creator') && hasCreatorAccess && creatorApproved;
+  // Show creator/business home based on active role
+  const showCreatorHome =
+    (activeRole === 'business' && isBusiness) ||
+    (activeRole === 'creator' && hasCreatorAccess && creatorApproved);
 
   return (
     <AppLayout>
