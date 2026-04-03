@@ -196,19 +196,27 @@ export type RawAnalysisPanel = {
 };
 
 /**
- * Generic dimension normalization — detects units and converts to meters.
+ * Generic dimension normalization on RAW panels — detects units and converts to meters.
  * Works for ANY furniture type: finds the largest dimension across all panels,
  * determines the unit, scales everything, and clamps to sane bounds.
+ * Must run BEFORE normalizeAnalysisPanel (which clamps sizes to 10m).
  */
-function normalizePanelDimensions(panels: PanelData[]): PanelData[] {
-  if (panels.length === 0) return panels;
+function normalizeRawPanelDimensions(rawPanels: RawAnalysisPanel[]): RawAnalysisPanel[] {
+  if (rawPanels.length === 0) return rawPanels;
   const isDev = (import.meta as ImportMeta & { env?: { DEV?: boolean } }).env?.DEV;
 
-  // Find the largest single dimension value across ALL panels (sizes + positions)
+  // Extract sizes and positions from raw data
+  const extracted = rawPanels.map((raw) => ({
+    raw,
+    size: extractRawSize(raw),
+    position: extractRawPosition(raw, extractRawSize(raw)),
+  }));
+
+  // Find the largest single dimension value across ALL panels
   let largest = 0;
-  for (const p of panels) {
-    for (const v of p.size) largest = Math.max(largest, Math.abs(v));
-    for (const v of p.position) largest = Math.max(largest, Math.abs(v));
+  for (const { size, position } of extracted) {
+    if (size) for (const v of size) largest = Math.max(largest, Math.abs(v));
+    if (position) for (const v of position) largest = Math.max(largest, Math.abs(v));
   }
 
   // Detect unit
@@ -218,17 +226,33 @@ function normalizePanelDimensions(panels: PanelData[]): PanelData[] {
   } else if (largest > 10) {
     scale = 0.01;  // cm → meters
   }
-  // else: already meters
 
   if (isDev) {
-    console.log("[normalizePanelDimensions] largest value:", largest, "→ scale:", scale);
+    console.log("[normalizeRawPanelDimensions] largest value:", largest, "→ scale:", scale);
   }
 
-  return panels.map((p) => ({
-    ...p,
-    size: p.size.map((v) => Math.max(0.005, Math.min(Math.abs(v) * scale, 3))) as [number, number, number],
-    position: p.position.map((v) => v * scale) as [number, number, number],
-  }));
+  if (scale === 1) return rawPanels; // already meters
+
+  return extracted.map(({ raw, size, position }) => {
+    const out: RawAnalysisPanel = { ...raw };
+    if (size) {
+      out.size = size.map((v) => Math.max(0.005, Math.min(Math.abs(v) * scale, 3))) as unknown;
+    }
+    if (position) {
+      out.position = position.map((v) => v * scale) as unknown;
+    }
+    // Also scale w/h/d and x/y/z if present (some models use these)
+    if (typeof raw.w === "number") out.w = (raw.w as number) * scale;
+    if (typeof raw.h === "number") out.h = (raw.h as number) * scale;
+    if (typeof raw.d === "number") out.d = (raw.d as number) * scale;
+    if (typeof raw.width === "number") out.width = (raw.width as number) * scale;
+    if (typeof raw.height === "number") out.height = (raw.height as number) * scale;
+    if (typeof raw.depth === "number") out.depth = (raw.depth as number) * scale;
+    if (typeof raw.x === "number") out.x = (raw.x as number) * scale;
+    if (typeof raw.y === "number") out.y = (raw.y as number) * scale;
+    if (typeof raw.z === "number") out.z = (raw.z as number) * scale;
+    return out;
+  });
 }
 
 /**
@@ -276,17 +300,23 @@ function inferPositionsFromDimensions(panels: PanelData[]): PanelData[] {
   let bottomTop = 0;       // top edge of bottom-role panels
   let seatTop = 0;         // top edge of seat-role panels
   let backTop = 0;         // top edge of back-role panels
+  let sideTop = 0;         // top edge of side-role panels (for cabinets/counters)
   let defaultStackY = 0;   // running Y for default-stacked panels
 
-  // First pass: compute reference heights from bottom and seat panels
+  // First pass: compute reference heights from all panels
+  // Two sub-passes: first collect bottomTop, then compute heights that depend on it
+  for (const { panel } of sorted) {
+    if (classifyLabel(panel.label) === "bottom") bottomTop = Math.max(bottomTop, panel.size[1]);
+  }
   for (const { panel } of sorted) {
     const role = classifyLabel(panel.label);
-    if (role === "bottom") bottomTop = Math.max(bottomTop, panel.size[1]);
     if (role === "seat") seatTop = Math.max(seatTop, bottomTop + panel.size[1]);
+    if (role === "side") sideTop = Math.max(sideTop, bottomTop + panel.size[1]);
+    if (role === "back") backTop = Math.max(backTop, bottomTop + panel.size[1]);
   }
   // Ensure a reasonable seat height if no explicit seat panel
   if (seatTop === 0) seatTop = bottomTop;
-  defaultStackY = seatTop;
+  defaultStackY = Math.max(seatTop, sideTop, backTop);
 
   // Second pass: assign positions
   const result = new Array<PanelData>(panels.length);
@@ -319,8 +349,8 @@ function inferPositionsFromDimensions(panels: PanelData[]): PanelData[] {
         break;
       }
       case "top": {
-        // Top surface → above everything else
-        const belowTop = Math.max(seatTop, backTop, bottomTop);
+        // Top surface → above everything else (sides, back, seat, bottom)
+        const belowTop = Math.max(seatTop, backTop, bottomTop, sideTop);
         y = belowTop + ph / 2;
         break;
       }
@@ -355,8 +385,8 @@ function inferPositionsFromDimensions(panels: PanelData[]): PanelData[] {
         break;
       }
       case "head": {
-        // Head → above back
-        y = Math.max(backTop, seatTop) + ph / 2;
+        // Head → above back/seat
+        y = Math.max(backTop, seatTop, sideTop) + ph / 2;
         z = -refD / 2 + pd / 2 + 0.01;
         break;
       }
@@ -1976,21 +2006,21 @@ export function panelsFromFurnitureAnalysis(
 ): PanelData[] {
   const isDev = (import.meta as ImportMeta & { env?: { DEV?: boolean } }).env?.DEV;
 
-  // Step 0: Parse raw panels into PanelData (shapes, materials, labels)
+  // Step 0: Normalize raw dimensions FIRST (detect mm/cm/m → convert to meters)
+  // Must happen before normalizeAnalysisPanel which clamps sizes to 10m
   const rawPanels = (analysis.panels ?? []) as unknown as RawAnalysisPanel[];
-  let panels = rawPanels.map((p) => normalizeAnalysisPanel(p, nextId()));
+  const rawNormalized = normalizeRawPanelDimensions(rawPanels);
+
+  // Step 1: Parse raw panels into PanelData (shapes, materials, labels)
+  let panels = rawNormalized.map((p) => normalizeAnalysisPanel(p, nextId()));
 
   if (isDev) {
-    console.log("[panelsFromFurnitureAnalysis] raw AI panels:", panels.map((p) => ({
+    console.log("[panelsFromFurnitureAnalysis] panels after parse:", panels.map((p) => ({
       label: p.label,
       position: p.position.map((v: number) => +v.toFixed(3)),
       size: p.size.map((v: number) => +v.toFixed(3)),
     })));
   }
-
-  // Step 1: Normalize dimensions (detect mm/cm/m, convert to meters, clamp)
-  panels = normalizePanelDimensions(panels);
-  debugPositions("after normalizePanelDimensions", panels);
 
   // Step 2: Normalize shapes/axes (existing helpers — generic, not furniture-specific)
   panels = panels.map(normalizeVerticalBoxHeightAxis);
