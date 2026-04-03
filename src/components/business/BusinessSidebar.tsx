@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import {
   LayoutDashboard,
   FolderKanban,
@@ -30,8 +30,7 @@ interface BusinessSidebarProps {
 export function BusinessSidebar({ newRequestsCount = 0 }: BusinessSidebarProps) {
   const location = useLocation();
   const { business } = useBusinessProfile();
-  const { user, switchRole } = useAuth();
-  const navigate = useNavigate();
+  const { user } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
 
   const avatarUrl = user?.user_metadata?.avatar_url || "";
@@ -139,17 +138,14 @@ export function BusinessSidebar({ newRequestsCount = 0 }: BusinessSidebarProps) 
 
       {/* Footer */}
       <div className="px-3 pb-4 border-t border-gray-50 pt-3">
-        <button
-          onClick={async () => {
-            onLinkClick?.();
-            await switchRole("customer");
-            navigate("/home");
-          }}
-          className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-medium text-gray-400 hover:bg-gray-50 hover:text-gray-900 transition-all duration-200 w-full"
+        <Link
+          to="/home"
+          onClick={onLinkClick}
+          className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-medium text-gray-400 hover:bg-gray-50 hover:text-gray-900 transition-all duration-200"
         >
           <ArrowLeft className="w-[18px] h-[18px]" />
           <span>Back to Platform</span>
-        </button>
+        </Link>
       </div>
     </>
   );

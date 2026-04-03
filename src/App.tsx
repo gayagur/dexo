@@ -111,10 +111,6 @@ function AuthenticatedHomeRoute() {
     );
   }
 
-  if (activeRole === "business") {
-    return <Navigate to="/business" replace />;
-  }
-
   return <AuthenticatedHome />;
 }
 
