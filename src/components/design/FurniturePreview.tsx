@@ -60,7 +60,7 @@ function AutoFitCamera({ panels }: { panels: PanelData[] }) {
 function PreviewRendererSetup() {
   const gl = useThree((s) => s.gl);
   useLayoutEffect(() => {
-    gl.shadowMap.type = THREE.PCFSoftShadowMap;
+    gl.shadowMap.type = THREE.PCFShadowMap;
     gl.outputColorSpace = THREE.SRGBColorSpace;
     gl.toneMapping = THREE.ACESFilmicToneMapping;
     gl.toneMappingExposure = 1.02;

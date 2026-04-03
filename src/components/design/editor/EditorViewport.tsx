@@ -616,13 +616,13 @@ function EditorRendererSetup() {
   const gl = useThree((s) => s.gl);
   useLayoutEffect(() => {
     gl.shadowMap.enabled = true;
-    gl.shadowMap.type = THREE.PCFSoftShadowMap;
+    gl.shadowMap.type = THREE.PCFShadowMap;
     gl.outputColorSpace = THREE.SRGBColorSpace;
   }, [gl]);
   return null;
 }
 
-/** Softer sun-style penumbra on the main shadow caster (Three.js shadow.radius + PCFSoft) */
+/** Softer sun-style penumbra on the main shadow caster (shadow.radius + PCF) */
 function InteriorKeyLight({
   lightMode,
   position,
@@ -1042,7 +1042,7 @@ export function EditorViewport({
           toneMappingExposure: 1.02,
         }}
         onCreated={(state) => {
-          state.gl.shadowMap.type = THREE.PCFSoftShadowMap;
+          state.gl.shadowMap.type = THREE.PCFShadowMap;
           state.gl.outputColorSpace = THREE.SRGBColorSpace;
           requestAnimationFrame(() => state.invalidate());
         }}
