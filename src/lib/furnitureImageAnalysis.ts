@@ -2083,26 +2083,9 @@ export function panelsFromFurnitureAnalysis(
   panels = panels.map(fixHorizontalRoundDisk);
   debugPositions("after shape normalization", panels);
 
-  // Step 3: Position inference — only when AI positions are unreliable
-  const positionSources = rawNormalized.map(getPositionSource);
-  const fallbackMask = positionSources.map((source) => source === "fallback");
-  const fallbackCount = fallbackMask.filter(Boolean).length;
-  const collapsedAfterNormalize = shouldInferCollapsedLayout(panels);
-
-  if (isDev) {
-    console.log("[panelsFromFurnitureAnalysis] positionSources:", positionSources, "fallbacks:", fallbackCount, "collapsed:", collapsedAfterNormalize);
-  }
-
-  if (fallbackCount > 0 || collapsedAfterNormalize) {
-    const inferred = inferPositionsFromCategory(
-      panels,
-      category,
-      furnitureDims,
-      collapsedAfterNormalize ? undefined : fallbackMask,
-    );
-    panels = inferred;
-    debugPositions("after inferPositionsFromCategory", panels);
-  }
+  // Step 3: Always rebuild positions — AI positions are unreliable across all models
+  panels = inferPositionsFromCategory(panels, category, furnitureDims);
+  debugPositions("after inferPositionsFromCategory", panels);
 
   // Step 4: Category-specific geometry repairs (existing pipeline — tuned per type)
   const refined = refineSeatingImportPanels(panels, analysis.name ?? "");
