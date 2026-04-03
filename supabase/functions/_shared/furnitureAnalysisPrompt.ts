@@ -22,6 +22,13 @@ Furniture centered at X=0, Z=0. Y=0 = floor. position = CENTER of each part. siz
 - A 40mm-thick slat: size about [0.045, 0.02, 1.85] — never use hundreds for thin parts.
 - Round leg diameter 50mm: cylinder size [0.05, 0.72, 0.05] not [50, 720, 50]
 
+== POSITION IS CRITICAL — DO NOT USE [0,0,0] FOR EVERYTHING ==
+For EACH component, you MUST estimate a realistic position [x, y, z] in meters relative to furniture center [0, 0, 0]. Y-axis is UP.
+- WRONG: all parts at position [0, 0, 0] — this makes a broken blob
+- RIGHT: seat at [0, 0.42, 0], backrest at [0, 0.72, -0.22], left arm at [-0.28, 0.55, 0], leg at [-0.25, 0.18, 0.2]
+- Each part MUST have a UNIQUE position that places it where it actually sits in the assembled furniture
+- Think about how the parts fit together physically — seat on top of legs, back behind and above seat, arms on sides
+
 estimatedDims {w,h,d} are in MILLIMETERS for UI only. Panel position/size are ALWAYS meters.
 
 type: "horizontal" (tops/shelves/seats), "vertical" (sides/legs/posts), "back" (thin rear panels).

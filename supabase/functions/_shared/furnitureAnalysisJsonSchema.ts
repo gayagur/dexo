@@ -36,7 +36,8 @@ export const FURNITURE_ANALYSIS_RESPONSE_FORMAT = {
               shape: { type: "string" },
               position: {
                 type: "array",
-                description: "Center x,y,z in METERS (e.g. seat at y=0.42 NOT 420)",
+                description:
+                  "Center x,y,z in METERS relative to furniture center [0,0,0]. Y is UP. Each part MUST have a unique position — e.g. seat [0,0.42,0], backrest [0,0.72,-0.22], left arm [-0.28,0.55,0]. NEVER use [0,0,0] for all parts.",
                 items: { type: "number" },
                 minItems: 3,
                 maxItems: 3,

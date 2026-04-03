@@ -483,30 +483,77 @@ export function planSoftDecorPlacement(input: PlanSoftDecorInput): SoftDecorPlac
         : seatBox.minZ - 0.08;
     const yaw = seats.length ? worldYawFromPanel(seats[0]!) : ay;
     const lShape = profile === "sofa" && isLShapedSeating(seats);
-    const pw = profile === "compact_seat" ? 0.32 : 0.38;
-    const ph = profile === "compact_seat" ? 0.36 : 0.4;
+    const compact = profile === "compact_seat";
+    const pw = compact ? 0.32 : 0.38;
+    const ph = compact ? 0.36 : 0.4;
     const pdepth = 0.12;
+    /** Inset from seat side toward center so the pillow tucks into the arm–back corner. */
+    const cornerInsetX = compact ? 0.07 : 0.055;
+    const cornerInsetZ = compact ? 0.11 : 0.13;
+    const jx = (hashJitter(seed, 1) - 0.5) * (compact ? 0.02 : 0.028);
+    const jz = (hashJitter(seed, 2) - 0.5) * (compact ? 0.02 : 0.025);
+
     let px = seatBox.cx;
-    let leanX = 0;
-    if (vi === 0) {
-      px = seatBox.minX + seatBox.width * 0.22;
-      leanX = 0.04;
-    } else if (vi === 1) px = seatBox.maxX - seatBox.width * 0.22;
-    else if (vi === 2) px = seatBox.cx + (hashJitter(seed, 1) - 0.5) * 0.05;
-    else {
-      px = lShape ? seatBox.minX + seatBox.width * 0.18 : seatBox.maxX - seatBox.width * 0.2;
-      leanX = lShape ? 0.06 : -0.05;
-    }
-    const pz = seatBox.cz - seatBox.depth * 0.28;
-    const pos: [number, number, number] = [
-      px + leanX,
-      seatBox.topY + ph / 2 + CUSHION_SURFACE_CLEAR + Z_FIGHT,
-      Math.min(pz, backZ + seatBox.depth * 0.25),
+    let pz = seatBox.cz - seatBox.depth * 0.28;
+    let rot: [number, number, number] = [
+      -0.11 - hashJitter(seed, 3) * 0.04,
+      yaw + (hashJitter(seed, 4) - 0.5) * 0.06,
+      (hashJitter(seed, 5) - 0.5) * 0.06,
     ];
-    const rot: [number, number, number] = [
-      -0.11 - hashJitter(seed, 2) * 0.04,
-      yaw + (vi === 1 ? -0.04 : vi === 0 ? 0.04 : 0) + (hashJitter(seed, 3) - 0.5) * 0.06,
-      (hashJitter(seed, 4) - 0.5) * 0.06,
+    let variantId: string;
+
+    if (vi === 0) {
+      // Default: back-right corner — leans on backrest + right arm (natural throw-pillow pose)
+      px = seatBox.maxX - seatBox.width * cornerInsetX + jx;
+      pz = Math.min(
+        seatBox.minZ + seatBox.depth * cornerInsetZ + jz,
+        backZ + seatBox.depth * 0.34,
+      );
+      rot = [
+        -0.24 - hashJitter(seed, 3) * 0.035,
+        yaw - 0.1 + (hashJitter(seed, 4) - 0.5) * 0.05,
+        0.13 + (hashJitter(seed, 5) - 0.5) * 0.05,
+      ];
+      variantId = "sofa_pillow_right_corner";
+    } else if (vi === 1) {
+      // Back-left corner (mirror)
+      px = seatBox.minX + seatBox.width * cornerInsetX + jx;
+      pz = Math.min(
+        seatBox.minZ + seatBox.depth * cornerInsetZ + jz,
+        backZ + seatBox.depth * 0.34,
+      );
+      rot = [
+        -0.24 - hashJitter(seed, 3) * 0.035,
+        yaw + 0.1 + (hashJitter(seed, 4) - 0.5) * 0.05,
+        -0.13 + (hashJitter(seed, 5) - 0.5) * 0.05,
+      ];
+      variantId = "sofa_pillow_left_corner";
+    } else if (vi === 2) {
+      px = seatBox.cx + (hashJitter(seed, 1) - 0.5) * 0.05;
+      pz = Math.min(seatBox.cz - seatBox.depth * 0.26 + jz, backZ + seatBox.depth * 0.28);
+      rot = [
+        -0.12 - hashJitter(seed, 3) * 0.04,
+        yaw + (hashJitter(seed, 4) - 0.5) * 0.08,
+        (hashJitter(seed, 5) - 0.5) * 0.07,
+      ];
+      variantId = "sofa_pillow_center";
+    } else {
+      px = lShape ? seatBox.minX + seatBox.width * 0.18 : seatBox.maxX - seatBox.width * 0.22;
+      const leanX = lShape ? 0.05 : -0.04;
+      px += leanX;
+      pz = Math.min(seatBox.cz - seatBox.depth * 0.22 + jz, backZ + seatBox.depth * 0.3);
+      rot = [
+        -0.18 - hashJitter(seed, 3) * 0.04,
+        yaw + (lShape ? 0.06 : -0.05) + (hashJitter(seed, 4) - 0.5) * 0.06,
+        (lShape ? -0.08 : 0.07) + (hashJitter(seed, 5) - 0.5) * 0.05,
+      ];
+      variantId = lShape ? "sofa_pillow_sectional" : "sofa_pillow_alt";
+    }
+
+    const pos: [number, number, number] = [
+      px,
+      seatBox.topY + ph / 2 + CUSHION_SURFACE_CLEAR + Z_FIGHT,
+      pz,
     ];
     return {
       position: pos,
@@ -519,7 +566,7 @@ export function planSoftDecorPlacement(input: PlanSoftDecorInput): SoftDecorPlac
       softDecor: {
         kind: "pillow",
         variantIndex: vi,
-        variantId: ["sofa_pillow_left", "sofa_pillow_right", "sofa_pillow_center", "sofa_pillow_corner"][vi] ?? "sofa_pillow",
+        variantId,
         anchorPanelId: input.anchorPanelId,
       },
     };

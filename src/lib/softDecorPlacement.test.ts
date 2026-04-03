@@ -144,6 +144,69 @@ test("sofa uses seat cluster for throw height", () => {
   assert.equal(plan!.shape, "cushion");
 });
 
+test("sofa smart pillow default is back-right corner; variant 1 mirrors left", () => {
+  const seatL: PanelData = {
+    id: "s1",
+    type: "horizontal",
+    shape: "cushion_firm",
+    label: "Seat cushion left",
+    position: [-0.45, 0.42, 0.05],
+    size: [0.85, 0.12, 0.88],
+    materialId: "fabric_gray",
+  };
+  const seatR: PanelData = {
+    id: "s2",
+    type: "horizontal",
+    shape: "cushion_firm",
+    label: "Seat cushion right",
+    position: [0.45, 0.42, 0.05],
+    size: [0.85, 0.12, 0.88],
+    materialId: "fabric_gray",
+  };
+  const back: PanelData = {
+    id: "b1",
+    type: "vertical",
+    label: "Back cushion",
+    position: [0, 0.72, -0.42],
+    size: [1.9, 0.55, 0.18],
+    materialId: "fabric_gray",
+  };
+  const g: GroupData = {
+    id: "g-sofa",
+    name: "3-Seater Sofa",
+    position: [0, 0, 0],
+    rotation: [0, 0, 0],
+    panels: [seatL, seatR, back],
+  };
+  const rightCorner = planSoftDecorPlacement({
+    kind: "pillow",
+    variantIndex: 0,
+    anchorPanelId: "s1",
+    groups: [g],
+    ungroupedPanels: [],
+    editingGroupId: null,
+    editModePanels: null,
+    furnitureTypeLabel: "Sofa",
+    defaultMaterialId: "fabric_cream",
+  });
+  const leftCorner = planSoftDecorPlacement({
+    kind: "pillow",
+    variantIndex: 1,
+    anchorPanelId: "s1",
+    groups: [g],
+    ungroupedPanels: [],
+    editingGroupId: null,
+    editModePanels: null,
+    furnitureTypeLabel: "Sofa",
+    defaultMaterialId: "fabric_cream",
+  });
+  assert.ok(rightCorner && leftCorner);
+  assert.equal(rightCorner!.softDecor.variantId, "sofa_pillow_right_corner");
+  assert.equal(leftCorner!.softDecor.variantId, "sofa_pillow_left_corner");
+  assert.ok(rightCorner!.position[0] > leftCorner!.position[0]);
+  assert.ok(rightCorner!.position[2] <= leftCorner!.position[2] + 0.02);
+});
+
 test("softDecorVariantCount matches planner branches", () => {
   assert.equal(softDecorVariantCount("bed", "blanket"), 2);
   assert.equal(softDecorVariantCount("bed", "pillow"), 4);

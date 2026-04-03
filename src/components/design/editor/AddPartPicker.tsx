@@ -74,7 +74,7 @@ const PART_CATEGORIES: PartCategory[] = [
         id: "smart_pillow",
         label: "Pillow (auto on bed/sofa)",
         icon: "▢",
-        description: "Select mattress or seat — head, sides, or backrest lean.",
+        description: "On sofa: starts tucked in the back corner, leaning on back + arm. Cycle for other spots.",
         shape: "cushion",
         type: "horizontal",
         size: [0.42, 0.1, 0.4],

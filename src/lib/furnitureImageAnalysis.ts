@@ -645,7 +645,18 @@ function shouldInferCollapsedLayout(panels: PanelData[]): boolean {
   }
   const uniqueCount = buckets.size;
   const largestBucket = Math.max(...buckets.values());
-  return uniqueCount <= Math.max(2, Math.ceil(panels.length / 3)) || largestBucket >= Math.ceil(panels.length * 0.5);
+  if (uniqueCount <= Math.max(2, Math.ceil(panels.length / 3)) || largestBucket >= Math.ceil(panels.length * 0.5)) {
+    return true;
+  }
+  // Detect XZ-collapse: panels spread in Y but all stacked at same X,Z
+  const xs = panels.map((p) => p.position[0]);
+  const zs = panels.map((p) => p.position[2]);
+  const spanX = Math.max(...xs) - Math.min(...xs);
+  const spanZ = Math.max(...zs) - Math.min(...zs);
+  if (spanX < 0.08 && spanZ < 0.08 && panels.length >= 5) {
+    return true;
+  }
+  return false;
 }
 
 function estimatedDimsToMeters(
@@ -1820,6 +1831,15 @@ export function panelsFromFurnitureAnalysis(
   const fallbackMask = positionSources.map((source) => source === "fallback");
   const fallbackCount = fallbackMask.filter(Boolean).length;
   const collapsedAfterNormalize = shouldInferCollapsedLayout(panels);
+  if ((import.meta as ImportMeta & { env?: { DEV?: boolean } }).env?.DEV) {
+    console.log("[panelsFromFurnitureAnalysis] position sources:", positionSources);
+    console.log("[panelsFromFurnitureAnalysis] fallbackCount:", fallbackCount, "collapsed:", collapsedAfterNormalize);
+    console.log("[panelsFromFurnitureAnalysis] raw AI positions:", rawScaled.map((r) => ({
+      label: r.label,
+      position: r.position,
+      size: r.size,
+    })));
+  }
   if (fallbackCount > 0 || collapsedAfterNormalize) {
     const inferred = inferPositionsFromCategory(
       panels,
@@ -1829,6 +1849,27 @@ export function panelsFromFurnitureAnalysis(
     );
     panels = inferred;
     debugPositions("after inferPositionsFromCategory", panels);
+  }
+
+  // Second pass: use label-based inference for panels still stuck near origin
+  if (shouldInferCollapsedLayout(panels)) {
+    const labelGroupCounts = new Map<string, number>();
+    panels.forEach((p) => {
+      const key = p.label.toLowerCase().replace(/[_\s]+/g, " ").trim();
+      const group = key.replace(/\b(left|right|front|back|rear)\b/g, "").trim();
+      labelGroupCounts.set(group, (labelGroupCounts.get(group) ?? 0) + 1);
+    });
+    const labelGroupIndex = new Map<string, number>();
+    panels = panels.map((p) => {
+      const key = p.label.toLowerCase().replace(/[_\s]+/g, " ").trim();
+      const group = key.replace(/\b(left|right|front|back|rear)\b/g, "").trim();
+      const idx = labelGroupIndex.get(group) ?? 0;
+      labelGroupIndex.set(group, idx + 1);
+      const count = labelGroupCounts.get(group) ?? 1;
+      const pos = inferPositionFromLabel(p.label, p.size, furnitureDims, idx, count);
+      return { ...p, position: pos };
+    });
+    debugPositions("after inferPositionFromLabel fallback", panels);
   }
 
   const refined = refineSeatingImportPanels(panels, analysis.name ?? "");

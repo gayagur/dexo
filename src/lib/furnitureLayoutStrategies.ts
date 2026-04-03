@@ -187,6 +187,25 @@ function inferGenericPosition(
       return [0, Math.max(dims.h * 0.5, ph / 2), backZ];
     case "shelf":
       return [0, Math.max(ph / 2 + dims.h * (0.2 + index * 0.18), ph / 2), 0];
+    case "base":
+    case "bottom":
+      return [0, Math.max(ph / 2, 0.04), 0];
+    case "rail":
+      return [
+        index % 2 === 0 ? leftX : rightX,
+        Math.max(dims.h * 0.35, ph / 2),
+        0,
+      ];
+    case "divider":
+      return [
+        count > 1
+          ? ((index / Math.max(count - 1, 1)) - 0.5) * dims.w * 0.6
+          : 0,
+        Math.max(dims.h * 0.5, ph / 2),
+        0,
+      ];
+    case "hanging_rail":
+      return [0, Math.max(dims.h * 0.8, ph / 2), 0];
     default:
       return [0, Math.max(ph / 2, 0.05), 0];
   }
