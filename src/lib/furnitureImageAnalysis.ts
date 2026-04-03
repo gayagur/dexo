@@ -889,18 +889,7 @@ function shouldInferCollapsedLayout(panels: PanelData[]): boolean {
   }
   const uniqueCount = buckets.size;
   const largestBucket = Math.max(...buckets.values());
-  if (uniqueCount <= Math.max(2, Math.ceil(panels.length / 3)) || largestBucket >= Math.ceil(panels.length * 0.5)) {
-    return true;
-  }
-  // Detect XZ-collapse: panels spread in Y but all stacked at same X,Z
-  const xs = panels.map((p) => p.position[0]);
-  const zs = panels.map((p) => p.position[2]);
-  const spanX = Math.max(...xs) - Math.min(...xs);
-  const spanZ = Math.max(...zs) - Math.min(...zs);
-  if (spanX < 0.08 && spanZ < 0.08 && panels.length >= 5) {
-    return true;
-  }
-  return false;
+  return uniqueCount <= Math.max(2, Math.ceil(panels.length / 3)) || largestBucket >= Math.ceil(panels.length * 0.5);
 }
 
 function estimatedDimsToMeters(
