@@ -197,6 +197,7 @@ export function BusinessDashboardLayout({ children, newRequestsCount = 0 }: Busi
             animate="animate"
             exit="exit"
             className="p-4 md:p-8 max-w-[1360px] mx-auto"
+            style={{ willChange: 'transform' }}
           >
             {children}
           </motion.div>

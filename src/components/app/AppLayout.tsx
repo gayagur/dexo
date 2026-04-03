@@ -36,6 +36,7 @@ export function AppLayout({ children }: AppLayoutProps) {
           initial="initial"
           animate="animate"
           exit="exit"
+          style={{ willChange: 'transform' }}
         >
           {children}
         </motion.div>

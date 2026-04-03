@@ -25,7 +25,9 @@ import { SavedDesignsDraftsSection, SAVED_DRAFTS_PREVIEW_LIMIT } from '@/compone
 import { useOffersForProjects } from '@/hooks/useOffers';
 import { useChatSession } from '@/hooks/useChatSession';
 import { AppLayout } from '@/components/app/AppLayout';
-import { FurniturePreview } from '@/components/design/FurniturePreview';
+import { lazy, Suspense } from 'react';
+
+const FurniturePreview = lazy(() => import('@/components/design/FurniturePreview').then(m => ({ default: m.FurniturePreview })));
 import type { EditorSceneData, PanelData } from '@/lib/furnitureData';
 import type { ProjectStatus } from '@/lib/database.types';
 import {
@@ -156,10 +158,12 @@ function ProjectCard({
             {/* Image Area */}
             <div className="aspect-[16/10] overflow-hidden relative">
               {project.details?.furniture_design && (project.details.furniture_design as Record<string, unknown>).panels ? (
-                <FurniturePreview
-                  panels={(project.details.furniture_design as Record<string, unknown>).panels as PanelData[]}
-                  className="w-full h-full"
-                />
+                <Suspense fallback={<div className="w-full h-full bg-muted animate-pulse" />}>
+                  <FurniturePreview
+                    panels={(project.details.furniture_design as Record<string, unknown>).panels as PanelData[]}
+                    className="w-full h-full"
+                  />
+                </Suspense>
               ) : project.ai_concept ? (
                 <motion.img
                   whileHover={{ scale: 1.05 }}

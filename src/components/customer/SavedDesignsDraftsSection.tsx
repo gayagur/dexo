@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, lazy, Suspense } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -12,7 +12,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { FurniturePreview } from "@/components/design/FurniturePreview";
+
+const FurniturePreview = lazy(() => import("@/components/design/FurniturePreview").then(m => ({ default: m.FurniturePreview })));
 import { HOME_ROOMS, COMMERCIAL_SPACES } from "@/lib/furnitureData";
 import { findFurnitureOptionById } from "@/lib/furnitureDesignResume";
 import type { EditorSceneData } from "@/lib/furnitureData";
@@ -178,11 +179,13 @@ export function SavedDesignsDraftsSection({
                 >
                   {/* Canvas must not sit above controls: preview is pointer-events-none + delete layered on top */}
                   <div className="aspect-[16/10] bg-muted/30 relative isolate overflow-hidden">
-                    <FurniturePreview
-                      panels={draft.panels as EditorSceneData}
-                      disableInteraction
-                      className="absolute inset-0 h-full w-full min-h-0"
-                    />
+                    <Suspense fallback={<div className="absolute inset-0 bg-muted animate-pulse" />}>
+                      <FurniturePreview
+                        panels={draft.panels as EditorSceneData}
+                        disableInteraction
+                        className="absolute inset-0 h-full w-full min-h-0"
+                      />
+                    </Suspense>
                     <button
                       type="button"
                       className="absolute top-2 right-2 z-20 pointer-events-auto h-9 w-9 rounded-full bg-background/95 border border-border shadow-md flex items-center justify-center text-muted-foreground hover:text-destructive hover:border-destructive/40 transition-colors"

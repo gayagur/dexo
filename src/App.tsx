@@ -5,11 +5,10 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { HelmetProvider } from "react-helmet-async";
 import { lazy, Suspense, useEffect } from "react";
-import { AnimatePresence, MotionConfig } from "framer-motion";
+import { MotionConfig } from "framer-motion";
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import { initGA, trackPageView } from "@/lib/analytics";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
-import { PageWrapper } from "@/components/PageWrapper";
 import { Loader2 } from "lucide-react";
 import { isSupabaseConfigured } from "@/lib/supabase";
 
@@ -138,7 +137,6 @@ const App = () => (
         <AnalyticsTracker />
         <AuthProvider>
           <Suspense fallback={<PageSkeleton />}>
-          <AnimatePresence mode="wait">
           <Routes>
             {/* Public routes */}
             <Route path="/" element={<HomeRoute />} />
@@ -322,7 +320,6 @@ const App = () => (
             {/* Catch-all */}
             <Route path="*" element={<NotFound />} />
           </Routes>
-          </AnimatePresence>
           </Suspense>
         </AuthProvider>
         </HelmetProvider>

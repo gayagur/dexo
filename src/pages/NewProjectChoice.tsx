@@ -1,11 +1,12 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, lazy, Suspense } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { ModeSelector } from "@/components/design/steps/ModeSelector";
 import { MethodSelector } from "@/components/design/steps/MethodSelector";
 import { SpaceSelector } from "@/components/design/steps/SpaceSelector";
 import { RoomSelector } from "@/components/design/steps/RoomSelector";
 import { FurnitureTypeSelector } from "@/components/design/steps/FurnitureTypeSelector";
-import { FurnitureEditor } from "@/components/design/editor/FurnitureEditor";
+
+const FurnitureEditor = lazy(() => import("@/components/design/editor/FurnitureEditor").then(m => ({ default: m.FurnitureEditor })));
 import {
   HOME_ROOMS,
   COMMERCIAL_SPACES,
@@ -359,21 +360,28 @@ export default function NewProjectChoice() {
 
     case "editor":
       return (
-        <FurnitureEditor
-          key={designIdFromUrl ?? "new-flow"}
-          furnitureType={state.furniture!}
-          roomLabel={getRoomLabel()}
-          spaceType={state.spaceType ?? undefined}
-          onBack={() => {
-            if (designIdFromUrl) {
-              navigate("/dashboard");
-              return;
-            }
-            setStep("furniture");
-          }}
-          onSave={handleSave}
-          initialEditorState={resumeInitial}
-        />
+        <Suspense fallback={
+          <div className="min-h-screen flex flex-col items-center justify-center gap-4 bg-background">
+            <Loader2 className="w-10 h-10 animate-spin text-primary" />
+            <p className="text-sm text-muted-foreground">Loading 3D editor...</p>
+          </div>
+        }>
+          <FurnitureEditor
+            key={designIdFromUrl ?? "new-flow"}
+            furnitureType={state.furniture!}
+            roomLabel={getRoomLabel()}
+            spaceType={state.spaceType ?? undefined}
+            onBack={() => {
+              if (designIdFromUrl) {
+                navigate("/dashboard");
+                return;
+              }
+              setStep("furniture");
+            }}
+            onSave={handleSave}
+            initialEditorState={resumeInitial}
+          />
+        </Suspense>
       );
   }
 }
