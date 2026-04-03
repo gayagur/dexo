@@ -539,7 +539,7 @@ function clampRealisticThickness(panel: PanelData): PanelData {
     }
 
     const shelfLike =
-      /\b(shelf|slat|tier|apron|stretcher|rail|plank|board|bar)\b/i.test(L) ||
+      /\b(shelf|slat|tier|apron|stretcher|rail|plank|board|bar|frame)\b/i.test(L) ||
       (!/\b(seat|cushion|mattress|drawer|top\b|counter|block|step|plinth|pedestal|tread)\b/i.test(L) &&
         Math.max(w, d) > h * 2.5);
 
@@ -564,7 +564,7 @@ function clampRealisticThickness(panel: PanelData): PanelData {
   if (panel.type === "vertical") {
     const sheet =
       /\b(side|stile|end\s*panel|divider|partition|upright|head\b|foot\b|headboard|footboard)\b/i.test(L) ||
-      (/\b(panel|board)\b/i.test(L) && !/\b(back|circuit)\b/i.test(L));
+      (/\b(panel|board)\b/i.test(L) && !/\b(circuit)\b/i.test(L));
     const minXZ = Math.min(w, d);
     if (sheet && h > 0.18 && minXZ > 0.055 && minXZ < h * 0.45) {
       const target = 0.034;
@@ -574,6 +574,29 @@ function clampRealisticThickness(panel: PanelData): PanelData {
         else d *= f;
       }
     }
+
+    // Back cushions/backrests: if depth ≈ width (cube-like), the AI likely
+    // returned a wrong depth — thin it to a realistic cushion/panel thickness.
+    const isBack = /\b(back|backrest|rear)\b/i.test(L) && !/\b(leg)\b/i.test(L);
+    if (isBack && Math.min(w, d) > 0.15 && Math.abs(w - d) < Math.max(w, d) * 0.3) {
+      // Nearly square in plan — force the smaller plan dimension thin
+      const isCushion = /\b(cushion|pad|pillow)\b/i.test(L);
+      const target = isCushion ? 0.09 : 0.04;
+      if (w <= d) {
+        w = Math.min(w, target);
+      } else {
+        d = Math.min(d, target);
+      }
+    }
+
+    // Frame rails: if labeled "frame" and depth ≈ width, thin the depth
+    const isFrame = /\b(frame|rail|stretcher|apron|brace)\b/i.test(L);
+    if (isFrame && Math.min(w, d) > 0.06) {
+      const target = 0.04;
+      if (w <= d) w = Math.min(w, target);
+      else d = Math.min(d, target);
+    }
+
     return { ...panel, size: [w, h, d] };
   }
 
