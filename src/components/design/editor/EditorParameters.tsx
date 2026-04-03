@@ -3,7 +3,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { MATERIALS, type PanelData, type MaterialOption, type GroupData } from "@/lib/furnitureData";
 import { loadSH3DCatalog, getSH3DTextureUrl, type SH3DTexture } from "@/lib/sh3dTextures";
-import { Ruler, Palette, RotateCw, ChevronDown, ChevronRight, Search, MousePointerClick, ImagePlus, Circle } from "lucide-react";
+import { Ruler, Palette, RotateCw, ChevronDown, ChevronRight, Search, MousePointerClick, ImagePlus, Circle, Spline } from "lucide-react";
 
 // ─── Helper: adjust hex color brightness ─────────────────
 function adjustBrightness(hex: string, amount: number): string {
@@ -783,6 +783,81 @@ export function EditorParameters({
               <div className="flex justify-between text-[9px] text-gray-300 mt-0.5">
                 <span>Sharp</span>
                 <span>Round</span>
+              </div>
+            </div>
+          </CollapsibleSection>
+        )}
+
+        {/* Panel curve — bend the panel along its length */}
+        {showCornerRadius && (
+          <CollapsibleSection
+            label="Curve"
+            icon={<Spline className="w-3.5 h-3.5 text-gray-400" />}
+            defaultOpen={!!(panel.curveAmount && panel.curveAmount > 0)}
+          >
+            <div className="mt-1">
+              <div className="flex items-center justify-between mb-2">
+                <Label className="text-[11px] text-gray-500">Bend</Label>
+                <span className="text-[10px] text-gray-400 font-mono">
+                  {Math.round((panel.curveAmount ?? 0) * 100)}%
+                </span>
+              </div>
+              <input
+                type="range"
+                min={0}
+                max={100}
+                step={1}
+                value={Math.round((panel.curveAmount ?? 0) * 100)}
+                onChange={(e) => {
+                  const pct = parseInt(e.target.value, 10);
+                  onUpdatePanel(panel.id, { curveAmount: pct / 100 });
+                }}
+                className="w-full h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-[#C87D5A]"
+              />
+              <div className="flex justify-between text-[9px] text-gray-300 mt-0.5">
+                <span>Flat</span>
+                <span>Max</span>
+              </div>
+              {/* Presets */}
+              <div className="flex gap-1.5 mt-2">
+                {([
+                  ["Flat", 0],
+                  ["Gentle", 0.30],
+                  ["Strong", 0.65],
+                ] as const).map(([label, val]) => (
+                  <button
+                    key={label}
+                    type="button"
+                    onClick={() => onUpdatePanel(panel.id, { curveAmount: val })}
+                    className={`flex-1 h-6 rounded text-[10px] font-medium transition-colors border ${
+                      Math.abs((panel.curveAmount ?? 0) - val) < 0.01
+                        ? "bg-[#C87D5A] text-white border-[#C87D5A]"
+                        : "bg-white text-gray-500 border-gray-200 hover:border-[#C87D5A]/40"
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+              {/* Curve axis toggle */}
+              <div className="mt-3">
+                <Label className="text-[11px] text-gray-500 mb-1.5 block">Curve axis</Label>
+                <div className="flex gap-1.5">
+                  {(["horizontal", "vertical"] as const).map((axis) => (
+                    <button
+                      key={axis}
+                      type="button"
+                      onClick={() => onUpdatePanel(panel.id, { curveAxis: axis })}
+                      className={`flex-1 h-6 rounded text-[10px] font-medium transition-colors border ${
+                        (panel.curveAxis ?? "horizontal") === axis
+                          ? "bg-[#C87D5A] text-white border-[#C87D5A]"
+                          : "bg-white text-gray-500 border-gray-200 hover:border-[#C87D5A]/40"
+                      }`}
+                    >
+                      {axis === "horizontal" ? "Horizontal" : "Vertical"}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
           </CollapsibleSection>

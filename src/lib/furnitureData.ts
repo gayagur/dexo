@@ -307,6 +307,10 @@ export interface PanelData {
   surfaceType?: string;
   /** Corner radius in meters for RoundedBox box panels only; cushion/mattress shapes use ShapeRenderer defaults */
   cornerRadius?: number;
+  /** Curve amount: 0 = flat, 1 = max bend (~120°). Like a chair backrest wrapping around. */
+  curveAmount?: number;
+  /** Axis along which the panel curves. Default 'horizontal' (left-right). */
+  curveAxis?: 'horizontal' | 'vertical';
   /** Hand-tuned folds for shape "draped" (max ~16 in editor). */
   drapedControlPoints?: DrapedControlPoint[];
   /** When set, panel was placed with smart bed/sofa decor logic. */

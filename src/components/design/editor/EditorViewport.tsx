@@ -54,6 +54,59 @@ function getWorldPointFromPointerEvent(
   return null;
 }
 
+// ─── Curved Box Geometry (bent vertices) ───────────────
+
+function useCurvedBoxGeometry(
+  w: number, h: number, d: number,
+  curveAmount: number,
+  curveAxis: 'horizontal' | 'vertical',
+) {
+  return useMemo(() => {
+    const segsX = curveAxis === 'horizontal' ? 20 : 1;
+    const segsY = curveAxis === 'vertical' ? 20 : 1;
+    const geo = new THREE.BoxGeometry(w, h, d, segsX, segsY, 1);
+    if (curveAmount > 0) {
+      const arcAngle = curveAmount * (Math.PI * 2 / 3); // max 120 degrees
+      const span = curveAxis === 'horizontal' ? w : h;
+      const radius = span / Math.max(arcAngle, 0.001);
+      const pos = geo.attributes.position;
+      for (let i = 0; i < pos.count; i++) {
+        if (curveAxis === 'horizontal') {
+          const x = pos.getX(i);
+          const angle = x / radius;
+          pos.setX(i, Math.sin(angle) * radius);
+          pos.setZ(i, pos.getZ(i) + (Math.cos(angle) - 1) * radius);
+        } else {
+          const y = pos.getY(i);
+          const angle = y / radius;
+          pos.setY(i, Math.sin(angle) * radius);
+          pos.setZ(i, pos.getZ(i) + (Math.cos(angle) - 1) * radius);
+        }
+      }
+      pos.needsUpdate = true;
+      geo.computeVertexNormals();
+    }
+    return geo;
+  }, [w, h, d, curveAmount, curveAxis]);
+}
+
+/** Curved box mesh — drop-in replacement for RoundedBox when curveAmount > 0 */
+const CurvedBox = React.forwardRef<THREE.Mesh, {
+  args: [number, number, number];
+  curveAmount: number;
+  curveAxis: 'horizontal' | 'vertical';
+  children?: React.ReactNode;
+  [key: string]: any;
+}>(function CurvedBox({ args, curveAmount, curveAxis, children, ...rest }, ref) {
+  const [w, h, d] = args;
+  const geometry = useCurvedBoxGeometry(w, h, d, curveAmount, curveAxis);
+  return (
+    <mesh ref={ref} geometry={geometry} {...rest}>
+      {children}
+    </mesh>
+  );
+});
+
 // ─── Types ─────────────────────────────────────────────
 
 interface ContextMenuInfo {
@@ -3443,106 +3496,127 @@ function FurniturePanel({
   if (isBasicShape) {
     const [w, h, d] = panel.size;
 
-    // Box shape uses RoundedBox for soft edges
+    // Box shape uses RoundedBox for soft edges; CurvedBox when panel has curve
     if (shape === "box") {
+      const panelCurveAmount = panel.curveAmount ?? 0;
+      const panelCurveAxis = panel.curveAxis ?? 'horizontal';
+      const isCurved = panelCurveAmount > 0;
+
+      const boxMaterial = isGlass ? (
+        <meshPhysicalMaterial
+          transmission={0.9}
+          thickness={0.5}
+          roughness={0.05}
+          ior={1.5}
+          transparent
+          opacity={shapeMatProps.opacity}
+        />
+      ) : sh3dTexture && surfacePbr && (surfacePbr.clearcoat || surfacePbr.sheen || surfacePbr.transmission) ? (
+        <meshPhysicalMaterial
+          map={sh3dTexture}
+          color={shapeMatProps.color}
+          roughness={surfacePbr.roughness}
+          metalness={surfacePbr.metalness}
+          {...(surfacePbr.clearcoat != null ? { clearcoat: surfacePbr.clearcoat, clearcoatRoughness: surfacePbr.clearcoatRoughness ?? 0.4 } : {})}
+          {...(surfacePbr.sheen != null ? { sheen: surfacePbr.sheen, sheenRoughness: surfacePbr.sheenRoughness ?? 0.8, sheenColor: surfacePbr.sheenColor ?? "#ffffff" } : {})}
+          {...(surfacePbr.transmission != null ? { transmission: surfacePbr.transmission, ior: surfacePbr.ior ?? 1.5, thickness: surfacePbr.thickness ?? 0.5 } : {})}
+          transparent={shapeMatProps.transparent || !!(surfacePbr.transmission)}
+          opacity={shapeMatProps.opacity}
+          envMapIntensity={isMetal ? envMetal : envDefault}
+        />
+      ) : sh3dTexture ? (
+        <meshStandardMaterial
+          map={sh3dTexture}
+          color={shapeMatProps.color}
+          roughness={shapeMatProps.roughness}
+          metalness={shapeMatProps.metalness}
+          transparent={shapeMatProps.transparent}
+          opacity={shapeMatProps.opacity}
+          envMapIntensity={isMetal ? envMetal : envDefault}
+        />
+      ) : textures && isWood ? (
+        <meshPhysicalMaterial
+          map={textures.map}
+          normalMap={textures.normalMap}
+          normalScale={normalScale}
+          roughnessMap={textures.roughnessMap}
+          roughness={shapeMatProps.roughness}
+          metalness={0}
+          clearcoat={0.16}
+          clearcoatRoughness={0.52}
+          transparent={shapeMatProps.transparent}
+          opacity={shapeMatProps.opacity}
+          envMapIntensity={lightMode === "night" ? 0.92 : 1.22}
+        />
+      ) : textures && isFabric && fabricPhysical ? (
+        <meshPhysicalMaterial
+          map={textures.map}
+          normalMap={textures.normalMap}
+          normalScale={normalScale}
+          roughnessMap={textures.roughnessMap}
+          roughness={shapeMatProps.roughness}
+          metalness={0}
+          {...fabricPhysical}
+          sheen={0.8}
+          sheenRoughness={0.5}
+          sheenColor={shapeMatProps.color}
+          transparent={shapeMatProps.transparent}
+          opacity={shapeMatProps.opacity}
+        />
+      ) : textures ? (
+        <meshStandardMaterial
+          map={textures.map}
+          normalMap={textures.normalMap}
+          normalScale={normalScale}
+          roughnessMap={textures.roughnessMap}
+          roughness={shapeMatProps.roughness}
+          metalness={shapeMatProps.metalness}
+          transparent={shapeMatProps.transparent}
+          opacity={shapeMatProps.opacity}
+          envMapIntensity={isMetal ? envMetal : envDefault}
+        />
+      ) : (
+        <meshStandardMaterial
+          color={shapeMatProps.color}
+          roughness={shapeMatProps.roughness}
+          metalness={shapeMatProps.metalness}
+          transparent={shapeMatProps.transparent}
+          opacity={shapeMatProps.opacity}
+          envMapIntensity={isMetal ? envMetal : envDefault}
+        />
+      );
+
+      const sharedEvents = {
+        onClick: handleClick,
+        onPointerDown: handlePointerDown,
+        onPointerEnter: () => { document.body.style.cursor = cursorStyle; },
+        onPointerLeave: () => { document.body.style.cursor = ""; },
+        castShadow: true,
+        receiveShadow: true,
+        ...raycastProp,
+      };
+
       return (
         <group position={panel.position} rotation={panelRotation as any}>
-          <RoundedBox
-            args={[w, h, d]}
-            radius={boxBevelRadius}
-            smoothness={2}
-            onClick={handleClick}
-            onPointerDown={handlePointerDown}
-            onPointerEnter={() => { document.body.style.cursor = cursorStyle; }}
-            onPointerLeave={() => { document.body.style.cursor = ""; }}
-            castShadow
-            receiveShadow
-            {...raycastProp}
-          >
-            {isGlass ? (
-              <meshPhysicalMaterial
-                transmission={0.9}
-                thickness={0.5}
-                roughness={0.05}
-                ior={1.5}
-                transparent
-                opacity={shapeMatProps.opacity}
-              />
-            ) : sh3dTexture && surfacePbr && (surfacePbr.clearcoat || surfacePbr.sheen || surfacePbr.transmission) ? (
-              <meshPhysicalMaterial
-                map={sh3dTexture}
-                color={shapeMatProps.color}
-                roughness={surfacePbr.roughness}
-                metalness={surfacePbr.metalness}
-                {...(surfacePbr.clearcoat != null ? { clearcoat: surfacePbr.clearcoat, clearcoatRoughness: surfacePbr.clearcoatRoughness ?? 0.4 } : {})}
-                {...(surfacePbr.sheen != null ? { sheen: surfacePbr.sheen, sheenRoughness: surfacePbr.sheenRoughness ?? 0.8, sheenColor: surfacePbr.sheenColor ?? "#ffffff" } : {})}
-                {...(surfacePbr.transmission != null ? { transmission: surfacePbr.transmission, ior: surfacePbr.ior ?? 1.5, thickness: surfacePbr.thickness ?? 0.5 } : {})}
-                transparent={shapeMatProps.transparent || !!(surfacePbr.transmission)}
-                opacity={shapeMatProps.opacity}
-                envMapIntensity={isMetal ? envMetal : envDefault}
-              />
-            ) : sh3dTexture ? (
-              <meshStandardMaterial
-                map={sh3dTexture}
-                color={shapeMatProps.color}
-                roughness={shapeMatProps.roughness}
-                metalness={shapeMatProps.metalness}
-                transparent={shapeMatProps.transparent}
-                opacity={shapeMatProps.opacity}
-                envMapIntensity={isMetal ? envMetal : envDefault}
-              />
-            ) : textures && isWood ? (
-              <meshPhysicalMaterial
-                map={textures.map}
-                normalMap={textures.normalMap}
-                normalScale={normalScale}
-                roughnessMap={textures.roughnessMap}
-                roughness={shapeMatProps.roughness}
-                metalness={0}
-                clearcoat={0.16}
-                clearcoatRoughness={0.52}
-                transparent={shapeMatProps.transparent}
-                opacity={shapeMatProps.opacity}
-                envMapIntensity={lightMode === "night" ? 0.92 : 1.22}
-              />
-            ) : textures && isFabric && fabricPhysical ? (
-              <meshPhysicalMaterial
-                map={textures.map}
-                normalMap={textures.normalMap}
-                normalScale={normalScale}
-                roughnessMap={textures.roughnessMap}
-                roughness={shapeMatProps.roughness}
-                metalness={0}
-                {...fabricPhysical}
-                sheen={0.8}
-                sheenRoughness={0.5}
-                sheenColor={shapeMatProps.color}
-                transparent={shapeMatProps.transparent}
-                opacity={shapeMatProps.opacity}
-              />
-            ) : textures ? (
-              <meshStandardMaterial
-                map={textures.map}
-                normalMap={textures.normalMap}
-                normalScale={normalScale}
-                roughnessMap={textures.roughnessMap}
-                roughness={shapeMatProps.roughness}
-                metalness={shapeMatProps.metalness}
-                transparent={shapeMatProps.transparent}
-                opacity={shapeMatProps.opacity}
-                envMapIntensity={isMetal ? envMetal : envDefault}
-              />
-            ) : (
-              <meshStandardMaterial
-                color={shapeMatProps.color}
-                roughness={shapeMatProps.roughness}
-                metalness={shapeMatProps.metalness}
-                transparent={shapeMatProps.transparent}
-                opacity={shapeMatProps.opacity}
-                envMapIntensity={isMetal ? envMetal : envDefault}
-              />
-            )}
-          </RoundedBox>
+          {isCurved ? (
+            <CurvedBox
+              args={[w, h, d]}
+              curveAmount={panelCurveAmount}
+              curveAxis={panelCurveAxis}
+              {...sharedEvents}
+            >
+              {boxMaterial}
+            </CurvedBox>
+          ) : (
+            <RoundedBox
+              args={[w, h, d]}
+              radius={boxBevelRadius}
+              smoothness={2}
+              {...sharedEvents}
+            >
+              {boxMaterial}
+            </RoundedBox>
+          )}
           {selected && (
             <mesh>
               <boxGeometry args={[w + 0.006, h + 0.006, d + 0.006]} />
