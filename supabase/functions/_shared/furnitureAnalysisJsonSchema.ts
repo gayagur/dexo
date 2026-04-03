@@ -68,8 +68,10 @@ export const FURNITURE_ANALYSIS_RESPONSE_FORMAT = {
   },
 } as const;
 
-/** Models confirmed for JSON schema + vision in Together docs (Mar 2025+). */
+/** Models confirmed for JSON schema + vision in Together docs. */
 export const VISION_MODELS_SUPPORTING_JSON_SCHEMA = new Set<string>([
+  "Qwen/Qwen3.5-9B",
+  "Qwen/Qwen3.5-397B-A17B",
   "Qwen/Qwen3-VL-8B-Instruct",
   "moonshotai/Kimi-K2.5",
 ]);
