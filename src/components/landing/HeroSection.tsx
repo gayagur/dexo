@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { ArrowRight } from 'lucide-react';
@@ -57,6 +57,46 @@ function FloatingPaths({ position, count = 36 }: { position: number; count?: num
   );
 }
 
+/* ── Inline SVG noise filter ─────────────────────────────────── */
+
+function NoiseOverlay() {
+  return (
+    <div className="noise-overlay">
+      <svg width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
+        <filter id="noise">
+          <feTurbulence type="fractalNoise" baseFrequency="0.65" numOctaves="4" stitchTiles="stitch" />
+          <feColorMatrix type="saturate" values="0" />
+        </filter>
+        <rect width="100%" height="100%" filter="url(#noise)" />
+      </svg>
+    </div>
+  );
+}
+
+/* ── Floating decorative shapes ──────────────────────────────── */
+
+function FloatingShapes() {
+  return (
+    <>
+      {/* Shape 1 — large rounded rectangle, top-left */}
+      <div
+        className="float-shape pointer-events-none absolute -top-20 -left-16 w-64 h-40 rounded-3xl opacity-[0.05]"
+        style={{ background: 'linear-gradient(135deg, #C05621, #E8854D)', transform: 'rotate(-12deg)' }}
+      />
+      {/* Shape 2 — circle, right side */}
+      <div
+        className="float-shape-slow pointer-events-none absolute top-1/3 -right-12 w-48 h-48 rounded-full opacity-[0.04]"
+        style={{ background: 'radial-gradient(circle, #C05621, transparent)' }}
+      />
+      {/* Shape 3 — small blob, bottom-left */}
+      <div
+        className="float-shape pointer-events-none absolute bottom-24 left-1/4 w-32 h-24 rounded-[40%_60%_50%_40%] opacity-[0.06]"
+        style={{ background: '#C9A66E', animationDuration: '8s' }}
+      />
+    </>
+  );
+}
+
 /* ── Types ────────────────────────────────────────────────────── */
 
 interface CtaButton {
@@ -85,7 +125,33 @@ export function HeroSection({
   pathCount = 36,
 }: HeroSectionProps) {
   const [bgVideoReady, setBgVideoReady] = useState(false);
-  const heroVideo = useMemo(() => (Math.random() < 0.5 ? '/dexo.mp4' : '/dexo2.mp4'), []);
+  const heroVideo = useMemo(() => {
+    const videos = ['/dexo.mp4', '/dexo2.mp4', '/dexo3.mp4', '/dexo4.mp4'];
+    return videos[Math.floor(Math.random() * videos.length)];
+  }, []);
+
+  // Parallax on hero video card (desktop only)
+  const videoRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (typeof window === 'undefined' || window.innerWidth < 768) return;
+
+    let raf = 0;
+    const onScroll = () => {
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(() => {
+        if (videoRef.current) {
+          const displacement = Math.min(window.scrollY * 0.12, 60);
+          videoRef.current.style.transform = `translateY(${displacement}px)`;
+        }
+      });
+    };
+
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => {
+      window.removeEventListener('scroll', onScroll);
+      cancelAnimationFrame(raf);
+    };
+  }, []);
 
   return (
     <div className="relative">
@@ -111,22 +177,35 @@ export function HeroSection({
             <source src={heroVideo} type="video/mp4" />
           </video>
 
-          {/* Layer B: Warm base + cream wash */}
+          {/* Layer B: Rich layered gradient — warm cream → off-white → light amber */}
           <div
             className="absolute inset-0 z-0"
             style={{
               background: `
-                radial-gradient(ellipse at 70% 15%, rgba(192,86,33,0.05) 0%, transparent 50%),
-                radial-gradient(ellipse at 20% 80%, rgba(201,169,110,0.04) 0%, transparent 40%),
-                #FDFCF8
+                radial-gradient(ellipse at 65% 10%, rgba(192,86,33,0.07) 0%, transparent 50%),
+                radial-gradient(ellipse at 20% 75%, rgba(201,169,110,0.05) 0%, transparent 45%),
+                linear-gradient(175deg, #FDFCF8 0%, #FFF9F3 40%, #FFF5EB 70%, #FDFCF8 100%)
               `,
             }}
           />
           <div className="pointer-events-none absolute inset-0 z-[1] bg-[#FFF8F3]/35" />
 
+          {/* Layer B2: SVG noise texture overlay */}
+          <NoiseOverlay />
+
           {/* Layer C: Warm light bloom radials */}
           <div className="pointer-events-none absolute -top-32 -left-32 z-[2] h-[480px] w-[480px] rounded-full bg-[radial-gradient(circle,rgba(197,92,42,0.14),transparent_60%)]" />
-          <div className="pointer-events-none absolute top-16 -right-24 z-[2] h-[560px] w-[560px] rounded-full bg-[radial-gradient(circle,rgba(255,240,225,0.45),transparent_60%)] opacity-30" />
+          <div
+            className="pointer-events-none absolute z-[2] rounded-full"
+            style={{
+              top: '-5%',
+              right: '10%',
+              width: '600px',
+              height: '600px',
+              background: 'radial-gradient(circle, rgba(201,106,61,0.25), transparent 60%)',
+              opacity: 0.25,
+            }}
+          />
           <div className="pointer-events-none absolute -bottom-20 left-1/2 -translate-x-1/2 z-[2] h-[360px] w-[800px] rounded-full bg-[radial-gradient(ellipse,rgba(201,169,110,0.10),transparent_65%)]" />
 
           {/* Layer D: Floating wave paths */}
@@ -134,19 +213,22 @@ export function HeroSection({
             <FloatingPaths position={1} count={pathCount} />
             <FloatingPaths position={-1} count={pathCount} />
           </div>
+
+          {/* Layer E: Floating decorative shapes */}
+          <div className="absolute inset-0 z-[2]">
+            <FloatingShapes />
+          </div>
         </div>
 
         {/* ═══ Content: Text + video card side by side ═══ */}
         <div className="relative z-10 mx-auto max-w-7xl px-6 pt-32 pb-24 lg:pt-44 lg:pb-32 min-h-screen flex flex-col justify-center">
           <div className="relative">
 
-            {/* Video card (behind text, right side) */}
-            <motion.div
-              className="hidden lg:block absolute z-[1] w-[40%] max-w-[560px]"
+            {/* Video card (behind text, right side) — with parallax */}
+            <div
+              ref={videoRef}
+              className="hidden lg:block absolute z-[1] w-[40%] max-w-[560px] hero-scale-enter will-change-transform"
               style={{ top: '0', right: '0' }}
-              initial={{ opacity: 0, y: 30, scale: 0.97 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              transition={{ duration: 0.8, delay: 0.2, ease: [0.25, 0.1, 0.25, 1.0] }}
             >
               <div className="relative">
                 {/* Warm glow behind video */}
@@ -179,73 +261,80 @@ export function HeroSection({
                   <div className="pointer-events-none absolute inset-0 rounded-[28px] ring-1 ring-inset ring-white/20" />
                 </div>
               </div>
-            </motion.div>
+            </div>
 
             {/* Text block (dominant, overlaps video) */}
-            <motion.div
-              className="relative z-[2] w-full lg:w-[58%] space-y-7 text-center lg:text-left"
-              initial="hidden"
-              animate="visible"
-            >
-              <motion.h1
-                custom={0}
-                variants={fadeUp}
-                className="text-4xl md:text-5xl lg:text-6xl font-serif font-bold leading-[1.08] text-[#1B2432]"
+            <div className="relative z-[2] w-full lg:w-[58%] space-y-7 text-center lg:text-left">
+              {/* Headline — Instrument Serif */}
+              <h1
+                className="hero-enter hero-enter-1 font-bold leading-[1.08] text-[#1B2432]"
+                style={{
+                  fontFamily: "'Instrument Serif', 'Playfair Display', serif",
+                  fontSize: 'clamp(2.8rem, 6vw, 5rem)',
+                  lineHeight: 1.1,
+                  letterSpacing: '-0.03em',
+                }}
               >
                 {titleLine}
-              </motion.h1>
+              </h1>
 
-              <motion.span
-                custom={0.12}
-                variants={fadeUp}
-                className="text-4xl md:text-5xl lg:text-6xl font-serif font-bold text-[#C05621] block"
+              {/* Accent word with shimmer */}
+              <span
+                className="hero-enter hero-enter-1 hero-accent-shimmer block font-bold"
+                style={{
+                  fontFamily: "'Instrument Serif', 'Playfair Display', serif",
+                  fontSize: 'clamp(2.8rem, 6vw, 5rem)',
+                  lineHeight: 1.1,
+                  letterSpacing: '-0.03em',
+                }}
               >
                 {accentWord}
-              </motion.span>
+              </span>
 
-              <motion.p
-                custom={0.25}
-                variants={fadeUp}
-                className="text-lg md:text-xl text-[#4A5568] leading-[1.7] max-w-xl mx-auto lg:mx-0"
+              {/* Subtitle */}
+              <p
+                className="hero-enter hero-enter-2 text-lg md:text-xl text-[#4A5568] leading-[1.7] max-w-xl mx-auto lg:mx-0"
               >
                 {subtitle}
-              </motion.p>
+              </p>
 
-              <motion.div
-                custom={0.38}
-                variants={fadeUp}
-                className="flex flex-col sm:flex-row items-center gap-4 justify-center lg:justify-start pt-2"
+              {/* CTA Buttons */}
+              <div
+                className="hero-enter hero-enter-3 flex flex-col sm:flex-row items-center gap-4 justify-center lg:justify-start pt-2"
               >
                 <Link to={primaryCta.to}>
-                  <Button
-                    variant="hero"
-                    size="lg"
-                    className="group h-14 w-full sm:w-auto px-8 sm:px-10 text-base rounded-xl shadow-lg shadow-primary/20"
+                  <button
+                    className="cta-pulse cta-shimmer group h-14 w-full sm:w-auto px-8 sm:px-10 text-base rounded-xl font-medium text-white flex items-center gap-2 cursor-pointer"
+                    style={{
+                      background: 'linear-gradient(135deg, #C96A3D, #E8854D)',
+                      boxShadow: '0 8px 32px rgba(201,106,61,0.30)',
+                    }}
                   >
                     {primaryCta.label}
                     <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
-                  </Button>
+                  </button>
                 </Link>
                 {secondaryCta && (
                   <Link to={secondaryCta.to} className="w-full sm:w-auto">
-                    <Button
-                      variant="outline"
-                      size="lg"
-                      className="h-14 w-full sm:w-auto px-8 sm:px-10 text-base rounded-xl border-[#1B2432]/20 text-[#1B2432] hover:bg-[#1B2432]/5"
+                    <button
+                      className="h-14 w-full sm:w-auto px-8 sm:px-10 text-base rounded-xl font-medium text-[#1B2432] flex items-center justify-center gap-2 cursor-pointer transition-all duration-300 hover:bg-white/90"
+                      style={{
+                        background: 'rgba(255,255,255,0.7)',
+                        backdropFilter: 'blur(8px)',
+                        WebkitBackdropFilter: 'blur(8px)',
+                        border: '1px solid rgba(255,255,255,0.9)',
+                      }}
                     >
                       {secondaryCta.label}
-                    </Button>
+                    </button>
                   </Link>
                 )}
-              </motion.div>
-            </motion.div>
+              </div>
+            </div>
 
             {/* Mobile: Video below text */}
-            <motion.div
-              className="lg:hidden mt-10 mx-auto w-full max-w-[420px]"
-              initial={{ opacity: 0, y: 30, scale: 0.97 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              transition={{ duration: 0.8, delay: 0.2, ease: [0.25, 0.1, 0.25, 1.0] }}
+            <div
+              className="lg:hidden mt-10 mx-auto w-full max-w-[420px] hero-scale-enter"
             >
               <div className="relative">
                 <div className="absolute -bottom-6 left-10 right-10 h-12 rounded-full bg-black/10 blur-2xl" />
@@ -262,7 +351,7 @@ export function HeroSection({
                   <div className="pointer-events-none absolute inset-0 rounded-[28px] ring-1 ring-inset ring-white/20" />
                 </div>
               </div>
-            </motion.div>
+            </div>
 
           </div>
         </div>
