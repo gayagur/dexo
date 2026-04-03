@@ -39,6 +39,7 @@ import {
   getWorldPointOnPanelTop,
   findGroupContainingPanel,
 } from "@/lib/groupUtils";
+import { planSoftDecorPlacement } from "@/lib/softDecorPlacement";
 import type { LibraryTemplate } from "@/lib/libraryData";
 import { ArrowLeft, Save, RotateCcw, MessageSquare, Magnet, HelpCircle, X, Undo2, Redo2, Box, Square, PanelTop, PanelLeft, Loader2, Sun, Moon, Check, LogOut, SendHorizonal, MoreVertical, Upload, BookOpen } from "lucide-react";
 import { useNavigate } from "react-router-dom";
@@ -419,6 +420,8 @@ export function FurnitureEditor({
     shapeParams?: Record<string, number>;
     placeOnSelected?: boolean;
     placeOnFloor?: boolean;
+    /** Target-aware blanket / pillow on bed or sofa (requires a selected panel on that piece). */
+    softDecorKind?: "blanket" | "pillow";
   }) => {
     const id = `p${++nextPanelId}`;
     const currentPanels = editingGroupId ? (editModePanels ?? []) : flattenScene(groupsRef.current, ungroupedRef.current);
@@ -462,7 +465,27 @@ export function FurnitureEditor({
       return false;
     };
 
-    if (!preset.placeOnFloor && preset.placeOnSelected) {
+    let smartPlan: ReturnType<typeof planSoftDecorPlacement> | null = null;
+    if (
+      preset.softDecorKind &&
+      preset.placeOnSelected &&
+      selectedPanelId &&
+      !preset.placeOnFloor
+    ) {
+      smartPlan = planSoftDecorPlacement({
+        kind: preset.softDecorKind,
+        variantIndex: 0,
+        anchorPanelId: selectedPanelId,
+        groups: groupsRef.current,
+        ungroupedPanels: ungroupedRef.current,
+        editingGroupId,
+        editModePanels,
+        furnitureTypeLabel: furnitureType.label,
+        defaultMaterialId: preset.materialId,
+      });
+    }
+
+    if (!smartPlan && !preset.placeOnFloor && preset.placeOnSelected) {
       if (!tryPlaceOnSelection()) {
         const horizontalSurfaces = currentPanels.filter((p) => p.type === "horizontal");
         if (horizontalSurfaces.length > 0) {
@@ -482,7 +505,7 @@ export function FurnitureEditor({
           startY = bestWy + preset.size[1] / 2;
         }
       }
-    } else if (!preset.placeOnFloor) {
+    } else if (!smartPlan && !preset.placeOnFloor) {
       const horizontalSurfaces = currentPanels.filter((p) => p.type === "horizontal");
       if (horizontalSurfaces.length > 0) {
         const highestSurfaceTop = Math.max(
@@ -492,16 +515,30 @@ export function FurnitureEditor({
       }
     }
 
-    const newPanel: PanelData = {
-      id,
-      type: preset.type,
-      shape: preset.shape === "box" ? undefined : preset.shape,
-      shapeParams: preset.shapeParams,
-      label: preset.label,
-      position: [posX, startY, posZ],
-      size: preset.size,
-      materialId: preset.materialId,
-    };
+    const newPanel: PanelData = smartPlan
+      ? {
+          id,
+          type: smartPlan.type,
+          shape: smartPlan.shape === "box" ? undefined : smartPlan.shape,
+          shapeParams: smartPlan.shapeParams,
+          label: smartPlan.label,
+          position: smartPlan.position,
+          rotation: smartPlan.rotation,
+          size: smartPlan.size,
+          materialId: preset.materialId,
+          drapedControlPoints: smartPlan.drapedControlPoints,
+          softDecor: smartPlan.softDecor,
+        }
+      : {
+          id,
+          type: preset.type,
+          shape: preset.shape === "box" ? undefined : preset.shape,
+          shapeParams: preset.shapeParams,
+          label: preset.label,
+          position: [posX, startY, posZ],
+          size: preset.size,
+          materialId: preset.materialId,
+        };
 
     if (editingGroupId) {
       setEditModePanels((prev) => [...(prev ?? []), newPanel]);
@@ -509,7 +546,82 @@ export function FurnitureEditor({
       updateScene((g) => g, (prev) => [...prev, newPanel]);
     }
     setSelectedPanelId(id);
-  }, [editingGroupId, editModePanels, updateScene, selectedPanelId]);
+  }, [editingGroupId, editModePanels, updateScene, selectedPanelId, furnitureType.label]);
+
+  const handleCycleSoftDecorVariant = useCallback(
+    (panelId: string) => {
+      let panel: PanelData | undefined;
+      let ownerGroup: GroupData | null = null;
+
+      if (editingGroupId) {
+        panel = (editModePanels ?? []).find((p) => p.id === panelId);
+      } else {
+        panel = ungroupedRef.current.find((p) => p.id === panelId);
+        if (!panel) {
+          for (const g of groupsRef.current) {
+            const inner = g.panels.find((p) => p.id === panelId);
+            if (inner?.softDecor) {
+              panel = inner;
+              ownerGroup = g;
+              break;
+            }
+          }
+        }
+      }
+      const meta = panel?.softDecor;
+      if (!panel || !meta?.anchorPanelId) return;
+
+      const plan = planSoftDecorPlacement({
+        kind: meta.kind,
+        variantIndex: meta.variantIndex + 1,
+        anchorPanelId: meta.anchorPanelId,
+        groups: groupsRef.current,
+        ungroupedPanels: ungroupedRef.current,
+        editingGroupId,
+        editModePanels,
+        furnitureTypeLabel: furnitureType.label,
+        defaultMaterialId: panel.materialId,
+      });
+      if (!plan) return;
+
+      let position = plan.position;
+      let rotation = plan.rotation;
+      let size = plan.size;
+      if (ownerGroup) {
+        const worldProbe: PanelData = {
+          ...panel,
+          type: plan.type,
+          label: plan.label,
+          position: plan.position,
+          rotation: plan.rotation,
+          size: plan.size,
+          shape: plan.shape === "box" ? undefined : plan.shape,
+        };
+        const [local] = panelsToRelative(
+          [worldProbe],
+          ownerGroup.position,
+          ownerGroup.rotation,
+          ownerGroup.scale ?? [1, 1, 1]
+        );
+        position = local.position;
+        rotation = local.rotation ?? [0, 0, 0];
+        size = local.size;
+      }
+
+      handleUpdatePanel(panelId, {
+        type: plan.type,
+        shape: plan.shape === "box" ? undefined : plan.shape,
+        shapeParams: plan.shapeParams,
+        label: plan.label,
+        position,
+        rotation,
+        size,
+        drapedControlPoints: plan.drapedControlPoints,
+        softDecor: plan.softDecor,
+      });
+    },
+    [editingGroupId, editModePanels, furnitureType.label, handleUpdatePanel]
+  );
 
   const handleDuplicatePanel = useCallback((id: string) => {
     const currentPanels = editingGroupId ? (editModePanels ?? []) : [...ungroupedRef.current, ...groupsRef.current.flatMap((g) => g.panels)];
@@ -1645,6 +1757,7 @@ export function FurnitureEditor({
           onUpdateGroupTexture={handleUpdateGroupTexture}
           onUpdateGroupSurfaceType={handleUpdateGroupSurfaceType}
           multiSelectCount={selectedPanelIds.length}
+          onCycleSoftDecorVariant={handleCycleSoftDecorVariant}
         />
 
         {chatOpen && (
@@ -1804,6 +1917,7 @@ export function FurnitureEditor({
             onUpdateGroupTexture={handleUpdateGroupTexture}
             onUpdateGroupSurfaceType={handleUpdateGroupSurfaceType}
             multiSelectCount={selectedPanelIds.length}
+            onCycleSoftDecorVariant={handleCycleSoftDecorVariant}
           />
         </MobileDrawer>
 

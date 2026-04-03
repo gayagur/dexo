@@ -550,6 +550,8 @@ interface EditorParametersProps {
   style: string;
   onStyleChange: (style: string) => void;
   multiSelectCount: number;
+  /** Cycle smart blanket/pillow placement preset (bed/sofa). */
+  onCycleSoftDecorVariant?: (panelId: string) => void;
 }
 
 export function EditorParameters({
@@ -569,6 +571,7 @@ export function EditorParameters({
   style,
   onStyleChange,
   multiSelectCount,
+  onCycleSoftDecorVariant,
 }: EditorParametersProps) {
   // Shared SH3D texture cache for both group and panel material pickers
   const [sh3dTextures, setSh3dTextures] = useState<SH3DTexture[]>([]);
@@ -704,6 +707,23 @@ export function EditorParameters({
             )}
           </div>
         </div>
+
+        {panel.softDecor && onCycleSoftDecorVariant && (
+          <div className="px-4 py-2.5 border-b border-gray-100 bg-amber-50/40">
+            <p className="text-[10px] text-gray-500 uppercase tracking-wide mb-1.5">Smart placement</p>
+            <button
+              type="button"
+              onClick={() => onCycleSoftDecorVariant(panel.id)}
+              className="w-full flex items-center justify-center gap-2 py-2 rounded-lg border border-amber-200/80 bg-white text-xs font-medium text-gray-800 hover:bg-amber-50/80 transition-colors"
+            >
+              <RotateCw className="w-3.5 h-3.5 text-[#C87D5A]" />
+              Next variant
+            </button>
+            <p className="text-[9px] text-gray-400 mt-1.5 leading-snug">
+              {panel.softDecor.variantId.replace(/_/g, " ")}
+            </p>
+          </div>
+        )}
 
         {/* Material (open by default) */}
         <CollapsibleSection

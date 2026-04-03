@@ -33,6 +33,8 @@ interface PartPreset {
   placeOnSelected?: boolean;
   /** When true, always sits on the ground plane (y=0), not on tables/shelves. */
   placeOnFloor?: boolean;
+  /** Bed/sofa-aware placement (requires selecting a panel on the target piece first). */
+  softDecorKind?: "blanket" | "pillow";
   /** Multi-part items: when set, adds a GROUP with these panels instead of a single panel */
   buildPanels?: () => PanelData[];
   /** Group name when buildPanels is used */
@@ -48,6 +50,40 @@ interface PartCategory {
 }
 
 const PART_CATEGORIES: PartCategory[] = [
+  // ─────────────────────────────────────────────────
+  // Smart soft decor — target-aware bed / sofa placement
+  // ─────────────────────────────────────────────────
+  {
+    label: "Smart soft decor",
+    icon: "✨",
+    items: [
+      {
+        id: "smart_blanket",
+        label: "Blanket (auto on bed/sofa)",
+        icon: "≋",
+        description: "Select mattress or seat first — spread, fold, or casual drape.",
+        shape: "draped",
+        type: "horizontal",
+        size: [1.2, 0.014, 1.0],
+        materialId: "fabric_taupe",
+        shapeParams: { cornerRadius: 0.006, softness: 0.65, foldSpread: 0.15 },
+        placeOnSelected: true,
+        softDecorKind: "blanket",
+      },
+      {
+        id: "smart_pillow",
+        label: "Pillow (auto on bed/sofa)",
+        icon: "▢",
+        description: "Select mattress or seat — head, sides, or backrest lean.",
+        shape: "cushion",
+        type: "horizontal",
+        size: [0.42, 0.1, 0.4],
+        materialId: "fabric_cream",
+        placeOnSelected: true,
+        softDecorKind: "pillow",
+      },
+    ],
+  },
   // ─────────────────────────────────────────────────
   // 0. QUICK — ON SELECTED SURFACE
   // ─────────────────────────────────────────────────
@@ -916,6 +952,7 @@ interface AddPartPickerProps {
     shapeParams?: Record<string, number>;
     placeOnSelected?: boolean;
     placeOnFloor?: boolean;
+    softDecorKind?: "blanket" | "pillow";
   }) => void;
   onAddGroup?: (name: string, panels: PanelData[]) => void;
   onAddGLB?: (name: string, glbPath: string) => void;
@@ -989,6 +1026,7 @@ export function AddPartPicker({ onAdd, onAddGroup, onAddGLB, onClose }: AddPartP
                           shapeParams: item.shapeParams,
                           placeOnSelected: item.placeOnSelected,
                           placeOnFloor: item.placeOnFloor,
+                          softDecorKind: item.softDecorKind,
                         });
                       }
                     } finally {

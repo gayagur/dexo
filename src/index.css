@@ -1,5 +1,6 @@
 @import url("https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&display=swap");
 @import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Instrument+Serif&display=swap");
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -520,6 +521,128 @@ a,
 html,
 body {
   overflow-x: hidden;
+}
+
+/* ─── Landing page premium animations ─────────── */
+
+/* Accent word shimmer sweep */
+@keyframes shimmer-sweep {
+  0% { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+.hero-accent-shimmer {
+  background: linear-gradient(
+    90deg,
+    #C05621 0%,
+    #C05621 35%,
+    #f0a060 50%,
+    #C05621 65%,
+    #C05621 100%
+  );
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: shimmer-sweep 1.5s ease-out 0.6s both;
+}
+
+/* Staggered CSS entry animations */
+@keyframes hero-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.hero-enter {
+  animation: hero-fade-up 0.8s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.hero-enter-1 { animation-delay: 0.1s; }
+.hero-enter-2 { animation-delay: 0.25s; }
+.hero-enter-3 { animation-delay: 0.4s; }
+
+@keyframes hero-scale-in {
+  from {
+    opacity: 0;
+    transform: scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+.hero-scale-enter {
+  animation: hero-scale-in 1s cubic-bezier(0.16, 1, 0.3, 1) 0.2s both;
+}
+
+/* CTA button pulse */
+@keyframes cta-pulse {
+  0%, 100% { transform: scale(1); box-shadow: 0 8px 32px rgba(201,106,61,0.30); }
+  50% { transform: scale(1.015); box-shadow: 0 12px 40px rgba(201,106,61,0.40); }
+}
+.cta-pulse {
+  animation: cta-pulse 6s ease-in-out infinite;
+}
+.cta-pulse:hover {
+  animation: none;
+  transform: scale(1.03);
+  box-shadow: 0 14px 44px rgba(201,106,61,0.40);
+  transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* CTA hover shimmer sweep */
+.cta-shimmer {
+  position: relative;
+  overflow: hidden;
+}
+.cta-shimmer::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.25) 30%, transparent 60%);
+  transform: translateX(-100%);
+  transition: none;
+  pointer-events: none;
+}
+.cta-shimmer:hover::after {
+  transform: translateX(100%);
+  transition: transform 0.7s ease-in-out;
+}
+
+/* Floating decorative shapes */
+@keyframes float-drift {
+  0%, 100% { transform: translate(0, 0) rotate(0deg); }
+  50% { transform: translate(12px, -18px) rotate(3deg); }
+}
+.float-shape {
+  animation: float-drift 10s ease-in-out infinite alternate;
+}
+.float-shape-slow {
+  animation: float-drift 12s ease-in-out infinite alternate-reverse;
+}
+
+/* SVG noise filter (referenced inline) */
+.noise-overlay {
+  position: absolute;
+  inset: 0;
+  opacity: 0.04;
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
 
 .safe-area-bottom {

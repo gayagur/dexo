@@ -144,3 +144,45 @@ test("lays out collapsed reception counter panels into front, sides, and top foo
   assert.ok(Math.abs(front.position[2]) > 0.15, "front panel should be offset to a front plane");
   assert.ok(top.position[1] > 0.9, "counter top should remain near final standing desk height");
 });
+
+test("maps kitchen island imports to the table-desk archetype", () => {
+  const panels = buildPanels({
+    name: "kitchen_island",
+    estimatedDims: { w: 1400, h: 900, d: 700 },
+    panels: [
+      { label: "Countertop", type: "horizontal", shape: "rounded_rect", position: [0, 0.45, 0], size: [1.4, 0.04, 0.7], materialId: "oak" },
+      { label: "Left Side", type: "vertical", shape: "box", position: [0, 0.45, 0], size: [0.04, 0.86, 0.7], materialId: "oak" },
+      { label: "Right Side", type: "vertical", shape: "box", position: [0, 0.45, 0], size: [0.04, 0.86, 0.7], materialId: "oak" },
+      { label: "Front Panel", type: "vertical", shape: "box", position: [0, 0.45, 0], size: [1.32, 0.82, 0.03], materialId: "oak" },
+      { label: "Back Panel", type: "back", shape: "box", position: [0, 0.45, 0], size: [1.32, 0.82, 0.02], materialId: "oak" },
+    ],
+  });
+
+  const countertop = singleByLabel(panels, /countertop/i);
+  const front = singleByLabel(panels, /front panel/i);
+  const back = singleByLabel(panels, /back panel/i);
+
+  assert.ok(countertop.position[1] > 0.75, "countertop should be placed near island height");
+  assert.ok(front.position[2] > 0.15, "front panel should be placed on the front plane");
+  assert.ok(back.position[2] < -0.15, "back panel should be placed on the rear plane");
+});
+
+test("maps storage rack imports to the shelving archetype", () => {
+  const panels = buildPanels({
+    name: "storage_rack",
+    estimatedDims: { w: 1200, h: 2000, d: 500 },
+    panels: [
+      { label: "Left Side", type: "vertical", shape: "box", position: [0, 1, 0], size: [0.03, 2.0, 0.5], materialId: "steel" },
+      { label: "Right Side", type: "vertical", shape: "box", position: [0, 1, 0], size: [0.03, 2.0, 0.5], materialId: "steel" },
+      { label: "Shelf 1", type: "horizontal", shape: "box", position: [0, 1, 0], size: [1.14, 0.02, 0.46], materialId: "steel" },
+      { label: "Shelf 2", type: "horizontal", shape: "box", position: [0, 1, 0], size: [1.14, 0.02, 0.46], materialId: "steel" },
+      { label: "Shelf 3", type: "horizontal", shape: "box", position: [0, 1, 0], size: [1.14, 0.02, 0.46], materialId: "steel" },
+      { label: "Shelf 4", type: "horizontal", shape: "box", position: [0, 1, 0], size: [1.14, 0.02, 0.46], materialId: "steel" },
+    ],
+  });
+
+  const shelves = getByLabel(panels, /shelf/i).sort((a, b) => a.position[1] - b.position[1]);
+
+  assert.equal(shelves.length, 4);
+  assert.ok(shelves[3].position[1] - shelves[0].position[1] > 0.8, "rack shelves should be distributed across the full height");
+});

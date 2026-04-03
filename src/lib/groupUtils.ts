@@ -178,18 +178,26 @@ export function getWorldPointOnPanelTop(
   panel: PanelData,
   group: GroupData | null
 ): [number, number, number] {
+  const s = group?.scale ?? [1, 1, 1];
   const rot = panel.rotation ?? [0, 0, 0];
-  const offset = new THREE.Vector3(0, panel.size[1] / 2, 0);
-  if (rot[0] || rot[1] || rot[2]) {
-    offset.applyQuaternion(new THREE.Quaternion().setFromEuler(new THREE.Euler(...rot)));
-  }
-  const localCenterTop = new THREE.Vector3(...panel.position).add(offset);
+  const pQuat = new THREE.Quaternion().setFromEuler(new THREE.Euler(...rot));
+  const topOffset = new THREE.Vector3(0, panel.size[1] / 2, 0).applyQuaternion(pQuat);
+  const localWithTop = new THREE.Vector3(
+    panel.position[0] + topOffset.x,
+    panel.position[1] + topOffset.y,
+    panel.position[2] + topOffset.z
+  );
+  const scaled = new THREE.Vector3(
+    localWithTop.x * s[0],
+    localWithTop.y * s[1],
+    localWithTop.z * s[2]
+  );
   if (!group) {
-    return [localCenterTop.x, localCenterTop.y, localCenterTop.z];
+    return [scaled.x, scaled.y, scaled.z];
   }
-  localCenterTop.applyQuaternion(new THREE.Quaternion().setFromEuler(new THREE.Euler(...group.rotation)));
-  localCenterTop.add(new THREE.Vector3(...group.position));
-  return [localCenterTop.x, localCenterTop.y, localCenterTop.z];
+  scaled.applyQuaternion(new THREE.Quaternion().setFromEuler(new THREE.Euler(...group.rotation)));
+  scaled.add(new THREE.Vector3(...group.position));
+  return [scaled.x, scaled.y, scaled.z];
 }
 
 /** Find the group that owns this panel id, if any */

@@ -142,6 +142,13 @@ export function PremiumTestimonials() {
                 className="absolute inset-0"
               >
                 <div className="relative h-full bg-white/80 backdrop-blur-xl rounded-3xl border border-[#C05621]/[0.08] shadow-sm p-8 md:p-12 overflow-hidden">
+                  {/* Large decorative quote mark */}
+                  <span
+                    className="absolute top-4 right-8 font-serif pointer-events-none select-none"
+                    style={{ fontSize: '8rem', lineHeight: 1, opacity: 0.04, color: '#C05621' }}
+                  >
+                    "
+                  </span>
                   {/* Quote icon */}
                   <Quote className="absolute top-8 right-8 w-14 h-14 text-[#C05621]/10" />
 

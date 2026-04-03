@@ -4,6 +4,16 @@
 import type { PanelData, PanelShape } from "./furnitureData";
 import { MATERIALS } from "./furnitureData";
 import type { FurnitureAnalysis } from "./ai";
+import {
+  classifyPanelRole,
+  detectFurnitureCategory,
+  inferPositionsFromCategory,
+  repairCasegoodsLayout,
+  repairShelvingLayout,
+  repairTableDeskLayout,
+  repairWardrobeLayout,
+  type FurnitureCategory,
+} from "./furnitureLayoutStrategies";
 
 const VALID_MATERIAL_IDS = new Set(MATERIALS.map((m) => m.id));
 
@@ -726,6 +736,67 @@ function spreadRadially(
   });
 }
 
+type LayoutStrategy = {
+  repairGeometry?: (
+    panels: PanelData[],
+    dims: { w: number; h: number; d: number },
+    name: string,
+    nextId: () => string,
+  ) => PanelData[];
+  completeStructure?: (
+    panels: PanelData[],
+    dims: { w: number; h: number; d: number },
+    name: string,
+    nextId: () => string,
+  ) => PanelData[];
+  postValidate?: (
+    panels: PanelData[],
+    dims: { w: number; h: number; d: number },
+    name: string,
+  ) => PanelData[];
+};
+
+function getLayoutStrategy(category: FurnitureCategory): LayoutStrategy {
+  switch (category) {
+    case "seating":
+      return {
+        repairGeometry: (panels, _dims, name, nextId) => repairSeatingGeometry(panels, name, nextId),
+      };
+    case "office_chair":
+      return {
+        repairGeometry: (panels) => repairOfficeChairLayout(panels, "office_chair"),
+        completeStructure: (panels, _dims, name, nextId) => repairOfficeChairBase(panels, name, nextId),
+      };
+    case "bed":
+      return {
+        repairGeometry: (panels) => repairBedLayout(panels, "bed"),
+      };
+    case "table_desk":
+      return {
+        repairGeometry: (panels, dims) => repairTableDeskLayout(panels, dims),
+      };
+    case "casegoods":
+      return {
+        repairGeometry: (panels, dims) => repairCasegoodsLayout(panels, dims),
+      };
+    case "wardrobe":
+      return {
+        repairGeometry: (panels, dims) => repairWardrobeLayout(panels, dims),
+      };
+    case "shelving":
+      return {
+        repairGeometry: (panels, dims) => repairShelvingLayout(panels, dims),
+        postValidate: (panels, _dims, name) => {
+          const result = [...panels];
+          repairBookcaseShelfSpacing(result, name);
+          return result;
+        },
+      };
+    default:
+      return {};
+  }
+}
+
 function repairOfficeChairLayout(
   panels: PanelData[],
   name: string,
@@ -905,51 +976,6 @@ function repairBedLayout(
   });
 
   return result;
-}
-
-function inferPositionsFromLabels(
-  panels: PanelData[],
-  furnitureDims: { w: number; h: number; d: number },
-  inferMask?: boolean[],
-): PanelData[] {
-  const categoryMatchers: Array<[RegExp, PanelData[]]> = [
-    [/\b(leg|foot|feet|caster|wheel)\b/i, []],
-    [/\b(seat|cushion|mattress)\b/i, []],
-    [/\b(back|backrest|headrest)\b/i, []],
-    [/\b(arm|armrest)\b/i, []],
-    [/\b(head|headrest)\b/i, []],
-    [/\b(frame|rail|base|support|column|pedestal|post|stretcher)\b/i, []],
-  ];
-
-  const groupedCounts = new Map<string, number>();
-  const groupedIndex = new Map<string, number>();
-
-  panels.forEach((panel, idx) => {
-    if (inferMask && !inferMask[idx]) return;
-    const key =
-      categoryMatchers.find(([re]) => re.test(panel.label))?.[0].source ??
-      "__default__";
-    groupedCounts.set(key, (groupedCounts.get(key) ?? 0) + 1);
-  });
-
-  return panels.map((panel, idx) => {
-    if (inferMask && !inferMask[idx]) return panel;
-    const key =
-      categoryMatchers.find(([re]) => re.test(panel.label))?.[0].source ??
-      "__default__";
-    const index = groupedIndex.get(key) ?? 0;
-    groupedIndex.set(key, index + 1);
-    return {
-      ...panel,
-      position: inferPositionFromLabel(
-        panel.label,
-        panel.size,
-        furnitureDims,
-        index,
-        groupedCounts.get(key) ?? 1,
-      ),
-    };
-  });
 }
 
 function debugPositions(stage: string, panels: Array<RawAnalysisPanel | PanelData>): void {
@@ -1433,7 +1459,11 @@ function spreadEvenly<T>(items: T[], start: number, end: number, set: (item: T, 
  * the canvas shows a dense black block. This pass spreads obvious semantic parts into a plausible
  * furniture layout, but ONLY when the import is clearly collapsed.
  */
-function repairCollapsedLayout(panels: PanelData[], furnitureName: string): void {
+function repairCollapsedLayout(
+  panels: PanelData[],
+  furnitureName: string,
+  category: FurnitureCategory,
+): void {
   if (panels.length < 5) return;
 
   const bottoms = panels.map((p) => p.position[1] - p.size[1] / 2);
@@ -1485,24 +1515,21 @@ function repairCollapsedLayout(panels: PanelData[], furnitureName: string): void
   if (!looksCollapsed) return;
 
   const label = (p: PanelData) => p.label.toLowerCase();
-  const isBackLike = (p: PanelData) =>
-    /\b(back|backrest|headrest|head\s*rest|rear|headboard)\b/i.test(label(p)) || p.type === "back";
-  const isSeatLike = (p: PanelData) =>
-    /\b(seat|cushion|mattress|duvet|blanket|throw|top|surface|desktop|counter)\b/i.test(label(p)) ||
-    (p.type === "horizontal" && p.size[1] <= Math.max(p.size[0], p.size[2]) * 0.3);
-  const isLegLike = (p: PanelData) =>
-    /\b(leg|foot|feet|caster|wheel)\b/i.test(label(p)) || (p.shape ?? "box") === "caster";
-  const isSideLike = (p: PanelData) =>
-    /\b(side|arm|armrest|upright|panel|stile|post)\b/i.test(label(p)) && !isBackLike(p);
-  const isCenterColumn = (p: PanelData) =>
-    /\b(column|pedestal|gas\s*lift|center\s*post|base\s*post|spindle)\b/i.test(label(p)) ||
-    (p.shape ?? "box") === "pedestal";
-
-  const seatLikes = panels.filter(isSeatLike);
-  const backLikes = panels.filter(isBackLike);
-  const legLikes = panels.filter(isLegLike);
-  const sideLikes = panels.filter(isSideLike);
-  const centerColumns = panels.filter(isCenterColumn);
+  const roles = new Map(panels.map((panel) => [panel.id, classifyPanelRole(panel, category)]));
+  const seatLikes = panels.filter((panel) => {
+    const role = roles.get(panel.id);
+    return role === "seat" || role === "mattress" || role === "top";
+  });
+  const backLikes = panels.filter((panel) => {
+    const role = roles.get(panel.id);
+    return role === "back" || role === "back_panel" || role === "headboard";
+  });
+  const legLikes = panels.filter((panel) => roles.get(panel.id) === "leg");
+  const sideLikes = panels.filter((panel) => {
+    const role = roles.get(panel.id);
+    return role === "side" || role === "arm" || role === "front" || role === "drawer" || role === "door";
+  });
+  const centerColumns = panels.filter((panel) => roles.get(panel.id) === "column");
 
   const planFromSeats = seatLikes.length > 0
     ? {
@@ -1598,7 +1625,11 @@ function repairCollapsedLayout(panels: PanelData[], furnitureName: string): void
  * General geometry validation — runs on ALL furniture types.
  * Fixes common AI mistakes regardless of category.
  */
-function validateAndRepairGeometry(panels: PanelData[], furnitureName: string): PanelData[] {
+function validateAndRepairGeometry(
+  panels: PanelData[],
+  furnitureName: string,
+  category: FurnitureCategory,
+): PanelData[] {
   if (panels.length === 0) return panels;
 
   const result = [...panels];
@@ -1686,8 +1717,7 @@ function validateAndRepairGeometry(panels: PanelData[], furnitureName: string): 
     }
   }
 
-  repairCollapsedLayout(result, furnitureName);
-  repairBookcaseShelfSpacing(result, furnitureName);
+  repairCollapsedLayout(result, furnitureName, category);
   nudgeCoplanarVerticalPanels(result);
 
   return result;
@@ -1704,6 +1734,8 @@ export function panelsFromFurnitureAnalysis(
 
   let panels = rawScaled.map((p) => normalizeAnalysisPanel(p, nextId()));
   debugPositions("after normalizeAnalysisPanel", panels);
+  const category = detectFurnitureCategory(analysis.name ?? "", panels);
+  const furnitureDims = estimatedDimsToMeters(analysis.estimatedDims, panels);
 
   panels = panels.map(normalizeVerticalBoxHeightAxis);
   debugPositions("after normalizeVerticalBoxHeightAxis", panels);
@@ -1728,28 +1760,34 @@ export function panelsFromFurnitureAnalysis(
   const fallbackCount = fallbackMask.filter(Boolean).length;
   const collapsedAfterNormalize = shouldInferCollapsedLayout(panels);
   if (fallbackCount > 0 || collapsedAfterNormalize) {
-    const inferred = inferPositionsFromLabels(
+    const inferred = inferPositionsFromCategory(
       panels,
-      estimatedDimsToMeters(analysis.estimatedDims, panels),
+      category,
+      furnitureDims,
       collapsedAfterNormalize ? undefined : fallbackMask,
     );
     panels = inferred;
-    debugPositions("after inferPositionsFromLabels", panels);
+    debugPositions("after inferPositionsFromCategory", panels);
   }
 
   const refined = refineSeatingImportPanels(panels, analysis.name ?? "");
   debugPositions("after refineSeatingImportPanels", refined);
   const tightenedUpholstery = refined.map(normalizeImportedUpholsteryThickness);
   debugPositions("after normalizeImportedUpholsteryThickness", tightenedUpholstery);
-  const repaired = repairSeatingGeometry(tightenedUpholstery, analysis.name ?? "", nextId);
-  debugPositions("after repairSeatingGeometry", repaired);
-  const officeChairLayout = repairOfficeChairLayout(repaired, analysis.name ?? "");
-  debugPositions("after repairOfficeChairLayout", officeChairLayout);
-  const bedLayout = repairBedLayout(officeChairLayout, analysis.name ?? "");
-  debugPositions("after repairBedLayout", bedLayout);
-  const withBase = repairOfficeChairBase(bedLayout, analysis.name ?? "", nextId);
-  debugPositions("after repairOfficeChairBase", withBase);
-  const validated = validateAndRepairGeometry(withBase, analysis.name ?? "");
+  const strategy = getLayoutStrategy(category);
+  const repaired = strategy.repairGeometry
+    ? strategy.repairGeometry(tightenedUpholstery, furnitureDims, analysis.name ?? "", nextId)
+    : tightenedUpholstery;
+  debugPositions("after categoryRepairGeometry", repaired);
+  const completed = strategy.completeStructure
+    ? strategy.completeStructure(repaired, furnitureDims, analysis.name ?? "", nextId)
+    : repaired;
+  debugPositions("after categoryCompleteStructure", completed);
+  const validated = validateAndRepairGeometry(completed, analysis.name ?? "", category);
   debugPositions("after validateAndRepairGeometry", validated);
-  return validated;
+  const postValidated = strategy.postValidate
+    ? strategy.postValidate(validated, furnitureDims, analysis.name ?? "")
+    : validated;
+  debugPositions("after categoryPostValidate", postValidated);
+  return postValidated;
 }

@@ -26,6 +26,22 @@ interface StepsSectionProps {
   ctaButton?: { label: string; to: string; variant?: 'hero' | 'warm' };
 }
 
+const staggerContainer = {
+  hidden: {},
+  visible: {
+    transition: { staggerChildren: 0.1 },
+  },
+};
+
+const staggerItem = {
+  hidden: { opacity: 0, y: 32 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.7, ease: [0.16, 1, 0.3, 1] },
+  },
+};
+
 export function StepsSection({
   sectionLabel,
   heading,
@@ -47,24 +63,56 @@ export function StepsSection({
           <span className="text-sm font-medium text-primary uppercase tracking-wider">
             {sectionLabel}
           </span>
-          <h2 className="text-3xl md:text-4xl font-serif mt-2 mb-4">{heading}</h2>
+          <h2
+            className="text-3xl md:text-4xl font-serif mt-2 mb-4"
+            style={{ fontWeight: 700, letterSpacing: '-0.02em' }}
+          >
+            {heading}
+          </h2>
           <p className="text-muted-foreground max-w-2xl mx-auto">{subheading}</p>
         </motion.div>
 
+        {/* Steps grid with connecting line */}
         <motion.div
           className="max-w-6xl mx-auto grid md:grid-cols-3 gap-6 lg:gap-8 relative"
           initial="hidden"
           whileInView="visible"
           viewport={{ once: true, margin: "-60px" }}
+          variants={staggerContainer}
         >
-          {steps.map((step, i) => (
+          {/* Vertical connecting line (hidden on mobile) */}
+          <div
+            className="hidden md:block absolute top-1/2 left-0 right-0 h-[1px] pointer-events-none z-0"
+            style={{
+              background: 'linear-gradient(90deg, transparent 10%, rgba(192,86,33,0.12) 30%, rgba(192,86,33,0.12) 70%, transparent 90%)',
+            }}
+          />
+
+          {steps.map((step) => (
             <motion.div
               key={step.number}
-              className="relative group"
-              custom={i * 0.15}
-              variants={fadeUp}
+              className="relative group z-[1]"
+              variants={staggerItem}
             >
-              <Card hover className="h-full bg-white/70 backdrop-blur-xl border border-white/50 shadow-sm hover:shadow-md overflow-hidden">
+              {/* Editorial large numeral behind card */}
+              <span
+                className="absolute -top-4 -left-2 z-[2] pointer-events-none select-none font-serif"
+                style={{
+                  fontSize: '4rem',
+                  fontWeight: 700,
+                  opacity: 0.08,
+                  lineHeight: 1,
+                  color: '#C05621',
+                }}
+              >
+                {step.number}
+              </span>
+
+              <Card
+                hover
+                className="h-full bg-white border border-[rgba(0,0,0,0.06)] shadow-[0_2px_12px_rgba(0,0,0,0.06)] hover:shadow-[0_8px_30px_rgba(0,0,0,0.10)] hover:-translate-y-1 hover:border-[rgba(201,106,61,0.2)] overflow-hidden transition-all duration-[350ms]"
+                style={{ borderRadius: '16px' }}
+              >
                 <div className="relative h-56 overflow-hidden">
                   <img
                     src={step.image}
@@ -72,7 +120,13 @@ export function StepsSection({
                     className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-card via-card/20 to-transparent" />
-                  <div className="absolute top-4 left-4 w-10 h-10 rounded-full bg-primary text-primary-foreground flex items-center justify-center font-bold text-lg shadow-lg">
+                  {/* Step number badge — gradient circle */}
+                  <div
+                    className="absolute top-4 left-4 w-10 h-10 rounded-full flex items-center justify-center font-bold text-lg text-white shadow-lg"
+                    style={{
+                      background: 'linear-gradient(135deg, #C96A3D, #E8854D)',
+                    }}
+                  >
                     {step.number}
                   </div>
                   {step.badge && (
@@ -95,7 +149,7 @@ export function StepsSection({
                   )}
                 </div>
                 <CardContent className="p-8">
-                  <h3 className="text-2xl font-serif mb-3 text-[#C05621]">{step.title}</h3>
+                  <h3 className="text-2xl font-serif mb-3 text-[#C05621]" style={{ fontWeight: 700 }}>{step.title}</h3>
                   <p
                     className="text-muted-foreground leading-relaxed mb-4"
                     dangerouslySetInnerHTML={{ __html: step.description }}

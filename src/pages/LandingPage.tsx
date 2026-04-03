@@ -4,10 +4,11 @@ import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { PremiumTestimonials } from '@/components/PremiumTestimonials';
 import { ValueProps } from '@/components/ValueProps';
-import { HeroSection } from '@/components/landing/HeroSection';
 import { StepsSection } from '@/components/landing/StepsSection';
 import { CategoriesSection } from '@/components/landing/CategoriesSection';
 import { FinalCTA } from '@/components/landing/FinalCTA';
+import { CinematicHero } from '@/components/landing/CinematicHero';
+import { useLenis } from '@/hooks/useLenis';
 
 // Step images
 import stepDesign from '@/assets/step-design.png';
@@ -147,6 +148,9 @@ export const landingSteps = [
 const LandingPage = () => {
   const [scrolled, setScrolled] = useState(false);
 
+  // Smooth scroll — only active on landing page, cleaned up on unmount
+  useLenis();
+
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 20);
     window.addEventListener('scroll', onScroll, { passive: true });
@@ -207,7 +211,7 @@ const LandingPage = () => {
         </div>
       </nav>
 
-      <HeroSection
+      <CinematicHero
         titleLine="From idea to reality,"
         accentWord="together"
         subtitle="Design your dream interior with AI. Connect with skilled designers, carpenters, and decorators. Transform any room in your home or office."

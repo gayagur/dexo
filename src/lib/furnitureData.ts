@@ -282,6 +282,14 @@ export interface DrapedControlPoint {
   lift: number;
 }
 
+/** Smart blanket / pillow placed via target-aware presets (see softDecorPlacement). */
+export interface SoftDecorMeta {
+  kind: "blanket" | "pillow";
+  variantIndex: number;
+  variantId: string;
+  anchorPanelId: string;
+}
+
 export interface PanelData {
   id: string;
   type: "vertical" | "horizontal" | "back";
@@ -301,6 +309,8 @@ export interface PanelData {
   cornerRadius?: number;
   /** Hand-tuned folds for shape "draped" (max ~16 in editor). */
   drapedControlPoints?: DrapedControlPoint[];
+  /** When set, panel was placed with smart bed/sofa decor logic. */
+  softDecor?: SoftDecorMeta;
 }
 
 export interface FurnitureTemplate {
