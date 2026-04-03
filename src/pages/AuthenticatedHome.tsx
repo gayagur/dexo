@@ -17,6 +17,9 @@ import {
   MessageSquare, TrendingUp, Eye,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { StatusSummaryBar } from '@/components/business-dashboard/StatusSummaryBar';
+import { SentOffersList } from '@/components/business-dashboard/SentOffersList';
+import { RecentProjects } from '@/components/business-dashboard/RecentProjects';
 
 // Step images
 import stepDesign from '@/assets/step-design.png';
@@ -681,12 +684,6 @@ function CreatorHome({ firstName }: { firstName: string }) {
   const { offers, loading: offersLoading } = useBusinessOffers(business?.id);
 
   const loading = bizLoading || matchLoading || offersLoading;
-  const pendingOffers = offers.filter((o) => o.status === 'pending');
-  const acceptedOffers = offers.filter((o) => o.status === 'accepted');
-
-  const animMatched = useAnimatedCounter(matchedProjects.length);
-  const animPending = useAnimatedCounter(pendingOffers.length);
-  const animActive = useAnimatedCounter(acceptedOffers.length);
 
   // Profile strength
   const profileChecks = business
@@ -723,15 +720,22 @@ function CreatorHome({ firstName }: { firstName: string }) {
     );
   }
 
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? 'morning' : hour < 18 ? 'afternoon' : 'evening';
+
   return (
-    <>
-      {/* ── Hero ─────────────────────────────────────── */}
-      <section className="bg-gradient-to-b from-[hsl(40_40%_97%)] to-background">
+    <div className="min-h-screen" style={{ background: '#FAFAF8' }}>
+      {/* ── A. Welcome Header ─────────────────────────── */}
+      <section className="bg-gradient-to-b from-[hsl(28_30%_96%)] to-[#FAFAF8]">
         <div className="container mx-auto px-6 py-10 lg:py-14">
-          <motion.div initial="hidden" animate="visible" className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-6">
+          <motion.div
+            initial="hidden"
+            animate="visible"
+            className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-6"
+          >
             <div>
               <motion.p custom={0} variants={fadeUp} className="text-sm text-muted-foreground mb-1">
-                Good {new Date().getHours() < 12 ? 'morning' : new Date().getHours() < 18 ? 'afternoon' : 'evening'}
+                Good {greeting}
               </motion.p>
               <motion.h1
                 custom={0.05}
@@ -741,12 +745,17 @@ function CreatorHome({ firstName }: { firstName: string }) {
                 Welcome back, {firstName}
               </motion.h1>
               <motion.p custom={0.1} variants={fadeUp} className="text-muted-foreground mt-2 max-w-md">
-                Discover new projects, connect with clients, and grow your design business.
+                Here's what's happening with your projects.
               </motion.p>
             </div>
             <motion.div custom={0.15} variants={fadeUp} className="flex gap-3">
               <Link to="/business">
-                <Button variant="hero" size="lg" className="group shadow-sm hover:shadow-md transition-shadow">
+                <Button
+                  variant="hero"
+                  size="lg"
+                  className="group transition-shadow"
+                  style={{ boxShadow: '0 8px 24px rgba(201,106,61,0.25)' }}
+                >
                   <Search className="w-4 h-4 mr-2" />
                   Browse Projects
                 </Button>
@@ -761,273 +770,131 @@ function CreatorHome({ firstName }: { firstName: string }) {
         </div>
       </section>
 
-      {/* ── Stats ────────────────────────────────────── */}
-      <StatStrip stats={[
-        { icon: Briefcase, label: 'Matched Projects', value: animMatched, to: '/business' },
-        { icon: Clock, label: 'Pending Offers', value: animPending, accent: animPending > 0, to: '/business/offers' },
-        { icon: Zap, label: 'Active Jobs', value: animActive, to: '/business/conversations' },
-      ]} />
+      {/* ── B. Projects by Status ─────────────────────── */}
+      <section className="container mx-auto px-6 -mt-2 mb-10">
+        <StatusSummaryBar projects={matchedProjects} loading={matchLoading} />
+      </section>
 
-      {/* ── How It Works ──────────────────────────────── */}
-      <HowItWorks
-        label="How It Works"
-        steps={[
-          {
-            number: 1,
-            icon: Eye,
-            title: 'Discover Projects',
-            description: 'Browse incoming requests that match your skills. Each comes with an AI-generated visual brief and budget.',
-            accent: '#C05621',
-            image: stepDesign,
-          },
-          {
-            number: 2,
-            icon: MessageSquare,
-            title: 'Send Your Offer',
-            description: 'Review the design brief and submit your price, timeline, and approach. Stand out with a personalized note.',
-            accent: '#D4793A',
-            image: stepConnect,
-          },
-          {
-            number: 3,
-            icon: Zap,
-            title: 'Create & Deliver',
-            description: 'Once accepted, craft the product and communicate with your client. Build your reputation with every delivery.',
-            accent: '#E8A065',
-            image: stepTransform,
-          },
-        ]}
-      />
+      {/* ── C + D Content Grid ────────────────────────── */}
+      <section className="container mx-auto px-6 pb-12">
+        <div className="grid lg:grid-cols-3 gap-8">
+          {/* Main column */}
+          <div className="lg:col-span-2 space-y-10">
+            {/* Sent Offers */}
+            <SentOffersList businessId={business.id} />
 
-      {/* ── Content Grid ─────────────────────────────── */}
-      <section className="py-10 lg:py-12">
-        <div className="container mx-auto px-6">
-          <div className="grid lg:grid-cols-3 gap-8">
-            {/* Main column — project requests */}
-            <div className="lg:col-span-2">
-              <motion.div
-                initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeUp}
-                className="flex items-center justify-between mb-4"
-              >
-                <h2 className="text-sm font-medium text-muted-foreground uppercase tracking-[0.08em]">
-                  Incoming Requests
+            {/* Recent Projects */}
+            <RecentProjects projects={matchedProjects} loading={matchLoading} />
+          </div>
+
+          {/* Sidebar */}
+          <div className="space-y-6">
+            {/* Profile completion */}
+            {profileIncomplete && (
+              <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} custom={0.1} variants={fadeUp}>
+                <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3">
+                  Profile Strength
                 </h2>
-                {matchedProjects.length > 0 && (
-                  <Link to="/business" className="text-xs text-primary hover:text-primary/80 transition-colors flex items-center gap-1">
-                    View all <ArrowRight className="w-3 h-3" />
-                  </Link>
-                )}
-              </motion.div>
-
-              {matchedProjects.length > 0 ? (
-                <motion.div
-                  initial="hidden" whileInView="visible" viewport={{ once: true }}
-                  variants={staggerContainer}
-                  className="space-y-3"
-                >
-                  {matchedProjects.slice(0, 4).map((project) => (
-                    <motion.div key={project.id} variants={staggerItem}>
-                      <Link to={`/business/request/${project.id}`}>
-                        <motion.div whileHover={{ x: 3 }} transition={{ duration: 0.2 }}>
-                          <Card className="overflow-hidden rounded-xl cursor-pointer hover:shadow-sm transition-all duration-200 group">
-                            <CardContent className="p-0">
-                              <div className="flex items-center">
-                                {project.ai_concept ? (
-                                  <div className="w-20 h-20 shrink-0 overflow-hidden">
-                                    <img
-                                      src={project.ai_concept} alt={project.title} loading="lazy"
-                                      className="w-full h-full object-cover"
-                                    />
-                                  </div>
-                                ) : (
-                                  <div className="w-20 h-20 shrink-0 bg-primary/[0.04] flex items-center justify-center">
-                                    <Package className="w-6 h-6 text-primary/15" />
-                                  </div>
-                                )}
-                                <div className="flex-1 p-4 min-w-0">
-                                  <h3 className="font-medium text-sm text-foreground truncate">{project.title}</h3>
-                                  <div className="flex items-center gap-2 mt-0.5">
-                                    <span className="text-[11px] text-muted-foreground">{project.category}</span>
-                                    {project.budget_min != null && project.budget_max != null && (
-                                      <span className="text-[11px] font-medium text-primary">
-                                        ${project.budget_min.toLocaleString()}&ndash;${project.budget_max.toLocaleString()}
-                                      </span>
-                                    )}
-                                  </div>
-                                </div>
-                                <div className="pr-4">
-                                  <ArrowRight className="w-4 h-4 text-muted-foreground/30 group-hover:text-primary/50 transition-colors" />
-                                </div>
-                              </div>
-                            </CardContent>
-                          </Card>
-                        </motion.div>
-                      </Link>
-                    </motion.div>
-                  ))}
-                </motion.div>
-              ) : (
-                <Card className="border-dashed border-2 border-border/60 rounded-2xl">
-                  <CardContent className="py-12 text-center">
-                    <div className="w-12 h-12 rounded-xl bg-primary/[0.06] flex items-center justify-center mx-auto mb-4">
-                      <Package className="w-5 h-5 text-primary/40" />
-                    </div>
-                    <h3 className="font-serif text-base mb-1">No project requests yet</h3>
-                    <p className="text-xs text-muted-foreground max-w-xs mx-auto">
-                      {business
-                        ? 'New projects matching your categories will appear here.'
-                        : 'Complete your profile to start receiving matched projects.'}
-                    </p>
-                    {!business && (
-                      <Link to="/profile" className="mt-4 inline-block">
-                        <Button variant="warm" size="sm">Complete Your Profile</Button>
-                      </Link>
-                    )}
-                  </CardContent>
-                </Card>
-              )}
-
-              {/* Active conversations */}
-              {acceptedOffers.length > 0 && (
-                <motion.div className="mt-6" initial="hidden" whileInView="visible" viewport={{ once: true }} custom={0.1} variants={fadeUp}>
-                  <h2 className="text-sm font-medium text-muted-foreground uppercase tracking-[0.08em] mb-3">
-                    Active Conversations
-                  </h2>
-                  <Link to="/business/conversations">
-                    <motion.div whileHover={{ x: 3 }} transition={{ duration: 0.2 }}>
-                      <Card className="rounded-xl cursor-pointer hover:shadow-sm transition-all duration-200">
-                        <CardContent className="p-4 flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-lg bg-primary/[0.08] flex items-center justify-center shrink-0">
-                            <MessageSquare className="w-4 h-4 text-primary" />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <span className="text-sm font-medium text-foreground">Messages</span>
-                            <p className="text-xs text-muted-foreground">
-                              {acceptedOffers.length} active project{acceptedOffers.length !== 1 ? 's' : ''}
-                            </p>
-                          </div>
-                          <ArrowRight className="w-4 h-4 text-muted-foreground/30" />
-                        </CardContent>
-                      </Card>
-                    </motion.div>
-                  </Link>
-                </motion.div>
-              )}
-            </div>
-
-            {/* Sidebar column */}
-            <div className="space-y-6">
-              {/* Offers summary */}
-              <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeUp}>
-                <h2 className="text-sm font-medium text-muted-foreground uppercase tracking-[0.08em] mb-3">
-                  Your Offers
-                </h2>
-                <Card className="rounded-xl">
-                  <CardContent className="p-4 space-y-3">
-                    <Link to="/business/offers" className="flex items-center justify-between group">
-                      <div className="flex items-center gap-2.5">
-                        <div className="w-2 h-2 rounded-full bg-amber-400" />
-                        <span className="text-sm text-foreground">Pending</span>
+                <div className="bg-white rounded-[14px] border border-black/[0.07] shadow-sm p-5">
+                  {business && (
+                    <>
+                      <div className="flex items-center gap-2.5 mb-3">
+                        <div className="flex-1 h-1.5 rounded-full bg-gray-100 overflow-hidden">
+                          <motion.div
+                            className="h-full rounded-full bg-[#C96A3D]"
+                            initial={{ width: 0 }}
+                            animate={{ width: `${(profileScore / profileTotal) * 100}%` }}
+                            transition={{ duration: 0.8, delay: 0.3 }}
+                          />
+                        </div>
+                        <span className="text-xs font-semibold text-[#C96A3D]" style={{ fontVariantNumeric: 'tabular-nums' }}>
+                          {profileScore}/{profileTotal}
+                        </span>
                       </div>
-                      <span className="text-sm font-semibold text-foreground" style={{ fontVariantNumeric: 'tabular-nums' }}>
-                        {pendingOffers.length}
-                      </span>
-                    </Link>
-                    <Link to="/business/offers" className="flex items-center justify-between group">
-                      <div className="flex items-center gap-2.5">
-                        <div className="w-2 h-2 rounded-full bg-emerald-400" />
-                        <span className="text-sm text-foreground">Accepted</span>
-                      </div>
-                      <span className="text-sm font-semibold text-foreground" style={{ fontVariantNumeric: 'tabular-nums' }}>
-                        {acceptedOffers.length}
-                      </span>
-                    </Link>
-                    <Link to="/business/offers" className="flex items-center justify-between group">
-                      <div className="flex items-center gap-2.5">
-                        <div className="w-2 h-2 rounded-full bg-gray-300" />
-                        <span className="text-sm text-foreground">Total sent</span>
-                      </div>
-                      <span className="text-sm font-semibold text-foreground" style={{ fontVariantNumeric: 'tabular-nums' }}>
-                        {offers.length}
-                      </span>
-                    </Link>
-                  </CardContent>
-                </Card>
-              </motion.div>
-
-              {/* Profile completion */}
-              {profileIncomplete && (
-                <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} custom={0.1} variants={fadeUp}>
-                  <h2 className="text-sm font-medium text-muted-foreground uppercase tracking-[0.08em] mb-3">
-                    Profile Strength
-                  </h2>
-                  <Card className="rounded-xl border-primary/10 bg-gradient-to-b from-primary/[0.02] to-transparent">
-                    <CardContent className="p-4">
-                      {business && (
-                        <>
-                          <div className="flex items-center gap-2.5 mb-3">
-                            <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
-                              <motion.div
-                                className="h-full rounded-full bg-primary"
-                                initial={{ width: 0 }}
-                                animate={{ width: `${(profileScore / profileTotal) * 100}%` }}
-                                transition={{ duration: 0.8, delay: 0.3 }}
-                              />
-                            </div>
-                            <span className="text-xs font-semibold text-primary" style={{ fontVariantNumeric: 'tabular-nums' }}>
-                              {profileScore}/{profileTotal}
+                      <div className="space-y-2 mb-4">
+                        {profileChecks.map((check, i) => (
+                          <motion.div
+                            key={i}
+                            initial={{ opacity: 0, x: 8 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            transition={{ delay: 0.4 + i * 0.06 }}
+                            className="flex items-center gap-2"
+                          >
+                            {check.done ? (
+                              <CheckCircle2 className="w-3.5 h-3.5 text-[#C96A3D] shrink-0" />
+                            ) : (
+                              <Circle className="w-3.5 h-3.5 text-gray-300 shrink-0" />
+                            )}
+                            <span className={`text-xs ${check.done ? 'text-gray-700' : 'text-gray-400'}`}>
+                              {check.label}
                             </span>
-                          </div>
-                          <div className="space-y-2 mb-4">
-                            {profileChecks.map((check, i) => (
-                              <motion.div
-                                key={i}
-                                initial={{ opacity: 0, x: 8 }}
-                                animate={{ opacity: 1, x: 0 }}
-                                transition={{ delay: 0.4 + i * 0.06 }}
-                                className="flex items-center gap-2"
-                              >
-                                {check.done ? (
-                                  <CheckCircle2 className="w-3.5 h-3.5 text-primary shrink-0" />
-                                ) : (
-                                  <Circle className="w-3.5 h-3.5 text-muted-foreground/30 shrink-0" />
-                                )}
-                                <span className={`text-xs ${check.done ? 'text-foreground' : 'text-muted-foreground'}`}>
-                                  {check.label}
-                                </span>
-                              </motion.div>
-                            ))}
-                          </div>
-                        </>
-                      )}
-                      <Link to="/profile">
-                        <Button variant="warm" size="sm" className="w-full group">
-                          {business ? 'Complete Profile' : 'Get Started'}
-                          <ArrowRight className="w-3.5 h-3.5 ml-1 transition-transform group-hover:translate-x-0.5" />
-                        </Button>
-                      </Link>
-                    </CardContent>
-                  </Card>
-                </motion.div>
-              )}
-
-              {/* Tip */}
-              <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} custom={0.15} variants={fadeUp}>
-                <div className="px-4 py-3.5 rounded-xl bg-primary/[0.03] border border-primary/[0.08]">
-                  <div className="flex items-start gap-2.5">
-                    <TrendingUp className="w-3.5 h-3.5 text-primary/50 mt-0.5 shrink-0" />
-                    <div>
-                      <span className="text-[10px] font-medium text-primary/60 uppercase tracking-[0.1em]">Creator tip</span>
-                      <RotatingTip tips={creatorTips} />
-                    </div>
-                  </div>
+                          </motion.div>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                  <Link to="/profile">
+                    <Button variant="warm" size="sm" className="w-full group">
+                      {business ? 'Complete Profile' : 'Get Started'}
+                      <ArrowRight className="w-3.5 h-3.5 ml-1 transition-transform group-hover:translate-x-0.5" />
+                    </Button>
+                  </Link>
                 </div>
               </motion.div>
-            </div>
+            )}
+
+            {/* Quick stats card */}
+            <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeUp}>
+              <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3">
+                Quick Stats
+              </h2>
+              <div className="bg-white rounded-[14px] border border-black/[0.07] shadow-sm p-5 space-y-3">
+                <Link to="/business/offers" className="flex items-center justify-between group">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-2 h-2 rounded-full bg-amber-400" />
+                    <span className="text-sm text-gray-600">Pending offers</span>
+                  </div>
+                  <span className="text-sm font-semibold text-gray-800" style={{ fontVariantNumeric: 'tabular-nums' }}>
+                    {offers.filter(o => o.status === 'pending').length}
+                  </span>
+                </Link>
+                <Link to="/business/conversations" className="flex items-center justify-between group">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-2 h-2 rounded-full bg-emerald-400" />
+                    <span className="text-sm text-gray-600">Active jobs</span>
+                  </div>
+                  <span className="text-sm font-semibold text-gray-800" style={{ fontVariantNumeric: 'tabular-nums' }}>
+                    {offers.filter(o => o.status === 'accepted').length}
+                  </span>
+                </Link>
+                <Link to="/business/offers" className="flex items-center justify-between group">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-2 h-2 rounded-full bg-gray-300" />
+                    <span className="text-sm text-gray-600">Total sent</span>
+                  </div>
+                  <span className="text-sm font-semibold text-gray-800" style={{ fontVariantNumeric: 'tabular-nums' }}>
+                    {offers.length}
+                  </span>
+                </Link>
+              </div>
+            </motion.div>
+
+            {/* Tip */}
+            <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} custom={0.15} variants={fadeUp}>
+              <div className="px-4 py-3.5 rounded-[14px] bg-[#C96A3D]/[0.03] border border-[#C96A3D]/[0.08]">
+                <div className="flex items-start gap-2.5">
+                  <TrendingUp className="w-3.5 h-3.5 text-[#C96A3D]/50 mt-0.5 shrink-0" />
+                  <div>
+                    <span className="text-[10px] font-medium text-[#C96A3D]/60 uppercase tracking-[0.1em]">Creator tip</span>
+                    <RotatingTip tips={creatorTips} />
+                  </div>
+                </div>
+              </div>
+            </motion.div>
           </div>
         </div>
       </section>
-    </>
+    </div>
   );
 }
 
