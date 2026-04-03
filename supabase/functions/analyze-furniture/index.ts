@@ -8,11 +8,11 @@ import {
   VISION_MODELS_SUPPORTING_JSON_SCHEMA,
 } from "../_shared/furnitureAnalysisJsonSchema.ts";
 
-// Fast model first; strong spatial-reasoning model as fallback
+// Old models first (known baseline), new models as fallback
 const VISION_MODELS = [
-  "Qwen/Qwen3.5-9B",
-  "Qwen/Qwen3.5-397B-A17B",
+  "Qwen/Qwen3-VL-8B-Instruct",
   "moonshotai/Kimi-K2.5",
+  "Qwen/Qwen3.5-9B",
 ];
 /** Per-model timeout — must leave room for fallbacks within edge function's ~150s limit */
 const PER_MODEL_MS = 45_000;
@@ -174,7 +174,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    const analysis = { ...raw, panels: panelsRaw };
+    const analysis = { ...raw, panels: panelsRaw, _model: usedModel };
 
     // Log usage
     logUsage({
