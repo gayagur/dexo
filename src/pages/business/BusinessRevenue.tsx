@@ -1,3 +1,4 @@
+import { motion } from "framer-motion";
 import { BusinessDashboardLayout } from "@/components/business/BusinessDashboardLayout";
 import { useBusinessDashboard } from "@/hooks/useBusinessDashboard";
 import { useMatchedProjects } from "@/hooks/useMatchedProjects";
@@ -15,6 +16,14 @@ import {
   ResponsiveContainer,
   CartesianGrid,
 } from "recharts";
+
+const containerVariants = {
+  animate: { transition: { staggerChildren: 0.08, delayChildren: 0.1 } },
+};
+const cardVariants = {
+  initial: { opacity: 0, y: 20 },
+  animate: { opacity: 1, y: 0, transition: { duration: 0.4, ease: [0.16, 1, 0.3, 1] } },
+};
 
 export default function BusinessRevenue() {
   const { kpis, customers, revenueByMonth, loading } = useBusinessDashboard();
@@ -49,37 +58,45 @@ export default function BusinessRevenue() {
             ))}
           </div>
         ) : kpis ? (
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            <StatCard
-              title="Total Revenue"
-              value={`$${kpis.totalRevenue.toLocaleString()}`}
-              icon={DollarSign}
-              iconColor="text-emerald-600"
-              iconBg="bg-emerald-50"
-            />
-            <StatCard
-              title="This Month"
-              value={`$${kpis.revenueThisMonth.toLocaleString()}`}
-              icon={TrendingUp}
-              iconColor="text-blue-600"
-              iconBg="bg-blue-50"
-            />
-            <StatCard
-              title="Avg Order Value"
-              value={`$${avgOrderValue.toLocaleString()}`}
-              icon={Receipt}
-              iconColor="text-violet-600"
-              iconBg="bg-violet-50"
-            />
-            <StatCard
-              title="Completed Projects"
-              value={kpis.completedProjects}
-              icon={DollarSign}
-              iconColor="text-[#C87D5A]"
-              iconBg="bg-[#C87D5A]/8"
-              subtitle={`of ${kpis.totalProjects} total`}
-            />
-          </div>
+          <motion.div className="grid grid-cols-2 lg:grid-cols-4 gap-4" variants={containerVariants} initial="initial" animate="animate">
+            <motion.div variants={cardVariants}>
+              <StatCard
+                title="Total Revenue"
+                value={`$${kpis.totalRevenue.toLocaleString()}`}
+                icon={DollarSign}
+                iconColor="text-emerald-600"
+                iconBg="bg-emerald-50"
+              />
+            </motion.div>
+            <motion.div variants={cardVariants}>
+              <StatCard
+                title="This Month"
+                value={`$${kpis.revenueThisMonth.toLocaleString()}`}
+                icon={TrendingUp}
+                iconColor="text-blue-600"
+                iconBg="bg-blue-50"
+              />
+            </motion.div>
+            <motion.div variants={cardVariants}>
+              <StatCard
+                title="Avg Order Value"
+                value={`$${avgOrderValue.toLocaleString()}`}
+                icon={Receipt}
+                iconColor="text-violet-600"
+                iconBg="bg-violet-50"
+              />
+            </motion.div>
+            <motion.div variants={cardVariants}>
+              <StatCard
+                title="Completed Projects"
+                value={kpis.completedProjects}
+                icon={DollarSign}
+                iconColor="text-[#C87D5A]"
+                iconBg="bg-[#C87D5A]/8"
+                subtitle={`of ${kpis.totalProjects} total`}
+              />
+            </motion.div>
+          </motion.div>
         ) : null}
 
         <div className="grid lg:grid-cols-3 gap-6">

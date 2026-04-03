@@ -294,7 +294,7 @@ export interface PanelData {
   id: string;
   type: "vertical" | "horizontal" | "back";
   shape?: PanelShape; // default "box"
-  shapeParams?: Record<string, number>; // e.g. cornerRadius, sides, arcAngle
+  shapeParams?: Record<string, number>; // e.g. cornerRadius, sides, arcAngle; draped: drapedEdgeFold, drapedFoldLine, drapedHangAngle
   position: [number, number, number]; // x, y, z in meters
   rotation?: [number, number, number]; // x, y, z in radians (default [0,0,0])
   size: [number, number, number]; // box: [w,h,d] | cylinder/cone: [diameter,height,diameter] | sphere: [diameter,diameter,diameter]

@@ -832,6 +832,84 @@ export function EditorParameters({
               Double-click the fabric to add a pinch. Drag the gold handles (camera orbit pauses while dragging); hold{" "}
               <kbd className="px-1 py-0.5 rounded bg-gray-100 text-[9px]">Shift</kbd> to adjust fold depth.
             </p>
+            <div className="rounded-lg border border-gray-100 bg-gray-50/80 p-2.5 space-y-2 mb-3">
+              <p className="text-[10px] font-medium text-gray-600">
+                Edge fold <span className="text-gray-400 font-normal">(קפל — חצי שטוח, חצי מאונך)</span>
+              </p>
+              <p className="text-[9px] text-gray-400 leading-snug">
+                One side stays on the seat; the other bends down over the edge. If it faces the wrong way, rotate the panel 180° or pick the opposite depth/width option.
+              </p>
+              <select
+                className="w-full h-8 text-[11px] rounded-md border border-gray-200 bg-white px-2"
+                value={String(Math.max(0, Math.min(4, Math.round(panel.shapeParams?.drapedEdgeFold ?? 0))))}
+                onChange={(e) => {
+                  const v = parseInt(e.target.value, 10);
+                  const sp = { ...panel.shapeParams };
+                  if (v === 0) {
+                    delete sp.drapedEdgeFold;
+                  } else {
+                    sp.drapedEdgeFold = v;
+                  }
+                  onUpdatePanel(panel.id, { shapeParams: sp });
+                }}
+              >
+                <option value="0">None — fully flat</option>
+                <option value="1">Hang past +depth side (+Z local)</option>
+                <option value="2">Hang past −depth side (−Z local)</option>
+                <option value="3">Hang past +width side (+X local)</option>
+                <option value="4">Hang past −width side (−X local)</option>
+              </select>
+              {(panel.shapeParams?.drapedEdgeFold ?? 0) > 0 && (
+                <>
+                  <div>
+                    <div className="flex justify-between text-[9px] text-gray-500 mb-0.5">
+                      <span>Fold line</span>
+                      <span>{Math.round((panel.shapeParams?.drapedFoldLine ?? 0.5) * 100)}%</span>
+                    </div>
+                    <input
+                      type="range"
+                      min={10}
+                      max={90}
+                      step={1}
+                      className="w-full h-1.5 accent-[#C87D5A]"
+                      value={Math.round((panel.shapeParams?.drapedFoldLine ?? 0.5) * 100)}
+                      onChange={(e) => {
+                        const pct = parseInt(e.target.value, 10);
+                        onUpdatePanel(panel.id, {
+                          shapeParams: {
+                            ...panel.shapeParams,
+                            drapedFoldLine: pct / 100,
+                          },
+                        });
+                      }}
+                    />
+                  </div>
+                  <div>
+                    <div className="flex justify-between text-[9px] text-gray-500 mb-0.5">
+                      <span>Hang angle</span>
+                      <span>{Math.round((panel.shapeParams?.drapedHangAngle ?? 1) * 100)}%</span>
+                    </div>
+                    <input
+                      type="range"
+                      min={0}
+                      max={100}
+                      step={5}
+                      className="w-full h-1.5 accent-[#C87D5A]"
+                      value={Math.round((panel.shapeParams?.drapedHangAngle ?? 1) * 100)}
+                      onChange={(e) => {
+                        const pct = parseInt(e.target.value, 10);
+                        onUpdatePanel(panel.id, {
+                          shapeParams: {
+                            ...panel.shapeParams,
+                            drapedHangAngle: pct / 100,
+                          },
+                        });
+                      }}
+                    />
+                  </div>
+                </>
+              )}
+            </div>
             <div className="mt-2 space-y-2">
               <button
                 type="button"

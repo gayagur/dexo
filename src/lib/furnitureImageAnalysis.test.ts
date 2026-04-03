@@ -167,6 +167,86 @@ test("maps kitchen island imports to the table-desk archetype", () => {
   assert.ok(back.position[2] < -0.15, "back panel should be placed on the rear plane");
 });
 
+test("corrects swapped width/depth on upholstered sofa back cushions", () => {
+  const panels = buildPanels({
+    name: "sectional sofa",
+    estimatedDims: { w: 2200, h: 850, d: 950 },
+    panels: [
+      {
+        label: "Back cushion",
+        type: "vertical",
+        shape: "box",
+        position: [0, 0.55, -0.35],
+        size: [0.12, 0.42, 0.62],
+        materialId: "fabric_cream",
+      },
+    ],
+  });
+
+  const back = singleByLabel(panels, /back cushion/i);
+  assert.ok(back.size[0] > back.size[2], "back should span along X (width) not Z");
+  assert.ok(back.size[2] < 0.22, "back depth on Z should stay cushion-thin");
+});
+
+test("clears spurious ±90° Y rotation on correctly sized upholstered backs", () => {
+  const panels = buildPanels({
+    name: "sofa",
+    estimatedDims: { w: 2000, h: 820, d: 900 },
+    panels: [
+      {
+        label: "Back rest",
+        type: "vertical",
+        shape: "cushion_firm",
+        position: [0, 0.5, -0.32],
+        size: [0.65, 0.4, 0.12],
+        rotation: [0, Math.PI / 2, 0],
+        materialId: "fabric_gray",
+      },
+    ],
+  });
+
+  const back = singleByLabel(panels, /back rest/i);
+  assert.ok(
+    !back.rotation || back.rotation.every((r) => Math.abs(r) < 0.01),
+    "near-axis 90° Y on a wide-thin back should be stripped",
+  );
+});
+
+test("places desk legs at corners even when a center pedestal is present", () => {
+  const panels = buildPanels({
+    name: "executive desk",
+    estimatedDims: { w: 1600, h: 750, d: 800 },
+    panels: [
+      { label: "Desktop", type: "horizontal", shape: "box", position: [0, 0.4, 0], size: [1.5, 0.035, 0.75], materialId: "oak" },
+      { label: "Pedestal", type: "vertical", shape: "box", position: [0, 0.25, 0], size: [0.35, 0.6, 0.45], materialId: "oak" },
+      { label: "Leg 1", type: "vertical", shape: "box", position: [0, 0.25, 0], size: [0.05, 0.65, 0.05], materialId: "oak" },
+      { label: "Leg 2", type: "vertical", shape: "box", position: [0, 0.25, 0], size: [0.05, 0.65, 0.05], materialId: "oak" },
+    ],
+  });
+
+  const legs = getByLabel(panels, /\bleg\b/i);
+  assert.equal(legs.length, 2);
+  assert.ok(new Set(legs.map((l) => Math.sign(l.position[0]))).size >= 2, "legs should sit on opposite left/right");
+  assert.ok(legs.every((l) => Math.abs(l.position[1] - l.size[1] / 2) < 0.08), "legs should meet the floor");
+});
+
+test("classifies generic thin verticals on desks as legs for corner placement", () => {
+  const panels = buildPanels({
+    name: "writing desk",
+    estimatedDims: { w: 1200, h: 730, d: 600 },
+    panels: [
+      { label: "Top surface", type: "horizontal", shape: "box", position: [0, 0.38, 0], size: [1.15, 0.03, 0.55], materialId: "oak" },
+      { label: "Part A", type: "vertical", shape: "box", position: [0, 0.2, 0], size: [0.055, 0.66, 0.055], materialId: "oak" },
+      { label: "Part B", type: "vertical", shape: "box", position: [0, 0.2, 0], size: [0.055, 0.66, 0.055], materialId: "oak" },
+    ],
+  });
+
+  const partA = singleByLabel(panels, /^part a$/i);
+  const partB = singleByLabel(panels, /^part b$/i);
+  assert.ok(Math.abs(partA.position[0]) > 0.2 && Math.abs(partB.position[0]) > 0.2, "thin verticals should move to footprint corners");
+  assert.ok(Math.sign(partA.position[0]) !== Math.sign(partB.position[0]), "supports should be on opposite sides");
+});
+
 test("maps storage rack imports to the shelving archetype", () => {
   const panels = buildPanels({
     name: "storage_rack",

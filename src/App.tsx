@@ -5,7 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { HelmetProvider } from "react-helmet-async";
 import { lazy, Suspense, useEffect } from "react";
-import { AnimatePresence } from "framer-motion";
+import { AnimatePresence, MotionConfig } from "framer-motion";
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import { initGA, trackPageView } from "@/lib/analytics";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
@@ -132,6 +132,7 @@ const App = () => (
       ) : null}
       <Toaster />
       <Sonner />
+      <MotionConfig reducedMotion="user">
       <BrowserRouter>
         <HelmetProvider>
         <AnalyticsTracker />
@@ -326,6 +327,7 @@ const App = () => (
         </AuthProvider>
         </HelmetProvider>
       </BrowserRouter>
+      </MotionConfig>
     </TooltipProvider>
   </QueryClientProvider>
 );

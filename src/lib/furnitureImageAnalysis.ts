@@ -1100,6 +1100,61 @@ function refineSeatingImportPanels(panels: PanelData[], furnitureName: string): 
   });
 }
 
+const UPHOLSTERED_BACK_PLAN_SHAPES = /^(box|cushion|cushion_firm|padded_block)$/;
+
+/**
+ * Vision models often emit sofa back cushions with width/depth swapped (thin edge faces the room)
+ * or add rotation.y ≈ ±π/2 to compensate. Editor convention: wide span on X, thin depth on Z.
+ */
+function normalizeUpholsteredBackPlanAxes(panel: PanelData): PanelData {
+  if (panel.type !== "vertical") return panel;
+  if (!UPHOLSTERY_MAT_RE.test(panel.materialId)) return panel;
+  const shape = panel.shape ?? "box";
+  if (!UPHOLSTERED_BACK_PLAN_SHAPES.test(shape)) return panel;
+
+  const L = panel.label;
+  if (/\b(arm|armrest|arm\s*pad|leg|feet|foot|throw)\b/i.test(L)) return panel;
+  const seatOnly = /\bseat\b/i.test(L) && !/\b(back|backrest)\b/i.test(L);
+  if (seatOnly) return panel;
+
+  const isBackLabel =
+    /\b(back|backrest|headrest|bolster)\b/i.test(L) ||
+    /\bback\s*cushion\b/i.test(L) ||
+    (/\bcushion\b/i.test(L) && /\bback\b/i.test(L));
+
+  let [w, h, d] = panel.size;
+  const upright = h >= Math.max(w, d) * 0.55;
+  if (!upright) return panel;
+
+  const geomBackLike =
+    h >= Math.max(w, d) * 0.65 &&
+    Math.min(w, d) >= 0.04 &&
+    Math.max(w, d) >= 0.18 &&
+    Math.min(w, d) <= 0.38;
+  const planLooksSwapped = d > w * 1.12 && w <= 0.32 && d >= 0.18;
+
+  if (!isBackLabel && !(geomBackLike && planLooksSwapped)) return panel;
+
+  const rot = panel.rotation;
+  const nearHalfPiY =
+    rot &&
+    Math.abs(rot[0]) < 0.35 &&
+    Math.abs(rot[2]) < 0.35 &&
+    Math.abs(Math.abs(rot[1]) - Math.PI / 2) < 0.35;
+
+  if (planLooksSwapped) {
+    const next: PanelData = { ...panel, size: [d, h, w] };
+    if (nearHalfPiY) next.rotation = [0, 0, 0];
+    return next;
+  }
+
+  if (w >= d * 1.05 && d <= 0.34 && nearHalfPiY) {
+    return { ...panel, rotation: [0, 0, 0] };
+  }
+
+  return panel;
+}
+
 function normalizeImportedUpholsteryThickness(panel: PanelData): PanelData {
   const shape = panel.shape ?? "box";
   const upholsteryShape = /^(rounded_rect|cushion|cushion_firm|padded_block|mattress)$/.test(shape);
@@ -1420,7 +1475,8 @@ function nudgeCoplanarVerticalPanels(panels: PanelData[]): void {
       p.type === "vertical" &&
       (p.shape ?? "box") === "box" &&
       p.size[0] > 0.004 &&
-      p.size[0] < 0.35,
+      p.size[0] < 0.35 &&
+      !/\bleg\b/i.test(p.label),
   );
   const EPS = 0.003;
   for (let i = 0; i < verticals.length; i++) {
@@ -1643,6 +1699,8 @@ function validateAndRepairGeometry(
   const repeatGroups = new Map<string, PanelData[]>();
   for (const p of result) {
     if (!isStructuralRepeat(p.label)) continue;
+    // Tables: corner legs must stay on footprint — never fan them along Z (breaks attachment to top).
+    if (category === "table_desk" && /\bleg\b/i.test(p.label) && !/arm|back/i.test(p.label)) continue;
     const k = groupKey(p);
     const arr = repeatGroups.get(k) ?? [];
     arr.push(p);
@@ -1706,14 +1764,17 @@ function validateAndRepairGeometry(
     }
   }
 
-  // === Fix: Ensure parts with "leg" in label touch floor ===
+  // === Fix: Ensure table/desk legs touch floor (label or classified role) ===
   for (const p of result) {
-    if (/\bleg\b/i.test(p.label) && !/(arm|back)/i.test(p.label)) {
-      const legH = p.size[1];
-      const expectedY = legH / 2;
-      if (Math.abs(p.position[1] - expectedY) > 0.05) {
-        p.position = [p.position[0], expectedY, p.position[2]];
-      }
+    const role = category === "table_desk" ? classifyPanelRole(p, "table_desk") : null;
+    const isLegPart =
+      (/\bleg\b/i.test(p.label) && !/(arm|back)/i.test(p.label)) ||
+      (category === "table_desk" && role === "leg");
+    if (!isLegPart) continue;
+    const legH = p.size[1];
+    const expectedY = legH / 2;
+    if (Math.abs(p.position[1] - expectedY) > 0.05) {
+      p.position = [p.position[0], expectedY, p.position[2]];
     }
   }
 
@@ -1772,7 +1833,9 @@ export function panelsFromFurnitureAnalysis(
 
   const refined = refineSeatingImportPanels(panels, analysis.name ?? "");
   debugPositions("after refineSeatingImportPanels", refined);
-  const tightenedUpholstery = refined.map(normalizeImportedUpholsteryThickness);
+  const backPlanFixed = refined.map(normalizeUpholsteredBackPlanAxes);
+  debugPositions("after normalizeUpholsteredBackPlanAxes", backPlanFixed);
+  const tightenedUpholstery = backPlanFixed.map(normalizeImportedUpholsteryThickness);
   debugPositions("after normalizeImportedUpholsteryThickness", tightenedUpholstery);
   const strategy = getLayoutStrategy(category);
   const repaired = strategy.repairGeometry

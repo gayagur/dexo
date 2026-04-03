@@ -1,3 +1,4 @@
+import { motion } from "framer-motion";
 import { BusinessDashboardLayout } from "@/components/business/BusinessDashboardLayout";
 import { useBusinessDashboard } from "@/hooks/useBusinessDashboard";
 import { useMatchedProjects } from "@/hooks/useMatchedProjects";
@@ -17,6 +18,14 @@ import {
   ResponsiveContainer,
   CartesianGrid,
 } from "recharts";
+
+const containerVariants = {
+  animate: { transition: { staggerChildren: 0.08, delayChildren: 0.1 } },
+};
+const cardVariants = {
+  initial: { opacity: 0, y: 20 },
+  animate: { opacity: 1, y: 0, transition: { duration: 0.4, ease: [0.16, 1, 0.3, 1] } },
+};
 
 export default function BusinessInsights() {
   const { kpis, pageViews, loading } = useBusinessDashboard();
@@ -69,39 +78,47 @@ export default function BusinessInsights() {
             ))}
           </div>
         ) : (
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            <StatCard
-              title="Total Profile Views"
-              value={pageViews?.total ?? 0}
-              icon={Eye}
-              iconColor="text-violet-600"
-              iconBg="bg-violet-50"
-              subtitle={`${pageViews?.thisMonth ?? 0} this month`}
-            />
-            <StatCard
-              title="Views This Week"
-              value={pageViews?.thisWeek ?? 0}
-              icon={TrendingUp}
-              iconColor="text-blue-600"
-              iconBg="bg-blue-50"
-            />
-            <StatCard
-              title="Inquiries Received"
-              value={totalInquiries}
-              icon={Inbox}
-              iconColor="text-orange-600"
-              iconBg="bg-orange-50"
-              subtitle={`${kpis?.pendingOffers ?? 0} pending`}
-            />
-            <StatCard
-              title="Avg Rating"
-              value={kpis?.avgRating ? `${kpis.avgRating} / 5` : "—"}
-              icon={Star}
-              iconColor="text-amber-500"
-              iconBg="bg-amber-50"
-              subtitle={`${kpis?.totalReviews ?? 0} reviews`}
-            />
-          </div>
+          <motion.div className="grid grid-cols-2 lg:grid-cols-4 gap-4" variants={containerVariants} initial="initial" animate="animate">
+            <motion.div variants={cardVariants}>
+              <StatCard
+                title="Total Profile Views"
+                value={pageViews?.total ?? 0}
+                icon={Eye}
+                iconColor="text-violet-600"
+                iconBg="bg-violet-50"
+                subtitle={`${pageViews?.thisMonth ?? 0} this month`}
+              />
+            </motion.div>
+            <motion.div variants={cardVariants}>
+              <StatCard
+                title="Views This Week"
+                value={pageViews?.thisWeek ?? 0}
+                icon={TrendingUp}
+                iconColor="text-blue-600"
+                iconBg="bg-blue-50"
+              />
+            </motion.div>
+            <motion.div variants={cardVariants}>
+              <StatCard
+                title="Inquiries Received"
+                value={totalInquiries}
+                icon={Inbox}
+                iconColor="text-orange-600"
+                iconBg="bg-orange-50"
+                subtitle={`${kpis?.pendingOffers ?? 0} pending`}
+              />
+            </motion.div>
+            <motion.div variants={cardVariants}>
+              <StatCard
+                title="Avg Rating"
+                value={kpis?.avgRating ? `${kpis.avgRating} / 5` : "—"}
+                icon={Star}
+                iconColor="text-amber-500"
+                iconBg="bg-amber-50"
+                subtitle={`${kpis?.totalReviews ?? 0} reviews`}
+              />
+            </motion.div>
+          </motion.div>
         )}
 
         <div className="grid lg:grid-cols-3 gap-6">

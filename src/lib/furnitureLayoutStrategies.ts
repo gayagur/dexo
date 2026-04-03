@@ -33,7 +33,9 @@ export type PanelRole =
   | "mattress"
   | "hanging_rail";
 
-const OFFICE_CHAIR_RE = /\b(office|task|desk chair|executive|swivel|ergonomic|gaming)\b|office_chair/i;
+/** Require chair/seat context so names like "executive desk" stay table_desk, not office_chair. */
+const OFFICE_CHAIR_RE =
+  /\b(office_chair|office chair|task chair|desk chair|executive chair|swivel chair|ergonomic chair|gaming chair|computer chair)\b/i;
 const BED_RE = /\b(bed|bedframe|bed_frame|platform bed|platform_bed|headboard|footboard|bunk bed|kids bed)\b/i;
 const WARDROBE_RE = /\b(wardrobe|armoire|closet|linen tower|pantry cabinet|tall pantry|clothing cabinet)\b/i;
 const SHELVING_RE = /\b(bookcase|bookshelf|shelv|rack|etagere|étagère|display shelf|open shelf|storage shelf|wall shelf|clothing rack)\b/i;
@@ -88,6 +90,36 @@ export function classifyPanelRole(panel: PanelData, category: FurnitureCategory)
   if (/\b(base|plinth|foundation)\b/.test(label)) return "base";
   if (/\b(left side|right side|side panel|end panel|upright|stile|side)\b/.test(label)) return "side";
   if (/\b(rail|apron|stretcher|support deck|bed rail)\b/.test(label)) return "rail";
+
+  // Desk/table legs often arrive as generic vertical slabs or leg-shaped meshes without "leg" in the label.
+  if (category === "table_desk") {
+    const [w, h, d] = panel.size;
+    const planMin = Math.min(w, d);
+    const planMax = Math.max(w, d);
+    const legShapes =
+      shape === "cylinder" ||
+      shape === "tapered_leg" ||
+      shape === "square_leg" ||
+      shape === "cabriole_leg" ||
+      shape === "hairpin_leg" ||
+      shape === "bun_foot" ||
+      shape === "bracket_foot";
+    const thinVertical =
+      panel.type === "vertical" &&
+      h >= 0.15 &&
+      h <= 1.35 &&
+      planMin <= 0.14 &&
+      h >= planMax * 0.75;
+    if (
+      legShapes ||
+      (thinVertical &&
+        !/\b(side|end panel|side panel|partition|drawer|back|front|apron|rail|stretcher|door|shelf|hutch|modesty|panel)\b/i.test(
+          label,
+        ))
+    ) {
+      if (!/\b(apron|rail|stretcher)\b/i.test(label)) return "leg";
+    }
+  }
 
   if (category === "table_desk" && panel.type === "horizontal") return "top";
   if ((category === "casegoods" || category === "wardrobe" || category === "shelving") && panel.type === "horizontal") return "shelf";
@@ -333,7 +365,9 @@ export function repairTableDeskLayout(
       column.position = [0, (topY - topThickness / 2) / 2, 0];
       column.size = [Math.min(Math.max(column.size[0], 0.08), 0.18), topY - topThickness / 2, Math.min(Math.max(column.size[2], 0.08), 0.18)];
     });
-  } else if (legs.length > 0) {
+  }
+  // Always snap corner legs — do not use else-if: a mislabeled "pedestal/column" must not skip leg placement.
+  if (legs.length > 0) {
     const insetX = Math.max(0.06, footprint.w * 0.08);
     const insetZ = Math.max(0.06, footprint.d * 0.08);
     const legHeight = Math.max(topY - topThickness / 2, 0.35);

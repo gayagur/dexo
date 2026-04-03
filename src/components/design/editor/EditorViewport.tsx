@@ -198,13 +198,25 @@ export type ViewMode = "3d" | "front" | "top" | "side";
 export type EditorLightMode = "day" | "night";
 
 /** Floor / backdrop style — all presets stay bright (no dark void) */
-export type EditorFloorPreset = "studio" | "parquet" | "tile" | "grass";
+export type EditorFloorPreset =
+  | "studio"
+  | "oak"
+  | "parquet"
+  | "walnut"
+  | "tile"
+  | "marble"
+  | "concrete"
+  | "grass";
 
 export const EDITOR_FLOOR_OPTIONS: { value: EditorFloorPreset; label: string }[] = [
   { value: "studio", label: "Bright studio" },
-  { value: "parquet", label: "Parquet" },
-  { value: "tile", label: "Light tile" },
-  { value: "grass", label: "Grass" },
+  { value: "oak", label: "Wide oak plank" },
+  { value: "parquet", label: "Herringbone parquet" },
+  { value: "walnut", label: "Rich walnut" },
+  { value: "marble", label: "Polished marble" },
+  { value: "tile", label: "Porcelain tile" },
+  { value: "concrete", label: "Polished concrete" },
+  { value: "grass", label: "Outdoor grass" },
 ];
 
 const FLOOR_STYLE: Record<
@@ -260,13 +272,53 @@ const FLOOR_STYLE: Record<
     hasTexture: true,
     repeat: 6,
   },
+  oak: {
+    sky: "#f2ebe3",
+    floorHex: "#c9a882",
+    roughness: 0.86,
+    metalness: 0,
+    gridCell: "#8b6f4e",
+    gridSection: "#5c4a36",
+    hasTexture: true,
+    repeat: 5,
+  },
+  walnut: {
+    sky: "#ebe5df",
+    floorHex: "#5c4033",
+    roughness: 0.9,
+    metalness: 0,
+    gridCell: "#3d2a22",
+    gridSection: "#2a1c17",
+    hasTexture: true,
+    repeat: 6,
+  },
+  marble: {
+    sky: "#eef1f5",
+    floorHex: "#e8eaee",
+    roughness: 0.28,
+    metalness: 0.12,
+    gridCell: "#9ca3b0",
+    gridSection: "#6b7280",
+    hasTexture: true,
+    repeat: 4,
+  },
+  concrete: {
+    sky: "#e8e9eb",
+    floorHex: "#b8babf",
+    roughness: 0.72,
+    metalness: 0.04,
+    gridCell: "#787b82",
+    gridSection: "#52555c",
+    hasTexture: true,
+    repeat: 9,
+  },
 };
 
 function createEditorFloorTexture(preset: EditorFloorPreset): THREE.CanvasTexture | null {
   const style = FLOOR_STYLE[preset];
   if (!style.hasTexture) return null;
 
-  const size = 512;
+  const size = 1024;
   const canvas = document.createElement("canvas");
   canvas.width = size;
   canvas.height = size;
@@ -683,6 +735,10 @@ export interface EditorViewportProps {
   onUngroupGroup: (groupId: string) => void;
   onDeleteGroup: (groupId: string) => void;
   onScaleGroup: (groupId: string, scaleX: number, scaleY: number, scaleZ: number) => void;
+  /** Live group scale during handle drag — pair with onCommitGroupScale for one undo step. */
+  onScaleGroupLive?: (groupId: string, scaleX: number, scaleY: number, scaleZ: number) => void;
+  /** After group bounding-box scale drag ends, record a single undo snapshot. */
+  onCommitGroupScale?: () => void;
   onContextMenu?: (x: number, y: number, panelId: string | null, groupId: string | null) => void;
   lightMode: EditorLightMode;
   floorPreset: EditorFloorPreset;
@@ -719,6 +775,8 @@ export function EditorViewport({
   onUngroupGroup,
   onDeleteGroup,
   onScaleGroup,
+  onScaleGroupLive,
+  onCommitGroupScale,
   onContextMenu: onContextMenuProp,
   lightMode,
   floorPreset,
@@ -1180,6 +1238,8 @@ export function EditorViewport({
             <GroupSelectionHandles
               group={group}
               onScaleGroup={onScaleGroup}
+              onScaleGroupLive={onScaleGroupLive}
+              onCommitGroupScale={onCommitGroupScale}
               onInteractionChange={setInteractionActive}
               onDragInfoChange={setDragInfo}
             />
@@ -1379,6 +1439,7 @@ function DraggableRotationRing({
   const [dragging, setDragging] = useState(false);
   const [hovered, setHovered] = useState(false);
   const dragStart = useRef<{ clientX: number; startRotY: number } | null>(null);
+  const lastRotationRef = useRef<[number, number, number] | null>(null);
   const { gl } = useThree();
 
   useEffect(() => {
@@ -1390,8 +1451,9 @@ function DraggableRotationRing({
       // 200px = 90 degrees
       const deltaRad = (deltaX / 200) * (Math.PI / 2);
       const newRotY = dragStart.current.startRotY + deltaRad;
-      const rot = [...(panel.rotation ?? [0, 0, 0])] as [number, number, number];
-      rot[1] = newRotY;
+      const base = lastRotationRef.current ?? ([...(panel.rotation ?? [0, 0, 0])] as [number, number, number]);
+      const rot: [number, number, number] = [base[0], newRotY, base[2]];
+      lastRotationRef.current = rot;
       onUpdateLive(panel.id, { rotation: rot });
 
       const degrees = Math.round((newRotY * 180) / Math.PI) % 360;
@@ -1405,18 +1467,21 @@ function DraggableRotationRing({
       gl.domElement.style.cursor = "";
       onInteractionChange(false);
       onDragInfoChange(null);
-      if (onCommit) {
-        onCommit(panel.id, { rotation: panel.rotation });
+      if (onCommit && lastRotationRef.current) {
+        onCommit(panel.id, { rotation: lastRotationRef.current });
       }
+      lastRotationRef.current = null;
     };
 
     gl.domElement.addEventListener("pointermove", onPointerMove);
-    gl.domElement.addEventListener("pointerup", onPointerUp);
+    window.addEventListener("pointerup", onPointerUp, true);
+    window.addEventListener("pointercancel", onPointerUp, true);
     return () => {
       gl.domElement.removeEventListener("pointermove", onPointerMove);
-      gl.domElement.removeEventListener("pointerup", onPointerUp);
+      window.removeEventListener("pointerup", onPointerUp, true);
+      window.removeEventListener("pointercancel", onPointerUp, true);
     };
-  }, [dragging, panel, gl, onUpdateLive, onCommit, onInteractionChange, onDragInfoChange]);
+  }, [dragging, panel.id, panel.position, gl, onUpdateLive, onCommit, onInteractionChange, onDragInfoChange]);
 
   const handleY = panel.size[1] / 2 + 0.18;
 
@@ -1436,9 +1501,10 @@ function DraggableRotationRing({
           e.stopPropagation();
           setDragging(true);
           onInteractionChange(true);
+          lastRotationRef.current = [...(panel.rotation ?? [0, 0, 0])] as [number, number, number];
           dragStart.current = {
             clientX: (e as any).nativeEvent?.clientX ?? e.clientX,
-            startRotY: (panel.rotation ?? [0, 0, 0])[1],
+            startRotY: lastRotationRef.current[1],
           };
           gl.domElement.style.cursor = "ew-resize";
         }}
@@ -1690,10 +1756,12 @@ function DragController({
     };
 
     canvas.addEventListener("pointermove", onPointerMove);
-    canvas.addEventListener("pointerup", onPointerUp);
+    window.addEventListener("pointerup", onPointerUp, true);
+    window.addEventListener("pointercancel", onPointerUp, true);
     return () => {
       canvas.removeEventListener("pointermove", onPointerMove);
-      canvas.removeEventListener("pointerup", onPointerUp);
+      window.removeEventListener("pointerup", onPointerUp, true);
+      window.removeEventListener("pointercancel", onPointerUp, true);
     };
   }, [camera, gl, raycaster, snapEnabled, rotationMode, panels, groups, onUpdatePanel, onUpdatePanelLive, onUpdateGroup, onUpdateGroupLive, onSnapGuidesChange, onDragInfoChange, onInteractionEnd, dragStateRef]);
 
@@ -1923,10 +1991,12 @@ function ResizeHandle({
     };
 
     gl.domElement.addEventListener("pointermove", onPointerMove);
-    gl.domElement.addEventListener("pointerup", onPointerUp);
+    window.addEventListener("pointerup", onPointerUp, true);
+    window.addEventListener("pointercancel", onPointerUp, true);
     return () => {
       gl.domElement.removeEventListener("pointermove", onPointerMove);
-      gl.domElement.removeEventListener("pointerup", onPointerUp);
+      window.removeEventListener("pointerup", onPointerUp, true);
+      window.removeEventListener("pointercancel", onPointerUp, true);
     };
   }, [dragging, axes, panelId, panelPos, panelSize, offset, camera, raycaster, gl, onUpdate, liveUpdate, snapEnabled, onInteractionChange, onDragInfoChange, primaryAxis]);
 
@@ -1991,6 +2061,7 @@ function GroupRotationRing({
   const [dragging, setDragging] = useState(false);
   const [hovered, setHovered] = useState(false);
   const dragStart = useRef<{ clientX: number; startRotY: number } | null>(null);
+  const lastRotationRef = useRef<[number, number, number] | null>(null);
   const { gl } = useThree();
 
   useEffect(() => {
@@ -2001,8 +2072,9 @@ function GroupRotationRing({
       const deltaX = e.clientX - dragStart.current.clientX;
       const deltaRad = (deltaX / 200) * (Math.PI / 2);
       const newRotY = dragStart.current.startRotY + deltaRad;
-      const rot = [...group.rotation] as [number, number, number];
-      rot[1] = newRotY;
+      const base = lastRotationRef.current ?? ([...group.rotation] as [number, number, number]);
+      const rot: [number, number, number] = [base[0], newRotY, base[2]];
+      lastRotationRef.current = rot;
       onUpdateLive(group.id, { rotation: rot });
 
       const degrees = Math.round((newRotY * 180) / Math.PI) % 360;
@@ -2016,18 +2088,21 @@ function GroupRotationRing({
       gl.domElement.style.cursor = "";
       onInteractionChange(false);
       onDragInfoChange(null);
-      if (onCommit) {
-        onCommit(group.id, { rotation: group.rotation });
+      if (onCommit && lastRotationRef.current) {
+        onCommit(group.id, { rotation: lastRotationRef.current });
       }
+      lastRotationRef.current = null;
     };
 
     gl.domElement.addEventListener("pointermove", onPointerMove);
-    gl.domElement.addEventListener("pointerup", onPointerUp);
+    window.addEventListener("pointerup", onPointerUp, true);
+    window.addEventListener("pointercancel", onPointerUp, true);
     return () => {
       gl.domElement.removeEventListener("pointermove", onPointerMove);
-      gl.domElement.removeEventListener("pointerup", onPointerUp);
+      window.removeEventListener("pointerup", onPointerUp, true);
+      window.removeEventListener("pointercancel", onPointerUp, true);
     };
-  }, [dragging, group, gl, onUpdateLive, onCommit, onInteractionChange, onDragInfoChange]);
+  }, [dragging, group.id, group.position, gl, onUpdateLive, onCommit, onInteractionChange, onDragInfoChange]);
 
   const handleY = ringY + 0.06;
 
@@ -2047,9 +2122,10 @@ function GroupRotationRing({
           e.stopPropagation();
           setDragging(true);
           onInteractionChange(true);
+          lastRotationRef.current = [...group.rotation] as [number, number, number];
           dragStart.current = {
             clientX: (e as any).nativeEvent?.clientX ?? e.clientX,
-            startRotY: group.rotation[1],
+            startRotY: lastRotationRef.current[1],
           };
           gl.domElement.style.cursor = "ew-resize";
         }}
@@ -2116,7 +2192,8 @@ function YAxisHandle({
 }) {
   const [dragging, setDragging] = useState(false);
   const [hovered, setHovered] = useState(false);
-  const dragStart = useRef<{ clientY: number; startPosY: number } | null>(null);
+  const dragStart = useRef<{ clientY: number; startPosY: number; posX: number; posZ: number } | null>(null);
+  const lastPosRef = useRef<[number, number, number] | null>(null);
   const { camera, gl } = useThree();
 
   const [w, h, d] = panel.size;
@@ -2135,7 +2212,8 @@ function YAxisHandle({
       const deltaScreen = dragStart.current.clientY - e.clientY; // inverted: up on screen = positive Y
       const newPosY = Math.max(0, dragStart.current.startPosY + deltaScreen * sensitivity);
 
-      const newPos: [number, number, number] = [panel.position[0], newPosY, panel.position[2]];
+      const newPos: [number, number, number] = [dragStart.current.posX, newPosY, dragStart.current.posZ];
+      lastPosRef.current = newPos;
       onUpdateLive(panel.id, { position: newPos });
 
       const mm = Math.round(newPosY * 1000);
@@ -2148,17 +2226,21 @@ function YAxisHandle({
       gl.domElement.style.cursor = "";
       onInteractionChange(false);
       onDragInfoChange(null);
-      // Commit final position for undo history
-      if (onCommit) onCommit(panel.id, { position: panel.position });
+      if (onCommit && lastPosRef.current) {
+        onCommit(panel.id, { position: lastPosRef.current });
+      }
+      lastPosRef.current = null;
     };
 
     gl.domElement.addEventListener("pointermove", onPointerMove);
-    gl.domElement.addEventListener("pointerup", onPointerUp);
+    window.addEventListener("pointerup", onPointerUp, true);
+    window.addEventListener("pointercancel", onPointerUp, true);
     return () => {
       gl.domElement.removeEventListener("pointermove", onPointerMove);
-      gl.domElement.removeEventListener("pointerup", onPointerUp);
+      window.removeEventListener("pointerup", onPointerUp, true);
+      window.removeEventListener("pointercancel", onPointerUp, true);
     };
-  }, [dragging, panel, camera, gl, onUpdateLive, onCommit, onInteractionChange, onDragInfoChange]);
+  }, [dragging, panel.id, camera, gl, onUpdateLive, onCommit, onInteractionChange, onDragInfoChange]);
 
   return (
     <group position={panel.position}>
@@ -2175,9 +2257,12 @@ function YAxisHandle({
           e.stopPropagation();
           setDragging(true);
           onInteractionChange(true);
+          lastPosRef.current = [...panel.position] as [number, number, number];
           dragStart.current = {
             clientY: e.clientY,
             startPosY: panel.position[1],
+            posX: panel.position[0],
+            posZ: panel.position[2],
           };
           gl.domElement.style.cursor = "ns-resize";
         }}
@@ -2210,11 +2295,15 @@ function YAxisHandle({
 function GroupSelectionHandles({
   group,
   onScaleGroup,
+  onScaleGroupLive,
+  onCommitGroupScale,
   onInteractionChange,
   onDragInfoChange,
 }: {
   group: GroupData;
   onScaleGroup: (groupId: string, scaleX: number, scaleY: number, scaleZ: number) => void;
+  onScaleGroupLive?: (groupId: string, scaleX: number, scaleY: number, scaleZ: number) => void;
+  onCommitGroupScale?: () => void;
   onInteractionChange: (active: boolean) => void;
   onDragInfoChange: (info: DragInfo | null) => void;
 }) {
@@ -2262,6 +2351,8 @@ function GroupSelectionHandles({
           dir={handle.dir}
           label={handle.label}
           onScaleGroup={onScaleGroup}
+          onScaleGroupLive={onScaleGroupLive}
+          onCommitGroupScale={onCommitGroupScale}
           onInteractionChange={onInteractionChange}
           onDragInfoChange={onDragInfoChange}
         />
@@ -2276,6 +2367,8 @@ function GroupSelectionHandles({
           offset={handle.offset}
           axes={handle.axes}
           onScaleGroup={onScaleGroup}
+          onScaleGroupLive={onScaleGroupLive}
+          onCommitGroupScale={onCommitGroupScale}
           onInteractionChange={onInteractionChange}
           onDragInfoChange={onDragInfoChange}
         />
@@ -2294,6 +2387,8 @@ function GroupResizeHandle({
   dir,
   label,
   onScaleGroup,
+  onScaleGroupLive,
+  onCommitGroupScale,
   onInteractionChange,
   onDragInfoChange,
 }: {
@@ -2304,6 +2399,8 @@ function GroupResizeHandle({
   dir: 1 | -1;
   label: string;
   onScaleGroup: (groupId: string, scaleX: number, scaleY: number, scaleZ: number) => void;
+  onScaleGroupLive?: (groupId: string, scaleX: number, scaleY: number, scaleZ: number) => void;
+  onCommitGroupScale?: () => void;
   onInteractionChange: (active: boolean) => void;
   onDragInfoChange: (info: DragInfo | null) => void;
 }) {
@@ -2365,7 +2462,8 @@ function GroupResizeHandle({
 
       const scales: [number, number, number] = [1, 1, 1];
       scales[axis] = increment;
-      onScaleGroup(groupId, scales[0], scales[1], scales[2]);
+      const applyScale = onScaleGroupLive ?? onScaleGroup;
+      applyScale(groupId, scales[0], scales[1], scales[2]);
 
       const axisLabels = ["Width", "Height", "Depth"];
       onDragInfoChange({
@@ -2381,15 +2479,20 @@ function GroupResizeHandle({
       gl.domElement.style.cursor = "";
       onInteractionChange(false);
       onDragInfoChange(null);
+      if (onScaleGroupLive && onCommitGroupScale) {
+        onCommitGroupScale();
+      }
     };
 
     gl.domElement.addEventListener("pointermove", onPointerMove);
-    gl.domElement.addEventListener("pointerup", onPointerUp);
+    window.addEventListener("pointerup", onPointerUp, true);
+    window.addEventListener("pointercancel", onPointerUp, true);
     return () => {
       gl.domElement.removeEventListener("pointermove", onPointerMove);
-      gl.domElement.removeEventListener("pointerup", onPointerUp);
+      window.removeEventListener("pointerup", onPointerUp, true);
+      window.removeEventListener("pointercancel", onPointerUp, true);
     };
-  }, [dragging, axis, dir, groupId, camera, raycaster, gl, onScaleGroup, onInteractionChange, onDragInfoChange]);
+  }, [dragging, axis, dir, groupId, camera, raycaster, gl, onScaleGroup, onScaleGroupLive, onCommitGroupScale, onInteractionChange, onDragInfoChange]);
 
   return (
     <mesh
@@ -2434,6 +2537,8 @@ function GroupCornerResizeHandle({
   offset,
   axes,
   onScaleGroup,
+  onScaleGroupLive,
+  onCommitGroupScale,
   onInteractionChange,
   onDragInfoChange,
 }: {
@@ -2442,6 +2547,8 @@ function GroupCornerResizeHandle({
   offset: [number, number, number];
   axes: { axis: 0 | 1 | 2; dir: 1 | -1 }[];
   onScaleGroup: (groupId: string, scaleX: number, scaleY: number, scaleZ: number) => void;
+  onScaleGroupLive?: (groupId: string, scaleX: number, scaleY: number, scaleZ: number) => void;
+  onCommitGroupScale?: () => void;
   onInteractionChange: (active: boolean) => void;
   onDragInfoChange: (info: DragInfo | null) => void;
 }) {
@@ -2499,7 +2606,8 @@ function GroupCornerResizeHandle({
         labels.push(`${dimNames[axis]}: ${Math.round(originalSize * 1000)}mm → ${Math.round(newSize * 1000)}mm`);
       }
 
-      onScaleGroup(groupId, scales[0], scales[1], scales[2]);
+      const applyScale = onScaleGroupLive ?? onScaleGroup;
+      applyScale(groupId, scales[0], scales[1], scales[2]);
       onDragInfoChange({
         position: [0, 0, 0],
         resizeLabel: labels.join("  |  "),
@@ -2513,15 +2621,20 @@ function GroupCornerResizeHandle({
       gl.domElement.style.cursor = "";
       onInteractionChange(false);
       onDragInfoChange(null);
+      if (onScaleGroupLive && onCommitGroupScale) {
+        onCommitGroupScale();
+      }
     };
 
     gl.domElement.addEventListener("pointermove", onPointerMove);
-    gl.domElement.addEventListener("pointerup", onPointerUp);
+    window.addEventListener("pointerup", onPointerUp, true);
+    window.addEventListener("pointercancel", onPointerUp, true);
     return () => {
       gl.domElement.removeEventListener("pointermove", onPointerMove);
-      gl.domElement.removeEventListener("pointerup", onPointerUp);
+      window.removeEventListener("pointerup", onPointerUp, true);
+      window.removeEventListener("pointercancel", onPointerUp, true);
     };
-  }, [dragging, axes, groupId, camera, raycaster, gl, onScaleGroup, onInteractionChange, onDragInfoChange]);
+  }, [dragging, axes, groupId, camera, raycaster, gl, onScaleGroup, onScaleGroupLive, onCommitGroupScale, onInteractionChange, onDragInfoChange]);
 
   return (
     <mesh

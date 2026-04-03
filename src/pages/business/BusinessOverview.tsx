@@ -1,4 +1,5 @@
 import { useNavigate } from "react-router-dom";
+import { motion } from "framer-motion";
 import { BusinessDashboardLayout } from "@/components/business/BusinessDashboardLayout";
 import { StatCard } from "@/components/admin/StatCard";
 import { useBusinessDashboard } from "@/hooks/useBusinessDashboard";
@@ -13,6 +14,14 @@ import {
 } from "lucide-react";
 import { useBusinessProfile } from "@/hooks/useBusinessProfile";
 import { Loader2 } from "lucide-react";
+
+const containerVariants = {
+  animate: { transition: { staggerChildren: 0.08, delayChildren: 0.1 } },
+};
+const cardVariants = {
+  initial: { opacity: 0, y: 20 },
+  animate: { opacity: 1, y: 0, transition: { duration: 0.4, ease: [0.16, 1, 0.3, 1] } },
+};
 
 const ACTIVITY_ICONS: Record<string, React.ElementType> = {
   offer_sent: Send,
@@ -59,16 +68,21 @@ export default function BusinessOverview() {
 
   return (
     <BusinessDashboardLayout newRequestsCount={newRequests}>
-      <div className="space-y-8">
+      <motion.div
+        className="space-y-8"
+        variants={containerVariants}
+        initial="initial"
+        animate="animate"
+      >
         {/* Welcome */}
-        <div>
+        <motion.div variants={cardVariants}>
           <h1 className="text-2xl font-semibold text-gray-900">
             Welcome back, {business.name.split(" ")[0]}
           </h1>
           <p className="text-sm text-gray-500 mt-1">
             Here's what's happening with your business today.
           </p>
-        </div>
+        </motion.div>
 
         {/* KPI Grid */}
         {loading ? (
@@ -82,75 +96,96 @@ export default function BusinessOverview() {
             ))}
           </div>
         ) : kpis ? (
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            <StatCard
-              title="Total Projects"
-              value={kpis.totalProjects}
-              icon={FolderKanban}
-              iconColor="text-[#C87D5A]"
-              iconBg="bg-[#C87D5A]/8"
-              subtitle={`${kpis.activeProjects} active`}
-            />
-            <StatCard
-              title="Total Revenue"
-              value={`$${kpis.totalRevenue.toLocaleString()}`}
-              icon={DollarSign}
-              iconColor="text-emerald-600"
-              iconBg="bg-emerald-50"
-              subtitle={`$${kpis.revenueThisMonth.toLocaleString()} this month`}
-            />
-            <StatCard
-              title="Customers"
-              value={kpis.totalCustomers}
-              icon={Users}
-              iconColor="text-blue-600"
-              iconBg="bg-blue-50"
-              subtitle={`${kpis.completedProjects} completed`}
-            />
-            <StatCard
-              title="Avg Rating"
-              value={kpis.avgRating > 0 ? `${kpis.avgRating} / 5` : "—"}
-              icon={Star}
-              iconColor="text-amber-500"
-              iconBg="bg-amber-50"
-              subtitle={`${kpis.totalReviews} review${kpis.totalReviews !== 1 ? "s" : ""}`}
-            />
-            <StatCard
-              title="Profile Views"
-              value={pageViews?.thisMonth ?? 0}
-              icon={Eye}
-              iconColor="text-violet-600"
-              iconBg="bg-violet-50"
-              subtitle={`${pageViews?.thisWeek ?? 0} this week`}
-            />
-            <StatCard
-              title="Conversion Rate"
-              value={`${kpis.conversionRate}%`}
-              icon={TrendingUp}
-              iconColor="text-cyan-600"
-              iconBg="bg-cyan-50"
-              subtitle="offers → projects"
-            />
-            <StatCard
-              title="New Requests"
-              value={newRequests}
-              icon={Inbox}
-              iconColor="text-orange-600"
-              iconBg="bg-orange-50"
-              subtitle="matching your profile"
-            />
-            <StatCard
-              title="Pending Offers"
-              value={kpis.pendingOffers}
-              icon={Clock}
-              iconColor="text-gray-500"
-              iconBg="bg-gray-100"
-              subtitle="awaiting response"
-            />
-          </div>
+          <motion.div
+            className="grid grid-cols-2 lg:grid-cols-4 gap-4"
+            variants={containerVariants}
+            initial="initial"
+            animate="animate"
+          >
+            <motion.div variants={cardVariants}>
+              <StatCard
+                title="Total Projects"
+                value={kpis.totalProjects}
+                icon={FolderKanban}
+                iconColor="text-[#C87D5A]"
+                iconBg="bg-[#C87D5A]/8"
+                subtitle={`${kpis.activeProjects} active`}
+              />
+            </motion.div>
+            <motion.div variants={cardVariants}>
+              <StatCard
+                title="Total Revenue"
+                value={`$${kpis.totalRevenue.toLocaleString()}`}
+                icon={DollarSign}
+                iconColor="text-emerald-600"
+                iconBg="bg-emerald-50"
+                subtitle={`$${kpis.revenueThisMonth.toLocaleString()} this month`}
+              />
+            </motion.div>
+            <motion.div variants={cardVariants}>
+              <StatCard
+                title="Customers"
+                value={kpis.totalCustomers}
+                icon={Users}
+                iconColor="text-blue-600"
+                iconBg="bg-blue-50"
+                subtitle={`${kpis.completedProjects} completed`}
+              />
+            </motion.div>
+            <motion.div variants={cardVariants}>
+              <StatCard
+                title="Avg Rating"
+                value={kpis.avgRating > 0 ? `${kpis.avgRating} / 5` : "—"}
+                icon={Star}
+                iconColor="text-amber-500"
+                iconBg="bg-amber-50"
+                subtitle={`${kpis.totalReviews} review${kpis.totalReviews !== 1 ? "s" : ""}`}
+              />
+            </motion.div>
+            <motion.div variants={cardVariants}>
+              <StatCard
+                title="Profile Views"
+                value={pageViews?.thisMonth ?? 0}
+                icon={Eye}
+                iconColor="text-violet-600"
+                iconBg="bg-violet-50"
+                subtitle={`${pageViews?.thisWeek ?? 0} this week`}
+              />
+            </motion.div>
+            <motion.div variants={cardVariants}>
+              <StatCard
+                title="Conversion Rate"
+                value={`${kpis.conversionRate}%`}
+                icon={TrendingUp}
+                iconColor="text-cyan-600"
+                iconBg="bg-cyan-50"
+                subtitle="offers → projects"
+              />
+            </motion.div>
+            <motion.div variants={cardVariants}>
+              <StatCard
+                title="New Requests"
+                value={newRequests}
+                icon={Inbox}
+                iconColor="text-orange-600"
+                iconBg="bg-orange-50"
+                subtitle="matching your profile"
+              />
+            </motion.div>
+            <motion.div variants={cardVariants}>
+              <StatCard
+                title="Pending Offers"
+                value={kpis.pendingOffers}
+                icon={Clock}
+                iconColor="text-gray-500"
+                iconBg="bg-gray-100"
+                subtitle="awaiting response"
+              />
+            </motion.div>
+          </motion.div>
         ) : null}
 
-        <div className="grid lg:grid-cols-3 gap-6">
+        <motion.div variants={cardVariants} className="grid lg:grid-cols-3 gap-6">
           {/* Attention Required */}
           <div className="lg:col-span-2 space-y-6">
             {/* New Requests Banner */}
@@ -282,7 +317,7 @@ export default function BusinessOverview() {
               </CardContent>
             </Card>
           </div>
-        </div>
+        </motion.div>
 
         {/* Empty State — Guide to Action */}
         {!loading && !hasData && (
@@ -328,7 +363,7 @@ export default function BusinessOverview() {
             </CardContent>
           </Card>
         )}
-      </div>
+      </motion.div>
     </BusinessDashboardLayout>
   );
 }

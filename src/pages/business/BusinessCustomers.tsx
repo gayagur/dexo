@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { motion } from "framer-motion";
 import { BusinessDashboardLayout } from "@/components/business/BusinessDashboardLayout";
 import { useBusinessDashboard, type BusinessCustomer } from "@/hooks/useBusinessDashboard";
 import { useMatchedProjects } from "@/hooks/useMatchedProjects";
@@ -12,6 +13,14 @@ import {
 } from "lucide-react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { useNavigate } from "react-router-dom";
+
+const containerVariants = {
+  animate: { transition: { staggerChildren: 0.08, delayChildren: 0.1 } },
+};
+const cardVariants = {
+  initial: { opacity: 0, y: 20 },
+  animate: { opacity: 1, y: 0, transition: { duration: 0.4, ease: [0.16, 1, 0.3, 1] } },
+};
 
 type Filter = "all" | "active" | "high_value";
 
@@ -68,8 +77,8 @@ export default function BusinessCustomers() {
         </div>
 
         {/* Summary Cards */}
-        <div className="grid grid-cols-3 gap-4">
-          <div className="bg-white rounded-xl border border-gray-100 p-4">
+        <motion.div className="grid grid-cols-3 gap-4" variants={containerVariants} initial="initial" animate="animate">
+          <motion.div variants={cardVariants} className="bg-white rounded-xl border border-gray-100 p-4">
             <div className="flex items-center gap-3">
               <div className="p-2 rounded-lg bg-blue-50">
                 <Users className="w-4 h-4 text-blue-600" />
@@ -79,8 +88,8 @@ export default function BusinessCustomers() {
                 <p className="text-xs text-gray-500">Total Customers</p>
               </div>
             </div>
-          </div>
-          <div className="bg-white rounded-xl border border-gray-100 p-4">
+          </motion.div>
+          <motion.div variants={cardVariants} className="bg-white rounded-xl border border-gray-100 p-4">
             <div className="flex items-center gap-3">
               <div className="p-2 rounded-lg bg-emerald-50">
                 <DollarSign className="w-4 h-4 text-emerald-600" />
@@ -90,8 +99,8 @@ export default function BusinessCustomers() {
                 <p className="text-xs text-gray-500">Total Revenue</p>
               </div>
             </div>
-          </div>
-          <div className="bg-white rounded-xl border border-gray-100 p-4">
+          </motion.div>
+          <motion.div variants={cardVariants} className="bg-white rounded-xl border border-gray-100 p-4">
             <div className="flex items-center gap-3">
               <div className="p-2 rounded-lg bg-violet-50">
                 <DollarSign className="w-4 h-4 text-violet-600" />
@@ -101,8 +110,8 @@ export default function BusinessCustomers() {
                 <p className="text-xs text-gray-500">Avg per Customer</p>
               </div>
             </div>
-          </div>
-        </div>
+          </motion.div>
+        </motion.div>
 
         {/* Controls */}
         <div className="flex items-center gap-3 flex-wrap">

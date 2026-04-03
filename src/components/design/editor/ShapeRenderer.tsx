@@ -247,6 +247,9 @@ function SingleGeometry({
     case "draped": {
       const foldIntensity = shapeParams?.softness ?? 0.62;
       const foldSpread = shapeParams?.foldSpread ?? 0.14;
+      const edgeFoldMode = shapeParams?.drapedEdgeFold ?? 0;
+      const foldLine = shapeParams?.drapedFoldLine ?? 0.5;
+      const hangAngle = shapeParams?.drapedHangAngle ?? 1;
       return (
         <DrapedGeometry
           w={w + pad * 2}
@@ -255,6 +258,9 @@ function SingleGeometry({
           foldIntensity={foldIntensity}
           foldSpread={THREE.MathUtils.clamp(foldSpread, 0.06, 0.32)}
           controlPoints={drapedControlPoints ?? []}
+          edgeFoldMode={edgeFoldMode}
+          foldLine={foldLine}
+          hangAngle={hangAngle}
         />
       );
     }
@@ -461,6 +467,26 @@ function creaseWave(t: number, power = 0.52) {
   return Math.sign(t) * Math.pow(Math.min(1, Math.abs(t)), power);
 }
 
+/** Hinge parallel to X at plane z = z_f — used so one half of the blanket can hang “down” (−Y). */
+function rotateXAboutZf(x: number, y: number, z: number, z_f: number, theta: number) {
+  const zr = z - z_f;
+  const c = Math.cos(theta);
+  const s = Math.sin(theta);
+  const yp = y * c - zr * s;
+  const zp = y * s + zr * c;
+  return { x, y: yp, z: zp + z_f };
+}
+
+/** Hinge parallel to Z at plane x = x_f. */
+function rotateZAboutXf(x: number, y: number, z: number, x_f: number, theta: number) {
+  const xr = x - x_f;
+  const c = Math.cos(theta);
+  const s = Math.sin(theta);
+  const xp = xr * c - y * s;
+  const yp = xr * s + y * c;
+  return { x: xp + x_f, y: yp, z };
+}
+
 function DrapedGeometry({
   w,
   h,
@@ -468,6 +494,9 @@ function DrapedGeometry({
   foldIntensity,
   foldSpread,
   controlPoints,
+  edgeFoldMode,
+  foldLine,
+  hangAngle,
 }: {
   w: number;
   h: number;
@@ -475,6 +504,9 @@ function DrapedGeometry({
   foldIntensity: number;
   foldSpread: number;
   controlPoints: readonly DrapedControlPoint[];
+  edgeFoldMode: number;
+  foldLine: number;
+  hangAngle: number;
 }) {
   const cpKey =
     controlPoints.length === 0
@@ -533,9 +565,47 @@ function DrapedGeometry({
       pos.setXYZ(i, x, y, z);
     }
 
+    // Optional edge fold: one half stays ~horizontal, the other rotates toward −Y (drapes over a seat edge).
+    const mode = Math.max(0, Math.min(4, Math.round(edgeFoldMode)));
+    if (mode > 0) {
+      const fl = THREE.MathUtils.clamp(foldLine, 0.1, 0.9);
+      const ha = THREE.MathUtils.clamp(hangAngle, 0, 1);
+      const thetaMax = (Math.PI / 2) * ha;
+      const z_f = fl * depth - hd;
+      const x_f = fl * w - hw;
+
+      for (let i = 0; i < pos.count; i++) {
+        let x = pos.getX(i);
+        let y = pos.getY(i);
+        let z = pos.getZ(i);
+        if (mode === 1 && z > z_f) {
+          const p = rotateXAboutZf(x, y, z, z_f, -thetaMax);
+          x = p.x;
+          y = p.y;
+          z = p.z;
+        } else if (mode === 2 && z < z_f) {
+          const p = rotateXAboutZf(x, y, z, z_f, thetaMax);
+          x = p.x;
+          y = p.y;
+          z = p.z;
+        } else if (mode === 3 && x > x_f) {
+          const p = rotateZAboutXf(x, y, z, x_f, -thetaMax);
+          x = p.x;
+          y = p.y;
+          z = p.z;
+        } else if (mode === 4 && x < x_f) {
+          const p = rotateZAboutXf(x, y, z, x_f, thetaMax);
+          x = p.x;
+          y = p.y;
+          z = p.z;
+        }
+        pos.setXYZ(i, x, y, z);
+      }
+    }
+
     g.computeVertexNormals();
     return g;
-  }, [w, h, depth, foldIntensity, foldSpread, cpKey]);
+  }, [w, h, depth, foldIntensity, foldSpread, cpKey, edgeFoldMode, foldLine, hangAngle]);
 
   return <primitive object={geo} attach="geometry" />;
 }

@@ -41,7 +41,7 @@ import {
 } from "@/lib/groupUtils";
 import { planSoftDecorPlacement } from "@/lib/softDecorPlacement";
 import type { LibraryTemplate } from "@/lib/libraryData";
-import { ArrowLeft, Save, RotateCcw, MessageSquare, Magnet, HelpCircle, X, Undo2, Redo2, Box, Square, PanelTop, PanelLeft, Loader2, Sun, Moon, Check, LogOut, SendHorizonal, MoreVertical, Upload, BookOpen, Sparkles } from "lucide-react";
+import { ArrowLeft, Save, RotateCcw, MessageSquare, Magnet, HelpCircle, X, Undo2, Redo2, Box, Square, PanelTop, PanelLeft, Loader2, Sun, Moon, Check, LogOut, SendHorizonal, MoreVertical, Upload, BookOpen, Sparkles, Layers } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useMobileInfo } from "@/hooks/use-mobile";
 import {
@@ -269,7 +269,15 @@ export function FurnitureEditor({
     { groups: structuredClone(boot.scene.groups), ungroupedPanels: structuredClone(boot.scene.ungroupedPanels) },
   ]);
   const historyIndexRef = useRef(0);
-  const [, setHistoryVersion] = useState(0);
+  const [historyVersion, setHistoryVersion] = useState(0);
+  const canUndoHistory = historyVersion >= 0 && historyIndexRef.current > 0;
+  const canRedoHistory =
+    historyVersion >= 0 && historyIndexRef.current < historyRef.current.length - 1;
+
+  const groupsRef = useRef(groups);
+  groupsRef.current = groups;
+  const ungroupedRef = useRef(ungroupedPanels);
+  ungroupedRef.current = ungroupedPanels;
 
   const pushHistory = useCallback((newGroups: GroupData[], newUngrouped: PanelData[]) => {
     historyRef.current = historyRef.current.slice(0, historyIndexRef.current + 1);
@@ -295,10 +303,15 @@ export function FurnitureEditor({
     if (historyIndexRef.current <= 0) return;
     historyIndexRef.current--;
     const prev = structuredClone(historyRef.current[historyIndexRef.current]);
+    groupsRef.current = prev.groups;
+    ungroupedRef.current = prev.ungroupedPanels;
     setGroups(prev.groups);
     setUngroupedPanels(prev.ungroupedPanels);
     setSelectedPanelId(null);
     setSelectedGroupId(null);
+    setEditingGroupId(null);
+    setEditModePanels(null);
+    setSelectedPanelIds([]);
     setHistoryVersion((v) => v + 1);
   }, []);
 
@@ -306,18 +319,17 @@ export function FurnitureEditor({
     if (historyIndexRef.current >= historyRef.current.length - 1) return;
     historyIndexRef.current++;
     const next = structuredClone(historyRef.current[historyIndexRef.current]);
+    groupsRef.current = next.groups;
+    ungroupedRef.current = next.ungroupedPanels;
     setGroups(next.groups);
     setUngroupedPanels(next.ungroupedPanels);
     setSelectedPanelId(null);
     setSelectedGroupId(null);
+    setEditingGroupId(null);
+    setEditModePanels(null);
+    setSelectedPanelIds([]);
     setHistoryVersion((v) => v + 1);
   }, []);
-
-  // ─── Refs & updateScene wrapper ────────────────────────
-  const groupsRef = useRef(groups);
-  groupsRef.current = groups;
-  const ungroupedRef = useRef(ungroupedPanels);
-  ungroupedRef.current = ungroupedPanels;
 
   const updateScene = useCallback((
     groupsUpdater: (prev: GroupData[]) => GroupData[],
@@ -1050,31 +1062,55 @@ export function FurnitureEditor({
     [editingGroupId, updateScene]
   );
 
-  // Scale all panels in a group proportionally
-  const handleScaleGroup = useCallback((groupId: string, scaleX: number, scaleY: number, scaleZ: number) => {
-    updateScene((prev) => prev.map((g) => {
-      if (g.id !== groupId) return g;
-      // For GLB models, accumulate scale transform
-      const prevScale = g.scale ?? [1, 1, 1];
-      return {
-        ...g,
-        scale: [prevScale[0] * scaleX, prevScale[1] * scaleY, prevScale[2] * scaleZ] as [number, number, number],
-        panels: g.panels.map((p) => ({
-          ...p,
-          position: [
-            p.position[0] * scaleX,
-            p.position[1] * scaleY,
-            p.position[2] * scaleZ,
-          ] as [number, number, number],
-          size: [
-            p.size[0] * scaleX,
-            p.size[1] * scaleY,
-            p.size[2] * scaleZ,
-          ] as [number, number, number],
-        })),
-      };
-    }));
-  }, [updateScene]);
+  const applyGroupScale = useCallback((groupId: string, scaleX: number, scaleY: number, scaleZ: number) => {
+    return (prev: GroupData[]) =>
+      prev.map((g) => {
+        if (g.id !== groupId) return g;
+        const prevScale = g.scale ?? [1, 1, 1];
+        return {
+          ...g,
+          scale: [prevScale[0] * scaleX, prevScale[1] * scaleY, prevScale[2] * scaleZ] as [number, number, number],
+          panels: g.panels.map((p) => ({
+            ...p,
+            position: [
+              p.position[0] * scaleX,
+              p.position[1] * scaleY,
+              p.position[2] * scaleZ,
+            ] as [number, number, number],
+            size: [
+              p.size[0] * scaleX,
+              p.size[1] * scaleY,
+              p.size[2] * scaleZ,
+            ] as [number, number, number],
+          })),
+        };
+      });
+  }, []);
+
+  // Scale all panels in a group proportionally (single undo step — e.g. keyboard / programmatic)
+  const handleScaleGroup = useCallback(
+    (groupId: string, scaleX: number, scaleY: number, scaleZ: number) => {
+      updateScene(applyGroupScale(groupId, scaleX, scaleY, scaleZ));
+    },
+    [updateScene, applyGroupScale],
+  );
+
+  /** Live group scale during handle drag — no history until onCommitGroupScale. */
+  const handleScaleGroupLive = useCallback(
+    (groupId: string, scaleX: number, scaleY: number, scaleZ: number) => {
+      setGroups((prev) => {
+        const next = applyGroupScale(groupId, scaleX, scaleY, scaleZ)(prev);
+        groupsRef.current = next;
+        return next;
+      });
+    },
+    [applyGroupScale],
+  );
+
+  /** Record one undo snapshot after a group scale drag ends. */
+  const handleCommitGroupScale = useCallback(() => {
+    pushHistory(groupsRef.current, ungroupedRef.current);
+  }, [pushHistory]);
 
   // Change material of all panels in a group
   const handleUpdateGroupMaterial = useCallback((groupId: string, materialId: string) => {
@@ -1638,8 +1674,8 @@ export function FurnitureEditor({
         <MobileEditorToolbar
           furnitureLabel={furnitureType.label}
           onBack={onBack}
-          canUndo={historyIndexRef.current > 0}
-          canRedo={historyIndexRef.current < historyRef.current.length - 1}
+          canUndo={canUndoHistory}
+          canRedo={canRedoHistory}
           onUndo={undo}
           onRedo={redo}
           snapEnabled={snapEnabled}
@@ -1735,6 +1771,8 @@ export function FurnitureEditor({
               onUngroupGroup={handleUngroupGroup}
               onDeleteGroup={handleDeleteGroup}
               onScaleGroup={handleScaleGroup}
+              onScaleGroupLive={handleScaleGroupLive}
+              onCommitGroupScale={handleCommitGroupScale}
               onContextMenu={handleContextMenu}
               lightMode={lightMode}
               floorPreset={floorPreset}
@@ -1844,6 +1882,8 @@ export function FurnitureEditor({
             onUngroupGroup={handleUngroupGroup}
             onDeleteGroup={handleDeleteGroup}
             onScaleGroup={handleScaleGroup}
+            onScaleGroupLive={handleScaleGroupLive}
+            onCommitGroupScale={handleCommitGroupScale}
             onContextMenu={handleContextMenu}
             lightMode={lightMode}
             floorPreset={floorPreset}

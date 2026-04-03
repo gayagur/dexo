@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
+import { motion } from "framer-motion";
 import { BusinessDashboardLayout } from "@/components/business/BusinessDashboardLayout";
 import { useBusinessDashboard, type BusinessProject } from "@/hooks/useBusinessDashboard";
 import { useMatchedProjects } from "@/hooks/useMatchedProjects";
@@ -11,6 +12,14 @@ import {
   FolderKanban, Search, ArrowRight, DollarSign, Clock, User,
   Sparkles, Inbox, Filter,
 } from "lucide-react";
+
+const containerVariants = {
+  animate: { transition: { staggerChildren: 0.08, delayChildren: 0.1 } },
+};
+const cardVariants = {
+  initial: { opacity: 0, y: 20 },
+  animate: { opacity: 1, y: 0, transition: { duration: 0.4, ease: [0.16, 1, 0.3, 1] } },
+};
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
   draft:           { label: "Draft",          color: "text-gray-600",   bg: "bg-gray-100" },
@@ -114,9 +123,10 @@ export default function BusinessProjects() {
         ) : tab === "requests" ? (
           // New Requests
           filteredRequests.length > 0 ? (
-            <div className="space-y-3">
+            <motion.div className="space-y-3" variants={containerVariants} initial="initial" animate="animate">
               {filteredRequests.map(({ project, matchScore }) => (
-                <Link key={project.id} to={`/business/request/${project.id}`}>
+                <motion.div key={project.id} variants={cardVariants}>
+                <Link to={`/business/request/${project.id}`}>
                   <Card className="hover:shadow-md hover:border-gray-200 transition-all duration-200 mb-3">
                     <CardContent className="p-5">
                       <div className="flex items-center gap-4">
@@ -155,8 +165,9 @@ export default function BusinessProjects() {
                     </CardContent>
                   </Card>
                 </Link>
+                </motion.div>
               ))}
-            </div>
+            </motion.div>
           ) : (
             <EmptyState
               icon={Inbox}
@@ -167,12 +178,12 @@ export default function BusinessProjects() {
         ) : (
           // Project List
           filteredProjects.length > 0 ? (
-            <div className="space-y-3">
+            <motion.div className="space-y-3" variants={containerVariants} initial="initial" animate="animate">
               {filteredProjects.map(p => {
                 const statusCfg = STATUS_CONFIG[p.status] || STATUS_CONFIG.draft;
                 return (
+                  <motion.div key={p.id} variants={cardVariants}>
                   <button
-                    key={p.id}
                     onClick={() => navigate(`/business/request/${p.id}`)}
                     className="w-full text-left"
                   >
@@ -213,9 +224,10 @@ export default function BusinessProjects() {
                       </CardContent>
                     </Card>
                   </button>
+                  </motion.div>
                 );
               })}
-            </div>
+            </motion.div>
           ) : (
             <EmptyState
               icon={FolderKanban}
