@@ -417,17 +417,103 @@ function createEditorFloorTexture(preset: EditorFloorPreset): THREE.CanvasTextur
         }
       }
     }
-  } else {
+  } else if (preset === "oak" || preset === "walnut") {
+    const dark = preset === "walnut";
+    ctx.fillStyle = dark ? "#4a3028" : "#e5d0b8";
+    ctx.fillRect(0, 0, size, size);
+    const rows = dark ? 14 : 10;
+    const cols = dark ? 5 : 4;
+    const plankH = size / rows;
+    const plankW = size / cols;
+    const gap = 1.5;
+    let seed = dark ? 91 : 201;
+    const rand = () => { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; };
+    for (let row = 0; row < rows; row++) {
+      const offset = row % 2 === 1 ? plankW * 0.5 : 0;
+      const y = row * plankH;
+      for (let col = -1; col <= cols; col++) {
+        const x = col * plankW + offset;
+        if (x + plankW < 0 || x > size) continue;
+        const tone = (rand() - 0.5) * (dark ? 28 : 32);
+        const r = dark ? 88 + tone : 205 + tone;
+        const g = dark ? 58 + tone * 0.7 : 168 + tone * 0.85;
+        const b = dark ? 42 + tone * 0.5 : 128 + tone * 0.55;
+        ctx.fillStyle = `rgb(${Math.round(r)},${Math.round(g)},${Math.round(b)})`;
+        ctx.fillRect(x + gap, y + gap, plankW - gap * 2, plankH - gap * 2);
+        const grains = 3 + Math.floor(rand() * 4);
+        for (let gi = 0; gi < grains; gi++) {
+          const gy = y + gap + rand() * (plankH - gap * 2);
+          ctx.strokeStyle = dark ? `rgba(20,12,8,${0.06 + rand() * 0.08})` : `rgba(90, 55, 30, ${0.05 + rand() * 0.06})`;
+          ctx.lineWidth = 0.6;
+          ctx.beginPath();
+          ctx.moveTo(x + gap, gy);
+          for (let gx = x + gap; gx < x + plankW - gap; gx += 14) {
+            ctx.lineTo(gx, gy + Math.sin(gx * 0.035) * 1.2);
+          }
+          ctx.stroke();
+        }
+      }
+    }
+  } else if (preset === "marble") {
+    const g = ctx.createLinearGradient(0, 0, size, size);
+    g.addColorStop(0, "#f4f5f7");
+    g.addColorStop(0.5, "#e8eaef");
+    g.addColorStop(1, "#dce0e8");
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, size, size);
+    let mSeed = 503;
+    const mRand = () => { mSeed = (mSeed * 16807) % 2147483647; return (mSeed - 1) / 2147483646; };
+    ctx.lineWidth = 1.2;
+    for (let v = 0; v < 18; v++) {
+      ctx.strokeStyle = `rgba(110, 118, 128, ${0.08 + mRand() * 0.12})`;
+      ctx.beginPath();
+      let px = mRand() * size;
+      let py = mRand() * size;
+      ctx.moveTo(px, py);
+      for (let s = 0; s < 8; s++) {
+        px += (mRand() - 0.4) * 120;
+        py += (mRand() - 0.5) * 100;
+        ctx.lineTo(px, py);
+      }
+      ctx.stroke();
+    }
+    for (let i = 0; i < 4000; i++) {
+      const x = mRand() * size;
+      const y = mRand() * size;
+      const a = 0.04 + mRand() * 0.06;
+      ctx.fillStyle = `rgba(${180 + mRand() * 40}, ${184 + mRand() * 40}, ${190 + mRand() * 35}, ${a})`;
+      ctx.fillRect(x, y, 1, 1);
+    }
+  } else if (preset === "concrete") {
+    ctx.fillStyle = "#b9bcc2";
+    ctx.fillRect(0, 0, size, size);
+    let cSeed = 701;
+    const cRand = () => { cSeed = (cSeed * 16807) % 2147483647; return (cSeed - 1) / 2147483646; };
+    for (let i = 0; i < 9000; i++) {
+      const x = cRand() * size;
+      const y = cRand() * size;
+      const v = 150 + (cRand() - 0.5) * 35;
+      ctx.fillStyle = `rgba(${v}, ${v + 2}, ${v + 4}, ${0.08 + cRand() * 0.12})`;
+      ctx.fillRect(x, y, 2, 2);
+    }
+    for (let i = 0; i < 120; i++) {
+      const x = cRand() * size;
+      const y = cRand() * size;
+      const r = 4 + cRand() * 14;
+      const grd = ctx.createRadialGradient(x, y, 0, x, y, r);
+      grd.addColorStop(0, `rgba(90,92,98,${0.06 + cRand() * 0.05})`);
+      grd.addColorStop(1, "rgba(0,0,0,0)");
+      ctx.fillStyle = grd;
+      ctx.fillRect(x - r, y - r, r * 2, r * 2);
+    }
+  } else if (preset === "grass") {
     /* grass — dense, multi-tonal natural lawn */
-    // Base: medium green fill
     ctx.fillStyle = "#6a9b4a";
     ctx.fillRect(0, 0, size, size);
 
-    // Seeded random for deterministic output
     let gSeed = 137;
     const gRand = () => { gSeed = (gSeed * 16807) % 2147483647; return (gSeed - 1) / 2147483646; };
 
-    // Layer 1: Broad organic patches (light/dark variation like real lawn)
     for (let i = 0; i < 35; i++) {
       const px = gRand() * size;
       const py = gRand() * size;
@@ -435,16 +521,12 @@ function createEditorFloorTexture(preset: EditorFloorPreset): THREE.CanvasTextur
       const tone = gRand();
       let fillColor: string;
       if (tone < 0.3) {
-        // Darker green patches
         fillColor = `rgba(${40 + gRand() * 20}, ${75 + gRand() * 30}, ${30 + gRand() * 15}, 0.35)`;
       } else if (tone < 0.7) {
-        // Mid green
         fillColor = `rgba(${55 + gRand() * 25}, ${110 + gRand() * 30}, ${40 + gRand() * 20}, 0.25)`;
       } else if (tone < 0.9) {
-        // Light green
         fillColor = `rgba(${85 + gRand() * 30}, ${145 + gRand() * 30}, ${55 + gRand() * 20}, 0.22)`;
       } else {
-        // Yellow-brown dry patches (sparse)
         fillColor = `rgba(${140 + gRand() * 40}, ${135 + gRand() * 30}, ${70 + gRand() * 30}, 0.20)`;
       }
       const grad = ctx.createRadialGradient(px, py, 0, px, py, radius);
@@ -454,7 +536,6 @@ function createEditorFloorTexture(preset: EditorFloorPreset): THREE.CanvasTextur
       ctx.fillRect(px - radius, py - radius, radius * 2, radius * 2);
     }
 
-    // Layer 2: Dense grass blades — short angled strokes
     for (let i = 0; i < 12000; i++) {
       const bx = gRand() * size;
       const by = gRand() * size;
@@ -464,7 +545,7 @@ function createEditorFloorTexture(preset: EditorFloorPreset): THREE.CanvasTextur
       const alpha = 0.15 + gRand() * 0.2;
       ctx.strokeStyle = `rgba(${Math.round(red)}, ${Math.round(green)}, ${Math.round(blue)}, ${alpha})`;
       ctx.lineWidth = 0.6 + gRand() * 1.2;
-      const angle = -Math.PI / 2 + (gRand() - 0.5) * 0.8; // mostly vertical with sway
+      const angle = -Math.PI / 2 + (gRand() - 0.5) * 0.8;
       const bladeLen = 3 + gRand() * 6;
       ctx.beginPath();
       ctx.moveTo(bx, by);
@@ -472,13 +553,15 @@ function createEditorFloorTexture(preset: EditorFloorPreset): THREE.CanvasTextur
       ctx.stroke();
     }
 
-    // Layer 3: Scattered light highlights (sun catching blade tips)
     for (let i = 0; i < 800; i++) {
       const hx = gRand() * size;
       const hy = gRand() * size;
       ctx.fillStyle = `rgba(${160 + gRand() * 60}, ${200 + gRand() * 50}, ${100 + gRand() * 50}, 0.12)`;
       ctx.fillRect(hx, hy, 1 + gRand() * 2, 1 + gRand() * 2);
     }
+  } else {
+    ctx.fillStyle = style.floorHex;
+    ctx.fillRect(0, 0, size, size);
   }
 
   const tex = new THREE.CanvasTexture(canvas);
