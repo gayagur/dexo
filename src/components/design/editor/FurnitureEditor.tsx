@@ -775,6 +775,14 @@ export function FurnitureEditor({
 
   // ─── Build from image analysis (legacy fallback) ──────
   const handleBuildFromImage = useCallback((analysis: FurnitureAnalysis, mode: "replace" | "add") => {
+    if (import.meta.env.DEV) {
+      console.log("[handleBuildFromImage] RAW AI JSON:", JSON.stringify(analysis, null, 2));
+      console.log("[handleBuildFromImage] PANELS BEFORE CONVERSION:", analysis.panels?.map((p: Record<string, unknown>) => ({
+        label: p.label,
+        position: p.position,
+        size: p.size,
+      })));
+    }
     const newPanels = panelsFromFurnitureAnalysis(analysis, () => `p${++nextPanelId}`);
 
     const newGroup = createGroupFromPanels(analysis.name ?? "Imported", newPanels);

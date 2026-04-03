@@ -75,6 +75,8 @@ EACH PART gets its OWN material based on what you see. Headboard=oak, legs=black
 
 == CRITICAL RULES ==
 
+0. SIZE PROPORTIONS: Each part must be sized proportionally to the whole. An armrest should NOT be as wide as the seat. A leg should NOT be wider than a quarter of the table. A base/plinth should match the body width — never extend 2x beyond it. If the furniture is 0.6m wide, no single non-primary part should be wider than ~0.35m. Think about real physical dimensions.
+
 1. COUNT EVERYTHING: If you see 4 legs, output 4 legs. 3 drawers = 3 drawer_box panels + 3 handles. 10 slats = 10 thin horizontal boxes. Do NOT merge repeated parts into one.
 
 2. DETECT SHAPES: Round legs = cylinder or tapered_leg. Square legs = square_leg or box. Arched headboard = arc shape. Mesh/rattan panel = thin box with cane_natural. Metal tube frame = tube shape. Ring handle = torus. Tapered leg = cone or tapered_leg.
@@ -108,6 +110,19 @@ EACH PART gets its OWN material based on what you see. Headboard=oak, legs=black
 - Wood frame chairs: output EACH rail as separate cylinder (seat rails, stretchers, back frame).
 - Office chairs: seat + backrest + headrest + arm supports + arm pads + gas lift + star base + 5 casters = 12+ parts.
 - Detect if seat is padded (cushion) or hard wood (rounded_rect with wood material).
+
+== CHAIR POSITION GUIDE (critical — prevents broken blobs) ==
+All positions in METERS relative to bottom-center of chair. Lowest part at y≈0. A typical office/gaming chair is ~1.2m tall, ~0.6m wide, ~0.6m deep.
+- Star base / x_base: position [0, 0.04, 0] — flat on floor, centered
+- Casters/wheels (5x): spread radially at ~0.25m radius from center, y≈0.03
+- Gas lift / column: position [0, 0.22, 0] — centered, between base and seat
+- Seat: position [0, 0.45, 0] — centered, above gas lift
+- Backrest: position [0, 0.75, -0.18] — centered, BEHIND seat (negative Z), above seat
+- Headrest: position [0, 1.05, -0.20] — centered, above backrest
+- Left arm pad: position [-0.28, 0.58, -0.02] — LEFT side (negative X)
+- Right arm pad: position [0.28, 0.58, -0.02] — RIGHT side (positive X)
+- Arm supports: below arm pads, same X, lower Y (~0.40)
+- Footrest: position [0, 0.20, 0.25] — in FRONT (positive Z), below seat
 
 == TABLE RULES ==
 - Coffee / side table: total height usually 0.35–0.52m. If you output estimatedDims, height must match — not dining-table or bed scale.

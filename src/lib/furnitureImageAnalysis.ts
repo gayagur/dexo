@@ -195,7 +195,15 @@ export type RawAnalysisPanel = {
   cornerRadius?: unknown;
 };
 
-/** Vision models often emit mm in panel fields; normalize before clamping (which capped 1800→10m). */
+/** Detect unit scale: mm (>10), cm (>2), inches (flag), or meters (correct). */
+function detectScale(maxValue: number): number {
+  if (maxValue > 100) return 0.001;   // mm (values like 450, 1800)
+  if (maxValue > 10) return 0.01;     // cm (values like 45, 180)
+  if (maxValue > 5) return 0.001;     // large mm (values like 5-10 range, ambiguous → treat as mm)
+  return 1;                            // already meters
+}
+
+/** Vision models often emit mm/cm in panel fields; normalize to meters + re-center. */
 function scaleRawAnalysisPanelsToMeters(rawPanels: RawAnalysisPanel[]): RawAnalysisPanel[] {
   if (rawPanels.length === 0) return rawPanels;
   const extracted = rawPanels.map((raw) => {
@@ -213,17 +221,15 @@ function scaleRawAnalysisPanelsToMeters(rawPanels: RawAnalysisPanel[]): RawAnaly
       for (const value of item.size) maxSize = Math.max(maxSize, Math.abs(value));
     }
   }
-  const scalePos = maxPos > 14 ? 0.001 : 1;
-  const scaleSize = maxSize > 5 ? 0.001 : 1;
-  if (scalePos === 1 && scaleSize === 1) {
-    return extracted.map(({ raw, position, size }) => ({
-      ...raw,
-      ...(position ? { position } : {}),
-      ...(size ? { size } : {}),
-    }));
+  const scalePos = detectScale(maxPos);
+  const scaleSize = detectScale(maxSize);
+
+  const isDev = (import.meta as ImportMeta & { env?: { DEV?: boolean } }).env?.DEV;
+  if (isDev) {
+    console.log("[scaleRawAnalysis] maxPos:", maxPos, "→ scalePos:", scalePos, "| maxSize:", maxSize, "→ scaleSize:", scaleSize);
   }
 
-  return extracted.map(({ raw, position, size }) => {
+  const scaled = extracted.map(({ raw, position, size }) => {
     const out: RawAnalysisPanel = { ...raw };
     if (position) {
       out.position = position.map((x) => x * scalePos) as unknown;
@@ -233,6 +239,31 @@ function scaleRawAnalysisPanelsToMeters(rawPanels: RawAnalysisPanel[]): RawAnaly
     }
     return out;
   });
+
+  // Re-center: compute bounding box from scaled positions and shift so floor=Y0, centered on XZ
+  const positions = scaled.map((p) => extractRawPosition(p, extractRawSize(p))).filter(Boolean) as [number, number, number][];
+  if (positions.length >= 3) {
+    const xs = positions.map((p) => p[0]);
+    const ys = positions.map((p) => p[1]);
+    const zs = positions.map((p) => p[2]);
+    const cx = (Math.min(...xs) + Math.max(...xs)) / 2;
+    const minY = Math.min(...ys);
+    const cz = (Math.min(...zs) + Math.max(...zs)) / 2;
+    // Only re-center if offset is significant (>0.15m from origin or floor)
+    if (Math.abs(cx) > 0.15 || Math.abs(cz) > 0.15 || minY < -0.1) {
+      if (isDev) {
+        console.log("[scaleRawAnalysis] re-centering: cx:", cx, "minY:", minY, "cz:", cz);
+      }
+      for (const panel of scaled) {
+        const pos = extractRawPosition(panel, extractRawSize(panel));
+        if (pos) {
+          panel.position = [pos[0] - cx, pos[1] - minY, pos[2] - cz] as unknown;
+        }
+      }
+    }
+  }
+
+  return scaled;
 }
 
 /**
@@ -1795,6 +1826,169 @@ function validateAndRepairGeometry(
   return result;
 }
 
+/**
+ * Re-center panels so the group sits at the origin with floor at Y=0.
+ * Shifts all positions so centerX=0, minY=0, centerZ=0.
+ */
+function recenterPanels(panels: PanelData[]): PanelData[] {
+  if (panels.length === 0) return panels;
+  const xs = panels.map((p) => p.position[0]);
+  const ys = panels.map((p) => p.position[1] - p.size[1] / 2); // bottom edges
+  const zs = panels.map((p) => p.position[2]);
+  const cx = (Math.min(...xs) + Math.max(...xs)) / 2;
+  const minY = Math.min(...ys);
+  const cz = (Math.min(...zs) + Math.max(...zs)) / 2;
+  // Only re-center if offset is meaningful
+  if (Math.abs(cx) < 0.05 && Math.abs(minY) < 0.05 && Math.abs(cz) < 0.05) {
+    return panels;
+  }
+  return panels.map((p) => ({
+    ...p,
+    position: [
+      p.position[0] - cx,
+      p.position[1] - minY,
+      p.position[2] - cz,
+    ] as [number, number, number],
+  }));
+}
+
+/** Expected bounding-box ranges by furniture type (meters). */
+const BBOX_LIMITS: Record<string, { maxW: number; maxH: number; maxD: number }> = {
+  office_chair: { maxW: 0.85, maxH: 1.5, maxD: 0.85 },
+  seating:      { maxW: 2.8,  maxH: 1.2, maxD: 1.2 },
+  bed:          { maxW: 2.2,  maxH: 1.8, maxD: 2.4 },
+  table_desk:   { maxW: 3.0,  maxH: 1.2, maxD: 1.5 },
+  casegoods:    { maxW: 2.5,  maxH: 2.2, maxD: 1.0 },
+  wardrobe:     { maxW: 2.5,  maxH: 2.5, maxD: 0.8 },
+  shelving:     { maxW: 2.0,  maxH: 2.5, maxD: 0.5 },
+  unknown:      { maxW: 3.0,  maxH: 2.5, maxD: 2.0 },
+};
+
+/**
+ * Validate bounding box. If the assembled furniture is wildly larger or smaller
+ * than expected for its category, apply a uniform scale correction.
+ */
+function validateBoundingBox(panels: PanelData[], category: string): PanelData[] {
+  if (panels.length < 2) return panels;
+  const minX = Math.min(...panels.map((p) => p.position[0] - p.size[0] / 2));
+  const maxX = Math.max(...panels.map((p) => p.position[0] + p.size[0] / 2));
+  const minY = Math.min(...panels.map((p) => p.position[1] - p.size[1] / 2));
+  const maxY = Math.max(...panels.map((p) => p.position[1] + p.size[1] / 2));
+  const minZ = Math.min(...panels.map((p) => p.position[2] - p.size[2] / 2));
+  const maxZ = Math.max(...panels.map((p) => p.position[2] + p.size[2] / 2));
+  const spanW = maxX - minX;
+  const spanH = maxY - minY;
+  const spanD = maxZ - minZ;
+
+  const limits = BBOX_LIMITS[category] ?? BBOX_LIMITS.unknown;
+
+  // Check if any dimension is wildly too large
+  const maxOvershoot = Math.max(
+    spanW / limits.maxW,
+    spanH / limits.maxH,
+    spanD / limits.maxD,
+  );
+
+  // Check if furniture is too small (< 20cm on all axes)
+  const tooSmall = spanW < 0.2 && spanH < 0.2 && spanD < 0.2;
+
+  if (maxOvershoot <= 1.3 && !tooSmall) return panels; // within acceptable range
+
+  const isDev = (import.meta as ImportMeta & { env?: { DEV?: boolean } }).env?.DEV;
+
+  let scale: number;
+  if (tooSmall) {
+    // Scale up to a reasonable size
+    const targetH = category === "office_chair" ? 1.1 : 0.8;
+    scale = Math.max(spanH, 0.01) > 0.01 ? targetH / spanH : 5;
+    if (isDev) console.log("[validateBoundingBox] too small, scaling up by:", scale);
+  } else {
+    // Scale down to fit within limits
+    scale = 1 / maxOvershoot;
+    if (isDev) console.log("[validateBoundingBox] overshoot:", maxOvershoot, "scaling down by:", scale);
+  }
+
+  const cxOld = (minX + maxX) / 2;
+  const czOld = (minZ + maxZ) / 2;
+  return panels.map((p) => ({
+    ...p,
+    position: [
+      (p.position[0] - cxOld) * scale + cxOld,
+      p.position[1] * scale,
+      (p.position[2] - czOld) * scale + czOld,
+    ] as [number, number, number],
+    size: [
+      p.size[0] * scale,
+      p.size[1] * scale,
+      p.size[2] * scale,
+    ] as [number, number, number],
+  }));
+}
+
+/**
+ * Remove duplicate panels: same label (ignoring case), similar size, and centers within 5cm.
+ */
+function removeDuplicatePanels(panels: PanelData[]): PanelData[] {
+  const keep: PanelData[] = [];
+  for (const panel of panels) {
+    const isDupe = keep.some((existing) => {
+      if (existing.label.toLowerCase() !== panel.label.toLowerCase()) return false;
+      const dx = Math.abs(existing.position[0] - panel.position[0]);
+      const dy = Math.abs(existing.position[1] - panel.position[1]);
+      const dz = Math.abs(existing.position[2] - panel.position[2]);
+      if (dx > 0.05 || dy > 0.05 || dz > 0.05) return false;
+      const sw = Math.abs(existing.size[0] - panel.size[0]);
+      const sh = Math.abs(existing.size[1] - panel.size[1]);
+      const sd = Math.abs(existing.size[2] - panel.size[2]);
+      return sw < 0.03 && sh < 0.03 && sd < 0.03;
+    });
+    if (!isDupe) keep.push(panel);
+  }
+  if (keep.length < panels.length) {
+    const isDev = (import.meta as ImportMeta & { env?: { DEV?: boolean } }).env?.DEV;
+    if (isDev) console.log("[removeDuplicatePanels] removed", panels.length - keep.length, "duplicates");
+  }
+  return keep;
+}
+
+/**
+ * Constrain individual panel sizes so no single part exceeds the overall furniture envelope.
+ * The biggest horizontal panel (seat/top) defines the reference; others are clamped.
+ */
+function constrainPanelSizes(panels: PanelData[], furnitureDims: { w: number; h: number; d: number }): PanelData[] {
+  if (panels.length < 2) return panels;
+  const maxW = furnitureDims.w * 1.15; // allow 15% overshoot for tolerances
+  const maxH = furnitureDims.h * 1.15;
+  const maxD = furnitureDims.d * 1.15;
+  let changed = false;
+  const result = panels.map((p) => {
+    const L = p.label.toLowerCase();
+    // Don't constrain the primary seat/top/base — it defines the footprint
+    if (/\b(seat|top|tabletop|desktop|mattress|base frame)\b/i.test(L) && p.type === "horizontal") {
+      return p;
+    }
+    let [w, h, d] = p.size;
+    let modified = false;
+    if (w > maxW) { w = maxW; modified = true; }
+    if (h > maxH) { h = maxH; modified = true; }
+    if (d > maxD) { d = maxD; modified = true; }
+    // Arms/legs should be much smaller than the whole piece
+    if (/\b(arm|armrest|leg|caster|wheel|handle|knob)\b/i.test(L)) {
+      const armMaxW = furnitureDims.w * 0.35;
+      const armMaxD = furnitureDims.d * 0.6;
+      if (w > armMaxW) { w = armMaxW; modified = true; }
+      if (d > armMaxD) { d = armMaxD; modified = true; }
+    }
+    if (modified) changed = true;
+    return modified ? { ...p, size: [w, h, d] as [number, number, number] } : p;
+  });
+  if (changed) {
+    const isDev = (import.meta as ImportMeta & { env?: { DEV?: boolean } }).env?.DEV;
+    if (isDev) console.log("[constrainPanelSizes] clamped oversized panels to furniture dims:", furnitureDims);
+  }
+  return result;
+}
+
 export function panelsFromFurnitureAnalysis(
   analysis: FurnitureAnalysis,
   nextId: () => string
@@ -1808,6 +2002,10 @@ export function panelsFromFurnitureAnalysis(
   debugPositions("after normalizeAnalysisPanel", panels);
   const category = detectFurnitureCategory(analysis.name ?? "", panels);
   const furnitureDims = estimatedDimsToMeters(analysis.estimatedDims, panels);
+
+  // Constrain individual panel sizes to not exceed the furniture envelope
+  panels = constrainPanelSizes(panels, furnitureDims);
+  debugPositions("after constrainPanelSizes", panels);
 
   panels = panels.map(normalizeVerticalBoxHeightAxis);
   debugPositions("after normalizeVerticalBoxHeightAxis", panels);
@@ -1826,6 +2024,18 @@ export function panelsFromFurnitureAnalysis(
 
   panels = panels.map(fixHorizontalRoundDisk);
   debugPositions("after fixHorizontalRoundDisk", panels);
+
+  // === Re-center panels so the group is at origin with floor at Y=0 ===
+  panels = recenterPanels(panels);
+  debugPositions("after recenterPanels", panels);
+
+  // === Bounding-box validation: if wildly out of range, rescale to fit ===
+  panels = validateBoundingBox(panels, category);
+  debugPositions("after validateBoundingBox", panels);
+
+  // === Remove duplicate panels (same label, same size, centers within 5cm) ===
+  panels = removeDuplicatePanels(panels);
+  debugPositions("after removeDuplicatePanels", panels);
 
   const positionSources = rawScaled.map(getPositionSource);
   const fallbackMask = positionSources.map((source) => source === "fallback");
