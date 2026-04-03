@@ -1,6 +1,6 @@
-import { useMemo, useRef, useEffect } from "react";
+import { useMemo, useRef, useEffect, useLayoutEffect } from "react";
 import { Canvas, useThree } from "@react-three/fiber";
-import { OrbitControls, Environment } from "@react-three/drei";
+import { OrbitControls, Environment, ContactShadows } from "@react-three/drei";
 import type { PanelData, GroupData, EditorSceneData } from "@/lib/furnitureData";
 import { panelsToWorldSpace } from "@/lib/groupUtils";
 import { MATERIALS } from "@/lib/furnitureData";
@@ -41,7 +41,7 @@ function AutoFitCamera({ panels }: { panels: PanelData[] }) {
     box.getSize(size);
 
     const maxDim = Math.max(size.x, size.y, size.z);
-    const fov = (camera as THREE.PerspectiveCamera).fov ?? 45;
+    const fov = (camera as THREE.PerspectiveCamera).fov ?? 38;
     const dist = maxDim / (2 * Math.tan(THREE.MathUtils.degToRad(fov / 2)));
     const offset = dist * 1.6;
 
@@ -55,6 +55,41 @@ function AutoFitCamera({ panels }: { panels: PanelData[] }) {
   }, [panels, camera]);
 
   return null;
+}
+
+function PreviewRendererSetup() {
+  const gl = useThree((s) => s.gl);
+  useLayoutEffect(() => {
+    gl.shadowMap.type = THREE.PCFSoftShadowMap;
+    gl.outputColorSpace = THREE.SRGBColorSpace;
+    gl.toneMapping = THREE.ACESFilmicToneMapping;
+    gl.toneMappingExposure = 1.02;
+  }, [gl]);
+  return null;
+}
+
+function PreviewKeyLight() {
+  const ref = useRef<THREE.DirectionalLight>(null);
+  useLayoutEffect(() => {
+    if (ref.current) ref.current.shadow.radius = 6.5;
+  }, []);
+  return (
+    <directionalLight
+      ref={ref}
+      position={[-4.2, 7.5, 4.8]}
+      intensity={0.82}
+      color="#fff4ea"
+      castShadow
+      shadow-mapSize-width={1536}
+      shadow-mapSize-height={1536}
+      shadow-bias={-0.0001}
+      shadow-normalBias={0.026}
+      shadow-camera-left={-5}
+      shadow-camera-right={5}
+      shadow-camera-top={5}
+      shadow-camera-bottom={-5}
+    />
+  );
 }
 
 // ─── Static Panel (read-only, no selection/interaction) ──
@@ -162,14 +197,14 @@ function PreviewPanel({ panel }: { panel: PanelData }) {
               roughnessMap={textures.roughnessMap}
               roughness={roughness}
               metalness={metalness}
-              envMapIntensity={isMetal ? 1.5 : 0.8}
+              envMapIntensity={isMetal ? 1.65 : 0.95}
             />
           ) : (
             <meshStandardMaterial
               color={color}
               roughness={roughness}
               metalness={metalness}
-              envMapIntensity={isMetal ? 1.5 : 0.8}
+              envMapIntensity={isMetal ? 1.65 : 0.95}
             />
           )}
         </mesh>
@@ -184,7 +219,7 @@ function PreviewPanel({ panel }: { panel: PanelData }) {
           transparent={!!isGlass}
           opacity={isGlass ? 0.3 : 1}
           map={textures?.map}
-          envMapIntensity={isMetal ? 1.5 : 0.8}
+          envMapIntensity={isMetal ? 1.65 : 0.95}
           drapedControlPoints={panel.drapedControlPoints}
         />
       )}
@@ -222,6 +257,23 @@ export function FurniturePreview({ panels, className, disableInteraction }: Furn
     );
   }, [panels]);
 
+  const previewGround = useMemo(() => {
+    if (allPanels.length === 0) return null;
+    let minY = Infinity;
+    const box = new THREE.Box3();
+    for (const p of allPanels) {
+      const bottom = p.position[1] - p.size[1] / 2;
+      if (bottom < minY) minY = bottom;
+      const half = new THREE.Vector3(p.size[0] / 2, p.size[1] / 2, p.size[2] / 2);
+      const c = new THREE.Vector3(...p.position);
+      box.expandByPoint(new THREE.Vector3().copy(c).sub(half));
+      box.expandByPoint(new THREE.Vector3().copy(c).add(half));
+    }
+    const center = new THREE.Vector3();
+    box.getCenter(center);
+    return { bottomY: minY, cx: center.x, cz: center.z };
+  }, [allPanels]);
+
   if (allPanels.length === 0) {
     return (
       <div className={`flex items-center justify-center bg-gray-100 ${className ?? ""}`}>
@@ -233,16 +285,41 @@ export function FurniturePreview({ panels, className, disableInteraction }: Furn
   return (
     <div className={`${className ?? ""} ${disableInteraction ? "pointer-events-none" : ""}`.trim()}>
       <Canvas
-        camera={{ position: [2, 1.5, 2.5], fov: 45 }}
+        camera={{ position: [2, 1.5, 2.5], fov: 38 }}
         shadows
+        gl={{ antialias: true }}
         style={{ width: "100%", height: "100%" }}
       >
-        <ambientLight intensity={0.42} />
-        <directionalLight position={[5, 8, 5]} intensity={1.05} castShadow />
-        <directionalLight position={[4.5, 3.5, -4]} intensity={0.4} color="#fff6ec" />
-        <Environment preset="apartment" />
+        <PreviewRendererSetup />
+        <Environment preset="apartment" environmentIntensity={0.84} background={false} />
+        <hemisphereLight skyColor="#f3efe8" groundColor="#d5cdc2" intensity={0.46} />
+        <PreviewKeyLight />
+        <ambientLight intensity={0.16} color="#ebe6df" />
+        <directionalLight position={[5.2, 3.8, -3.6]} intensity={0.3} color="#eef1fb" />
 
         <AutoFitCamera panels={allPanels} />
+
+        {previewGround && (
+          <>
+            <mesh
+              rotation={[-Math.PI / 2, 0, 0]}
+              position={[previewGround.cx, previewGround.bottomY - 0.002, previewGround.cz]}
+              receiveShadow
+            >
+              <planeGeometry args={[28, 28]} />
+              <meshStandardMaterial color="#e5ddd4" roughness={0.9} metalness={0.02} />
+            </mesh>
+            <ContactShadows
+              position={[previewGround.cx, previewGround.bottomY - 0.0006, previewGround.cz]}
+              opacity={0.42}
+              scale={22}
+              blur={2.15}
+              far={9}
+              resolution={320}
+              color="#2a221c"
+            />
+          </>
+        )}
 
         {allPanels.map((panel) => (
           <PreviewPanel key={panel.id} panel={panel} />

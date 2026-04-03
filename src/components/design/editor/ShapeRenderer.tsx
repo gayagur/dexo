@@ -159,14 +159,16 @@ function SingleGeometry({
     // ── Legs & feet ──────────────────────────────────
     case "tapered_leg": {
       const topR = (radius + pad) * (shapeParams?.topRatio ?? 0.6);
-      return <cylinderGeometry args={[topR, radius + pad, h + pad * 2, 12]} />;
+      return <cylinderGeometry args={[topR, radius + pad, h + pad * 2, 8]} />;
     }
 
     case "cabriole_leg":
       return <CabrioleLegGeometry radius={radius + pad} height={h + pad * 2} />;
 
-    case "square_leg":
-      return <boxGeometry args={[w + pad * 2, h + pad * 2, d + pad * 2]} />;
+    case "square_leg": {
+      const legR = Math.max(0.004, Math.min(w, d) * 0.45 + pad);
+      return <cylinderGeometry args={[legR, legR, h + pad * 2, 8]} />;
+    }
 
     case "pedestal":
       return <cylinderGeometry args={[radius + pad, radius * 1.3 + pad, h + pad * 2, 24]} />;

@@ -1,7 +1,8 @@
 import React, { useState, useRef, useMemo, useCallback, useEffect, useLayoutEffect, Suspense } from "react";
 import { Canvas, useFrame, useThree, type ThreeEvent } from "@react-three/fiber";
-import { OrbitControls, Grid, GizmoHelper, GizmoViewport, Environment, Lightformer, RoundedBox, useGLTF, useTexture } from "@react-three/drei";
-// postprocessing removed — @react-three/postprocessing@3 requires fiber@9, crashes on fiber@8
+import { OrbitControls, Grid, GizmoHelper, GizmoViewport, Environment, Lightformer, RoundedBox, useGLTF, useTexture, ContactShadows } from "@react-three/drei";
+import { EffectComposer, Bloom, Vignette, ToneMapping } from "@react-three/postprocessing";
+import { BlendFunction, ToneMappingMode } from "postprocessing";
 import type { PanelData, GroupData } from "@/lib/furnitureData";
 import { MATERIALS } from "@/lib/furnitureData";
 import { ShapeRenderer, isCompositeShape } from "./ShapeRenderer";
@@ -15,6 +16,8 @@ import {
 } from "@/lib/fabricTufting";
 import { applyDesignMaterialToGlbRoot, applyPerPartMaterialsToGlbRoot } from "@/lib/glbMaterialOverride";
 import { useMobileInfo } from "@/hooks/use-mobile";
+import type { EditorQualityResolved } from "@/hooks/useQualitySettings";
+import { resolveEditorQuality } from "@/hooks/useQualitySettings";
 import * as THREE from "three";
 
 // ─── Helpers ───────────────────────────────────────────
@@ -102,9 +105,9 @@ const SURFACE_PBR: Record<string, {
   transmission?: number; ior?: number; thickness?: number;
 }> = {
   matte: { roughness: 1.0, metalness: 0 },
-  wood: { roughness: 0.7, metalness: 0, clearcoat: 0.2, clearcoatRoughness: 0.4 },
+  wood: { roughness: 0.68, metalness: 0, clearcoat: 0.16, clearcoatRoughness: 0.55 },
   metal: { roughness: 0.2, metalness: 1.0 },
-  fabric: { roughness: 0.92, metalness: 0, sheen: 0.055, sheenRoughness: 0.88, sheenColor: "#f6f5f3" },
+  fabric: { roughness: 0.94, metalness: 0, sheen: 0.072, sheenRoughness: 0.86, sheenColor: "#f4f2ee" },
   glass: { roughness: 0.05, metalness: 0.1, transmission: 0.8, ior: 1.5, thickness: 0.5 },
   stone: { roughness: 0.8, metalness: 0 },
 };
@@ -218,12 +221,12 @@ const FLOOR_STYLE: Record<
   }
 > = {
   studio: {
-    sky: "#e4e8f0",
-    floorHex: "#d4dae6",
-    roughness: 0.88,
+    sky: "#ebe4da",
+    floorHex: "#d8cfc4",
+    roughness: 0.91,
     metalness: 0,
-    gridCell: "#9ca6b8",
-    gridSection: "#7a8498",
+    gridCell: "#948c82",
+    gridSection: "#6f675f",
     hasTexture: false,
     repeat: 1,
   },
@@ -438,11 +441,12 @@ function createEditorFloorTexture(preset: EditorFloorPreset): THREE.CanvasTextur
   return tex;
 }
 
-/** Adaptive performance: reduce DPR when FPS drops below threshold */
-function AdaptivePerformance() {
+/** Adaptive performance: reduce DPR when FPS drops below threshold (capped by quality tier) */
+function AdaptivePerformance({ maxPixelRatio }: { maxPixelRatio: number }) {
   const { gl } = useThree();
   const frameCount = useRef(0);
   const lastTime = useRef(performance.now());
+  const cap = Math.max(1, maxPixelRatio);
 
   useFrame(() => {
     frameCount.current++;
@@ -453,7 +457,7 @@ function AdaptivePerformance() {
       if (fps < 25) {
         gl.setPixelRatio(1);
       } else if (fps > 50) {
-        gl.setPixelRatio(Math.min(2, window.devicePixelRatio));
+        gl.setPixelRatio(Math.min(cap, window.devicePixelRatio ?? 1));
       }
       frameCount.current = 0;
       lastTime.current = now;
@@ -467,9 +471,103 @@ function AdaptivePerformance() {
 function EditorToneExposure({ lightMode }: { lightMode: EditorLightMode }) {
   const gl = useThree((s) => s.gl);
   useLayoutEffect(() => {
-    gl.toneMappingExposure = lightMode === "night" ? 0.72 : 1.05;
+    gl.toneMappingExposure = lightMode === "night" ? 0.74 : 1.02;
   }, [gl, lightMode]);
   return null;
+}
+
+/** PCF soft shadows + correct output color space for PBR / HDRI */
+function EditorRendererSetup() {
+  const gl = useThree((s) => s.gl);
+  useLayoutEffect(() => {
+    gl.shadowMap.enabled = true;
+    gl.shadowMap.type = THREE.PCFSoftShadowMap;
+    gl.outputColorSpace = THREE.SRGBColorSpace;
+  }, [gl]);
+  return null;
+}
+
+/** Softer sun-style penumbra on the main shadow caster (Three.js shadow.radius + PCFSoft) */
+function InteriorKeyLight({
+  lightMode,
+  position,
+  intensity,
+  color,
+  shadowBounds,
+}: {
+  lightMode: EditorLightMode;
+  position: [number, number, number];
+  intensity: number;
+  color: string;
+  shadowBounds: number;
+}) {
+  const ref = useRef<THREE.DirectionalLight>(null);
+  useLayoutEffect(() => {
+    const L = ref.current;
+    if (!L) return;
+    L.shadow.radius = lightMode === "night" ? 4.25 : 7;
+  }, [lightMode]);
+  return (
+    <directionalLight
+      ref={ref}
+      position={position}
+      intensity={intensity}
+      color={color}
+      castShadow
+      shadow-mapSize-width={2048}
+      shadow-mapSize-height={2048}
+      shadow-bias={lightMode === "night" ? -0.00014 : -0.00009}
+      shadow-normalBias={0.028}
+      shadow-camera-left={-shadowBounds}
+      shadow-camera-right={shadowBounds}
+      shadow-camera-top={shadowBounds}
+      shadow-camera-bottom={-shadowBounds}
+    />
+  );
+}
+
+/** Soft ambient occlusion–style grounding on the floor plane */
+function EditorContactGround({
+  lightMode,
+  resolution,
+  blur,
+}: {
+  lightMode: EditorLightMode;
+  resolution: number;
+  blur: number;
+}) {
+  const night = lightMode === "night";
+  return (
+    <ContactShadows
+      position={[0, -0.0012, 0]}
+      opacity={night ? 0.36 : 0.46}
+      scale={34}
+      blur={blur}
+      far={12}
+      resolution={resolution}
+      color={night ? "#100d14" : "#2a221c"}
+    />
+  );
+}
+
+/** Subtle bloom + vignette + ACES (renderer uses NoToneMapping while composer is active) */
+function EditorPostProcessing({ showBloom, showVignette }: { showBloom: boolean; showVignette: boolean }) {
+  return (
+    <EffectComposer multisampling={4} enableNormalPass={false}>
+      {showBloom ? (
+        <Bloom
+          intensity={0.4}
+          luminanceThreshold={0.85}
+          luminanceSmoothing={0.9}
+          mipmapBlur
+        />
+      ) : null}
+      {showVignette ? (
+        <Vignette offset={0.5} darkness={0.4} blendFunction={BlendFunction.NORMAL} />
+      ) : null}
+      <ToneMapping mode={ToneMappingMode.ACES_FILMIC} />
+    </EffectComposer>
+  );
 }
 
 /** Sky color + floor under the grid */
@@ -555,7 +653,7 @@ function EditorFloorBackdrop({
 }
 
 const VIEW_CAMERAS: Record<ViewMode, { position: [number, number, number]; up: [number, number, number] }> = {
-  "3d":    { position: [2.5, 2, 3],   up: [0, 1, 0] },
+  "3d":    { position: [2.65, 1.92, 3.25], up: [0, 1, 0] },
   "front": { position: [0, 0.5, 5],   up: [0, 1, 0] },   // XY — looking from +Z
   "top":   { position: [0, 5, 0.001], up: [0, 0, -1] },   // XZ — looking from +Y
   "side":  { position: [5, 0.5, 0],   up: [0, 1, 0] },    // YZ — looking from +X
@@ -593,6 +691,8 @@ export interface EditorViewportProps {
   onCameraMove?: (pos: [number, number, number]) => void;
   /** When true, the WebGL canvas ignores pointer events (e.g. Add Part modal above must receive clicks). */
   suspendPointerEvents?: boolean;
+  /** Rendering quality: contact shadows, bloom, and DPR (from editor graphics toggle). */
+  quality?: EditorQualityResolved;
   /* Legacy prop — kept for backward compatibility during migration */
   panels?: PanelData[];
 }
@@ -625,7 +725,9 @@ export function EditorViewport({
   initialCameraPosition,
   onCameraMove,
   suspendPointerEvents = false,
+  quality: qualityProp,
 }: EditorViewportProps) {
+  const quality = qualityProp ?? resolveEditorQuality("high");
   const [openPanels, setOpenPanels] = useState<Record<string, boolean>>({});
   const [contextMenu, setContextMenu] = useState<ContextMenuInfo | null>(null);
   const [snapGuides, setSnapGuides] = useState<SnapGuide[]>([]);
@@ -787,18 +889,20 @@ export function EditorViewport({
     >
       <Canvas
         frameloop="demand"
-        dpr={[1, 2]}
-        camera={{ position: initialCameraPosition ?? [2.5, 2, 3], fov: 45 }}
+        dpr={quality.pixelRatio}
+        camera={{ position: initialCameraPosition ?? [2.65, 1.92, 3.25], fov: 38 }}
         shadows
         gl={{
           powerPreference: "high-performance",
           alpha: false,
           stencil: false,
           antialias: true,
-          toneMapping: THREE.ACESFilmicToneMapping,
-          toneMappingExposure: 1.05,
+          toneMapping: THREE.NoToneMapping,
+          toneMappingExposure: 1.02,
         }}
         onCreated={(state) => {
+          state.gl.shadowMap.type = THREE.PCFSoftShadowMap;
+          state.gl.outputColorSpace = THREE.SRGBColorSpace;
           requestAnimationFrame(() => state.invalidate());
         }}
         onPointerMissed={() => {
@@ -811,82 +915,55 @@ export function EditorViewport({
           closeContextMenu();
         }}
       >
-        <AdaptivePerformance />
+        <AdaptivePerformance maxPixelRatio={quality.pixelRatio} />
+        <EditorRendererSetup />
         <EditorToneExposure lightMode={lightMode} />
         <EditorFloorBackdrop floorPreset={floorPreset} lightMode={lightMode} />
 
-        {/* Lighting — night is intentionally dim (no fake dark floor plane) */}
+        {/* Lighting — HDRI IBL day; warm practicals + soft key at night */}
         {lightMode === "night" ? (
           <>
-            {/* Night: warm interior mood — soft amber key, cool blue fill */}
-            <Environment resolution={1024} environmentIntensity={0.30}>
-              <Lightformer form="rect" intensity={0.30} color="#1a1d30" scale={[12, 5]} position={[0, 7, -2]} rotation={[Math.PI / 2, 0, 0]} />
-              <Lightformer form="circle" intensity={0.60} color="#ffd4a8" scale={2.5} position={[3, 3, -3]} />
-              <Lightformer form="circle" intensity={0.40} color="#ffc088" scale={1.8} position={[-3, 2.5, 1]} />
-              <Lightformer form="rect" intensity={0.15} color="#c0d0f0" scale={[4, 2]} position={[0, 1, 4]} rotation={[0, Math.PI, 0]} />
+            <Environment resolution={1024} environmentIntensity={0.28}>
+              <Lightformer form="rect" intensity={0.28} color="#1a1d30" scale={[12, 5]} position={[0, 7, -2]} rotation={[Math.PI / 2, 0, 0]} />
+              <Lightformer form="circle" intensity={0.55} color="#ffd4a8" scale={2.5} position={[3, 3, -3]} />
+              <Lightformer form="circle" intensity={0.38} color="#ffc088" scale={1.8} position={[-3, 2.5, 1]} />
+              <Lightformer form="rect" intensity={0.14} color="#c0d0f0" scale={[4, 2]} position={[0, 1, 4]} rotation={[0, Math.PI, 0]} />
             </Environment>
-            <hemisphereLight skyColor="#1a1a2e" groundColor="#0e0a14" intensity={0.18} />
-            {/* Key light — warm amber from upper left */}
-            <directionalLight
-              position={[-4, 8, 4]}
-              intensity={0.32}
-              castShadow
-              shadow-mapSize-width={2048}
-              shadow-mapSize-height={2048}
-              shadow-bias={-0.00015}
-              shadow-normalBias={0.02}
-              shadow-camera-left={-5}
-              shadow-camera-right={5}
-              shadow-camera-top={5}
-              shadow-camera-bottom={-5}
-              color="#b8a88a"
+            <hemisphereLight skyColor="#1f1f2e" groundColor="#120e18" intensity={0.22} />
+            <InteriorKeyLight
+              lightMode="night"
+              position={[-4, 8, 4.2]}
+              intensity={0.38}
+              color="#c8b89a"
+              shadowBounds={5.5}
             />
-            <ambientLight intensity={0.05} color="#2a2d48" />
-            {/* Practical lights — warm pools */}
-            <pointLight position={[1.2, 2.5, -1]} intensity={0.50} color="#ffd699" distance={6} decay={2} />
-            <pointLight position={[-1.5, 2, 1.2]} intensity={0.35} color="#ffccaa" distance={5} decay={2} />
-            {/* Cool rim from behind */}
-            <directionalLight position={[3, 3, -4]} intensity={0.18} color="#8899cc" />
+            <ambientLight intensity={0.06} color="#2a2d48" />
+            <pointLight position={[1.2, 2.5, -1]} intensity={0.48} color="#ffd699" distance={6} decay={2} />
+            <pointLight position={[-1.5, 2, 1.2]} intensity={0.33} color="#ffccaa" distance={5} decay={2} />
+            <directionalLight position={[3, 3, -4]} intensity={0.16} color="#8899cc" />
           </>
         ) : (
           <>
-            {/* Day: premium studio lighting — soft diffused key, warm fill, cool rim */}
-            <Environment resolution={1024} environmentIntensity={1.05}>
-              {/* Large overhead softbox — main diffused light */}
-              <Lightformer form="rect" intensity={2.0} color="#faf8f5" scale={[14, 6]} position={[0, 8, -1]} rotation={[Math.PI / 2, 0, 0]} />
-              {/* Left fill — slightly cool for depth */}
-              <Lightformer form="rect" intensity={0.80} color="#e8eeff" scale={[5, 6]} position={[-7, 3, 2]} rotation={[0, Math.PI / 2, 0]} />
-              {/* Right warm accent — adds warmth to highlights */}
-              <Lightformer form="circle" intensity={1.8} color="#fff5e6" scale={3.5} position={[5, 3.5, -4]} />
-              {/* Ground bounce — subtle uplight for under-furniture detail */}
-              <Lightformer form="rect" intensity={0.25} color="#f0ebe4" scale={[8, 8]} position={[0, -1, 0]} rotation={[-Math.PI / 2, 0, 0]} />
-              {/* Rear rim — subtle backlight for edge definition */}
-              <Lightformer form="rect" intensity={0.50} color="#dde4f0" scale={[6, 3]} position={[0, 4, 6]} rotation={[0, Math.PI, 0]} />
-            </Environment>
-            <hemisphereLight skyColor="#f8f6f2" groundColor="#ddd8d0" intensity={0.40} />
-            {/* Key light — warm sun from upper-left, soft shadows */}
-            <directionalLight
-              position={[-5, 9, 5]}
-              intensity={1.35}
-              castShadow
-              shadow-mapSize-width={2048}
-              shadow-mapSize-height={2048}
-              shadow-bias={-0.00012}
-              shadow-normalBias={0.025}
-              shadow-camera-left={-6}
-              shadow-camera-right={6}
-              shadow-camera-top={6}
-              shadow-camera-bottom={-6}
-              color="#fff8f0"
+            <Environment preset="apartment" environmentIntensity={0.86} background={false} />
+            <hemisphereLight skyColor="#f4f0e8" groundColor="#d2cdc4" intensity={0.5} />
+            <InteriorKeyLight
+              lightMode="day"
+              position={[-4.8, 9.2, 5.2]}
+              intensity={0.9}
+              color="#fff5eb"
+              shadowBounds={7}
             />
-            {/* Ambient base — very subtle, prevents pure black */}
-            <ambientLight intensity={0.25} color="#f5f0ea" />
-            {/* Fill from right — cooler, reveals fabric texture and normal maps */}
-            <directionalLight position={[6, 4, -3]} intensity={0.40} color="#eef2ff" />
-            {/* Low back fill — gentle warmth from behind for rim separation */}
-            <directionalLight position={[-2, 2, -5]} intensity={0.20} color="#fff0e0" />
+            <ambientLight intensity={0.17} color="#ebe6df" />
+            <directionalLight position={[5.8, 4.2, -3.2]} intensity={0.34} color="#eef1fb" />
+            <directionalLight position={[-2.4, 2.1, -5.6]} intensity={0.15} color="#f8ede3" />
           </>
         )}
+
+        <EditorContactGround
+          lightMode={lightMode}
+          resolution={quality.contactShadowResolution}
+          blur={quality.contactShadowBlur}
+        />
 
         <Grid
           args={[10, 10]}
@@ -1183,7 +1260,7 @@ export function EditorViewport({
           <GizmoViewport />
         </GizmoHelper>
 
-        {/* Post-processing removed — incompatible with fiber@8, crashes WebGL */}
+        <EditorPostProcessing showBloom={quality.showBloom} showVignette={quality.showVignette} />
       </Canvas>
 
       {/* Drag info overlay — shows position or rotation angle */}
@@ -2802,34 +2879,38 @@ function FurniturePanel({
   const mat = MATERIALS.find((m) => m.id === panel.materialId);
   const color = panel.customColor ?? mat?.color ?? "#C4A265";
   const surfacePbr = panel.surfaceType && panel.textureUrl ? SURFACE_PBR[panel.surfaceType] : null;
-  const roughness = surfacePbr?.roughness ?? mat?.roughness ?? 0.7;
-  const metalness = surfacePbr?.metalness ?? mat?.metalness ?? 0.05;
   const isGlass = mat?.id === "glass";
   const isMetal = mat?.category === "Metal";
   const isFabric = mat?.category === "Fabric";
   const isWood = mat?.category === "Wood";
+  const baseRoughness = surfacePbr?.roughness ?? mat?.roughness ?? 0.7;
+  const baseMetalness = surfacePbr?.metalness ?? mat?.metalness ?? 0.05;
+  const roughness =
+    isMetal && mat?.id === "chrome"
+      ? 0.15
+      : isMetal && mat?.id === "black_metal"
+        ? 0.4
+        : baseRoughness;
+  const metalness =
+    isMetal && mat?.id === "chrome"
+      ? 1.0
+      : isMetal && mat?.id === "black_metal"
+        ? 0.9
+        : baseMetalness;
   /** Metals reflect the env map; when night dims the env, boost so legs/chrome still read. */
   const envMetal = lightMode === "night" ? 4.75 : 2.5;
-  const envDefault = lightMode === "night" ? 0.62 : 0.88;
+  const envDefault = lightMode === "night" ? 0.65 : 0.95;
   const envHardware = lightMode === "night" ? 3.1 : 1.85;
   const shape = panel.shape ?? "box";
   const panelRotation = panel.rotation ?? [0, 0, 0];
 
-  /** Softer edges on wood / melamine (catalog-style); metals stay crisp */
+  /** 8 mm corner radius on cabinet/box panels (1 unit = 1 m); glass/metal stay tighter */
   const boxBevelRadius =
     panel.cornerRadius ??
     (shape === "box" && mat
-      ? mat.category === "Metal"
-        ? 0.001
-        : mat.category === "Glass"
-          ? 0.002
-          : mat.category === "Fabric"
-            ? 0.002
-            : mat.category === "Wood" || mat.category === "Engineered"
-              ? 0.0048
-              : mat.category === "Stone"
-                ? 0.0032
-                : 0.0035
+      ? mat.id === "glass" || mat.category === "Metal"
+        ? 0.002
+        : 0.008
       : 0.002);
 
   // SH3D external texture (loaded from URL)
@@ -3173,7 +3254,7 @@ function FurniturePanel({
           <RoundedBox
             args={[w, h, d]}
             radius={boxBevelRadius}
-            smoothness={boxBevelRadius > 0.004 ? 5 : boxBevelRadius > 0.0025 ? 4 : 3}
+            smoothness={2}
             onClick={handleClick}
             onPointerDown={handlePointerDown}
             onPointerEnter={() => { document.body.style.cursor = cursorStyle; }}
@@ -3222,11 +3303,11 @@ function FurniturePanel({
                 roughnessMap={textures.roughnessMap}
                 roughness={shapeMatProps.roughness}
                 metalness={0}
-                clearcoat={0.12}
-                clearcoatRoughness={0.5}
+                clearcoat={0.16}
+                clearcoatRoughness={0.52}
                 transparent={shapeMatProps.transparent}
                 opacity={shapeMatProps.opacity}
-                envMapIntensity={lightMode === "night" ? 0.9 : 1.1}
+                envMapIntensity={lightMode === "night" ? 0.92 : 1.22}
               />
             ) : textures && isFabric && fabricPhysical ? (
               <meshPhysicalMaterial
@@ -3237,6 +3318,9 @@ function FurniturePanel({
                 roughness={shapeMatProps.roughness}
                 metalness={0}
                 {...fabricPhysical}
+                sheen={0.8}
+                sheenRoughness={0.5}
+                sheenColor={shapeMatProps.color}
                 transparent={shapeMatProps.transparent}
                 opacity={shapeMatProps.opacity}
               />
@@ -3324,11 +3408,11 @@ function FurniturePanel({
               roughnessMap={textures.roughnessMap}
               roughness={shapeMatProps.roughness}
               metalness={0}
-              clearcoat={0.25}
-              clearcoatRoughness={0.35}
+              clearcoat={0.18}
+              clearcoatRoughness={0.48}
               transparent={shapeMatProps.transparent}
               opacity={shapeMatProps.opacity}
-              envMapIntensity={lightMode === "night" ? 0.9 : 1.1}
+              envMapIntensity={lightMode === "night" ? 0.92 : 1.22}
             />
           ) : textures && !isFabric ? (
             <meshStandardMaterial
@@ -3351,6 +3435,9 @@ function FurniturePanel({
               roughness={shapeMatProps.roughness}
               metalness={0}
               {...fabricPhysical}
+              sheen={0.8}
+              sheenRoughness={0.5}
+              sheenColor={shapeMatProps.color}
               transparent={shapeMatProps.transparent}
               opacity={shapeMatProps.opacity}
             />

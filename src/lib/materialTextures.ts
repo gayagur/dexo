@@ -670,26 +670,26 @@ export function getFabricRenderingParams(
   let sheenRoughness: number;
   let envMapIntensity: number;
   if (velvet) {
-    sheen = night ? 0.09 : 0.12;
+    sheen = night ? 0.095 : 0.125;
     sheenRoughness = 0.74;
-    envMapIntensity = night ? 0.26 : 0.4;
+    envMapIntensity = night ? 0.3 : 0.52;
   } else if (leather) {
-    sheen = night ? 0.034 : 0.048;
+    sheen = night ? 0.036 : 0.05;
     sheenRoughness = 0.9;
-    envMapIntensity = night ? 0.22 : 0.34;
+    envMapIntensity = night ? 0.26 : 0.44;
   } else if (cane) {
-    sheen = night ? 0.018 : 0.026;
+    sheen = night ? 0.02 : 0.028;
     sheenRoughness = 0.92;
-    envMapIntensity = night ? 0.14 : 0.22;
+    envMapIntensity = night ? 0.17 : 0.3;
   } else if (plaid) {
-    sheen = night ? 0.032 : 0.046;
+    sheen = night ? 0.034 : 0.048;
     sheenRoughness = 0.87;
-    envMapIntensity = night ? 0.18 : 0.28;
+    envMapIntensity = night ? 0.22 : 0.36;
   } else {
     // Plain weave / cord — matte, soft grazing only (like cream upholstery ref)
-    sheen = night ? 0.038 : 0.052;
+    sheen = night ? 0.04 : 0.054;
     sheenRoughness = 0.86;
-    envMapIntensity = night ? 0.19 : 0.3;
+    envMapIntensity = night ? 0.22 : 0.42;
   }
   const c = new THREE.Color(albedoHex);
   c.lerp(new THREE.Color(0xffffff), velvet ? 0.2 : leather ? 0.18 : cane ? 0.12 : plaid ? 0.22 : 0.34);

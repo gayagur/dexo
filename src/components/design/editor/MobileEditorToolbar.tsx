@@ -13,7 +13,7 @@ import {
 import {
   ArrowLeft, Undo2, Redo2, MoreVertical, Magnet, Sun, Moon,
   RotateCcw, HelpCircle, Upload, LogOut, Save,
-  Box, Square, PanelTop, PanelLeft, Loader2, Check,
+  Box, Square, PanelTop, PanelLeft, Loader2, Check, Sparkles,
 } from "lucide-react";
 import type { ViewMode, EditorLightMode, EditorFloorPreset } from "./EditorViewport";
 import { EDITOR_FLOOR_OPTIONS } from "./EditorViewport";
@@ -33,6 +33,8 @@ interface MobileEditorToolbarProps {
   onLightModeChange: (mode: EditorLightMode) => void;
   floorPreset: EditorFloorPreset;
   onFloorPresetChange: (preset: EditorFloorPreset) => void;
+  graphicsQualityLabel: string;
+  onCycleGraphicsQuality: () => void;
   saveStatus: "idle" | "saving" | "saved" | "unsaved";
   onSave: () => void;
   onReset: () => void;
@@ -45,6 +47,7 @@ export function MobileEditorToolbar({
   furnitureLabel, onBack, canUndo, canRedo, onUndo, onRedo,
   snapEnabled, onToggleSnap, viewMode, onViewModeChange,
   lightMode, onLightModeChange, floorPreset, onFloorPresetChange,
+  graphicsQualityLabel, onCycleGraphicsQuality,
   saveStatus, onSave, onReset, onToggleHelp, onSubmitLibrary, onSaveAndExit,
 }: MobileEditorToolbarProps) {
   const truncatedLabel = furnitureLabel.length > 15
@@ -135,6 +138,14 @@ export function MobileEditorToolbar({
               <Moon className="w-3.5 h-3.5" /> Night
             </button>
           </div>
+          <button
+            type="button"
+            onClick={onCycleGraphicsQuality}
+            className="w-full flex items-center gap-2 px-2 py-2 rounded-md text-xs text-gray-700 hover:bg-gray-100 transition-colors"
+          >
+            <Sparkles className="w-4 h-4 text-[#C87D5A]" />
+            Graphics: {graphicsQualityLabel} (tap to cycle)
+          </button>
           <div className="h-px bg-gray-100" />
 
           {/* Floor */}

@@ -41,9 +41,16 @@ import {
 } from "@/lib/groupUtils";
 import { planSoftDecorPlacement } from "@/lib/softDecorPlacement";
 import type { LibraryTemplate } from "@/lib/libraryData";
-import { ArrowLeft, Save, RotateCcw, MessageSquare, Magnet, HelpCircle, X, Undo2, Redo2, Box, Square, PanelTop, PanelLeft, Loader2, Sun, Moon, Check, LogOut, SendHorizonal, MoreVertical, Upload, BookOpen } from "lucide-react";
+import { ArrowLeft, Save, RotateCcw, MessageSquare, Magnet, HelpCircle, X, Undo2, Redo2, Box, Square, PanelTop, PanelLeft, Loader2, Sun, Moon, Check, LogOut, SendHorizonal, MoreVertical, Upload, BookOpen, Sparkles } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useMobileInfo } from "@/hooks/use-mobile";
+import {
+  useQualitySettings,
+  readStoredQualityPreference,
+  cycleQualityPreference,
+  persistQualityPreference,
+  type QualityPreference,
+} from "@/hooks/useQualitySettings";
 import { MobileDrawer } from "@/components/ui/MobileDrawer";
 import { MobileEditorToolbar } from "./MobileEditorToolbar";
 import { MobileEditorBar } from "./MobileEditorBar";
@@ -188,6 +195,21 @@ export function FurnitureEditor({
   const [viewMode, setViewMode] = useState<ViewMode>("3d");
   const [lightMode, setLightMode] = useState<EditorLightMode>("day");
   const [floorPreset, setFloorPreset] = useState<EditorFloorPreset>("studio");
+  const [qualityPreference, setQualityPreference] = useState<QualityPreference>(() => readStoredQualityPreference());
+  const editorQuality = useQualitySettings(qualityPreference);
+
+  const cycleGraphicsQuality = useCallback(() => {
+    setQualityPreference((prev) => {
+      const next = cycleQualityPreference(prev);
+      persistQualityPreference(next);
+      return next;
+    });
+  }, []);
+
+  const graphicsQualityTitle =
+    qualityPreference === "auto"
+      ? `Graphics: Auto (${editorQuality.tier}) — click to cycle`
+      : `Graphics: ${qualityPreference.charAt(0).toUpperCase()}${qualityPreference.slice(1)} — click to cycle`;
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "unsaved">("idle");
   const [showLeaveConfirm, setShowLeaveConfirm] = useState<{ action: () => void } | null>(null);
   const [submitLibraryGroup, setSubmitLibraryGroup] = useState<GroupData | null>(null);
@@ -1419,6 +1441,19 @@ export function FurnitureEditor({
 
           <div className="w-px h-5 bg-gray-200 mx-1 shrink-0" />
 
+          {/* Graphics quality: Auto → High → Medium → Low */}
+          <button
+            type="button"
+            title={graphicsQualityTitle}
+            onClick={cycleGraphicsQuality}
+            className="h-8 px-2 flex items-center gap-1 rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-colors shrink-0 text-[11px] font-medium"
+          >
+            <Sparkles className="w-3.5 h-3.5 text-[#C87D5A]" />
+            {qualityPreference === "auto" ? `Auto (${editorQuality.tier})` : qualityPreference[0].toUpperCase() + qualityPreference.slice(1)}
+          </button>
+
+          <div className="w-px h-5 bg-gray-200 mx-1 shrink-0" />
+
           {/* Day / Night lighting */}
           <div className="flex items-center h-8 rounded-lg border border-gray-200 overflow-hidden shrink-0">
             {([
@@ -1615,6 +1650,8 @@ export function FurnitureEditor({
           onLightModeChange={setLightMode}
           floorPreset={floorPreset}
           onFloorPresetChange={setFloorPreset}
+          graphicsQualityLabel={qualityPreference === "auto" ? `Auto (${editorQuality.tier})` : qualityPreference}
+          onCycleGraphicsQuality={cycleGraphicsQuality}
           saveStatus={saveStatus}
           onSave={handleSave}
           onReset={handleReset}
@@ -1701,6 +1738,7 @@ export function FurnitureEditor({
               onContextMenu={handleContextMenu}
               lightMode={lightMode}
               floorPreset={floorPreset}
+              quality={editorQuality}
               initialCameraPosition={boot.cameraPosition}
               onCameraMove={(pos) => { cameraPositionRef.current = pos; }}
               suspendPointerEvents={showAddPicker}
@@ -1809,6 +1847,7 @@ export function FurnitureEditor({
             onContextMenu={handleContextMenu}
             lightMode={lightMode}
             floorPreset={floorPreset}
+            quality={editorQuality}
             initialCameraPosition={boot.cameraPosition}
             onCameraMove={(pos) => { cameraPositionRef.current = pos; }}
             suspendPointerEvents={showAddPicker || mobileChatOpen}
