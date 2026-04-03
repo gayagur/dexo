@@ -7,6 +7,8 @@ import { PremiumTestimonials } from '@/components/PremiumTestimonials';
 import { CategoriesSection } from '@/components/landing/CategoriesSection';
 import { ContainerScroll } from '@/components/ui/container-scroll';
 import { useLenis } from '@/hooks/useLenis';
+import AOS from 'aos';
+import 'aos/dist/aos.css';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 
@@ -106,144 +108,21 @@ const LandingPage = () => {
   useLenis();
 
   useEffect(() => {
+    AOS.init({ duration: 800, easing: 'ease-out-cubic', once: true, offset: 80 });
+  }, []);
+
+  useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 20);
     window.addEventListener('scroll', onScroll, { passive: true });
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
-  /* ── GSAP ScrollTrigger — full page orchestration ── */
+  /* ── GSAP — remaining sections (value cards, final CTA) ── */
   useEffect(() => {
     const ctx = gsap.context(() => {
 
-      // ── Hero uses Framer Motion ContainerScroll (no GSAP needed) ──
-
-      // ── Journey: pinned scene with dedicated step timelines ──
-      // The entire journey section is pinned. A master timeline controls:
-      //   0–15%: heading entrance + hold
-      //   15–20%: heading exit
-      //   20–45%: step 1 enter, hold, exit
-      //   45–70%: step 2 enter, hold, exit
-      //   70–95%: step 3 enter, hold, exit
-      //   95–100%: CTA reveal
-
-      const journeyTl = gsap.timeline({
-        scrollTrigger: {
-          trigger: '.journey-section',
-          start: 'top top',
-          end: '+=4500',
-          pin: true,
-          scrub: 0.5,
-          refreshPriority: 1,
-        },
-      });
-
-      // ── Connected narrative: heading flows into steps, steps crossfade ──
-
-      // Heading container visible
-      journeyTl.to('.journey-heading', { opacity: 1, duration: 0.01 }, 0);
-
-      // Eyebrow
-      journeyTl.fromTo('.journey-eyebrow',
-        { y: 50, opacity: 0 },
-        { y: 0, opacity: 1, duration: 0.6, ease: 'power3.out' },
-        0
-      );
-      // Title chars stagger
-      journeyTl.fromTo('.journey-title .title-char',
-        { y: 120, opacity: 0 },
-        { y: 0, opacity: 1, duration: 1.2, stagger: 0.03, ease: 'power4.out' },
-        0.2
-      );
-      // Subtitle
-      journeyTl.fromTo('.journey-subtitle-line',
-        { y: 40, opacity: 0 },
-        { y: 0, opacity: 1, duration: 0.8, ease: 'power3.out' },
-        1.2
-      );
-
-      // Hold heading
-      journeyTl.to('.journey-heading', { opacity: 1, duration: 1.5 }, 2);
-
-      // Heading exits AS step 1 enters (crossfade overlap)
-      journeyTl.to('.journey-heading',
-        { opacity: 0, y: -20, duration: 0.8, ease: 'power2.in' },
-        3.5
-      );
-
-      // Steps — each overlaps with the previous exit
-      const stepDuration = 3.5; // total time per step
-      const overlapOffset = 0.5; // how much the next step overlaps the previous exit
-
-      [0, 1, 2].forEach((i) => {
-        const stepStart = 3.8 + i * (stepDuration - overlapOffset);
-        const card = `.journey-step-${i}`;
-        const img = `${card} .journey-img`;
-        const titleChars = `${card} .step-title .title-char`;
-        const bullets = `${card} .journey-step-text li`;
-
-        // Card visible
-        journeyTl.to(card, { opacity: 1, duration: 0.01 }, stepStart);
-
-        // Image enters
-        journeyTl.fromTo(img,
-          { opacity: 0, y: 60, scale: 0.98 },
-          { opacity: 1, y: 0, scale: 1, duration: 0.8, ease: 'power3.out' },
-          stepStart
-        );
-
-        // Title chars stagger
-        journeyTl.fromTo(titleChars,
-          { y: 100, opacity: 0 },
-          { y: 0, opacity: 1, duration: 0.9, stagger: 0.04, ease: 'power4.out' },
-          stepStart + 0.2
-        );
-
-        // Body + bullets
-        journeyTl.fromTo(`${card} .journey-step-text p`,
-          { y: 25, opacity: 0 },
-          { y: 0, opacity: 1, duration: 0.6, ease: 'power3.out' },
-          stepStart + 0.6
-        );
-        journeyTl.fromTo(bullets,
-          { y: 20, opacity: 0 },
-          { y: 0, opacity: 1, duration: 0.5, stagger: 0.1, ease: 'power3.out' },
-          stepStart + 0.8
-        );
-
-        // Hold
-        journeyTl.to(card, { opacity: 1, duration: 1 }, stepStart + 1.4);
-
-        // Exit — crossfades with next step entering
-        journeyTl.to(card,
-          { opacity: 0, y: -25, duration: 0.7, ease: 'power2.in' },
-          stepStart + stepDuration - overlapOffset - 0.2
-        );
-      });
-
-      // CTA after last step exits
-      const ctaTime = 3.8 + 3 * (stepDuration - overlapOffset) - 0.5;
-      journeyTl.fromTo('.journey-cta',
-        { opacity: 0, y: 25 },
-        { opacity: 1, y: 0, duration: 0.7, ease: 'power4.out' },
-        ctaTime
-      );
-
-      // ── Set initial hidden state via GSAP (not inline styles) ──
-      gsap.set('.scroll-reveal', { opacity: 0, y: 32 });
       gsap.set('.value-card', { opacity: 0, y: 32 });
 
-      // ── Section reveals — batch all .scroll-reveal elements ──
-      ScrollTrigger.batch('.scroll-reveal', {
-        onEnter: (elements) => {
-          gsap.to(elements, {
-            opacity: 1, y: 0, stagger: 0.08,
-            duration: 0.8, ease: 'power3.out', overwrite: true,
-          });
-        },
-        start: 'top 85%',
-      });
-
-      // ── Value card reveals ──
       ScrollTrigger.batch('.value-card', {
         onEnter: (elements) => {
           gsap.to(elements, {
@@ -254,7 +133,6 @@ const LandingPage = () => {
         start: 'top 85%',
       });
 
-      // ── Value cards parallax float ──
       gsap.utils.toArray<HTMLElement>('.value-card').forEach((card, i) => {
         gsap.to(card, {
           y: i % 2 === 0 ? -20 : -35,
@@ -267,7 +145,6 @@ const LandingPage = () => {
         });
       });
 
-      // ── Final CTA reveal ──
       gsap.from('.final-cta-content', {
         y: 50, opacity: 0, duration: 1, ease: 'power3.out',
         scrollTrigger: {
@@ -470,61 +347,38 @@ const LandingPage = () => {
 
       {/* ═══════════════════════════════════════════════════════
            SECTION 2 — JOURNEY (How it works)
-           Pinned viewport. Each step is its own animated scene.
+           AOS fade-up reveals on each step
            ═══════════════════════════════════════════════════════ */}
-      <section className="journey-section relative h-screen overflow-hidden" style={{
-        background: `
-          linear-gradient(180deg, #FDFCF8 0%, #F7F2EB 50%, #FAF7F2 100%)
-        `,
+      <section className="relative py-28 lg:py-36 overflow-hidden" style={{
+        background: 'linear-gradient(180deg, #FDFCF8 0%, #F7F2EB 50%, #FAF7F2 100%)',
       }}>
-        {/* Ambient radials */}
-        <div className="absolute inset-0 pointer-events-none">
-          <div className="absolute top-[15%] left-[10%] w-[400px] h-[400px] rounded-full opacity-40" style={{
-            background: 'radial-gradient(circle, rgba(192,86,33,0.06), transparent 65%)',
-          }} />
-          <div className="absolute bottom-[20%] right-[10%] w-[350px] h-[350px] rounded-full opacity-30" style={{
-            background: 'radial-gradient(circle, rgba(201,169,110,0.06), transparent 65%)',
-          }} />
-        </div>
-        {/* Noise */}
-        <div className="absolute inset-0 opacity-[0.025] pointer-events-none">
-          <svg width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
-            <filter id="journeyNoise"><feTurbulence type="fractalNoise" baseFrequency="0.65" numOctaves="4" stitchTiles="stitch" /><feColorMatrix type="saturate" values="0" /></filter>
-            <rect width="100%" height="100%" filter="url(#journeyNoise)" />
-          </svg>
-        </div>
+        <div className="mx-auto max-w-7xl px-6">
 
-        {/* ── Heading (centered, char-by-char reveal) ── */}
-        <div className="journey-heading absolute inset-0 flex items-start justify-center pt-[20vh] pointer-events-none z-10" style={{ opacity: 0 }}>
-          <div className="text-center px-6 overflow-hidden">
-            <p
-              className="journey-eyebrow mb-5"
-              style={{
-                fontFamily: "'Plus Jakarta Sans', sans-serif",
-                fontSize: '13px',
-                fontWeight: 500,
-                letterSpacing: '0.2em',
-                textTransform: 'uppercase' as const,
-                color: '#C9845F',
-              }}
-            >
+          {/* Section heading */}
+          <div className="text-center mb-20 lg:mb-28" data-aos="fade-up">
+            <p style={{
+              fontFamily: "'Plus Jakarta Sans', sans-serif",
+              fontSize: '13px',
+              fontWeight: 500,
+              letterSpacing: '0.2em',
+              textTransform: 'uppercase' as const,
+              color: '#C9845F',
+              marginBottom: '16px',
+            }}>
               How DEXO Works
             </p>
-            <h2
-              className="journey-title mb-5"
-              style={{
-                fontFamily: "'Plus Jakarta Sans', sans-serif",
-                fontSize: 'clamp(1.8rem, 4vw, 3rem)',
-                fontWeight: 500,
-                letterSpacing: '-0.025em',
-                lineHeight: 1.12,
-                color: '#1F2940',
-                overflow: 'hidden',
-              }}
-            >
-              <SplitChars text="Three steps. One seamless journey." />
+            <h2 style={{
+              fontFamily: "'Plus Jakarta Sans', sans-serif",
+              fontSize: 'clamp(1.8rem, 4vw, 3rem)',
+              fontWeight: 500,
+              letterSpacing: '-0.025em',
+              lineHeight: 1.12,
+              color: '#1F2940',
+              marginBottom: '16px',
+            }}>
+              Three steps. One seamless journey.
             </h2>
-            <p className="journey-subtitle-line" style={{
+            <p style={{
               fontFamily: "'Sanchez', serif",
               fontSize: 'clamp(15px, 1.5vw, 18px)',
               color: '#6B7280',
@@ -535,104 +389,111 @@ const LandingPage = () => {
               Design with AI · Connect with skilled designers · Transform your space
             </p>
           </div>
-        </div>
 
-        {/* ── Step scenes (stacked absolutely, animated in/out) ── */}
-        {journeySteps.map((step, i) => (
-          <div
-            key={i}
-            className={`journey-step-${i} absolute inset-0 z-10 flex items-center`}
-            style={{ opacity: 0 }}
-          >
-            <div
-              className="mx-auto max-w-7xl px-6 w-full grid lg:grid-cols-2 gap-10 lg:gap-16 items-center"
-              style={{ direction: i % 2 === 1 ? 'rtl' : 'ltr' }}
-            >
-              {/* Image */}
-              <div className="journey-img relative" style={{ direction: 'ltr' }}>
+          {/* Step cards */}
+          <div className="space-y-20 lg:space-y-28">
+            {journeySteps.map((step, i) => (
+              <div
+                key={i}
+                className="grid lg:grid-cols-2 gap-10 lg:gap-16 items-center"
+                style={{ direction: i % 2 === 1 ? 'rtl' : 'ltr' }}
+              >
+                {/* Image */}
                 <div
-                  className="relative aspect-[4/3] rounded-2xl overflow-hidden"
-                  style={{
-                    boxShadow: '0 16px 48px rgba(25,16,8,0.10), 0 6px 16px rgba(25,16,8,0.05)',
-                  }}
+                  className="relative"
+                  style={{ direction: 'ltr' }}
+                  data-aos="fade-up"
+                  data-aos-delay={i * 50}
                 >
-                  <img src={step.image} alt={step.title} className="w-full h-full object-cover" />
-                  <div className="absolute inset-0 ring-1 ring-inset ring-black/[0.04] rounded-2xl" />
                   <div
-                    className="absolute top-4 left-4 px-3 py-1.5 rounded-full text-xs font-medium flex items-center gap-1.5"
-                    style={{ background: 'rgba(255,255,255,0.9)', backdropFilter: 'blur(8px)', color: '#C9845F' }}
+                    className="relative aspect-[4/3] rounded-2xl overflow-hidden"
+                    style={{
+                      boxShadow: '0 16px 48px rgba(25,16,8,0.10), 0 6px 16px rgba(25,16,8,0.05)',
+                    }}
                   >
-                    <Sparkles className="w-3 h-3" />
-                    {step.accent}
+                    <img src={step.image} alt={step.title} className="w-full h-full object-cover" />
+                    <div className="absolute inset-0 ring-1 ring-inset ring-black/[0.04] rounded-2xl" />
+                    <div
+                      className="absolute top-4 left-4 px-3 py-1.5 rounded-full text-xs font-medium flex items-center gap-1.5"
+                      style={{ background: 'rgba(255,255,255,0.9)', backdropFilter: 'blur(8px)', color: '#C9845F' }}
+                    >
+                      <Sparkles className="w-3 h-3" />
+                      {step.accent}
+                    </div>
                   </div>
+                  {/* Large editorial number */}
+                  <span
+                    className="absolute -top-6 -left-4 pointer-events-none select-none"
+                    style={{
+                      fontFamily: "'Plus Jakarta Sans', sans-serif",
+                      fontSize: '6rem',
+                      fontWeight: 700,
+                      opacity: 0.04,
+                      color: '#C9845F',
+                      lineHeight: 1,
+                    }}
+                  >
+                    {i + 1}
+                  </span>
                 </div>
-                <span
-                  className="absolute -top-6 -left-4 pointer-events-none select-none"
-                  style={{
-                    fontFamily: "'Plus Jakarta Sans', sans-serif",
-                    fontSize: '6rem',
-                    fontWeight: 700,
-                    opacity: 0.04,
-                    color: '#C9845F',
-                    lineHeight: 1,
-                  }}
+
+                {/* Text */}
+                <div
+                  className="space-y-5"
+                  style={{ direction: 'ltr' }}
+                  data-aos="fade-up"
+                  data-aos-delay={100 + i * 50}
                 >
-                  {i + 1}
-                </span>
+                  <p style={{
+                    fontFamily: "'Plus Jakarta Sans', sans-serif",
+                    fontSize: '12px',
+                    fontWeight: 500,
+                    letterSpacing: '0.2em',
+                    textTransform: 'uppercase' as const,
+                    color: '#C9845F',
+                  }}>
+                    {step.label}
+                  </p>
+                  <h3 style={{
+                    fontFamily: "'Plus Jakarta Sans', sans-serif",
+                    fontSize: 'clamp(1.5rem, 2.8vw, 2rem)',
+                    fontWeight: 500,
+                    letterSpacing: '-0.02em',
+                    lineHeight: 1.2,
+                    color: '#1F2940',
+                  }}>
+                    {step.title}
+                  </h3>
+                  <p style={{
+                    fontFamily: "'Sanchez', serif",
+                    fontSize: '15px',
+                    lineHeight: 1.75,
+                    color: '#6B7280',
+                  }}>
+                    {step.body}
+                  </p>
+                  <ul className="space-y-3 pt-1">
+                    {step.items.map((item, j) => (
+                      <li key={j} className="flex items-start gap-3">
+                        <CheckCircle2 className="w-4 h-4 mt-0.5 flex-shrink-0" style={{ color: '#C9845F' }} />
+                        <span className="text-sm leading-relaxed" style={{ color: '#1F2940' }}>{item}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
               </div>
-
-              {/* Text */}
-              <div className="journey-step-text space-y-5" style={{ direction: 'ltr' }}>
-                <p style={{
-                  fontFamily: "'Plus Jakarta Sans', sans-serif",
-                  fontSize: '12px',
-                  fontWeight: 500,
-                  letterSpacing: '0.2em',
-                  textTransform: 'uppercase' as const,
-                  color: '#C9845F',
-                }}>
-                  {step.label}
-                </p>
-                <h3 className="step-title" style={{
-                  fontFamily: "'Plus Jakarta Sans', sans-serif",
-                  fontSize: 'clamp(1.5rem, 2.8vw, 2rem)',
-                  fontWeight: 500,
-                  letterSpacing: '-0.02em',
-                  lineHeight: 1.2,
-                  color: '#1F2940',
-                  overflow: 'hidden',
-                }}>
-                  <SplitChars text={step.title} />
-                </h3>
-                <p style={{
-                  fontFamily: "'Sanchez', serif",
-                  fontSize: '15px',
-                  lineHeight: 1.75,
-                  color: '#6B7280',
-                }}>
-                  {step.body}
-                </p>
-                <ul className="space-y-3 pt-1">
-                  {step.items.map((item, j) => (
-                    <li key={j} className="flex items-start gap-3">
-                      <CheckCircle2 className="w-4 h-4 mt-0.5 flex-shrink-0" style={{ color: '#C9845F' }} />
-                      <span className="text-sm leading-relaxed" style={{ color: '#1F2940' }}>{item}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            </div>
+            ))}
           </div>
-        ))}
 
-        {/* ── CTA (appears after step 3) ── */}
-        <div className="journey-cta absolute inset-0 z-10 flex items-center justify-center" style={{ opacity: 0 }}>
-          <Link to="/auth?role=customer">
-            <Button variant="hero" size="lg" className="group rounded-xl">
-              Start Your Design Project
-              <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
-            </Button>
-          </Link>
+          {/* CTA */}
+          <div className="text-center mt-16" data-aos="fade-up">
+            <Link to="/auth?role=customer">
+              <Button variant="hero" size="lg" className="group rounded-xl">
+                Start Your Design Project
+                <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
+              </Button>
+            </Link>
+          </div>
         </div>
       </section>
 
