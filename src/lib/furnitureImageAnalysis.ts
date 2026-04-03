@@ -275,16 +275,24 @@ function inferPositionsFromDimensions(panels: PanelData[]): PanelData[] {
   const refD = Math.max(...panels.map((p) => p.size[2]));
 
   // Classify each panel by label keywords
-  type Role = "bottom" | "top" | "back" | "side" | "seat" | "arm" | "head" | "default";
+  type Role = "bottom" | "top" | "back" | "front" | "side" | "seat" | "arm" | "head" | "shelf" | "default";
   function classifyLabel(label: string): Role {
     const l = label.toLowerCase();
-    if (/\b(leg|foot|feet|base|pedestal|wheel|caster|plinth|bun|star.?base|x.?base)\b/.test(l)) return "bottom";
+    // "footboard" must match "front" before "bottom" checks for "foot"
+    if (/\b(footboard|foot\s*board)\b/.test(l)) return "front";
+    if (/\b(headboard|head\s*board)\b/.test(l)) return "head";
+    if (/\b(leg|feet|base|pedestal|wheel|caster|plinth|bun|star.?base|x.?base)\b/.test(l)) return "bottom";
+    // "foot" alone (not "footboard") = leg/bottom
+    if (/\bfoot\b/.test(l) && !/board/.test(l)) return "bottom";
     if (/\b(top|tabletop|surface|countertop|desktop|worktop)\b/.test(l)) return "top";
     if (/\b(back|backrest|rear|spine)\b/.test(l) && !/\bleg\b/.test(l)) return "back";
+    if (/\b(front\s*panel|front\s*face)\b/.test(l)) return "front";
+    if (/\b(shelf|slat|tier|stretcher|apron|rail|brace|support)\b/.test(l)) return "shelf";
     if (/\b(side|wall|door|panel|stile|upright)\b/.test(l) && !/\b(back|front|arm)\b/.test(l)) return "side";
     if (/\b(seat|cushion|pad|mattress)\b/.test(l) && !/\bback\b/.test(l)) return "seat";
     if (/\b(arm|armrest)\b/.test(l)) return "arm";
-    if (/\b(head|headrest|headboard)\b/.test(l)) return "head";
+    if (/\b(head|headrest)\b/.test(l)) return "head";
+    if (/\b(drawer)\b/.test(l)) return "front";
     return "default";
   }
 
@@ -301,21 +309,29 @@ function inferPositionsFromDimensions(panels: PanelData[]): PanelData[] {
   let seatTop = 0;         // top edge of seat-role panels
   let backTop = 0;         // top edge of back-role panels
   let sideTop = 0;         // top edge of side-role panels (for cabinets/counters)
+  let seatD = refD;        // depth of main body (seat/mattress/top)
+  let seatH = 0;           // height span of the body (for shelf stacking)
   let defaultStackY = 0;   // running Y for default-stacked panels
 
-  // First pass: compute reference heights from all panels
-  // Two sub-passes: first collect bottomTop, then compute heights that depend on it
+  // First pass: compute reference heights and body dimensions
   for (const { panel } of sorted) {
     if (classifyLabel(panel.label) === "bottom") bottomTop = Math.max(bottomTop, panel.size[1]);
   }
   for (const { panel } of sorted) {
     const role = classifyLabel(panel.label);
-    if (role === "seat") seatTop = Math.max(seatTop, bottomTop + panel.size[1]);
-    if (role === "side") sideTop = Math.max(sideTop, bottomTop + panel.size[1]);
+    if (role === "seat") {
+      seatTop = Math.max(seatTop, bottomTop + panel.size[1]);
+      seatD = Math.max(seatD, panel.size[2]);  // use seat/mattress depth as body depth
+    }
+    if (role === "side") {
+      sideTop = Math.max(sideTop, bottomTop + panel.size[1]);
+      seatH = Math.max(seatH, panel.size[1]);
+    }
     if (role === "back") backTop = Math.max(backTop, bottomTop + panel.size[1]);
   }
-  // Ensure a reasonable seat height if no explicit seat panel
+  // Ensure reasonable defaults
   if (seatTop === 0) seatTop = bottomTop;
+  if (seatH === 0) seatH = Math.max(seatTop, sideTop, backTop);
   defaultStackY = Math.max(seatTop, sideTop, backTop);
 
   // Second pass: assign positions
@@ -357,24 +373,47 @@ function inferPositionsFromDimensions(panels: PanelData[]): PanelData[] {
       case "back": {
         // Back → behind center, above bottom panels
         y = bottomTop + ph / 2;
-        z = -refD / 2 + pd / 2 + 0.01;
+        z = -(seatD / 2) - pd / 2 + 0.01;
         if (count > 1) {
           x = ((idx / Math.max(count - 1, 1)) - 0.5) * refW * 0.6;
         }
         backTop = Math.max(backTop, bottomTop + ph);
         break;
       }
+      case "front": {
+        // Front → opposite of back (footboard, front panel, drawer)
+        y = bottomTop + ph / 2;
+        z = (seatD / 2) + pd / 2 - 0.01;
+        if (count > 1) {
+          x = ((idx / Math.max(count - 1, 1)) - 0.5) * refW * 0.6;
+        }
+        break;
+      }
       case "side": {
-        // Sides → alternate left/right
+        // Sides → alternate left/right, centered on depth
         x = idx % 2 === 0 ? -refW / 2 + pw / 2 + 0.01 : refW / 2 - pw / 2 - 0.01;
         y = bottomTop + ph / 2;
         break;
       }
       case "seat": {
-        // Seat/cushion → above bottom panels
+        // Seat/cushion/mattress → above bottom panels, centered
         y = bottomTop + ph / 2;
         if (count > 1) {
           x = ((idx / Math.max(count - 1, 1)) - 0.5) * refW * 0.7;
+        }
+        break;
+      }
+      case "shelf": {
+        // Shelves/slats/rails → horizontal, stacked evenly within the body
+        y = bottomTop + ph / 2;
+        if (count > 1) {
+          // Spread evenly along depth for slats, or stack in Y for shelves
+          const isSlat = /\b(slat|brace)\b/i.test(panel.label);
+          if (isSlat) {
+            z = ((idx / Math.max(count - 1, 1)) - 0.5) * seatD * 0.85;
+          } else {
+            y = bottomTop + ph / 2 + idx * (seatH / Math.max(count, 1));
+          }
         }
         break;
       }
@@ -385,9 +424,9 @@ function inferPositionsFromDimensions(panels: PanelData[]): PanelData[] {
         break;
       }
       case "head": {
-        // Head → above back/seat
+        // Headboard/headrest → above back, behind center
         y = Math.max(backTop, seatTop, sideTop) + ph / 2;
-        z = -refD / 2 + pd / 2 + 0.01;
+        z = -(seatD / 2) - pd / 2 + 0.01;
         break;
       }
       default: {
@@ -2010,19 +2049,20 @@ export function panelsFromFurnitureAnalysis(
   // Must happen before normalizeAnalysisPanel which clamps sizes to 10m
   const rawPanels = (analysis.panels ?? []) as unknown as RawAnalysisPanel[];
   const rawNormalized = normalizeRawPanelDimensions(rawPanels);
+  debugPositions("after normalizeRawPanelDimensions", rawNormalized);
 
   // Step 1: Parse raw panels into PanelData (shapes, materials, labels)
   let panels = rawNormalized.map((p) => normalizeAnalysisPanel(p, nextId()));
+  debugPositions("after normalizeAnalysisPanel", panels);
+
+  const category = detectFurnitureCategory(analysis.name ?? "", panels);
+  const furnitureDims = estimatedDimsToMeters(analysis.estimatedDims, panels);
 
   if (isDev) {
-    console.log("[panelsFromFurnitureAnalysis] panels after parse:", panels.map((p) => ({
-      label: p.label,
-      position: p.position.map((v: number) => +v.toFixed(3)),
-      size: p.size.map((v: number) => +v.toFixed(3)),
-    })));
+    console.log("[panelsFromFurnitureAnalysis] category:", category, "furnitureDims:", furnitureDims);
   }
 
-  // Step 2: Normalize shapes/axes (existing helpers — generic, not furniture-specific)
+  // Step 2: Normalize shapes/axes (existing helpers — generic)
   panels = panels.map(normalizeVerticalBoxHeightAxis);
   panels = panels.map(normalizeVerticalAxisymmetricPanel);
   panels = panels.map(clampRealisticThickness);
@@ -2031,13 +2071,22 @@ export function panelsFromFurnitureAnalysis(
   panels = panels.map(fixHorizontalRoundDisk);
   debugPositions("after shape normalization", panels);
 
-  // Step 3: Rebuild positions from labels + dimensions (ignores unreliable AI positions)
-  panels = inferPositionsFromDimensions(panels);
-  debugPositions("after inferPositionsFromDimensions", panels);
+  // Step 3: Position inference — only when AI positions are unreliable
+  const positionSources = rawNormalized.map(getPositionSource);
+  const fallbackCount = positionSources.filter((s) => s === "fallback").length;
+  const collapsed = shouldInferCollapsedLayout(panels);
 
-  // Step 4: Category-specific geometry repairs (existing pipeline)
-  const category = detectFurnitureCategory(analysis.name ?? "", panels);
-  const furnitureDims = estimatedDimsToMeters(analysis.estimatedDims, panels);
+  if (isDev) {
+    console.log("[panelsFromFurnitureAnalysis] positionSources:", positionSources, "fallbacks:", fallbackCount, "collapsed:", collapsed);
+  }
+
+  if (fallbackCount > 0 || collapsed) {
+    // Positions are unreliable → rebuild from labels + dimensions
+    panels = inferPositionsFromDimensions(panels);
+    debugPositions("after inferPositionsFromDimensions", panels);
+  }
+
+  // Step 4: Category-specific geometry repairs (existing pipeline — tuned per type)
   const refined = refineSeatingImportPanels(panels, analysis.name ?? "");
   const backPlanFixed = refined.map(normalizeUpholsteredBackPlanAxes);
   const tightenedUpholstery = backPlanFixed.map(normalizeImportedUpholsteryThickness);
