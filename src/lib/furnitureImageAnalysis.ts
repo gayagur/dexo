@@ -1838,13 +1838,19 @@ function repairCollapsedLayout(
   if (!looksCollapsed) return;
 
   const label = (p: PanelData) => p.label.toLowerCase();
+  const isCasegoodsLike = category === "casegoods" || category === "wardrobe" || category === "shelving";
   const roles = new Map(panels.map((panel) => [panel.id, classifyPanelRole(panel, category)]));
   const seatLikes = panels.filter((panel) => {
     const role = roles.get(panel.id);
+    // For casegoods/wardrobe/shelving, "top" is a surface — don't treat it as a seat
+    if (isCasegoodsLike && role === "top") return false;
     return role === "seat" || role === "mattress" || role === "top";
   });
   const backLikes = panels.filter((panel) => {
     const role = roles.get(panel.id);
+    // For casegoods, back_panel should NOT be repositioned by this function —
+    // repairCasegoodsLayout already placed it correctly behind the body
+    if (isCasegoodsLike && role === "back_panel") return false;
     return role === "back" || role === "back_panel" || role === "headboard";
   });
   const legLikes = panels.filter((panel) => roles.get(panel.id) === "leg");
