@@ -195,75 +195,219 @@ export type RawAnalysisPanel = {
   cornerRadius?: unknown;
 };
 
-/** Detect unit scale: mm (>10), cm (>2), inches (flag), or meters (correct). */
-function detectScale(maxValue: number): number {
-  if (maxValue > 100) return 0.001;   // mm (values like 450, 1800)
-  if (maxValue > 10) return 0.01;     // cm (values like 45, 180)
-  if (maxValue > 5) return 0.001;     // large mm (values like 5-10 range, ambiguous → treat as mm)
-  return 1;                            // already meters
+/**
+ * Generic dimension normalization — detects units and converts to meters.
+ * Works for ANY furniture type: finds the largest dimension across all panels,
+ * determines the unit, scales everything, and clamps to sane bounds.
+ */
+function normalizePanelDimensions(panels: PanelData[]): PanelData[] {
+  if (panels.length === 0) return panels;
+  const isDev = (import.meta as ImportMeta & { env?: { DEV?: boolean } }).env?.DEV;
+
+  // Find the largest single dimension value across ALL panels (sizes + positions)
+  let largest = 0;
+  for (const p of panels) {
+    for (const v of p.size) largest = Math.max(largest, Math.abs(v));
+    for (const v of p.position) largest = Math.max(largest, Math.abs(v));
+  }
+
+  // Detect unit
+  let scale = 1;
+  if (largest > 100) {
+    scale = 0.001; // mm → meters
+  } else if (largest > 10) {
+    scale = 0.01;  // cm → meters
+  }
+  // else: already meters
+
+  if (isDev) {
+    console.log("[normalizePanelDimensions] largest value:", largest, "→ scale:", scale);
+  }
+
+  return panels.map((p) => ({
+    ...p,
+    size: p.size.map((v) => Math.max(0.005, Math.min(Math.abs(v) * scale, 3))) as [number, number, number],
+    position: p.position.map((v) => v * scale) as [number, number, number],
+  }));
 }
 
-/** Vision models often emit mm/cm in panel fields; normalize to meters + re-center. */
-function scaleRawAnalysisPanelsToMeters(rawPanels: RawAnalysisPanel[]): RawAnalysisPanel[] {
-  if (rawPanels.length === 0) return rawPanels;
-  const extracted = rawPanels.map((raw) => {
-    const size = extractRawSize(raw);
-    const position = extractRawPosition(raw, size);
-    return { raw, size, position };
-  });
-  let maxPos = 0;
-  let maxSize = 0;
-  for (const item of extracted) {
-    if (item.position) {
-      for (const value of item.position) maxPos = Math.max(maxPos, Math.abs(value));
-    }
-    if (item.size) {
-      for (const value of item.size) maxSize = Math.max(maxSize, Math.abs(value));
-    }
-  }
-  const scalePos = detectScale(maxPos);
-  const scaleSize = detectScale(maxSize);
-
+/**
+ * Generic position inference — ignores AI positions entirely and rebuilds
+ * positions from labels and dimensions. Works for ANY furniture type.
+ */
+function inferPositionsFromDimensions(panels: PanelData[]): PanelData[] {
+  if (panels.length === 0) return panels;
   const isDev = (import.meta as ImportMeta & { env?: { DEV?: boolean } }).env?.DEV;
-  if (isDev) {
-    console.log("[scaleRawAnalysis] maxPos:", maxPos, "→ scalePos:", scalePos, "| maxSize:", maxSize, "→ scaleSize:", scaleSize);
+
+  // Sort by volume (largest first) to establish the reference envelope
+  const sorted = panels.map((p, i) => ({
+    panel: p,
+    originalIndex: i,
+    volume: p.size[0] * p.size[1] * p.size[2],
+  })).sort((a, b) => b.volume - a.volume);
+
+  // The largest panel defines the envelope
+  const refW = Math.max(...panels.map((p) => p.size[0]));
+  const refD = Math.max(...panels.map((p) => p.size[2]));
+
+  // Classify each panel by label keywords
+  type Role = "bottom" | "top" | "back" | "side" | "seat" | "arm" | "head" | "default";
+  function classifyLabel(label: string): Role {
+    const l = label.toLowerCase();
+    if (/\b(leg|foot|feet|base|pedestal|wheel|caster|plinth|bun|star.?base|x.?base)\b/.test(l)) return "bottom";
+    if (/\b(top|tabletop|surface|countertop|desktop|worktop)\b/.test(l)) return "top";
+    if (/\b(back|backrest|rear|spine)\b/.test(l) && !/\bleg\b/.test(l)) return "back";
+    if (/\b(side|wall|door|panel|stile|upright)\b/.test(l) && !/\b(back|front|arm)\b/.test(l)) return "side";
+    if (/\b(seat|cushion|pad|mattress)\b/.test(l) && !/\bback\b/.test(l)) return "seat";
+    if (/\b(arm|armrest)\b/.test(l)) return "arm";
+    if (/\b(head|headrest|headboard)\b/.test(l)) return "head";
+    return "default";
   }
 
-  const scaled = extracted.map(({ raw, position, size }) => {
-    const out: RawAnalysisPanel = { ...raw };
-    if (position) {
-      out.position = position.map((x) => x * scalePos) as unknown;
-    }
-    if (size) {
-      out.size = size.map((x) => x * scaleSize) as unknown;
-    }
-    return out;
-  });
+  // Group panels by role for counting
+  const roleCounts = new Map<Role, number>();
+  const roleIndices = new Map<Role, number>();
+  for (const { panel } of sorted) {
+    const role = classifyLabel(panel.label);
+    roleCounts.set(role, (roleCounts.get(role) ?? 0) + 1);
+  }
 
-  // Re-center: compute bounding box from scaled positions and shift so floor=Y0, centered on XZ
-  const positions = scaled.map((p) => extractRawPosition(p, extractRawSize(p))).filter(Boolean) as [number, number, number][];
-  if (positions.length >= 3) {
-    const xs = positions.map((p) => p[0]);
-    const ys = positions.map((p) => p[1]);
-    const zs = positions.map((p) => p[2]);
-    const cx = (Math.min(...xs) + Math.max(...xs)) / 2;
-    const minY = Math.min(...ys);
-    const cz = (Math.min(...zs) + Math.max(...zs)) / 2;
-    // Only re-center if offset is significant (>0.15m from origin or floor)
-    if (Math.abs(cx) > 0.15 || Math.abs(cz) > 0.15 || minY < -0.1) {
-      if (isDev) {
-        console.log("[scaleRawAnalysis] re-centering: cx:", cx, "minY:", minY, "cz:", cz);
-      }
-      for (const panel of scaled) {
-        const pos = extractRawPosition(panel, extractRawSize(panel));
-        if (pos) {
-          panel.position = [pos[0] - cx, pos[1] - minY, pos[2] - cz] as unknown;
+  // Track placed heights for stacking
+  let bottomTop = 0;       // top edge of bottom-role panels
+  let seatTop = 0;         // top edge of seat-role panels
+  let backTop = 0;         // top edge of back-role panels
+  let defaultStackY = 0;   // running Y for default-stacked panels
+
+  // First pass: compute reference heights from bottom and seat panels
+  for (const { panel } of sorted) {
+    const role = classifyLabel(panel.label);
+    if (role === "bottom") bottomTop = Math.max(bottomTop, panel.size[1]);
+    if (role === "seat") seatTop = Math.max(seatTop, bottomTop + panel.size[1]);
+  }
+  // Ensure a reasonable seat height if no explicit seat panel
+  if (seatTop === 0) seatTop = bottomTop;
+  defaultStackY = seatTop;
+
+  // Second pass: assign positions
+  const result = new Array<PanelData>(panels.length);
+  for (const { panel, originalIndex } of sorted) {
+    const role = classifyLabel(panel.label);
+    const idx = roleIndices.get(role) ?? 0;
+    roleIndices.set(role, idx + 1);
+    const count = roleCounts.get(role) ?? 1;
+    const [pw, ph, pd] = panel.size;
+
+    let x = 0;
+    let y = 0;
+    let z = 0;
+
+    switch (role) {
+      case "bottom": {
+        // Legs/base → sit on floor, spread to corners if multiple
+        y = ph / 2;
+        if (count >= 4) {
+          const corners: [number, number][] = [
+            [-refW / 2 + pw / 2 + 0.02, -refD / 2 + pd / 2 + 0.02],
+            [refW / 2 - pw / 2 - 0.02, -refD / 2 + pd / 2 + 0.02],
+            [-refW / 2 + pw / 2 + 0.02, refD / 2 - pd / 2 - 0.02],
+            [refW / 2 - pw / 2 - 0.02, refD / 2 - pd / 2 - 0.02],
+          ];
+          [x, z] = corners[idx % corners.length];
+        } else if (count >= 2) {
+          x = idx % 2 === 0 ? -refW / 4 : refW / 4;
         }
+        break;
+      }
+      case "top": {
+        // Top surface → above everything else
+        const belowTop = Math.max(seatTop, backTop, bottomTop);
+        y = belowTop + ph / 2;
+        break;
+      }
+      case "back": {
+        // Back → behind center, above bottom panels
+        y = bottomTop + ph / 2;
+        z = -refD / 2 + pd / 2 + 0.01;
+        if (count > 1) {
+          x = ((idx / Math.max(count - 1, 1)) - 0.5) * refW * 0.6;
+        }
+        backTop = Math.max(backTop, bottomTop + ph);
+        break;
+      }
+      case "side": {
+        // Sides → alternate left/right
+        x = idx % 2 === 0 ? -refW / 2 + pw / 2 + 0.01 : refW / 2 - pw / 2 - 0.01;
+        y = bottomTop + ph / 2;
+        break;
+      }
+      case "seat": {
+        // Seat/cushion → above bottom panels
+        y = bottomTop + ph / 2;
+        if (count > 1) {
+          x = ((idx / Math.max(count - 1, 1)) - 0.5) * refW * 0.7;
+        }
+        break;
+      }
+      case "arm": {
+        // Arms → left/right of seat, same height as seat
+        x = idx % 2 === 0 ? -refW / 2 + pw / 2 + 0.01 : refW / 2 - pw / 2 - 0.01;
+        y = Math.max(seatTop, bottomTop) + ph / 2;
+        break;
+      }
+      case "head": {
+        // Head → above back
+        y = Math.max(backTop, seatTop) + ph / 2;
+        z = -refD / 2 + pd / 2 + 0.01;
+        break;
+      }
+      default: {
+        // Stack vertically above previous default panels
+        y = defaultStackY + ph / 2;
+        defaultStackY += ph + 0.01;
+        break;
       }
     }
+
+    result[originalIndex] = { ...panel, position: [x, y, z] };
   }
 
-  return scaled;
+  // Re-center XZ and floor at Y=0
+  const xs = result.map((p) => p.position[0]);
+  const zs = result.map((p) => p.position[2]);
+  const bottoms = result.map((p) => p.position[1] - p.size[1] / 2);
+  const cx = (Math.min(...xs) + Math.max(...xs)) / 2;
+  const cz = (Math.min(...zs) + Math.max(...zs)) / 2;
+  const minY = Math.min(...bottoms);
+
+  const centered = result.map((p) => ({
+    ...p,
+    position: [
+      p.position[0] - cx,
+      p.position[1] - minY,
+      p.position[2] - cz,
+    ] as [number, number, number],
+  }));
+
+  if (isDev) {
+    const maxX = Math.max(...centered.map((p) => p.position[0] + p.size[0] / 2));
+    const minXc = Math.min(...centered.map((p) => p.position[0] - p.size[0] / 2));
+    const maxY = Math.max(...centered.map((p) => p.position[1] + p.size[1] / 2));
+    const maxZ = Math.max(...centered.map((p) => p.position[2] + p.size[2] / 2));
+    const minZc = Math.min(...centered.map((p) => p.position[2] - p.size[2] / 2));
+    console.log("[inferPositionsFromDimensions] final bbox:", {
+      width: (maxX - minXc).toFixed(2),
+      height: maxY.toFixed(2),
+      depth: (maxZ - minZc).toFixed(2),
+    });
+    console.log("[inferPositionsFromDimensions] panels:", centered.map((p) => ({
+      label: p.label,
+      role: classifyLabel(p.label),
+      position: p.position.map((v: number) => +v.toFixed(3)),
+      size: p.size.map((v: number) => +v.toFixed(3)),
+    })));
+  }
+
+  return centered;
 }
 
 /**
@@ -1826,282 +1970,58 @@ function validateAndRepairGeometry(
   return result;
 }
 
-/**
- * Re-center panels so the group sits at the origin with floor at Y=0.
- * Shifts all positions so centerX=0, minY=0, centerZ=0.
- */
-function recenterPanels(panels: PanelData[]): PanelData[] {
-  if (panels.length === 0) return panels;
-  const xs = panels.map((p) => p.position[0]);
-  const ys = panels.map((p) => p.position[1] - p.size[1] / 2); // bottom edges
-  const zs = panels.map((p) => p.position[2]);
-  const cx = (Math.min(...xs) + Math.max(...xs)) / 2;
-  const minY = Math.min(...ys);
-  const cz = (Math.min(...zs) + Math.max(...zs)) / 2;
-  // Only re-center if offset is meaningful
-  if (Math.abs(cx) < 0.05 && Math.abs(minY) < 0.05 && Math.abs(cz) < 0.05) {
-    return panels;
-  }
-  return panels.map((p) => ({
-    ...p,
-    position: [
-      p.position[0] - cx,
-      p.position[1] - minY,
-      p.position[2] - cz,
-    ] as [number, number, number],
-  }));
-}
-
-/** Expected bounding-box ranges by furniture type (meters). */
-const BBOX_LIMITS: Record<string, { maxW: number; maxH: number; maxD: number }> = {
-  office_chair: { maxW: 0.85, maxH: 1.5, maxD: 0.85 },
-  seating:      { maxW: 2.8,  maxH: 1.2, maxD: 1.2 },
-  bed:          { maxW: 2.2,  maxH: 1.8, maxD: 2.4 },
-  table_desk:   { maxW: 3.0,  maxH: 1.2, maxD: 1.5 },
-  casegoods:    { maxW: 2.5,  maxH: 2.2, maxD: 1.0 },
-  wardrobe:     { maxW: 2.5,  maxH: 2.5, maxD: 0.8 },
-  shelving:     { maxW: 2.0,  maxH: 2.5, maxD: 0.5 },
-  unknown:      { maxW: 3.0,  maxH: 2.5, maxD: 2.0 },
-};
-
-/**
- * Validate bounding box. If the assembled furniture is wildly larger or smaller
- * than expected for its category, apply a uniform scale correction.
- */
-function validateBoundingBox(panels: PanelData[], category: string): PanelData[] {
-  if (panels.length < 2) return panels;
-  const minX = Math.min(...panels.map((p) => p.position[0] - p.size[0] / 2));
-  const maxX = Math.max(...panels.map((p) => p.position[0] + p.size[0] / 2));
-  const minY = Math.min(...panels.map((p) => p.position[1] - p.size[1] / 2));
-  const maxY = Math.max(...panels.map((p) => p.position[1] + p.size[1] / 2));
-  const minZ = Math.min(...panels.map((p) => p.position[2] - p.size[2] / 2));
-  const maxZ = Math.max(...panels.map((p) => p.position[2] + p.size[2] / 2));
-  const spanW = maxX - minX;
-  const spanH = maxY - minY;
-  const spanD = maxZ - minZ;
-
-  const limits = BBOX_LIMITS[category] ?? BBOX_LIMITS.unknown;
-
-  // Check if any dimension is wildly too large
-  const maxOvershoot = Math.max(
-    spanW / limits.maxW,
-    spanH / limits.maxH,
-    spanD / limits.maxD,
-  );
-
-  // Check if furniture is too small (< 20cm on all axes)
-  const tooSmall = spanW < 0.2 && spanH < 0.2 && spanD < 0.2;
-
-  if (maxOvershoot <= 1.3 && !tooSmall) return panels; // within acceptable range
-
-  const isDev = (import.meta as ImportMeta & { env?: { DEV?: boolean } }).env?.DEV;
-
-  let scale: number;
-  if (tooSmall) {
-    // Scale up to a reasonable size
-    const targetH = category === "office_chair" ? 1.1 : 0.8;
-    scale = Math.max(spanH, 0.01) > 0.01 ? targetH / spanH : 5;
-    if (isDev) console.log("[validateBoundingBox] too small, scaling up by:", scale);
-  } else {
-    // Scale down to fit within limits
-    scale = 1 / maxOvershoot;
-    if (isDev) console.log("[validateBoundingBox] overshoot:", maxOvershoot, "scaling down by:", scale);
-  }
-
-  const cxOld = (minX + maxX) / 2;
-  const czOld = (minZ + maxZ) / 2;
-  return panels.map((p) => ({
-    ...p,
-    position: [
-      (p.position[0] - cxOld) * scale + cxOld,
-      p.position[1] * scale,
-      (p.position[2] - czOld) * scale + czOld,
-    ] as [number, number, number],
-    size: [
-      p.size[0] * scale,
-      p.size[1] * scale,
-      p.size[2] * scale,
-    ] as [number, number, number],
-  }));
-}
-
-/**
- * Remove duplicate panels: same label (ignoring case), similar size, and centers within 5cm.
- */
-function removeDuplicatePanels(panels: PanelData[]): PanelData[] {
-  const keep: PanelData[] = [];
-  for (const panel of panels) {
-    const isDupe = keep.some((existing) => {
-      if (existing.label.toLowerCase() !== panel.label.toLowerCase()) return false;
-      const dx = Math.abs(existing.position[0] - panel.position[0]);
-      const dy = Math.abs(existing.position[1] - panel.position[1]);
-      const dz = Math.abs(existing.position[2] - panel.position[2]);
-      if (dx > 0.05 || dy > 0.05 || dz > 0.05) return false;
-      const sw = Math.abs(existing.size[0] - panel.size[0]);
-      const sh = Math.abs(existing.size[1] - panel.size[1]);
-      const sd = Math.abs(existing.size[2] - panel.size[2]);
-      return sw < 0.03 && sh < 0.03 && sd < 0.03;
-    });
-    if (!isDupe) keep.push(panel);
-  }
-  if (keep.length < panels.length) {
-    const isDev = (import.meta as ImportMeta & { env?: { DEV?: boolean } }).env?.DEV;
-    if (isDev) console.log("[removeDuplicatePanels] removed", panels.length - keep.length, "duplicates");
-  }
-  return keep;
-}
-
-/**
- * Constrain individual panel sizes so no single part exceeds the overall furniture envelope.
- * The biggest horizontal panel (seat/top) defines the reference; others are clamped.
- */
-function constrainPanelSizes(panels: PanelData[], furnitureDims: { w: number; h: number; d: number }): PanelData[] {
-  if (panels.length < 2) return panels;
-  const maxW = furnitureDims.w * 1.15; // allow 15% overshoot for tolerances
-  const maxH = furnitureDims.h * 1.15;
-  const maxD = furnitureDims.d * 1.15;
-  let changed = false;
-  const result = panels.map((p) => {
-    const L = p.label.toLowerCase();
-    // Don't constrain the primary seat/top/base — it defines the footprint
-    if (/\b(seat|top|tabletop|desktop|mattress|base frame)\b/i.test(L) && p.type === "horizontal") {
-      return p;
-    }
-    let [w, h, d] = p.size;
-    let modified = false;
-    if (w > maxW) { w = maxW; modified = true; }
-    if (h > maxH) { h = maxH; modified = true; }
-    if (d > maxD) { d = maxD; modified = true; }
-    // Arms/legs should be much smaller than the whole piece
-    if (/\b(arm|armrest|leg|caster|wheel|handle|knob)\b/i.test(L)) {
-      const armMaxW = furnitureDims.w * 0.35;
-      const armMaxD = furnitureDims.d * 0.6;
-      if (w > armMaxW) { w = armMaxW; modified = true; }
-      if (d > armMaxD) { d = armMaxD; modified = true; }
-    }
-    if (modified) changed = true;
-    return modified ? { ...p, size: [w, h, d] as [number, number, number] } : p;
-  });
-  if (changed) {
-    const isDev = (import.meta as ImportMeta & { env?: { DEV?: boolean } }).env?.DEV;
-    if (isDev) console.log("[constrainPanelSizes] clamped oversized panels to furniture dims:", furnitureDims);
-  }
-  return result;
-}
-
 export function panelsFromFurnitureAnalysis(
   analysis: FurnitureAnalysis,
   nextId: () => string
 ): PanelData[] {
-  const rawScaled = scaleRawAnalysisPanelsToMeters(
-    (analysis.panels ?? []) as unknown as RawAnalysisPanel[],
-  );
-  debugPositions("after scaleRawAnalysisPanelsToMeters", rawScaled);
+  const isDev = (import.meta as ImportMeta & { env?: { DEV?: boolean } }).env?.DEV;
 
-  let panels = rawScaled.map((p) => normalizeAnalysisPanel(p, nextId()));
-  debugPositions("after normalizeAnalysisPanel", panels);
-  const category = detectFurnitureCategory(analysis.name ?? "", panels);
-  const furnitureDims = estimatedDimsToMeters(analysis.estimatedDims, panels);
+  // Step 0: Parse raw panels into PanelData (shapes, materials, labels)
+  const rawPanels = (analysis.panels ?? []) as unknown as RawAnalysisPanel[];
+  let panels = rawPanels.map((p) => normalizeAnalysisPanel(p, nextId()));
 
-  // Constrain individual panel sizes to not exceed the furniture envelope
-  panels = constrainPanelSizes(panels, furnitureDims);
-  debugPositions("after constrainPanelSizes", panels);
-
-  panels = panels.map(normalizeVerticalBoxHeightAxis);
-  debugPositions("after normalizeVerticalBoxHeightAxis", panels);
-
-  panels = panels.map(normalizeVerticalAxisymmetricPanel);
-  debugPositions("after normalizeVerticalAxisymmetricPanel", panels);
-
-  panels = panels.map(clampRealisticThickness);
-  debugPositions("after clampRealisticThickness", panels);
-
-  panels = panels.map(sanitizeImportRotation);
-  debugPositions("after sanitizeImportRotation", panels);
-
-  panels = panels.map(stabilizeStructuralRotation);
-  debugPositions("after stabilizeStructuralRotation", panels);
-
-  panels = panels.map(fixHorizontalRoundDisk);
-  debugPositions("after fixHorizontalRoundDisk", panels);
-
-  // === Re-center panels so the group is at origin with floor at Y=0 ===
-  panels = recenterPanels(panels);
-  debugPositions("after recenterPanels", panels);
-
-  // === Bounding-box validation: if wildly out of range, rescale to fit ===
-  panels = validateBoundingBox(panels, category);
-  debugPositions("after validateBoundingBox", panels);
-
-  // === Remove duplicate panels (same label, same size, centers within 5cm) ===
-  panels = removeDuplicatePanels(panels);
-  debugPositions("after removeDuplicatePanels", panels);
-
-  const positionSources = rawScaled.map(getPositionSource);
-  const fallbackMask = positionSources.map((source) => source === "fallback");
-  const fallbackCount = fallbackMask.filter(Boolean).length;
-  const collapsedAfterNormalize = shouldInferCollapsedLayout(panels);
-  if ((import.meta as ImportMeta & { env?: { DEV?: boolean } }).env?.DEV) {
-    console.log("[panelsFromFurnitureAnalysis] position sources:", positionSources);
-    console.log("[panelsFromFurnitureAnalysis] fallbackCount:", fallbackCount, "collapsed:", collapsedAfterNormalize);
-    console.log("[panelsFromFurnitureAnalysis] raw AI positions:", rawScaled.map((r) => ({
-      label: r.label,
-      position: r.position,
-      size: r.size,
+  if (isDev) {
+    console.log("[panelsFromFurnitureAnalysis] raw AI panels:", panels.map((p) => ({
+      label: p.label,
+      position: p.position.map((v: number) => +v.toFixed(3)),
+      size: p.size.map((v: number) => +v.toFixed(3)),
     })));
   }
-  if (fallbackCount > 0 || collapsedAfterNormalize) {
-    const inferred = inferPositionsFromCategory(
-      panels,
-      category,
-      furnitureDims,
-      collapsedAfterNormalize ? undefined : fallbackMask,
-    );
-    panels = inferred;
-    debugPositions("after inferPositionsFromCategory", panels);
-  }
 
-  // Second pass: use label-based inference for panels still stuck near origin
-  if (shouldInferCollapsedLayout(panels)) {
-    const labelGroupCounts = new Map<string, number>();
-    panels.forEach((p) => {
-      const key = p.label.toLowerCase().replace(/[_\s]+/g, " ").trim();
-      const group = key.replace(/\b(left|right|front|back|rear)\b/g, "").trim();
-      labelGroupCounts.set(group, (labelGroupCounts.get(group) ?? 0) + 1);
-    });
-    const labelGroupIndex = new Map<string, number>();
-    panels = panels.map((p) => {
-      const key = p.label.toLowerCase().replace(/[_\s]+/g, " ").trim();
-      const group = key.replace(/\b(left|right|front|back|rear)\b/g, "").trim();
-      const idx = labelGroupIndex.get(group) ?? 0;
-      labelGroupIndex.set(group, idx + 1);
-      const count = labelGroupCounts.get(group) ?? 1;
-      const pos = inferPositionFromLabel(p.label, p.size, furnitureDims, idx, count);
-      return { ...p, position: pos };
-    });
-    debugPositions("after inferPositionFromLabel fallback", panels);
-  }
+  // Step 1: Normalize dimensions (detect mm/cm/m, convert to meters, clamp)
+  panels = normalizePanelDimensions(panels);
+  debugPositions("after normalizePanelDimensions", panels);
 
+  // Step 2: Normalize shapes/axes (existing helpers — generic, not furniture-specific)
+  panels = panels.map(normalizeVerticalBoxHeightAxis);
+  panels = panels.map(normalizeVerticalAxisymmetricPanel);
+  panels = panels.map(clampRealisticThickness);
+  panels = panels.map(sanitizeImportRotation);
+  panels = panels.map(stabilizeStructuralRotation);
+  panels = panels.map(fixHorizontalRoundDisk);
+  debugPositions("after shape normalization", panels);
+
+  // Step 3: Rebuild positions from labels + dimensions (ignores unreliable AI positions)
+  panels = inferPositionsFromDimensions(panels);
+  debugPositions("after inferPositionsFromDimensions", panels);
+
+  // Step 4: Category-specific geometry repairs (existing pipeline)
+  const category = detectFurnitureCategory(analysis.name ?? "", panels);
+  const furnitureDims = estimatedDimsToMeters(analysis.estimatedDims, panels);
   const refined = refineSeatingImportPanels(panels, analysis.name ?? "");
-  debugPositions("after refineSeatingImportPanels", refined);
   const backPlanFixed = refined.map(normalizeUpholsteredBackPlanAxes);
-  debugPositions("after normalizeUpholsteredBackPlanAxes", backPlanFixed);
   const tightenedUpholstery = backPlanFixed.map(normalizeImportedUpholsteryThickness);
-  debugPositions("after normalizeImportedUpholsteryThickness", tightenedUpholstery);
   const strategy = getLayoutStrategy(category);
   const repaired = strategy.repairGeometry
     ? strategy.repairGeometry(tightenedUpholstery, furnitureDims, analysis.name ?? "", nextId)
     : tightenedUpholstery;
-  debugPositions("after categoryRepairGeometry", repaired);
   const completed = strategy.completeStructure
     ? strategy.completeStructure(repaired, furnitureDims, analysis.name ?? "", nextId)
     : repaired;
-  debugPositions("after categoryCompleteStructure", completed);
   const validated = validateAndRepairGeometry(completed, analysis.name ?? "", category);
-  debugPositions("after validateAndRepairGeometry", validated);
   const postValidated = strategy.postValidate
     ? strategy.postValidate(validated, furnitureDims, analysis.name ?? "")
     : validated;
-  debugPositions("after categoryPostValidate", postValidated);
+  debugPositions("final output", postValidated);
   return postValidated;
 }
