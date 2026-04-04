@@ -17,6 +17,7 @@ import {
   ChevronUp,
   FileText,
   Maximize2,
+  Box,
 } from "lucide-react";
 
 interface BriefDisplayData {
@@ -56,6 +57,8 @@ interface BriefCardProps {
   onEditImage?: () => void;
   onManualEdit?: () => void;
   onRegenerate?: () => void;
+  onCreate3DModel?: () => void;
+  creating3DModel?: boolean;
   onBriefFileDrop: (e: React.DragEvent) => void;
   onBriefFileSelect: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onRemoveBriefImage: (index: number) => void;
@@ -76,6 +79,8 @@ export function BriefCard({
   onEditImage,
   onManualEdit,
   onRegenerate,
+  onCreate3DModel,
+  creating3DModel,
   onBriefFileDrop,
   onBriefFileSelect,
   onRemoveBriefImage,
@@ -285,6 +290,28 @@ export function BriefCard({
                 </Button>
               )}
             </div>
+          )}
+
+          {/* Create 3D Model button */}
+          {phase === "done" && onCreate3DModel && (
+            <Button
+              onClick={onCreate3DModel}
+              disabled={creating3DModel}
+              size="lg"
+              className="w-full rounded-xl bg-[#C05621] text-white hover:bg-[#A84A1C] gap-2 text-base font-semibold shadow-md mt-2 disabled:opacity-70"
+            >
+              {creating3DModel ? (
+                <>
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  Analyzing design...
+                </>
+              ) : (
+                <>
+                  <Box className="w-5 h-5" />
+                  Create 3D Model
+                </>
+              )}
+            </Button>
           )}
         </div>
       )}

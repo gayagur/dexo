@@ -6,7 +6,9 @@ import { useProjects } from '@/hooks/useProjects';
 import { useToast } from '@/hooks/use-toast';
 import { useImageUpload } from '@/hooks/useImageUpload';
 import type { ChatSessionState } from '@/hooks/useChatSession';
-import { streamChat, generateImage, buildImagePrompt } from '@/lib/ai';
+import { streamChat, generateImage, buildImagePrompt, aiDecomposeFromImage } from '@/lib/ai';
+import { panelsFromFurnitureAnalysis, sanitizeEstimatedDims } from '@/lib/furnitureImageAnalysis';
+import { createGroupFromPanels } from '@/lib/groupUtils';
 import { supabase } from '@/lib/supabase';
 import { MATERIALS, HOME_ROOMS, COMMERCIAL_SPACES, FURNITURE_BY_SPACE, type SpaceOption, type FurnitureOption } from '@/lib/furnitureData';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -255,6 +257,7 @@ export default function AIChatFlow() {
   const [briefData, setBriefData] = useState<InternalBriefData | null>(null);
   const [conceptImageUrl, setConceptImageUrl] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [creating3DModel, setCreating3DModel] = useState(false);
   const [submissionMethod, setSubmissionMethod] = useState<'auto' | 'manual' | null>(null);
   const [additionalDetails, setAdditionalDetails] = useState<AdditionalDetails>({
     inspirations: '', materialsToAvoid: '', accessibility: '', existingItems: '', otherNotes: '',
@@ -744,6 +747,66 @@ Now let's complete your project brief so designers can give you accurate quotes.
   const handleDoneEditing = useCallback(() => {
     setPhase('done');
   }, []);
+
+  // ─── Create 3D Model from concept image ─────────────────
+  const handleCreate3DModel = useCallback(async () => {
+    if (!conceptImageUrl || !user || !briefData) return;
+    setCreating3DModel(true);
+
+    try {
+      // Step 1: AI decomposition
+      const { data: analysis, error: decomposeErr } = await aiDecomposeFromImage(conceptImageUrl);
+      if (decomposeErr || !analysis) {
+        toast({ title: '3D analysis failed', description: decomposeErr || 'Could not analyze the image', variant: 'destructive' });
+        setCreating3DModel(false);
+        return;
+      }
+
+      // Step 2: Convert analysis to panels and groups
+      let nextId = 0;
+      const panels = panelsFromFurnitureAnalysis(analysis, () => `p${++nextId}`);
+      const group = createGroupFromPanels(analysis.name ?? briefData.title ?? 'Imported', panels);
+      const dims = sanitizeEstimatedDims(analysis.name ?? '', analysis.estimatedDims) ?? { w: 800, h: 800, d: 400 };
+
+      const panelData = {
+        groups: [group],
+        ungroupedPanels: [] as unknown[],
+        camera_position: [2.5, 2, 3],
+        materials_used: [] as string[],
+        design_mode: 'ai_generated',
+      } as unknown as Record<string, unknown>;
+
+      // Step 3: Save to furniture_designs
+      const { data: design, error: saveErr } = await supabase
+        .from('furniture_designs')
+        .insert({
+          customer_id: user.id,
+          mode: 'furniture' as const,
+          space_type: 'home' as const,
+          room_id: 'living_room',
+          furniture_id: 'custom',
+          panels: panelData,
+          dimensions: dims as unknown as Record<string, unknown>,
+          style: briefData.style || 'Modern',
+        })
+        .select('id')
+        .single();
+
+      if (saveErr || !design) {
+        toast({ title: 'Error saving 3D model', description: saveErr?.message ?? 'Unknown error', variant: 'destructive' });
+        setCreating3DModel(false);
+        return;
+      }
+
+      // Step 4: Navigate to the 3D editor with this design
+      setCreating3DModel(false);
+      toast({ title: '3D Model created!', description: 'Opening the editor...' });
+      navigate(`/new-project?design_id=${design.id}`);
+    } catch (err) {
+      toast({ title: 'Error', description: (err as Error).message, variant: 'destructive' });
+      setCreating3DModel(false);
+    }
+  }, [conceptImageUrl, user, briefData, toast, navigate]);
 
   // ─── Filerobot Manual Edit ──────────────────────────────────
   const handleManualEditSave = useCallback(async (imageBase64: string) => {
@@ -1402,6 +1465,8 @@ Now let's complete your project brief so designers can give you accurate quotes.
               onEditImage={handleStartEditImage}
               onManualEdit={() => setFilerobotOpen(true)}
               onRegenerate={handleRegenerateImage}
+              onCreate3DModel={conceptImageUrl ? handleCreate3DModel : undefined}
+              creating3DModel={creating3DModel}
               onBriefFileDrop={handleBriefFileDrop}
               onBriefFileSelect={handleBriefFileSelect}
               onRemoveBriefImage={(i) => setUploadedImages(prev => prev.filter((_, idx) => idx !== i))}
