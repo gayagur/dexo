@@ -765,27 +765,50 @@ Now let's complete your project brief so designers can give you accurate quotes.
       // Step 2: Convert analysis to panels and groups
       let nextId = 0;
       const panels = panelsFromFurnitureAnalysis(analysis, () => `p${++nextId}`);
-      const group = createGroupFromPanels(analysis.name ?? briefData.title ?? 'Imported', panels);
+
+      if (!panels || panels.length === 0) {
+        toast({ title: '3D analysis failed', description: 'No furniture components detected', variant: 'destructive' });
+        setCreating3DModel(false);
+        return;
+      }
+
+      // Ensure every panel has required fields
+      const safePanels = panels.map(p => ({
+        ...p,
+        id: p.id || crypto.randomUUID(),
+        materialId: p.materialId || 'oak',
+        label: p.label || 'Panel',
+        type: p.type || 'horizontal' as const,
+        shape: p.shape || 'box' as const,
+        position: (Array.isArray(p.position) && p.position.length === 3) ? p.position : [0, 0.3, 0] as [number, number, number],
+        size: (Array.isArray(p.size) && p.size.length === 3) ? p.size : [0.5, 0.04, 0.5] as [number, number, number],
+      }));
+
+      console.log('[Create3DModel] panels:', safePanels.length, safePanels);
+
+      const group = createGroupFromPanels(analysis.name ?? briefData.title ?? 'Imported', safePanels);
       const dims = sanitizeEstimatedDims(analysis.name ?? '', analysis.estimatedDims) ?? { w: 800, h: 800, d: 400 };
 
       const panelData = {
         groups: [group],
-        ungroupedPanels: [] as unknown[],
+        ungroupedPanels: [],
         camera_position: [2.5, 2, 3],
-        materials_used: [] as string[],
+        materials_used: safePanels.map(p => p.materialId).filter((v, i, a) => a.indexOf(v) === i),
         design_mode: 'ai_generated',
-      } as unknown as Record<string, unknown>;
+      };
+
+      console.log('[Create3DModel] saving:', { groups: panelData.groups.length, dims });
 
       // Step 3: Save to furniture_designs
       const { data: design, error: saveErr } = await supabase
         .from('furniture_designs')
         .insert({
           customer_id: user.id,
-          mode: 'furniture' as const,
-          space_type: 'home' as const,
+          mode: 'furniture',
+          space_type: 'home',
           room_id: 'living_room',
           furniture_id: 'custom',
-          panels: panelData,
+          panels: panelData as unknown as Record<string, unknown>,
           dimensions: dims as unknown as Record<string, unknown>,
           style: briefData.style || 'Modern',
         })
