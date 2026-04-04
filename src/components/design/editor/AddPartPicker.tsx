@@ -1030,6 +1030,28 @@ const PART_CATEGORIES: PartCategory[] = [
       { id: "hanging_k", label: "Hanging Plant", icon: "🌿", description: "Trailing vine plant (3D)", shape: "sphere", type: "vertical", size: [0.25, 0.40, 0.25], materialId: "fabric_green", groupName: "Hanging Plant", glbPath: "/models/kenney/hangingPlant.glb" },
       { id: "books_k", label: "Books", icon: "📚", description: "Book stack (3D)", shape: "box", type: "horizontal", size: [0.18, 0.22, 0.13], materialId: "oak", groupName: "Books", glbPath: "/models/kenney/books.glb" },
       { id: "bear_k", label: "Teddy Bear", icon: "🧸", description: "Plush bear (3D)", shape: "sphere", type: "vertical", size: [0.20, 0.25, 0.15], materialId: "leather_tan", groupName: "Teddy Bear", glbPath: "/models/kenney/bear.glb" },
+      // Vases
+      { id: "vase_ceramic_k", label: "Ceramic Vase", icon: "🏺", description: "Classic vase (3D)", shape: "sphere", type: "vertical", size: [0.15, 0.25, 0.15], materialId: "ceramic_white", groupName: "Ceramic Vase", glbPath: "/models/kenney/vaseCeramic.glb" },
+      { id: "vase_tall_k", label: "Tall Vase", icon: "🏺", description: "Tall floor vase (3D)", shape: "sphere", type: "vertical", size: [0.18, 0.45, 0.18], materialId: "ceramic_white", groupName: "Tall Vase", glbPath: "/models/kenney/vaseTall.glb" },
+      // Candles
+      { id: "candles_k", label: "Candles", icon: "🕯️", description: "Candle set (3D)", shape: "sphere", type: "vertical", size: [0.12, 0.15, 0.12], materialId: "fabric_cream", groupName: "Candles", glbPath: "/models/kenney/candles.glb" },
+      { id: "candlestick_k", label: "Candlestick", icon: "🕯️", description: "Tall candlestick (3D)", shape: "sphere", type: "vertical", size: [0.08, 0.30, 0.08], materialId: "brass", groupName: "Candlestick", glbPath: "/models/kenney/candlestick.glb" },
+      // Wall art & frames
+      { id: "picture_frame_k", label: "Picture Frame", icon: "🖼️", description: "Photo frame (3D)", shape: "box", type: "vertical", size: [0.25, 0.30, 0.03], materialId: "oak", groupName: "Picture Frame", glbPath: "/models/kenney/pictureFrame.glb" },
+      // Clocks
+      { id: "wall_clock_k", label: "Wall Clock", icon: "🕐", description: "Analog clock (3D)", shape: "sphere", type: "vertical", size: [0.30, 0.30, 0.05], materialId: "oak", groupName: "Wall Clock", glbPath: "/models/kenney/wallClock.glb" },
+      { id: "alarm_clock_k", label: "Alarm Clock", icon: "⏰", description: "Bedside clock (3D)", shape: "sphere", type: "vertical", size: [0.10, 0.12, 0.06], materialId: "black_metal", groupName: "Alarm Clock", glbPath: "/models/kenney/alarmClock.glb" },
+      // Mirror
+      { id: "mirror_round_k", label: "Round Mirror", icon: "🪞", description: "Wall mirror (3D)", shape: "sphere", type: "vertical", size: [0.50, 0.50, 0.03], materialId: "mirror", groupName: "Round Mirror", glbPath: "/models/kenney/mirrorRound.glb" },
+      // Bowls & kitchen
+      { id: "bowl_k", label: "Decorative Bowl", icon: "🥣", description: "Accent bowl (3D)", shape: "sphere", type: "horizontal", size: [0.20, 0.08, 0.20], materialId: "ceramic_white", groupName: "Decorative Bowl", glbPath: "/models/kenney/bowlDecorative.glb" },
+      { id: "fruit_bowl_k", label: "Fruit Bowl", icon: "🍎", description: "Bowl of fruit (3D)", shape: "sphere", type: "horizontal", size: [0.25, 0.15, 0.25], materialId: "ceramic_white", groupName: "Fruit Bowl", glbPath: "/models/kenney/fruitBowl.glb" },
+      { id: "wine_bottle_k", label: "Wine Bottle", icon: "🍷", description: "Wine bottle (3D)", shape: "sphere", type: "vertical", size: [0.08, 0.30, 0.08], materialId: "glass", groupName: "Wine Bottle", glbPath: "/models/kenney/wineBottle.glb" },
+      { id: "wine_glass_k", label: "Wine Glass", icon: "🥂", description: "Stemmed glass (3D)", shape: "sphere", type: "vertical", size: [0.07, 0.20, 0.07], materialId: "glass", groupName: "Wine Glass", glbPath: "/models/kenney/wineGlass.glb" },
+      { id: "coffee_mug_k", label: "Coffee Mug", icon: "☕", description: "Ceramic mug (3D)", shape: "sphere", type: "vertical", size: [0.09, 0.10, 0.12], materialId: "ceramic_white", groupName: "Coffee Mug", glbPath: "/models/kenney/coffeeMug.glb" },
+      // Misc decor
+      { id: "globe_k", label: "Globe", icon: "🌍", description: "Desktop globe (3D)", shape: "sphere", type: "vertical", size: [0.20, 0.28, 0.20], materialId: "oak", groupName: "Globe", glbPath: "/models/kenney/globe.glb" },
+      { id: "basket_k", label: "Basket", icon: "🧺", description: "Woven basket (3D)", shape: "sphere", type: "vertical", size: [0.30, 0.20, 0.30], materialId: "cane_natural", groupName: "Basket", glbPath: "/models/kenney/basket.glb" },
     ],
   },
 ];
