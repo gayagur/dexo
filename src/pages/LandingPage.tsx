@@ -7,6 +7,7 @@ import { PremiumTestimonials } from '@/components/PremiumTestimonials';
 import { CategoriesSection } from '@/components/landing/CategoriesSection';
 import { ContainerScroll } from '@/components/ui/container-scroll';
 import { useLenis } from '@/hooks/useLenis';
+import { WovenBackground } from '@/components/landing/WovenBackground';
 import AOS from 'aos';
 import 'aos/dist/aos.css';
 import gsap from 'gsap';
@@ -214,6 +215,9 @@ const LandingPage = () => {
         <div className="absolute bottom-[15%] left-[5%] w-[400px] h-[400px] rounded-full pointer-events-none opacity-20" style={{
           background: 'radial-gradient(circle, rgba(201,169,110,0.06), transparent 65%)',
         }} />
+
+        {/* Woven light particle background */}
+        <WovenBackground />
 
         <ContainerScroll
           titleComponent={
