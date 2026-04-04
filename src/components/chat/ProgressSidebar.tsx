@@ -1,8 +1,9 @@
 import { useState, useRef, useEffect } from "react";
-import { Check, Pencil, Sparkles, ArrowRight, ChevronDown, ChevronUp, FileText, X, ListChecks } from "lucide-react";
+import { Check, Pencil, Sparkles, ArrowRight, ChevronDown, ChevronUp, FileText, X, ListChecks, Settings2, Loader2, ToggleLeft, ToggleRight, Palette } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import type { BriefData, ProgressItem, ChatPhase } from "./types";
 import type { AdditionalDetails } from "./BriefCard";
+import type { BriefField } from "@/lib/briefFieldGenerator";
 
 interface AdditionalDetailItem {
   key: keyof AdditionalDetails;
@@ -28,6 +29,14 @@ interface ProgressSidebarProps {
   onAdditionalDetailsChange?: (details: AdditionalDetails) => void;
   /** Config for which additional detail fields to show */
   additionalDetailItems?: AdditionalDetailItem[];
+  /** Dynamic brief fields based on selected item type */
+  dynamicFields?: BriefField[];
+  /** Whether dynamic fields are loading */
+  dynamicFieldsLoading?: boolean;
+  /** Current values for dynamic fields */
+  dynamicFieldValues?: Record<string, string>;
+  /** Callback when a dynamic field value changes */
+  onDynamicFieldChange?: (fieldId: string, value: string) => void;
 }
 
 /** All fields use inline editing */
@@ -44,6 +53,10 @@ export function ProgressSidebar({
   additionalDetails,
   onAdditionalDetailsChange,
   additionalDetailItems,
+  dynamicFields,
+  dynamicFieldsLoading,
+  dynamicFieldValues,
+  onDynamicFieldChange,
 }: ProgressSidebarProps) {
   const [inlineValue, setInlineValue] = useState("");
   const [inlineField, setInlineField] = useState<string | null>(null);
@@ -252,6 +265,18 @@ export function ProgressSidebar({
                 );
               })}
             </div>
+            {/* Dynamic Brief Fields on mobile */}
+            {(dynamicFields || dynamicFieldsLoading) && onDynamicFieldChange && (
+              <div className="px-4 pb-2">
+                <DynamicFieldsSection
+                  fields={dynamicFields || []}
+                  loading={dynamicFieldsLoading || false}
+                  values={dynamicFieldValues || {}}
+                  onChange={onDynamicFieldChange}
+                  phase={phase}
+                />
+              </div>
+            )}
             {/* Generate brief button on mobile */}
             {onGenerateBrief && phase === "chatting" && filledCount >= 1 && (
               <div className="px-5 py-2 border-t border-[#C05621]/[0.08]">
@@ -388,6 +413,17 @@ export function ProgressSidebar({
           );
         })}
       </div>
+
+      {/* Dynamic Brief Fields — item-type specific */}
+      {(dynamicFields || dynamicFieldsLoading) && onDynamicFieldChange && (
+        <DynamicFieldsSection
+          fields={dynamicFields || []}
+          loading={dynamicFieldsLoading || false}
+          values={dynamicFieldValues || {}}
+          onChange={onDynamicFieldChange}
+          phase={phase}
+        />
+      )}
 
       {/* Additional Details — collapsible */}
       {additionalDetails && onAdditionalDetailsChange && additionalDetailItems && (
@@ -608,6 +644,327 @@ function AdditionalDetailsSection({
           </motion.div>
         )}
       </AnimatePresence>
+    </div>
+  );
+}
+
+// ─── Dynamic Brief Fields section ────────────────────────────
+function DynamicFieldsSection({
+  fields,
+  loading,
+  values,
+  onChange,
+  phase,
+}: {
+  fields: BriefField[];
+  loading: boolean;
+  values: Record<string, string>;
+  onChange: (fieldId: string, value: string) => void;
+  phase: ChatPhase;
+}) {
+  const [open, setOpen] = useState(true);
+  const canEdit = phase === "chatting" || phase === "brief";
+
+  const filledCount = fields.filter((f) => !!values[f.id]).length;
+
+  return (
+    <div className="mt-4 border-t border-[#C05621]/[0.08] pt-4">
+      <button
+        onClick={() => setOpen(!open)}
+        className="w-full flex items-center justify-between group"
+      >
+        <div className="flex items-center gap-2">
+          <Settings2 className="w-4 h-4 text-[#C05621]/60" />
+          <span className="text-xs font-semibold text-[#4A5568] uppercase tracking-wider">
+            Specifications
+          </span>
+          {filledCount > 0 && (
+            <span className="text-[10px] text-[#C05621] bg-[#C05621]/10 px-1.5 py-0.5 rounded-full">
+              {filledCount}/{fields.length}
+            </span>
+          )}
+        </div>
+        {open ? (
+          <ChevronUp className="w-3.5 h-3.5 text-[#9CA3AF]" />
+        ) : (
+          <ChevronDown className="w-3.5 h-3.5 text-[#9CA3AF]" />
+        )}
+      </button>
+
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="overflow-hidden"
+          >
+            <div className="space-y-2 mt-3">
+              {loading ? (
+                // Shimmer skeleton cards
+                Array.from({ length: 5 }).map((_, i) => (
+                  <div
+                    key={i}
+                    className="flex items-center gap-3 px-3 py-2 rounded-xl bg-gray-50 border border-transparent animate-pulse"
+                  >
+                    <div className="w-7 h-7 rounded-lg bg-gray-200" />
+                    <div className="flex-1 space-y-1.5">
+                      <div className="h-2.5 bg-gray-200 rounded w-20" />
+                      <div className="h-2 bg-gray-100 rounded w-14" />
+                    </div>
+                  </div>
+                ))
+              ) : (
+                fields.map((field) => (
+                  <DynamicFieldCard
+                    key={field.id}
+                    field={field}
+                    value={values[field.id] || ""}
+                    onChange={(val) => onChange(field.id, val)}
+                    canEdit={canEdit}
+                  />
+                ))
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+// ─── Individual dynamic field card ───────────────────────────
+function DynamicFieldCard({
+  field,
+  value,
+  onChange,
+  canEdit,
+}: {
+  field: BriefField;
+  value: string;
+  onChange: (val: string) => void;
+  canEdit: boolean;
+}) {
+  const filled = !!value;
+
+  // ── Toggle field ──
+  if (field.type === "toggle") {
+    const isOn = value === "true" || value === "yes";
+    return (
+      <div
+        onClick={() => canEdit && onChange(isOn ? "" : "true")}
+        className={`flex items-center gap-3 px-3 py-2 rounded-xl transition-all duration-200 ${
+          canEdit ? "cursor-pointer hover:border-[#C05621]/20" : ""
+        } ${
+          filled
+            ? "bg-[#C05621]/[0.04] border border-[#C05621]/10"
+            : field.required
+            ? "bg-white/60 border-l-2 border-l-orange-300 border-t border-r border-b border-transparent"
+            : "bg-white/60 border border-transparent"
+        }`}
+      >
+        <div
+          className={`w-7 h-7 rounded-lg flex items-center justify-center ${
+            isOn ? "bg-[#C05621]/10 text-[#C05621]" : "bg-gray-100 text-gray-400"
+          }`}
+        >
+          {isOn ? (
+            <ToggleRight className="w-3.5 h-3.5" />
+          ) : (
+            <ToggleLeft className="w-3.5 h-3.5" />
+          )}
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="text-[11px] font-medium text-[#4A5568]">
+            {field.label}
+            {field.required && !filled && (
+              <span className="text-orange-400 ml-1">*</span>
+            )}
+          </div>
+        </div>
+        <div
+          className={`w-8 h-4 rounded-full transition-colors relative ${
+            isOn ? "bg-[#C05621]" : "bg-gray-200"
+          }`}
+        >
+          <div
+            className={`absolute top-0.5 w-3 h-3 rounded-full bg-white shadow-sm transition-transform ${
+              isOn ? "translate-x-4" : "translate-x-0.5"
+            }`}
+          />
+        </div>
+      </div>
+    );
+  }
+
+  // ── Select field ──
+  if (field.type === "select" && field.options) {
+    return (
+      <div
+        className={`px-3 py-2 rounded-xl transition-all duration-200 ${
+          filled
+            ? "bg-[#C05621]/[0.04] border border-[#C05621]/10"
+            : field.required
+            ? "bg-white/60 border-l-2 border-l-orange-300 border-t border-r border-b border-transparent"
+            : "bg-white/60 border border-transparent"
+        }`}
+      >
+        <div className="flex items-center gap-3">
+          <div
+            className={`w-7 h-7 rounded-lg flex items-center justify-center ${
+              filled ? "bg-[#C05621]/10 text-[#C05621]" : "bg-gray-100 text-gray-400"
+            }`}
+          >
+            {filled ? (
+              <Check className="w-3.5 h-3.5" />
+            ) : (
+              <ChevronDown className="w-3.5 h-3.5" />
+            )}
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="text-[11px] font-medium text-[#4A5568]">
+              {field.label}
+              {field.required && !filled && (
+                <span className="text-orange-400 ml-1">*</span>
+              )}
+            </div>
+          </div>
+        </div>
+        {canEdit && (
+          <select
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            className="mt-1.5 w-full text-[11px] px-2 py-1.5 rounded-lg border border-[#C05621]/15
+                       bg-white text-[#1B2432] focus:outline-none focus:ring-1
+                       focus:ring-[#C05621]/40 appearance-none cursor-pointer"
+          >
+            <option value="">Select...</option>
+            {field.options.map((opt) => (
+              <option key={opt} value={opt}>
+                {opt}
+              </option>
+            ))}
+          </select>
+        )}
+        {!canEdit && filled && (
+          <div className="text-[11px] text-[#C05621] mt-1">{value}</div>
+        )}
+      </div>
+    );
+  }
+
+  // ── Slider field ──
+  if (field.type === "slider" && field.sliderConfig) {
+    const { min, max, step, unit } = field.sliderConfig;
+    const numVal = value ? Number(value) : min;
+    return (
+      <div
+        className={`px-3 py-2 rounded-xl transition-all duration-200 ${
+          filled
+            ? "bg-[#C05621]/[0.04] border border-[#C05621]/10"
+            : field.required
+            ? "bg-white/60 border-l-2 border-l-orange-300 border-t border-r border-b border-transparent"
+            : "bg-white/60 border border-transparent"
+        }`}
+      >
+        <div className="flex items-center justify-between">
+          <div className="text-[11px] font-medium text-[#4A5568]">
+            {field.label}
+            {field.required && !filled && (
+              <span className="text-orange-400 ml-1">*</span>
+            )}
+          </div>
+          <span className="text-[11px] font-medium text-[#C05621]">
+            {filled ? `${numVal}${unit ? ` ${unit}` : ""}` : "—"}
+          </span>
+        </div>
+        {canEdit && (
+          <input
+            type="range"
+            min={min}
+            max={max}
+            step={step}
+            value={numVal}
+            onChange={(e) => onChange(e.target.value)}
+            className="mt-1.5 w-full h-1.5 rounded-full appearance-none bg-gray-200 accent-[#C05621] cursor-pointer
+                       [&::-webkit-slider-thumb]:w-3.5 [&::-webkit-slider-thumb]:h-3.5 [&::-webkit-slider-thumb]:rounded-full
+                       [&::-webkit-slider-thumb]:bg-[#C05621] [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:shadow-sm"
+          />
+        )}
+      </div>
+    );
+  }
+
+  // ── Color field ──
+  if (field.type === "color") {
+    return (
+      <div
+        className={`flex items-center gap-3 px-3 py-2 rounded-xl transition-all duration-200 ${
+          filled
+            ? "bg-[#C05621]/[0.04] border border-[#C05621]/10"
+            : "bg-white/60 border border-transparent"
+        }`}
+      >
+        <div
+          className={`w-7 h-7 rounded-lg flex items-center justify-center ${
+            filled ? "bg-[#C05621]/10 text-[#C05621]" : "bg-gray-100 text-gray-400"
+          }`}
+        >
+          <Palette className="w-3.5 h-3.5" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="text-[11px] font-medium text-[#4A5568]">{field.label}</div>
+        </div>
+        {canEdit && (
+          <input
+            type="color"
+            value={value || field.placeholder || "#8B4513"}
+            onChange={(e) => onChange(e.target.value)}
+            className="w-7 h-7 rounded-lg border border-[#C05621]/10 cursor-pointer p-0"
+          />
+        )}
+        {!canEdit && filled && (
+          <div
+            className="w-7 h-7 rounded-lg border border-[#C05621]/10"
+            style={{ backgroundColor: value }}
+          />
+        )}
+      </div>
+    );
+  }
+
+  // ── Text field (fallback) ──
+  return (
+    <div
+      className={`px-3 py-2 rounded-xl transition-all duration-200 ${
+        filled
+          ? "bg-[#C05621]/[0.04] border border-[#C05621]/10"
+          : field.required
+          ? "bg-white/60 border-l-2 border-l-orange-300 border-t border-r border-b border-transparent"
+          : "bg-white/60 border border-transparent"
+      }`}
+    >
+      <div className="text-[11px] font-medium text-[#4A5568]">
+        {field.label}
+        {field.required && !filled && (
+          <span className="text-orange-400 ml-1">*</span>
+        )}
+      </div>
+      {canEdit && (
+        <input
+          type="text"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder={field.placeholder || `Enter ${field.label.toLowerCase()}...`}
+          className="mt-1.5 w-full text-[11px] px-2 py-1.5 rounded-lg border border-[#C05621]/15
+                     bg-white text-[#1B2432] focus:outline-none focus:ring-1
+                     focus:ring-[#C05621]/40 placeholder:text-[#4A5568]/40"
+        />
+      )}
+      {!canEdit && filled && (
+        <div className="text-[11px] text-[#C05621] mt-1">{value}</div>
+      )}
     </div>
   );
 }

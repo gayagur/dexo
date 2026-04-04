@@ -26,6 +26,7 @@ import type { ImageVersion } from '@/lib/database.types';
 import type { ProgressItem } from '@/components/chat/types';
 import { ProgressSidebar } from '@/components/chat/ProgressSidebar';
 import { BriefCard, type AdditionalDetails } from '@/components/chat/BriefCard';
+import { generateBriefFields, type BriefField } from '@/lib/briefFieldGenerator';
 import { ImageEditor } from '@/components/chat/ImageEditor';
 import { FilerobotEditorModal } from '@/components/chat/FilerobotEditorModal';
 import { SingleChipSelector, MultiChipSelector, CategoryChipSelector } from '@/components/chat/ChipSelector';
@@ -263,6 +264,13 @@ export default function AIChatFlow() {
     inspirations: '', materialsToAvoid: '', accessibility: '', existingItems: '', otherNotes: '',
   });
 
+  // Dynamic brief fields (item-type specific)
+  const [dynamicFields, setDynamicFields] = useState<BriefField[]>([]);
+  const [dynamicFieldsLoading, setDynamicFieldsLoading] = useState(false);
+  const [dynamicFieldValues, setDynamicFieldValues] = useState<Record<string, string>>({});
+  const dynamicFieldsCache = useRef<Map<string, BriefField[]>>(new Map());
+  const prevCategoryRef = useRef<string | null>(null);
+
   // Field editing state
   const [editingField, setEditingField] = useState<string | null>(null);
   const [selectedStyles, setSelectedStyles] = useState<string[]>([]);
@@ -357,6 +365,37 @@ export default function AIChatFlow() {
 
   // Progress from conversation, merged with manual overrides
   const progress = { ...extractProgress(messages), ...progressOverrides };
+
+  // ─── Dynamic brief fields: update when category changes ────
+  const currentCategory = briefData?.category || progress.category || '';
+  useEffect(() => {
+    if (!currentCategory || currentCategory === prevCategoryRef.current) return;
+    prevCategoryRef.current = currentCategory;
+
+    // Check cache first
+    const cached = dynamicFieldsCache.current.get(currentCategory);
+    if (cached) {
+      setDynamicFields(cached);
+      // Clear values when item type changes
+      setDynamicFieldValues({});
+      toast({ title: `Brief updated for ${currentCategory}`, duration: 2000 });
+      return;
+    }
+
+    setDynamicFieldsLoading(true);
+    generateBriefFields(currentCategory, progress.room_type).then((fields) => {
+      dynamicFieldsCache.current.set(currentCategory, fields);
+      setDynamicFields(fields);
+      setDynamicFieldValues({});
+      setDynamicFieldsLoading(false);
+      toast({ title: `Brief updated for ${currentCategory}`, duration: 2000 });
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentCategory]);
+
+  const handleDynamicFieldChange = useCallback((fieldId: string, value: string) => {
+    setDynamicFieldValues(prev => ({ ...prev, [fieldId]: value }));
+  }, []);
 
   // ─── Session restore (from dashboard ?restore=true) ────
   useEffect(() => {
@@ -1244,6 +1283,10 @@ Now let's complete your project brief so designers can give you accurate quotes.
         additionalDetails={additionalDetails}
         onAdditionalDetailsChange={setAdditionalDetails}
         additionalDetailItems={ADDITIONAL_DETAIL_ITEMS}
+        dynamicFields={dynamicFields}
+        dynamicFieldsLoading={dynamicFieldsLoading}
+        dynamicFieldValues={dynamicFieldValues}
+        onDynamicFieldChange={handleDynamicFieldChange}
       />
 
       {/* Main Chat Area */}
