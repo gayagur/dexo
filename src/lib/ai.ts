@@ -248,10 +248,14 @@ export function buildImagePrompt(
   description: string,
   category: string,
   styleTags: string[],
-  materials?: string
+  materials?: string,
+  extras?: { roomType?: string; colorPalette?: string; specialRequirements?: string }
 ): string {
   const styleStr = styleTags.length > 0 ? `, ${styleTags.join(", ")} style` : "";
   const matStr = materials ? `, made of ${materials}` : "";
+  const colorStr = extras?.colorPalette ? `, color palette: ${extras.colorPalette}` : "";
+  const reqStr = extras?.specialRequirements ? `. ${extras.specialRequirements}` : "";
+  const roomStr = extras?.roomType ? ` for a ${extras.roomType}` : "";
 
   // Detect if the user wants a lifestyle / in-context scene
   const lowerDesc = description.toLowerCase();
@@ -259,7 +263,7 @@ export function buildImagePrompt(
 
   if (isScene) {
     return [
-      `${description}${styleStr}${matStr}.`,
+      `${description}${styleStr}${matStr}${colorStr}${roomStr}${reqStr}.`,
       "Lifestyle photography, in context, realistic interior setting,",
       "natural lighting, editorial interior photograph, photorealistic, sharp focus, high detail.",
       "NOT cartoon, NOT illustration, NOT 3D render, NOT sketch.",
@@ -267,7 +271,7 @@ export function buildImagePrompt(
   }
 
   return [
-    `${description}${styleStr}${matStr}.`,
+    `${description}${styleStr}${matStr}${colorStr}${roomStr}${reqStr}.`,
     "Photographed on a pure white background, centered in frame,",
     "isolated product shot, studio lighting, sharp focus,",
     "professional product photography, photorealistic, high detail.",

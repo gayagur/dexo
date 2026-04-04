@@ -778,7 +778,9 @@ Now let's complete your project brief so designers can give you accurate quotes.
 
         const styleStr = styleTags.length > 0 ? `, ${styleTags.join(', ')} style` : '';
         const matStr = briefData.materials ? `, made of ${briefData.materials}` : '';
-        const roomEditPrompt = `Place a ${briefData.description}${styleStr}${matStr} in this room, in the marked area. Keep the rest of the room exactly as it is. Photorealistic, natural lighting.`;
+        const colorStr = briefData.color_palette ? `, colors: ${briefData.color_palette}` : '';
+        const reqStr = briefData.special_requirements ? `. ${briefData.special_requirements}` : '';
+        const roomEditPrompt = `Place a ${briefData.description}${styleStr}${matStr}${colorStr}${reqStr} in this room, in the marked area. Keep the rest of the room exactly as it is. Photorealistic, natural lighting.`;
 
         // Upload the cropped room image to get a URL for editImage
         const roomImageDataUrl = `data:image/png;base64,${imageBase64}`;
@@ -822,7 +824,11 @@ Now let's complete your project brief so designers can give you accurate quotes.
     }
 
     // Regular studio mode generation
-    const prompt = buildImagePrompt(briefData.description, briefData.category, styleTags, briefData.materials);
+    const prompt = buildImagePrompt(briefData.description, briefData.category, styleTags, briefData.materials, {
+        roomType: briefData.room_type,
+        colorPalette: briefData.color_palette,
+        specialRequirements: briefData.special_requirements,
+      });
 
     const result = await generateImage(prompt, null);
     if (result.url) {
@@ -854,7 +860,11 @@ Now let's complete your project brief so designers can give you accurate quotes.
     if (!briefData) return;
     setPhase('generating_image');
     const styleTags = briefData.style.split(',').map(s => s.trim()).filter(Boolean);
-    const prompt = buildImagePrompt(briefData.description, briefData.category, styleTags, briefData.materials);
+    const prompt = buildImagePrompt(briefData.description, briefData.category, styleTags, briefData.materials, {
+        roomType: briefData.room_type,
+        colorPalette: briefData.color_palette,
+        specialRequirements: briefData.special_requirements,
+      });
 
     const result = await generateImage(prompt, null);
     if (result.url) {
