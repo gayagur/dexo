@@ -56,7 +56,11 @@ Y position = distance from FLOOR (Y=0) to panel CENTER.
 
 Position rules:
 - Desk/table top: Y = total_height - thickness/2.  Example: 75cm desk → top at Y = 0.75 - 0.02 = 0.73
-- Legs: Y = leg_height / 2.  Example: 72cm legs → Y = 0.36
+- Legs MUST be at 4 SEPARATE CORNERS — never stack legs at the same position!
+  - Front-left leg:  X = -width/2 + 0.05,  Z = +depth/2 - 0.05,  Y = leg_height/2
+  - Front-right leg: X = +width/2 - 0.05,  Z = +depth/2 - 0.05,  Y = leg_height/2
+  - Back-left leg:   X = -width/2 + 0.05,  Z = -depth/2 + 0.05,  Y = leg_height/2
+  - Back-right leg:  X = +width/2 - 0.05,  Z = -depth/2 + 0.05,  Y = leg_height/2
 - Side panels: Y = panel_height / 2.  Example: 80cm side → Y = 0.40
 - Back panel: Y = panel_height / 2, Z = -depth/2 + thickness/2
 - Shelves: spread VERTICALLY between bottom and top — each shelf at a different Y
