@@ -69,6 +69,19 @@ When you feel you have gathered enough details (at minimum: description, categor
 
 If the project doesn't fit a predefined category, ask the user what category fits best, then use their answer. Never leave category blank.
 
+ITEM TAGGING — CRITICAL:
+Whenever the user mentions or you identify a specific furniture/decorative item type, include this hidden tag at the END of your message (after your visible response):
+[ITEM_TYPE: item_name]
+
+Examples:
+- User says "I want a sofa" → end your response with [ITEM_TYPE: sofa]
+- User says "I need a vaze for my living room" → [ITEM_TYPE: vase] (correct the spelling)
+- User says "looking for wall art" → [ITEM_TYPE: wall art]
+- User says "I want a mid-century armchair" → [ITEM_TYPE: armchair]
+- User says "need a coffee table" → [ITEM_TYPE: coffee table]
+
+Use the CANONICAL English name, not the user's misspelling. Only one ITEM_TYPE tag per message. Update it if the item changes during conversation. If no specific item is mentioned yet (just room/category), do NOT include the tag.
+
 Keep responses concise (2-4 sentences max per message). Be conversational, not formal. Never mention you're an AI.`;
 
 Deno.serve(async (req) => {

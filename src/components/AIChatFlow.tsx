@@ -25,6 +25,7 @@ import type { ChatMessage } from '@/lib/ai';
 import type { ImageVersion } from '@/lib/database.types';
 import type { ProgressItem } from '@/components/chat/types';
 import { ProgressSidebar } from '@/components/chat/ProgressSidebar';
+import { BriefSidePanel } from '@/components/chat/BriefSidePanel';
 import { BriefCard, type AdditionalDetails } from '@/components/chat/BriefCard';
 import { generateBriefFields, type BriefField } from '@/lib/briefFieldGenerator';
 import { ImageEditor } from '@/components/chat/ImageEditor';
@@ -366,20 +367,13 @@ export default function AIChatFlow() {
   // Progress from conversation, merged with manual overrides
   const progress = { ...extractProgress(messages), ...progressOverrides };
 
-  // ─── Dynamic brief fields: update when category changes ────
-  // Extract the SPECIFIC furniture item from user messages (not the broad room category)
+  // ─── Dynamic brief fields: extract item type from AI's [ITEM_TYPE: xxx] tag ────
   const specificItem = useMemo(() => {
-    const userTexts = messages.filter(m => m.role === 'user').map(m => m.text.toLowerCase());
-    // Skip the first message (usually just room selection like "Living Room Design & Styling")
-    const laterMessages = userTexts.slice(1);
-    if (laterMessages.length === 0) return '';
-
-    // Match specific furniture AND decorative items mentioned by the user
-    const itemKeywords = /\b(sofa|couch|chair|armchair|table|desk|bed|shelf|bookshelf|cabinet|dresser|wardrobe|nightstand|ottoman|bench|stool|lamp|mirror|rug|pillow|cushion|curtain|vase|plant|planter|sideboard|console|tv\s*stand|coffee\s*table|dining\s*table|side\s*table|bar\s*stool|office\s*chair|lounge|sectional|headboard|vanity|rack|basket|blanket|throw|chandelier|pendant|sconce|candle|candle\s*holder|picture\s*frame|photo\s*frame|clock|wall\s*clock|sculpture|figurine|tray|bowl|decorative\s*bowl|fruit\s*bowl|bookend|coaster|potpourri|diffuser|incense|terrarium|globe|hourglass|music\s*box|wind\s*chime|wall\s*hanging|tapestry|macrame|wreath|garland|fairy\s*lights|string\s*lights|lantern|candelabra|flower\s*pot|succulent|cactus|bonsai|dried\s*flowers|artificial\s*flowers|flower\s*arrangement|centerpiece|table\s*runner|placemat|napkin\s*ring|serving\s*tray|cake\s*stand|wine\s*rack|magazine\s*rack|umbrella\s*stand|doormat|welcome\s*mat|wall\s*shelf|floating\s*shelf|shadow\s*box|display\s*case|jewelry\s*box|trinket\s*box|storage\s*box|wicker\s*basket|rattan\s*basket|pouf|bean\s*bag|floor\s*cushion|meditation\s*cushion|bolster|lumbar\s*pillow|accent\s*pillow)\b/i;
-
-    for (const text of laterMessages.reverse()) {
-      const match = text.match(itemKeywords);
-      if (match) return match[1].trim();
+    // Look for [ITEM_TYPE: xxx] in AI messages (most recent first)
+    const aiMessages = messages.filter(m => m.role === 'ai');
+    for (let i = aiMessages.length - 1; i >= 0; i--) {
+      const match = aiMessages[i].text.match(/\[ITEM_TYPE:\s*(.+?)\]/i);
+      if (match) return match[1].trim().toLowerCase();
     }
     return '';
   }, [messages]);
@@ -1285,7 +1279,7 @@ Now let's complete your project brief so designers can give you accurate quotes.
         )}
       </AnimatePresence>
 
-      {/* Progress Sidebar */}
+      {/* Progress Sidebar — mobile only (pill + bottom sheet) */}
       <ProgressSidebar
         items={PROGRESS_ITEMS}
         briefData={briefData ? toProgressBriefData(briefData) : progressToSharedBrief(progress)}
@@ -1302,10 +1296,11 @@ Now let's complete your project brief so designers can give you accurate quotes.
         dynamicFieldsLoading={dynamicFieldsLoading}
         dynamicFieldValues={dynamicFieldValues}
         onDynamicFieldChange={handleDynamicFieldChange}
+        hideDesktop
       />
 
-      {/* Main Chat Area */}
-      <main className="flex-1 flex flex-col max-w-3xl mx-auto w-full min-h-0">
+      {/* Main Chat Area — left panel */}
+      <main className="flex-1 flex flex-col min-w-0 min-h-0">
         {/* Header — compact on mobile */}
         <div className="px-3 py-2 md:px-6 md:py-4 border-b border-[#C05621]/[0.06] bg-white/60 backdrop-blur-sm shrink-0">
           <div className="flex items-center gap-2 md:gap-3">
@@ -1463,7 +1458,7 @@ Now let's complete your project brief so designers can give you accurate quotes.
                     msg.text
                   ) : (
                     <div className="prose prose-sm prose-stone max-w-none [&>p]:mb-2 [&>p:last-child]:mb-0 [&>ul]:mb-2 [&>h1]:text-base [&>h2]:text-sm [&>h3]:text-sm [&>strong]:text-[#1B2432]">
-                      <MemoMarkdown text={msg.text} />
+                      <MemoMarkdown text={msg.text.replace(/\[ITEM_TYPE:\s*.+?\]/gi, '').trim()} />
                     </div>
                   )}
                   {msg.images && msg.images.length > 0 && (
@@ -1656,6 +1651,29 @@ Now let's complete your project brief so designers can give you accurate quotes.
           </div>
         </div>
       </main>
+
+      {/* Divider — desktop only */}
+      <div className="hidden lg:block w-px bg-black/[0.06] shrink-0" />
+
+      {/* Right Panel: Brief Side Panel — desktop only */}
+      <BriefSidePanel
+        items={PROGRESS_ITEMS}
+        briefData={briefData ? toProgressBriefData(briefData) : progressToSharedBrief(progress)}
+        editingField={editingField}
+        phase={phase}
+        onEditField={handleEditField}
+        onDirectUpdate={handleDirectFieldUpdate}
+        onGenerateBrief={handleGenerateBriefFromSidebar}
+        isLoading={isLoading}
+        additionalDetails={additionalDetails}
+        onAdditionalDetailsChange={setAdditionalDetails}
+        additionalDetailItems={ADDITIONAL_DETAIL_ITEMS}
+        dynamicFields={dynamicFields}
+        dynamicFieldsLoading={dynamicFieldsLoading}
+        dynamicFieldValues={dynamicFieldValues}
+        onDynamicFieldChange={handleDynamicFieldChange}
+        specificItem={specificItem}
+      />
 
       {/* Filerobot Manual Image Editor */}
       {conceptImageUrl && (

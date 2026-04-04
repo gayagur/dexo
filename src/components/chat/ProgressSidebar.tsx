@@ -37,6 +37,8 @@ interface ProgressSidebarProps {
   dynamicFieldValues?: Record<string, string>;
   /** Callback when a dynamic field value changes */
   onDynamicFieldChange?: (fieldId: string, value: string) => void;
+  /** Hide the desktop sidebar (when BriefSidePanel is used on desktop) */
+  hideDesktop?: boolean;
 }
 
 /** All fields use inline editing */
@@ -57,6 +59,7 @@ export function ProgressSidebar({
   dynamicFieldsLoading,
   dynamicFieldValues,
   onDynamicFieldChange,
+  hideDesktop,
 }: ProgressSidebarProps) {
   const [inlineValue, setInlineValue] = useState("");
   const [inlineField, setInlineField] = useState<string | null>(null);
@@ -308,6 +311,7 @@ export function ProgressSidebar({
     </AnimatePresence>
 
     {/* ── Desktop sidebar ── */}
+    {!hideDesktop && (
     <aside className="hidden lg:flex flex-col w-72 min-h-0 border-r border-[#C05621]/[0.08] bg-white/50 p-6">
       <div className="flex items-center gap-2 mb-8">
         <Sparkles className="w-5 h-5 text-[#C05621]" />
@@ -481,6 +485,7 @@ export function ProgressSidebar({
         </div>
       </div>
     </aside>
+    )}
     </>
   );
 }
