@@ -249,7 +249,7 @@ export function buildImagePrompt(
 ): string {
   const styleStr = styleTags.length > 0 ? `, ${styleTags.join(", ")} style` : "";
   const matStr = materials ? `, ${materials}` : "";
-  return `Product photo of a ${description}${styleStr}${matStr} on a clean white background. Studio lighting, white seamless backdrop, isolated product shot, no room, no walls, no floor, no other objects. Photorealistic, high detail, professional product photography.`;
+  return `Product photo of a ${description}${styleStr}${matStr}. Plain white background, completely white seamless backdrop. The furniture is centered and isolated — nothing else in the image. No room, no walls, no floor texture, no studio equipment, no lights, no props, no shadows on the ground. Just the single piece of furniture floating on pure white. Professional product photography, photorealistic, high detail.`;
 }
 
 /**
