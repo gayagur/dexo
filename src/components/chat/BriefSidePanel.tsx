@@ -14,11 +14,14 @@ import {
   ToggleRight,
   Palette,
   Ruler,
+  Camera,
+  Upload,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import type { BriefData, ProgressItem, ChatPhase } from "./types";
 import type { AdditionalDetails } from "./BriefCard";
 import type { BriefField } from "@/lib/briefFieldGenerator";
+import { RoomPhotoCanvas, type DrawnRect } from "./RoomPhotoCanvas";
 
 // ─── Standard sizes per item type ─────────────────────────────
 const STANDARD_SIZES: Record<string, { w: number; h: number; d: number; note: string }> = {
@@ -87,6 +90,15 @@ interface BriefSidePanelProps {
   specificItem?: string;
   /** Callback when user accepts the suggested size */
   onAcceptSize?: (w: number, h: number, d: number) => void;
+  /** Room mode state */
+  roomMode?: boolean;
+  onRoomModeChange?: (enabled: boolean) => void;
+  roomPhotoUrl?: string | null;
+  onRoomPhotoUpload?: (file: File) => void;
+  onRoomPhotoClear?: () => void;
+  drawnRect?: DrawnRect | null;
+  onDrawnRectChange?: (rect: DrawnRect | null) => void;
+  roomPhotoUploading?: boolean;
 }
 
 export function BriefSidePanel({
@@ -107,6 +119,14 @@ export function BriefSidePanel({
   onDynamicFieldChange,
   specificItem,
   onAcceptSize,
+  roomMode,
+  onRoomModeChange,
+  roomPhotoUrl,
+  onRoomPhotoUpload,
+  onRoomPhotoClear,
+  drawnRect,
+  onDrawnRectChange,
+  roomPhotoUploading,
 }: BriefSidePanelProps) {
   const [inlineValue, setInlineValue] = useState("");
   const [inlineField, setInlineField] = useState<string | null>(null);
@@ -418,6 +438,78 @@ export function BriefSidePanel({
           </div>
         )}
 
+        {/* ── Room Mode Toggle + Upload ── */}
+        {onRoomModeChange && (
+          <>
+            <div className="flex items-center justify-between px-5 py-3 border-t border-black/[0.06]">
+              <div className="flex items-center gap-2">
+                <Camera className="w-4 h-4 text-[#9CA3AF]" />
+                <span className="text-sm font-medium text-[#1F2940]">Show in my room</span>
+              </div>
+              <button
+                onClick={() => onRoomModeChange(!roomMode)}
+                className={`w-10 h-5 rounded-full transition-colors ${roomMode ? 'bg-[#C96A3D]' : 'bg-gray-200'}`}
+              >
+                <div className={`w-4 h-4 rounded-full bg-white shadow transition-transform ${roomMode ? 'translate-x-5' : 'translate-x-0.5'}`} />
+              </button>
+            </div>
+
+            <AnimatePresence>
+              {roomMode && (
+                <motion.div
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: "auto", opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  transition={{ duration: 0.2 }}
+                  className="overflow-hidden"
+                >
+                  <div className="px-4 pb-4">
+                    {roomPhotoUploading ? (
+                      <div className="flex flex-col items-center justify-center h-40 border-2 border-dashed border-[#C96A3D]/30 rounded-xl">
+                        <Loader2 className="w-6 h-6 text-[#C96A3D]/50 mb-2 animate-spin" />
+                        <span className="text-sm text-[#9CA3AF]">Uploading...</span>
+                      </div>
+                    ) : !roomPhotoUrl ? (
+                      <label className="flex flex-col items-center justify-center h-40 border-2 border-dashed border-[#C96A3D]/30 rounded-xl cursor-pointer hover:bg-[#C96A3D]/5 transition-colors">
+                        <Upload className="w-6 h-6 text-[#C96A3D]/50 mb-2" />
+                        <span className="text-sm text-[#9CA3AF]">Upload room photo</span>
+                        <span className="text-xs text-[#9CA3AF] mt-1">JPG, PNG up to 10MB</span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) onRoomPhotoUpload?.(file);
+                            e.target.value = "";
+                          }}
+                        />
+                      </label>
+                    ) : (
+                      <div className="relative">
+                        <RoomPhotoCanvas
+                          imageUrl={roomPhotoUrl}
+                          onRectDrawn={(rect) => onDrawnRectChange?.(rect)}
+                          drawnRect={drawnRect ?? null}
+                        />
+                        <button
+                          onClick={() => onRoomPhotoClear?.()}
+                          className="absolute top-2 right-2 w-6 h-6 rounded-full bg-black/50 text-white flex items-center justify-center text-xs hover:bg-black/70 transition-colors z-10"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                        <p className="text-xs text-[#9CA3AF] mt-2 text-center">
+                          Draw where you want your item placed
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </>
+        )}
+
         {/* Progress bar */}
         <div className="px-4 pb-4">
           <div className="flex justify-between text-xs text-[#4A5568] mb-2">
@@ -447,7 +539,9 @@ export function BriefSidePanel({
           className="sticky bottom-0 p-4 bg-[#FAFAF8] border-t border-black/[0.06]"
         >
           <p className="text-center text-xs text-[#9CA3AF] mb-3">
-            Studio mode — white background
+            {roomMode && roomPhotoUrl
+              ? "\uD83C\uDFE0 Room mode \u2014 item will appear in your photo"
+              : "\u2B1C Studio mode \u2014 white background"}
           </p>
           <button
             onClick={onGenerateBrief}

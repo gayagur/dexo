@@ -6,7 +6,7 @@ import { useProjects } from '@/hooks/useProjects';
 import { useToast } from '@/hooks/use-toast';
 import { useImageUpload } from '@/hooks/useImageUpload';
 import type { ChatSessionState } from '@/hooks/useChatSession';
-import { streamChat, generateImage, buildImagePrompt, aiDecomposeFromImage } from '@/lib/ai';
+import { streamChat, generateImage, editImage, buildImagePrompt, aiDecomposeFromImage } from '@/lib/ai';
 import { panelsFromFurnitureAnalysis, sanitizeEstimatedDims } from '@/lib/furnitureImageAnalysis';
 import { createGroupFromPanels } from '@/lib/groupUtils';
 import { supabase } from '@/lib/supabase';
@@ -26,6 +26,7 @@ import type { ImageVersion } from '@/lib/database.types';
 import type { ProgressItem } from '@/components/chat/types';
 import { ProgressSidebar } from '@/components/chat/ProgressSidebar';
 import { BriefSidePanel } from '@/components/chat/BriefSidePanel';
+import type { DrawnRect } from '@/components/chat/RoomPhotoCanvas';
 import { BriefCard, type AdditionalDetails } from '@/components/chat/BriefCard';
 import { generateBriefFields, type BriefField } from '@/lib/briefFieldGenerator';
 import { ImageEditor } from '@/components/chat/ImageEditor';
@@ -240,7 +241,7 @@ export default function AIChatFlow() {
   const { user } = useAuth();
   const { createProject } = useProjects();
   const { toast } = useToast();
-  const { uploading: imageUploading, uploadMultiple, uploadBase64, error: uploadError } = useImageUpload();
+  const { uploading: imageUploading, uploadImage, uploadMultiple, uploadBase64, error: uploadError } = useImageUpload();
 
   // Hide external chat widget on this page (it overlaps the input bar on mobile)
   useEffect(() => {
@@ -289,6 +290,12 @@ export default function AIChatFlow() {
   // Filerobot manual editor state
   const [filerobotOpen, setFilerobotOpen] = useState(false);
   const [filerobotSaving, setFilerobotSaving] = useState(false);
+
+  // Room mode state
+  const [roomMode, setRoomMode] = useState(false);
+  const [roomPhotoUrl, setRoomPhotoUrl] = useState<string | null>(null);
+  const [drawnRect, setDrawnRect] = useState<DrawnRect | null>(null);
+  const [roomPhotoUploading, setRoomPhotoUploading] = useState(false);
 
   // Image uploads
   const [uploadedImages, setUploadedImages] = useState<string[]>([]);
@@ -687,11 +694,134 @@ Now let's complete your project brief so designers can give you accurate quotes.
     }
   };
 
+  // ─── Room Photo Upload ──────────────────────────────────
+  const handleRoomPhotoUpload = useCallback(async (file: File) => {
+    setRoomPhotoUploading(true);
+    try {
+      const url = await uploadImage(file, 'project-images', true);
+      if (url) {
+        setRoomPhotoUrl(url);
+        setDrawnRect(null);
+      } else {
+        toast({ title: 'Upload failed', description: uploadError || 'Could not upload room photo', variant: 'destructive' });
+      }
+    } catch {
+      toast({ title: 'Upload failed', description: 'Could not upload room photo', variant: 'destructive' });
+    } finally {
+      setRoomPhotoUploading(false);
+    }
+  }, [uploadImage, uploadError, toast]);
+
+  const handleRoomPhotoClear = useCallback(() => {
+    setRoomPhotoUrl(null);
+    setDrawnRect(null);
+  }, []);
+
+  // ─── Prepare room image + mask for editing ────────────────
+  const prepareRoomImageForEdit = useCallback(
+    async (imageUrl: string, rect: DrawnRect): Promise<{ imageBase64: string; maskBase64: string }> => {
+      return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.onload = () => {
+          const size = 1024;
+
+          // Image canvas - center-crop to square
+          const imgCanvas = document.createElement('canvas');
+          imgCanvas.width = size;
+          imgCanvas.height = size;
+          const imgCtx = imgCanvas.getContext('2d')!;
+          const minDim = Math.min(img.width, img.height);
+          const sx = (img.width - minDim) / 2;
+          const sy = (img.height - minDim) / 2;
+          imgCtx.drawImage(img, sx, sy, minDim, minDim, 0, 0, size, size);
+
+          // Mask canvas - white where furniture should go, black everywhere else
+          const maskCanvas = document.createElement('canvas');
+          maskCanvas.width = size;
+          maskCanvas.height = size;
+          const maskCtx = maskCanvas.getContext('2d')!;
+          maskCtx.fillStyle = 'black';
+          maskCtx.fillRect(0, 0, size, size);
+
+          // Convert rect percentages to pixel coords on the cropped square
+          maskCtx.fillStyle = 'white';
+          maskCtx.fillRect(
+            rect.x * size,
+            rect.y * size,
+            rect.width * size,
+            rect.height * size
+          );
+
+          resolve({
+            imageBase64: imgCanvas.toDataURL('image/png').split(',')[1],
+            maskBase64: maskCanvas.toDataURL('image/png').split(',')[1],
+          });
+        };
+        img.onerror = () => reject(new Error('Failed to load room image'));
+        img.src = imageUrl;
+      });
+    },
+    []
+  );
+
   // ─── Image Generation ─────────────────────────────────────
   const handleGenerateImage = useCallback(async () => {
     if (!briefData) return;
     setPhase('generating_image');
     const styleTags = briefData.style.split(',').map(s => s.trim()).filter(Boolean);
+
+    // Room mode: use edit-image endpoint with the room photo + mask
+    if (roomMode && roomPhotoUrl && drawnRect) {
+      try {
+        const { imageBase64, maskBase64 } = await prepareRoomImageForEdit(roomPhotoUrl, drawnRect);
+
+        const styleStr = styleTags.length > 0 ? `, ${styleTags.join(', ')} style` : '';
+        const matStr = briefData.materials ? `, made of ${briefData.materials}` : '';
+        const roomEditPrompt = `Place a ${briefData.description}${styleStr}${matStr} in this room, in the marked area. Keep the rest of the room exactly as it is. Photorealistic, natural lighting.`;
+
+        // Upload the cropped room image to get a URL for editImage
+        const roomImageDataUrl = `data:image/png;base64,${imageBase64}`;
+        const roomImageUrl = await uploadBase64(roomImageDataUrl, 'project-images');
+
+        if (!roomImageUrl) {
+          toast({ title: 'Room image preparation failed', description: 'Falling back to studio mode', variant: 'destructive' });
+          // Fall through to regular generation below
+        } else {
+          const maskDataUrl = `data:image/png;base64,${maskBase64}`;
+          const result = await editImage(roomImageUrl, roomEditPrompt, null, null, maskDataUrl);
+
+          if (result.url) {
+            setConceptImageUrl(result.url);
+            const initialVersion: ImageVersion = {
+              id: result.versionId || `local-${Date.now()}`,
+              project_id: '',
+              parent_version_id: null,
+              image_url: result.url,
+              prompt: roomEditPrompt,
+              edit_instruction: roomEditPrompt,
+              mask_path: null,
+              edit_type: 'masked_inpaint',
+              version_number: 1,
+              is_current: true,
+              created_at: new Date().toISOString(),
+            };
+            setImageVersions([initialVersion]);
+            setCurrentVersionId(initialVersion.id);
+            setPhase('done');
+            return;
+          } else {
+            toast({ title: 'Room placement failed', description: result.error || 'Falling back to studio mode', variant: 'destructive' });
+            // Fall through to regular generation
+          }
+        }
+      } catch (err) {
+        toast({ title: 'Room placement failed', description: (err as Error).message || 'Falling back to studio mode', variant: 'destructive' });
+        // Fall through to regular generation
+      }
+    }
+
+    // Regular studio mode generation
     const prompt = buildImagePrompt(briefData.description, briefData.category, styleTags, briefData.materials);
 
     const result = await generateImage(prompt, null);
@@ -717,7 +847,7 @@ Now let's complete your project brief so designers can give you accurate quotes.
       toast({ title: 'Image generation failed', description: result.error || 'Please try again', variant: 'destructive' });
     }
     setPhase('done');
-  }, [briefData, toast]);
+  }, [briefData, toast, roomMode, roomPhotoUrl, drawnRect, prepareRoomImageForEdit, uploadBase64]);
 
   // ─── Regenerate Image ────────────────────────────────────
   const handleRegenerateImage = useCallback(async () => {
@@ -1673,6 +1803,14 @@ Now let's complete your project brief so designers can give you accurate quotes.
         dynamicFieldValues={dynamicFieldValues}
         onDynamicFieldChange={handleDynamicFieldChange}
         specificItem={specificItem}
+        roomMode={roomMode}
+        onRoomModeChange={setRoomMode}
+        roomPhotoUrl={roomPhotoUrl}
+        onRoomPhotoUpload={handleRoomPhotoUpload}
+        onRoomPhotoClear={handleRoomPhotoClear}
+        drawnRect={drawnRect}
+        onDrawnRectChange={setDrawnRect}
+        roomPhotoUploading={roomPhotoUploading}
       />
 
       {/* Filerobot Manual Image Editor */}
