@@ -367,31 +367,46 @@ export default function AIChatFlow() {
   const progress = { ...extractProgress(messages), ...progressOverrides };
 
   // ─── Dynamic brief fields: update when category changes ────
-  const currentCategory = briefData?.category || progress.category || '';
+  // Extract the SPECIFIC furniture item from user messages (not the broad room category)
+  const specificItem = useMemo(() => {
+    const userTexts = messages.filter(m => m.role === 'user').map(m => m.text.toLowerCase());
+    // Skip the first message (usually just room selection like "Living Room Design & Styling")
+    const laterMessages = userTexts.slice(1);
+    if (laterMessages.length === 0) return '';
+
+    // Match specific furniture items mentioned by the user
+    const furnitureKeywords = /\b(sofa|couch|chair|armchair|table|desk|bed|shelf|bookshelf|cabinet|dresser|wardrobe|nightstand|ottoman|bench|stool|lamp|mirror|rug|pillow|cushion|curtain|vase|plant|planter|sideboard|console|tv\s*stand|coffee\s*table|dining\s*table|side\s*table|bar\s*stool|office\s*chair|lounge|sectional|headboard|vanity|rack|basket|blanket|throw|chandelier|pendant|sconce)\b/i;
+
+    for (const text of laterMessages.reverse()) {
+      const match = text.match(furnitureKeywords);
+      if (match) return match[1].trim();
+    }
+    return '';
+  }, [messages]);
+
   useEffect(() => {
-    if (!currentCategory || currentCategory === prevCategoryRef.current) return;
-    prevCategoryRef.current = currentCategory;
+    if (!specificItem || specificItem === prevCategoryRef.current) return;
+    prevCategoryRef.current = specificItem;
 
     // Check cache first
-    const cached = dynamicFieldsCache.current.get(currentCategory);
+    const cached = dynamicFieldsCache.current.get(specificItem);
     if (cached) {
       setDynamicFields(cached);
-      // Clear values when item type changes
       setDynamicFieldValues({});
-      toast({ title: `Brief updated for ${currentCategory}`, duration: 2000 });
+      toast({ title: `Brief updated for ${specificItem}`, duration: 2000 });
       return;
     }
 
     setDynamicFieldsLoading(true);
-    generateBriefFields(currentCategory, progress.room_type).then((fields) => {
-      dynamicFieldsCache.current.set(currentCategory, fields);
+    generateBriefFields(specificItem, progress.room_type).then((fields) => {
+      dynamicFieldsCache.current.set(specificItem, fields);
       setDynamicFields(fields);
       setDynamicFieldValues({});
       setDynamicFieldsLoading(false);
-      toast({ title: `Brief updated for ${currentCategory}`, duration: 2000 });
+      toast({ title: `Brief updated for ${specificItem}`, duration: 2000 });
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentCategory]);
+  }, [specificItem]);
 
   const handleDynamicFieldChange = useCallback((fieldId: string, value: string) => {
     setDynamicFieldValues(prev => ({ ...prev, [fieldId]: value }));
