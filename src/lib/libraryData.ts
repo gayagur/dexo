@@ -65,6 +65,15 @@ function firmCushion(
   return { id: pid(), type, shape: "cushion_firm" as PanelShape, label, position: pos, size, materialId: mat, ...(rotation ? { rotation } : {}) };
 }
 
+function mattressPanel(
+  label: string,
+  pos: [number, number, number],
+  size: [number, number, number],
+  mat = "fabric_cream",
+): PanelData {
+  return { id: pid(), type: "horizontal", shape: "mattress" as PanelShape, label, position: pos, size, materialId: mat };
+}
+
 /** Padded block — arms, backrests, ottomans (puff=0.18) */
 function padded(
   label: string,
@@ -950,6 +959,226 @@ export const LIBRARY_TEMPLATES: LibraryTemplate[] = [
         // 2 drawer fronts on one side
         box("Drawer 1", "vertical", [-w / 2 - T / 2, baseH * 0.5, -d / 4], [T, baseH - 0.03, drawerW]),
         box("Drawer 2", "vertical", [-w / 2 - T / 2, baseH * 0.5, d / 4], [T, baseH - 0.03, drawerW]),
+      ];
+    },
+  },
+
+  {
+    id: "bed_queen_padded",
+    name: "Queen Bed (Upholstered Headboard)",
+    category: "beds",
+    icon: "🛏️",
+    description: "Queen-size frame with padded headboard, slat support, mattress, and pillows",
+    dims: { w: 1600, h: 1200, d: 2100 },
+    buildPanels: (dims) => {
+      _pid = 0;
+      const w = dims.w / 1000;
+      const h = dims.h / 1000;
+      const d = dims.d / 1000;
+      const baseH = 0.32;
+      const railH = 0.11;
+      const headH = Math.min(h * 0.7, 0.95);
+      const footH = h * 0.34;
+      const slatT = 0.022;
+      const mattY = baseH + slatT / 2 + 0.11;
+      return [
+        firmCushion("Headboard", "vertical", [0, baseH + railH + headH / 2, -d / 2 + 0.045], [w - 0.06, headH, 0.1], "fabric_cream"),
+        box("Footboard", "vertical", [0, baseH + footH / 2, d / 2 - T / 2], [w - 0.05, footH, T * 1.5], "oak"),
+        box("Left Rail", "vertical", [-w / 2 + T / 2, baseH + railH / 2, 0], [T, railH, d - T * 2]),
+        box("Right Rail", "vertical", [w / 2 - T / 2, baseH + railH / 2, 0], [T, railH, d - T * 2]),
+        box("Slat Base", "horizontal", [0, baseH, 0], [w - T * 2, slatT, d - T * 2], "plywood"),
+        mattressPanel("Mattress", [0, mattY, 0], [w - 0.08, 0.22, d - 0.08]),
+        cushion("Pillow L", "horizontal", [-w / 4, mattY + 0.11 + 0.04, -d / 2 + 0.3], [0.48, 0.1, 0.32]),
+        cushion("Pillow R", "horizontal", [w / 4, mattY + 0.11 + 0.04, -d / 2 + 0.3], [0.48, 0.1, 0.32]),
+        ...fourLegsInset(w, h, d, baseH, 0.045, 0.07),
+      ];
+    },
+  },
+
+  {
+    id: "bed_king_padded",
+    name: "King Bed (Upholstered Headboard)",
+    category: "beds",
+    icon: "🛏️",
+    description: "King-size frame with padded headboard, slat base, mattress, and pillows",
+    dims: { w: 1800, h: 1200, d: 2100 },
+    buildPanels: (dims) => {
+      _pid = 0;
+      const w = dims.w / 1000;
+      const h = dims.h / 1000;
+      const d = dims.d / 1000;
+      const baseH = 0.32;
+      const railH = 0.11;
+      const headH = Math.min(h * 0.7, 0.95);
+      const footH = h * 0.34;
+      const slatT = 0.022;
+      const mattY = baseH + slatT / 2 + 0.11;
+      return [
+        firmCushion("Headboard", "vertical", [0, baseH + railH + headH / 2, -d / 2 + 0.045], [w - 0.06, headH, 0.1], "fabric_taupe"),
+        box("Footboard", "vertical", [0, baseH + footH / 2, d / 2 - T / 2], [w - 0.05, footH, T * 1.5], "walnut"),
+        box("Left Rail", "vertical", [-w / 2 + T / 2, baseH + railH / 2, 0], [T, railH, d - T * 2]),
+        box("Right Rail", "vertical", [w / 2 - T / 2, baseH + railH / 2, 0], [T, railH, d - T * 2]),
+        box("Slat Base", "horizontal", [0, baseH, 0], [w - T * 2, slatT, d - T * 2], "plywood"),
+        mattressPanel("Mattress", [0, mattY, 0], [w - 0.08, 0.22, d - 0.08]),
+        cushion("Pillow L", "horizontal", [-w / 4, mattY + 0.11 + 0.04, -d / 2 + 0.3], [0.52, 0.1, 0.34]),
+        cushion("Pillow R", "horizontal", [w / 4, mattY + 0.11 + 0.04, -d / 2 + 0.3], [0.52, 0.1, 0.34]),
+        ...fourLegsInset(w, h, d, baseH, 0.048, 0.075),
+      ];
+    },
+  },
+
+  {
+    id: "bed_full_classic",
+    name: "Full / Double Bed (Classic Wood)",
+    category: "beds",
+    icon: "🛏️",
+    description: "Full-size (140 cm) wood headboard and footboard with slat base",
+    dims: { w: 1400, h: 1050, d: 2000 },
+    buildPanels: (dims) => {
+      _pid = 0;
+      const w = dims.w / 1000;
+      const h = dims.h / 1000;
+      const d = dims.d / 1000;
+      const baseH = 0.3;
+      const railH = 0.11;
+      const headH = h * 0.88;
+      const footH = h * 0.42;
+      const slatT = 0.02;
+      const mattY = baseH + slatT / 2 + 0.1;
+      return [
+        box("Headboard", "vertical", [0, headH / 2, -d / 2 + T / 2], [w, headH, T * 1.5], "oak"),
+        box("Footboard", "vertical", [0, footH / 2, d / 2 - T / 2], [w, footH, T * 1.5], "oak"),
+        box("Left Rail", "vertical", [-w / 2 + T / 2, baseH + railH / 2, 0], [T, railH, d - T * 2]),
+        box("Right Rail", "vertical", [w / 2 - T / 2, baseH + railH / 2, 0], [T, railH, d - T * 2]),
+        box("Slat Base", "horizontal", [0, baseH, 0], [w - T * 2, slatT, d - T * 2], "plywood"),
+        mattressPanel("Mattress", [0, mattY, 0], [w - 0.08, 0.2, d - 0.08], "fabric_cream"),
+        ...fourLegsInset(w, h, d, baseH, 0.04, 0.055),
+      ];
+    },
+  },
+
+  {
+    id: "bed_platform_low",
+    name: "Low Platform Bed",
+    category: "beds",
+    icon: "🛏️",
+    description: "Minimal Scandinavian platform — thin headboard, no footboard",
+    dims: { w: 1600, h: 920, d: 2000 },
+    buildPanels: (dims) => {
+      _pid = 0;
+      const w = dims.w / 1000;
+      const h = dims.h / 1000;
+      const d = dims.d / 1000;
+      const deckY = 0.19;
+      const headH = 0.52;
+      const mattY = deckY + 0.035 + 0.11;
+      return [
+        box("Platform Deck", "horizontal", [0, deckY, 0], [w - 0.02, 0.05, d - 0.02], "oak"),
+        box("Headboard", "vertical", [0, deckY + headH / 2 + 0.02, -d / 2 + T / 2], [w, headH, T * 1.5], "oak"),
+        mattressPanel("Mattress", [0, mattY, 0], [w - 0.1, 0.22, d - 0.12]),
+        ...fourLegsInset(w, h, d, deckY - 0.02, 0.038, 0.085, "oak"),
+      ];
+    },
+  },
+
+  {
+    id: "bed_daybed",
+    name: "Daybed (Back + Side)",
+    category: "beds",
+    icon: "🛋️",
+    description: "Twin-style daybed with upholstered back and one side arm",
+    dims: { w: 2000, h: 880, d: 980 },
+    buildPanels: (dims) => {
+      _pid = 0;
+      const w = dims.w / 1000;
+      const h = dims.h / 1000;
+      const d = dims.d / 1000;
+      const baseH = 0.26;
+      const mattY = baseH + 0.05 + 0.1;
+      return [
+        firmCushion("Back Rest", "vertical", [0, baseH + 0.36, -d / 2 + 0.055], [w - 0.08, 0.58, 0.11], "fabric_sage"),
+        padded("Side Arm", "vertical", [-w / 2 + 0.045, baseH + 0.28, 0.04], [0.09, 0.42, d - 0.14], "fabric_sage"),
+        box("Frame", "horizontal", [0.04, baseH, 0.04], [w - 0.16, 0.055, d - 0.12], "oak"),
+        mattressPanel("Mattress", [0.04, mattY, 0.04], [w - 0.2, 0.2, d - 0.22], "fabric_cream"),
+        cyl("Leg FL", [-w / 2 + 0.12, baseH / 2, -d / 2 + 0.12], 0.04, baseH, "black_metal"),
+        cyl("Leg FR", [w / 2 - 0.2, baseH / 2, -d / 2 + 0.12], 0.04, baseH, "black_metal"),
+        cyl("Leg BL", [-w / 2 + 0.12, baseH / 2, d / 2 - 0.12], 0.04, baseH, "black_metal"),
+        cyl("Leg BR", [w / 2 - 0.2, baseH / 2, d / 2 - 0.12], 0.04, baseH, "black_metal"),
+      ];
+    },
+  },
+
+  {
+    id: "bed_canopy_four_post",
+    name: "Four-Poster Canopy Bed",
+    category: "beds",
+    icon: "🛏️",
+    description: "Corner posts with top canopy frame and standard mattress base",
+    dims: { w: 1650, h: 2200, d: 2150 },
+    buildPanels: (dims) => {
+      _pid = 0;
+      const w = dims.w / 1000;
+      const h = dims.h / 1000;
+      const d = dims.d / 1000;
+      const inset = 0.075;
+      const postD = 0.056;
+      const postH = h - 0.08;
+      const py = postH / 2;
+      const topY = postH - 0.03;
+      const baseH = 0.34;
+      const railH = 0.1;
+      const headH = 0.52;
+      const footH = 0.36;
+      const slatT = 0.02;
+      const mattY = baseH + slatT / 2 + 0.1;
+      const spanX = w - 2 * inset;
+      const spanZ = d - 2 * inset;
+      return [
+        cyl("Post FL", [-w / 2 + inset, py, -d / 2 + inset], postD, postH, "oak"),
+        cyl("Post FR", [w / 2 - inset, py, -d / 2 + inset], postD, postH, "oak"),
+        cyl("Post BL", [-w / 2 + inset, py, d / 2 - inset], postD, postH, "oak"),
+        cyl("Post BR", [w / 2 - inset, py, d / 2 - inset], postD, postH, "oak"),
+        box("Canopy Front", "horizontal", [0, topY, -d / 2 + inset], [spanX + postD, 0.04, postD], "oak"),
+        box("Canopy Back", "horizontal", [0, topY, d / 2 - inset], [spanX + postD, 0.04, postD], "oak"),
+        box("Canopy Left", "horizontal", [-w / 2 + inset, topY, 0], [postD, 0.04, spanZ], "oak"),
+        box("Canopy Right", "horizontal", [w / 2 - inset, topY, 0], [postD, 0.04, spanZ], "oak"),
+        box("Headboard", "vertical", [0, baseH + headH / 2, -d / 2 + T * 1.5], [w - inset * 2 - postD, headH, T * 1.5], "oak"),
+        box("Footboard", "vertical", [0, baseH + footH / 2, d / 2 - T * 1.5], [w - inset * 2 - postD, footH, T * 1.5], "oak"),
+        box("Left Rail", "vertical", [-w / 2 + inset + postD / 2, baseH + railH / 2, 0], [T, railH, d - inset * 2 - postD]),
+        box("Right Rail", "vertical", [w / 2 - inset - postD / 2, baseH + railH / 2, 0], [T, railH, d - inset * 2 - postD]),
+        box("Slat Base", "horizontal", [0, baseH, 0], [w - inset * 2 - postD, slatT, d - inset * 2 - postD], "plywood"),
+        mattressPanel("Mattress", [0, mattY, 0], [w - inset * 2 - postD - 0.06, 0.21, d - inset * 2 - postD - 0.06], "fabric_cream"),
+      ];
+    },
+  },
+
+  {
+    id: "bed_twin_xl",
+    name: "Twin XL Bed",
+    category: "beds",
+    icon: "🛏️",
+    description: "Extra-long single mattress frame with simple wood headboard",
+    dims: { w: 990, h: 1000, d: 2030 },
+    buildPanels: (dims) => {
+      _pid = 0;
+      const w = dims.w / 1000;
+      const h = dims.h / 1000;
+      const d = dims.d / 1000;
+      const baseH = 0.3;
+      const railH = 0.11;
+      const headH = h * 0.82;
+      const footH = h * 0.28;
+      const slatT = 0.02;
+      const mattY = baseH + slatT / 2 + 0.1;
+      return [
+        box("Headboard", "vertical", [0, headH / 2, -d / 2 + T / 2], [w, headH, T * 1.5], "oak"),
+        box("Footboard", "vertical", [0, baseH + footH / 2, d / 2 - T / 2], [w, footH, T * 1.5], "oak"),
+        box("Left Rail", "vertical", [-w / 2 + T / 2, baseH + railH / 2, 0], [T, railH, d - T * 2]),
+        box("Right Rail", "vertical", [w / 2 - T / 2, baseH + railH / 2, 0], [T, railH, d - T * 2]),
+        box("Slat Base", "horizontal", [0, baseH, 0], [w - T * 2, slatT, d - T * 2], "plywood"),
+        mattressPanel("Mattress", [0, mattY, 0], [w - 0.07, 0.19, d - 0.07]),
+        cushion("Pillow", "horizontal", [0, mattY + 0.1 + 0.04, -d / 2 + 0.28], [0.55, 0.1, 0.34]),
+        ...fourLegsInset(w, h, d, baseH, 0.038, 0.05),
       ];
     },
   },
@@ -3373,6 +3602,314 @@ export const LIBRARY_TEMPLATES: LibraryTemplate[] = [
         box("Right Side", "vertical", [w/2 - T/2, h/2 - TC/2, 0], [T, h - TC, dp]),
         box("Back", "back", [0, h/2 - TC/2, dp/2 - TB/2], [w - T*2, h - TC, TB]),
         box("Front", "vertical", [0, h/2 - TC/2, -dp/2 + T/2], [w - T*2, h - TC, T]),
+      ];
+    },
+  },
+
+  // ════════════════════════════════════════════════════════
+  // OUTDOOR
+  // ════════════════════════════════════════════════════════
+
+  {
+    id: "outdoor_dining_table",
+    name: "Outdoor Dining Table",
+    category: "outdoor",
+    icon: "🌿",
+    description: "Slatted teak-style top with metal legs for patio dining",
+    dims: { w: 1800, h: 750, d: 900 },
+    buildPanels: (dims) => {
+      _pid = 0;
+      const w = dims.w / 1000;
+      const h = dims.h / 1000;
+      const d = dims.d / 1000;
+      const topT = 0.045;
+      const legH = h - topT;
+      const ly = topT + legH / 2;
+      const ix = w / 2 - 0.08;
+      const iz = d / 2 - 0.08;
+      return [
+        {
+          id: pid(),
+          type: "horizontal" as const,
+          shape: "rounded_rect" as PanelShape,
+          label: "Table Top",
+          position: [0, h - topT / 2, 0],
+          size: [w, topT, d],
+          materialId: "teak",
+          shapeParams: { cornerRadius: 0.02 },
+        },
+        cyl("Leg FL", [-ix, ly, -iz], 0.045, legH, "black_metal"),
+        cyl("Leg FR", [ix, ly, -iz], 0.045, legH, "black_metal"),
+        cyl("Leg BL", [-ix, ly, iz], 0.045, legH, "black_metal"),
+        cyl("Leg BR", [ix, ly, iz], 0.045, legH, "black_metal"),
+      ];
+    },
+  },
+
+  {
+    id: "outdoor_coffee_table",
+    name: "Outdoor Coffee Table",
+    category: "outdoor",
+    icon: "🌿",
+    description: "Low patio table with slat-style top",
+    dims: { w: 1100, h: 420, d: 600 },
+    buildPanels: (dims) => {
+      _pid = 0;
+      const w = dims.w / 1000;
+      const h = dims.h / 1000;
+      const d = dims.d / 1000;
+      const topT = 0.038;
+      const legH = h - topT;
+      return [
+        {
+          id: pid(),
+          type: "horizontal" as const,
+          shape: "rounded_rect" as PanelShape,
+          label: "Top",
+          position: [0, h - topT / 2, 0],
+          size: [w, topT, d],
+          materialId: "teak",
+          shapeParams: { cornerRadius: 0.015 },
+        },
+        ...fourLegsInset(w, h, d, legH, 0.04, 0.07, "black_metal"),
+      ];
+    },
+  },
+
+  {
+    id: "outdoor_bench",
+    name: "Outdoor Bench",
+    category: "outdoor",
+    icon: "🌿",
+    description: "Backless slatted bench for garden or terrace",
+    dims: { w: 1400, h: 450, d: 400 },
+    buildPanels: (dims) => {
+      _pid = 0;
+      const w = dims.w / 1000;
+      const h = dims.h / 1000;
+      const d = dims.d / 1000;
+      const seatT = 0.04;
+      const legH = 0.38;
+      const sy = legH + seatT / 2;
+      return [
+        box("Seat Slats", "horizontal", [0, sy, 0], [w - 0.06, seatT, d - 0.06], "teak"),
+        box("Apron Front", "horizontal", [0, legH - 0.02, d / 2 - 0.025], [w - 0.08, 0.035, 0.04], "teak"),
+        box("Apron Back", "horizontal", [0, legH - 0.02, -d / 2 + 0.025], [w - 0.08, 0.035, 0.04], "teak"),
+        ...fourLegsInset(w, h, d, legH, 0.042, 0.065, "teak"),
+      ];
+    },
+  },
+
+  {
+    id: "outdoor_chaise_lounge",
+    name: "Outdoor Chaise Lounge",
+    category: "outdoor",
+    icon: "🌿",
+    description: "Adjustable-style lounger with frame and upholstered cushions",
+    dims: { w: 750, h: 850, d: 2000 },
+    buildPanels: (dims) => {
+      _pid = 0;
+      const w = dims.w / 1000;
+      const h = dims.h / 1000;
+      const d = dims.d / 1000;
+      const frameY = 0.22;
+      const seatY = frameY + 0.07;
+      const backY = frameY + 0.42;
+      return [
+        box("Frame Base", "horizontal", [0, frameY, 0.12], [w - 0.04, 0.05, d - 0.2], "teak"),
+        firmCushion("Seat Cushion", "horizontal", [0, seatY, 0.1], [w - 0.1, 0.09, d * 0.38], "fabric_sage"),
+        {
+          id: pid(),
+          type: "vertical",
+          shape: "cushion_firm" as PanelShape,
+          label: "Back Cushion",
+          position: [0, backY, -d / 2 + 0.38],
+          size: [w - 0.1, 0.48, 0.1],
+          materialId: "fabric_sage",
+          rotation: [-0.28, 0, 0] as [number, number, number],
+        },
+        cyl("Leg FL", [-w / 2 + 0.08, frameY / 2, d / 2 - 0.12], 0.04, frameY, "black_metal"),
+        cyl("Leg FR", [w / 2 - 0.08, frameY / 2, d / 2 - 0.12], 0.04, frameY, "black_metal"),
+        cyl("Leg BL", [-w / 2 + 0.08, frameY / 2, -d / 2 + 0.2], 0.04, frameY, "black_metal"),
+        cyl("Leg BR", [w / 2 - 0.08, frameY / 2, -d / 2 + 0.2], 0.04, frameY, "black_metal"),
+      ];
+    },
+  },
+
+  {
+    id: "outdoor_dining_chair",
+    name: "Outdoor Dining Chair",
+    category: "outdoor",
+    icon: "🌿",
+    description: "Stackable-style slat chair for patio dining",
+    dims: { w: 560, h: 880, d: 580 },
+    buildPanels: (dims) => {
+      _pid = 0;
+      const w = dims.w / 1000;
+      const h = dims.h / 1000;
+      const d = dims.d / 1000;
+      const seatY = 0.46;
+      const legH = seatY - 0.02;
+      return [
+        box("Seat", "horizontal", [0, seatY, 0], [w - 0.06, 0.035, d - 0.08], "teak"),
+        box("Back Slat", "vertical", [0, h * 0.62, -d / 2 + 0.035], [w - 0.1, 0.42, 0.04], "teak"),
+        cyl("Leg FL", [-w / 2 + 0.055, legH / 2, d / 2 - 0.055], 0.032, legH, "black_metal"),
+        cyl("Leg FR", [w / 2 - 0.055, legH / 2, d / 2 - 0.055], 0.032, legH, "black_metal"),
+        cyl("Leg BL", [-w / 2 + 0.055, legH / 2, -d / 2 + 0.055], 0.032, legH, "black_metal"),
+        cyl("Leg BR", [w / 2 - 0.055, legH / 2, -d / 2 + 0.055], 0.032, legH, "black_metal"),
+      ];
+    },
+  },
+
+  {
+    id: "outdoor_bar_table",
+    name: "Outdoor Bar Table",
+    category: "outdoor",
+    icon: "🌿",
+    description: "Tall pub-height table for bar stools",
+    dims: { w: 750, h: 1050, d: 750 },
+    buildPanels: (dims) => {
+      _pid = 0;
+      const w = dims.w / 1000;
+      const h = dims.h / 1000;
+      const d = dims.d / 1000;
+      const topT = 0.04;
+      const legH = h - topT;
+      const ly = topT + legH / 2;
+      const ix = w / 2 - 0.06;
+      const iz = d / 2 - 0.06;
+      return [
+        {
+          id: pid(),
+          type: "horizontal" as const,
+          shape: "rounded_rect" as PanelShape,
+          label: "Top",
+          position: [0, h - topT / 2, 0],
+          size: [w, topT, d],
+          materialId: "teak",
+          shapeParams: { cornerRadius: 0.018 },
+        },
+        cyl("Leg FL", [-ix, ly, -iz], 0.04, legH, "black_metal"),
+        cyl("Leg FR", [ix, ly, -iz], 0.04, legH, "black_metal"),
+        cyl("Leg BL", [-ix, ly, iz], 0.04, legH, "black_metal"),
+        cyl("Leg BR", [ix, ly, iz], 0.04, legH, "black_metal"),
+      ];
+    },
+  },
+
+  {
+    id: "outdoor_bar_stool",
+    name: "Outdoor Bar Stool",
+    category: "outdoor",
+    icon: "🌿",
+    description: "Tall stool with foot ring for bar-height counters",
+    dims: { w: 400, h: 750, d: 400 },
+    buildPanels: (dims) => {
+      _pid = 0;
+      const w = dims.w / 1000;
+      const h = dims.h / 1000;
+      const d = dims.d / 1000;
+      const seatY = h - 0.04;
+      const legTop = seatY - 0.06;
+      const ringY = legTop * 0.42;
+      return [
+        {
+          id: pid(),
+          type: "horizontal" as const,
+          shape: "rounded_rect" as PanelShape,
+          label: "Seat",
+          position: [0, seatY, 0],
+          size: [w - 0.02, 0.05, d - 0.02],
+          materialId: "teak",
+          shapeParams: { cornerRadius: 0.02 },
+        },
+        cyl("Post", [0, legTop / 2, 0], 0.045, legTop, "black_metal"),
+        box("Foot Rest L", "horizontal", [-w * 0.18, ringY, 0], [0.14, 0.02, 0.04], "black_metal"),
+        box("Foot Rest R", "horizontal", [w * 0.18, ringY, 0], [0.14, 0.02, 0.04], "black_metal"),
+        box("Foot Rest F", "horizontal", [0, ringY, d * 0.18], [0.04, 0.02, 0.14], "black_metal"),
+        box("Foot Rest B", "horizontal", [0, ringY, -d * 0.18], [0.04, 0.02, 0.14], "black_metal"),
+        box("Base Plate", "horizontal", [0, 0.015, 0], [w * 0.35, 0.03, d * 0.35], "black_metal"),
+      ];
+    },
+  },
+
+  {
+    id: "outdoor_planter_box",
+    name: "Outdoor Planter Box",
+    category: "outdoor",
+    icon: "🌿",
+    description: "Rectangular wooden planter for patio or balcony",
+    dims: { w: 900, h: 400, d: 400 },
+    buildPanels: (dims) => {
+      _pid = 0;
+      const w = dims.w / 1000;
+      const h = dims.h / 1000;
+      const d = dims.d / 1000;
+      return [
+        box("Bottom", "horizontal", [0, T / 2, 0], [w - T * 2, T, d - T * 2], "teak"),
+        box("Front", "vertical", [0, h / 2, d / 2 - T / 2], [w - T * 2, h, T], "teak"),
+        box("Back", "vertical", [0, h / 2, -d / 2 + T / 2], [w - T * 2, h, T], "teak"),
+        box("Left", "vertical", [-w / 2 + T / 2, h / 2, 0], [T, h, d - T * 2], "teak"),
+        box("Right", "vertical", [w / 2 - T / 2, h / 2, 0], [T, h, d - T * 2], "teak"),
+      ];
+    },
+  },
+
+  {
+    id: "outdoor_sofa_2seat",
+    name: "Outdoor 2-Seat Sofa",
+    category: "outdoor",
+    icon: "🌿",
+    description: "Compact patio sofa with teak frame and weather-style cushions",
+    dims: { w: 1600, h: 820, d: 820 },
+    buildPanels: (dims) => {
+      _pid = 0;
+      const w = dims.w / 1000;
+      const h = dims.h / 1000;
+      const d = dims.d / 1000;
+      const baseH = 0.22;
+      const armW = 0.07;
+      const seatY = baseH + 0.08;
+      const backH = 0.42;
+      return [
+        box("Base Frame", "horizontal", [0, baseH / 2, 0], [w, baseH, d], "teak"),
+        box("Left Arm", "vertical", [-w / 2 + armW / 2, baseH + backH / 2, 0], [armW, backH + 0.08, d], "teak"),
+        box("Right Arm", "vertical", [w / 2 - armW / 2, baseH + backH / 2, 0], [armW, backH + 0.08, d], "teak"),
+        firmCushion("Seat", "horizontal", [0, seatY, 0.04], [w - armW * 2 - 0.04, 0.1, d - 0.12], "fabric_charcoal"),
+        firmCushion("Back", "vertical", [0, baseH + backH / 2 + 0.04, -d / 2 + 0.06], [w - armW * 2 - 0.04, backH, 0.12], "fabric_charcoal"),
+        cushion("Accent Pillow", "horizontal", [-w * 0.15, seatY + 0.12, -d * 0.15], [0.38, 0.1, 0.38], "fabric_mustard"),
+      ];
+    },
+  },
+
+  {
+    id: "outdoor_side_table",
+    name: "Outdoor Side Table",
+    category: "outdoor",
+    icon: "🌿",
+    description: "Small round side table next to loungers",
+    dims: { w: 500, h: 520, d: 500 },
+    buildPanels: (dims) => {
+      _pid = 0;
+      const w = dims.w / 1000;
+      const h = dims.h / 1000;
+      const d = dims.d / 1000;
+      const topD = Math.min(w, d);
+      const topT = 0.035;
+      const legH = h - topT;
+      return [
+        {
+          id: pid(),
+          type: "horizontal" as const,
+          shape: "circle_panel" as PanelShape,
+          label: "Top",
+          position: [0, h - topT / 2, 0],
+          size: [topD - 0.02, topT, topD - 0.02],
+          materialId: "teak",
+        },
+        cyl("Leg A", [0, topT + legH / 2, 0], 0.035, legH, "black_metal"),
+        cyl("Leg B", [topD * 0.22, topT + legH / 2, 0], 0.03, legH * 0.92, "black_metal"),
+        cyl("Leg C", [-topD * 0.22, topT + legH / 2, 0], 0.03, legH * 0.92, "black_metal"),
       ];
     },
   },

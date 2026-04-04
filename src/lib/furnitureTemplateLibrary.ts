@@ -10,6 +10,17 @@
  */
 
 import type { PanelData, PanelShape } from "./furnitureData";
+import { LIBRARY_TEMPLATES } from "./libraryData";
+
+/** Reuse parametric geometry from `LIBRARY_TEMPLATES` for AI classify → matchTemplate. */
+function fromLibraryTemplate(libraryId: string): (w: number, h: number, d: number, _mat: string) => PanelData[] {
+  const tpl = LIBRARY_TEMPLATES.find((t) => t.id === libraryId);
+  if (!tpl) {
+    throw new Error(`fromLibraryTemplate: missing "${libraryId}" in LIBRARY_TEMPLATES`);
+  }
+  return (w, h, d, _mat) =>
+    tpl.buildPanels({ w: Math.round(w * 1000), h: Math.round(h * 1000), d: Math.round(d * 1000) });
+}
 
 // ═════════════════════════════════════════════════════════
 // TYPES
@@ -494,6 +505,13 @@ export const TEMPLATE_REGISTRY: TemplateVariant[] = [
   { id: "bed_wood_queen", name: "Wood Bed Queen", category: "bed", subtypes: ["bed", "queen_bed", "platform_bed"], styles: ["scandinavian", "modern"], tags: ["wood", "queen"], defaultDims: { w: 1.60, h: 1.00, d: 2.00 }, defaultMaterial: "oak", buildPanels: (w, h, d, m) => buildBed(w, h, d, m, 0.70, m, "rounded_rect") },
   { id: "bed_wood_king", name: "Wood Bed King", category: "bed", subtypes: ["bed", "king_bed", "platform_bed"], styles: ["scandinavian"], tags: ["wood", "king"], defaultDims: { w: 1.80, h: 1.00, d: 2.00 }, defaultMaterial: "oak", buildPanels: (w, h, d, m) => buildBed(w, h, d, m, 0.70, m, "rounded_rect") },
   { id: "bed_single", name: "Single Bed", category: "bed", subtypes: ["bed", "single_bed", "twin_bed"], styles: ["modern", "scandinavian"], tags: ["single", "small"], defaultDims: { w: 0.90, h: 1.00, d: 2.00 }, defaultMaterial: "oak", buildPanels: (w, h, d, m) => buildBed(w, h, d, m, 0.70, m, "rounded_rect") },
+  { id: "bed_queen_padded", name: "Queen Bed (Upholstered Headboard)", category: "bed", subtypes: ["bed", "queen_bed", "upholstered_bed"], styles: ["modern", "contemporary"], tags: ["upholstered", "queen", "library"], defaultDims: { w: 1.60, h: 1.20, d: 2.10 }, defaultMaterial: "fabric_cream", buildPanels: fromLibraryTemplate("bed_queen_padded") },
+  { id: "bed_king_padded", name: "King Bed (Upholstered Headboard)", category: "bed", subtypes: ["bed", "king_bed", "upholstered_bed"], styles: ["modern"], tags: ["upholstered", "king", "library"], defaultDims: { w: 1.80, h: 1.20, d: 2.10 }, defaultMaterial: "fabric_taupe", buildPanels: fromLibraryTemplate("bed_king_padded") },
+  { id: "bed_full_classic", name: "Full / Double Bed (Classic Wood)", category: "bed", subtypes: ["bed", "double_bed", "full_bed"], styles: ["classic", "scandinavian"], tags: ["wood", "double", "library"], defaultDims: { w: 1.40, h: 1.05, d: 2.00 }, defaultMaterial: "oak", buildPanels: fromLibraryTemplate("bed_full_classic") },
+  { id: "bed_platform_low", name: "Low Platform Bed", category: "bed", subtypes: ["bed", "platform_bed"], styles: ["scandinavian", "minimalist"], tags: ["low", "platform", "library"], defaultDims: { w: 1.60, h: 0.92, d: 2.00 }, defaultMaterial: "oak", buildPanels: fromLibraryTemplate("bed_platform_low") },
+  { id: "bed_daybed", name: "Daybed (Back + Side)", category: "bed", subtypes: ["bed", "daybed", "twin_bed"], styles: ["modern", "scandinavian"], tags: ["daybed", "library"], defaultDims: { w: 2.00, h: 0.88, d: 0.98 }, defaultMaterial: "fabric_sage", buildPanels: fromLibraryTemplate("bed_daybed") },
+  { id: "bed_canopy_four_post", name: "Four-Poster Canopy Bed", category: "bed", subtypes: ["bed", "canopy_bed", "four_poster"], styles: ["classic", "luxury"], tags: ["canopy", "library"], defaultDims: { w: 1.65, h: 2.20, d: 2.15 }, defaultMaterial: "oak", buildPanels: fromLibraryTemplate("bed_canopy_four_post") },
+  { id: "bed_twin_xl", name: "Twin XL Bed", category: "bed", subtypes: ["bed", "twin_bed", "twin_xl"], styles: ["modern"], tags: ["twin", "xl", "library"], defaultDims: { w: 0.99, h: 1.00, d: 2.03 }, defaultMaterial: "oak", buildPanels: fromLibraryTemplate("bed_twin_xl") },
 
   // ════ L. DESKS (6) ═════════════════════════════════════
   { id: "desk_compact", name: "Compact Desk", category: "table", subtypes: ["desk", "writing_desk", "computer_desk"], styles: ["modern", "minimalist"], tags: ["compact", "office"], defaultDims: { w: 1.00, h: 0.75, d: 0.50 }, defaultMaterial: "oak", buildPanels: (w, h, d, m) => buildTable(w, h, d, m, TABLE_RECT) },
@@ -512,6 +530,18 @@ export const TEMPLATE_REGISTRY: TemplateVariant[] = [
   { id: "pillow_lumbar", name: "Lumbar Pillow", category: "accessory", subtypes: ["pillow", "lumbar_pillow"], styles: ["modern"], tags: ["lumbar", "long"], defaultDims: { w: 0.55, h: 0.30, d: 0.12 }, defaultMaterial: "fabric_sage", buildPanels: (w, h, d, m) => buildPillow(w, h, d, m) },
   { id: "throw_folded", name: "Folded Throw Blanket", category: "accessory", subtypes: ["throw", "blanket"], styles: ["modern"], tags: ["folded"], defaultDims: { w: 0.50, h: 0.08, d: 0.35 }, defaultMaterial: "fabric_taupe", buildPanels: (w, h, d, m) => buildThrow(w, h, d, m) },
   { id: "bolster", name: "Bolster Cushion", category: "accessory", subtypes: ["bolster", "cushion"], styles: ["modern"], tags: ["cylindrical"], defaultDims: { w: 0.50, h: 0.18, d: 0.18 }, defaultMaterial: "fabric_cream", buildPanels: (w, h, d, m) => { resetPid(); return [p("Bolster", "horizontal", "cushion_bolster", [0, h / 2, 0], [w, h, d], m)]; } },
+
+  // ════ P. OUTDOOR / PATIO ═══════════════════════════════
+  { id: "outdoor_dining_table", name: "Outdoor Dining Table", category: "outdoor", subtypes: ["outdoor_table", "patio_table", "dining_table"], styles: ["modern", "contemporary"], tags: ["teak", "patio", "dining"], defaultDims: { w: 1.80, h: 0.75, d: 0.90 }, defaultMaterial: "teak", buildPanels: fromLibraryTemplate("outdoor_dining_table") },
+  { id: "outdoor_coffee_table", name: "Outdoor Coffee Table", category: "outdoor", subtypes: ["coffee_table", "patio_table", "low_table"], styles: ["modern", "scandinavian"], tags: ["teak", "patio"], defaultDims: { w: 1.10, h: 0.42, d: 0.60 }, defaultMaterial: "teak", buildPanels: fromLibraryTemplate("outdoor_coffee_table") },
+  { id: "outdoor_bench", name: "Outdoor Bench", category: "outdoor", subtypes: ["bench", "garden_bench", "patio_bench"], styles: ["modern", "rustic"], tags: ["teak", "seating"], defaultDims: { w: 1.40, h: 0.45, d: 0.40 }, defaultMaterial: "teak", buildPanels: fromLibraryTemplate("outdoor_bench") },
+  { id: "outdoor_chaise_lounge", name: "Outdoor Chaise Lounge", category: "outdoor", subtypes: ["chaise", "lounger", "sun_lounger"], styles: ["modern", "contemporary"], tags: ["patio", "pool"], defaultDims: { w: 0.75, h: 0.85, d: 2.00 }, defaultMaterial: "teak", buildPanels: fromLibraryTemplate("outdoor_chaise_lounge") },
+  { id: "outdoor_dining_chair", name: "Outdoor Dining Chair", category: "outdoor", subtypes: ["outdoor_chair", "patio_chair", "dining_chair"], styles: ["modern"], tags: ["stackable", "teak"], defaultDims: { w: 0.56, h: 0.88, d: 0.58 }, defaultMaterial: "teak", buildPanels: fromLibraryTemplate("outdoor_dining_chair") },
+  { id: "outdoor_bar_table", name: "Outdoor Bar Table", category: "outdoor", subtypes: ["bar_table", "pub_table", "high_table"], styles: ["modern"], tags: ["bar", "patio"], defaultDims: { w: 0.75, h: 1.05, d: 0.75 }, defaultMaterial: "teak", buildPanels: fromLibraryTemplate("outdoor_bar_table") },
+  { id: "outdoor_bar_stool", name: "Outdoor Bar Stool", category: "outdoor", subtypes: ["bar_stool", "counter_stool"], styles: ["modern", "industrial"], tags: ["bar", "metal"], defaultDims: { w: 0.40, h: 0.75, d: 0.40 }, defaultMaterial: "teak", buildPanels: fromLibraryTemplate("outdoor_bar_stool") },
+  { id: "outdoor_planter_box", name: "Outdoor Planter Box", category: "outdoor", subtypes: ["planter", "garden_box"], styles: ["modern", "rustic"], tags: ["garden", "wood"], defaultDims: { w: 0.90, h: 0.40, d: 0.40 }, defaultMaterial: "teak", buildPanels: fromLibraryTemplate("outdoor_planter_box") },
+  { id: "outdoor_sofa_2seat", name: "Outdoor 2-Seat Sofa", category: "outdoor", subtypes: ["outdoor_sofa", "patio_sofa", "loveseat"], styles: ["modern", "contemporary"], tags: ["wicker_style", "cushions"], defaultDims: { w: 1.60, h: 0.82, d: 0.82 }, defaultMaterial: "teak", buildPanels: fromLibraryTemplate("outdoor_sofa_2seat") },
+  { id: "outdoor_side_table", name: "Outdoor Side Table", category: "outdoor", subtypes: ["side_table", "accent_table", "patio_table"], styles: ["modern"], tags: ["round", "small"], defaultDims: { w: 0.50, h: 0.52, d: 0.50 }, defaultMaterial: "teak", buildPanels: fromLibraryTemplate("outdoor_side_table") },
 ];
 
 // ═════════════════════════════════════════════════════════
@@ -540,6 +570,11 @@ export function matchTemplate(classification: FurnitureClassification): {
     else if ((cat === "chair" || cat === "armchair") && tmpl.category === "chair") score += 80;
     else if (cat === "sofa" && tmpl.category === "chair") score += 30;
     else if (cat === "desk" && tmpl.category === "table") score += 60;
+    else if (
+      (cat === "outdoor" || cat === "patio" || cat === "garden" || cat === "deck" || cat === "terrace") &&
+      tmpl.category === "outdoor"
+    )
+      score += 100;
     else continue;
 
     // Subtype match
