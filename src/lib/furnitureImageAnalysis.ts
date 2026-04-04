@@ -1023,6 +1023,62 @@ type LayoutStrategy = {
   ) => PanelData[];
 };
 
+/** Ensure a table has exactly 4 corner legs — add missing ones. */
+function completeTableLegs(
+  panels: PanelData[],
+  dims: { w: number; h: number; d: number },
+  nextId: () => string,
+): PanelData[] {
+  const legs = panels.filter((p) => classifyPanelRole(p, "table_desk") === "leg");
+  if (legs.length >= 4) return panels;
+
+  const refLeg = legs[0];
+  const legH = refLeg ? refLeg.size[1] : Math.max(dims.h - 0.04, 0.35);
+  const legThick = refLeg ? Math.max(refLeg.size[0], refLeg.size[2]) : 0.05;
+  const materialId = refLeg?.materialId ?? "oak";
+  const shape = refLeg?.shape ?? "cylinder";
+  const insetX = Math.max(0.06, dims.w * 0.08);
+  const insetZ = Math.max(0.06, dims.d * 0.08);
+  const corners: [number, number][] = [
+    [-dims.w / 2 + insetX, -dims.d / 2 + insetZ],
+    [dims.w / 2 - insetX, -dims.d / 2 + insetZ],
+    [-dims.w / 2 + insetX, dims.d / 2 - insetZ],
+    [dims.w / 2 - insetX, dims.d / 2 - insetZ],
+  ];
+
+  // Find which corners are already occupied
+  const occupied = new Set<number>();
+  for (const leg of legs) {
+    let bestCorner = 0;
+    let bestDist = Infinity;
+    for (let c = 0; c < 4; c++) {
+      if (occupied.has(c)) continue;
+      const dx = leg.position[0] - corners[c][0];
+      const dz = leg.position[2] - corners[c][1];
+      const dist = dx * dx + dz * dz;
+      if (dist < bestDist) { bestDist = dist; bestCorner = c; }
+    }
+    occupied.add(bestCorner);
+  }
+
+  // Add missing legs
+  const result = [...panels];
+  for (let c = 0; c < 4; c++) {
+    if (occupied.has(c)) continue;
+    const [x, z] = corners[c];
+    result.push({
+      id: nextId(),
+      type: "vertical",
+      label: `Leg ${c + 1}`,
+      position: [x, legH / 2, z],
+      size: [legThick, legH, legThick] as [number, number, number],
+      materialId,
+      ...(shape !== "box" ? { shape: shape as any } : {}),
+    });
+  }
+  return result;
+}
+
 function getLayoutStrategy(category: FurnitureCategory): LayoutStrategy {
   switch (category) {
     case "seating":
@@ -1041,6 +1097,7 @@ function getLayoutStrategy(category: FurnitureCategory): LayoutStrategy {
     case "table_desk":
       return {
         repairGeometry: (panels, dims) => repairTableDeskLayout(panels, dims),
+        completeStructure: (panels, dims, _name, nextId) => completeTableLegs(panels, dims, nextId),
       };
     case "casegoods":
       return {
