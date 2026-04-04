@@ -18,7 +18,7 @@ export function NotificationBell() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <button className="relative p-2 rounded-full hover:bg-muted/60 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring">
+        <button className="relative p-2 rounded-lg hover:bg-black/[0.04] transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring">
           <Bell className="w-5 h-5 text-muted-foreground" />
           {unreadCount > 0 && (
             <span className="absolute -top-0.5 -right-0.5 flex h-4.5 w-4.5 items-center justify-center rounded-full bg-destructive text-[10px] font-bold text-white min-w-[18px] h-[18px] px-1">
@@ -30,7 +30,7 @@ export function NotificationBell() {
 
       <DropdownMenuContent
         align="end"
-        className="w-80 rounded-xl p-0 max-h-[420px] overflow-hidden"
+        className="w-80 rounded-xl p-0 max-h-[420px] overflow-hidden shadow-lg border border-black/[0.07]"
         sideOffset={8}
       >
         <div className="flex items-center justify-between px-4 py-3 border-b">

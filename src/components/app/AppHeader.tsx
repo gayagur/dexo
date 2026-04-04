@@ -66,13 +66,13 @@ export function AppHeader() {
 
   return (
     <header
-      className={`sticky top-0 z-50 bg-background/80 backdrop-blur-md border-b transition-all duration-300 ${
+      className={`sticky top-0 z-50 transition-all duration-300 ${
         scrolled
-          ? 'border-border shadow-md'
-          : 'border-border/50 shadow-none'
+          ? 'border-b border-black/[0.07] backdrop-blur-xl bg-white/80 shadow-sm'
+          : 'border-b border-transparent bg-background/60 backdrop-blur-md'
       }`}
     >
-      <div className="container mx-auto px-6 h-16 flex items-center justify-between">
+      <div className="container mx-auto px-6 h-14 md:h-[60px] flex items-center justify-between">
         {/* Left — Logo + Nav */}
         <div className="flex items-center gap-8">
           <Link
@@ -101,10 +101,10 @@ export function AppHeader() {
                       key={to}
                       to={to}
                       onClick={() => setMobileMenuOpen(false)}
-                      className={`h-12 flex items-center px-3 rounded-lg text-sm font-medium transition-colors ${
+                      className={`h-12 flex items-center px-3 rounded-lg text-[14px] font-medium transition-colors ${
                         isActive
-                          ? 'text-foreground bg-muted/70'
-                          : 'text-muted-foreground hover:text-foreground hover:bg-muted/60'
+                          ? 'text-primary bg-primary/[0.07]'
+                          : 'text-muted-foreground hover:text-foreground hover:bg-black/[0.04]'
                       }`}
                     >
                       {label}
@@ -124,10 +124,10 @@ export function AppHeader() {
                 <Link
                   key={to}
                   to={to}
-                  className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
+                  className={`px-3 py-1.5 text-[14px] font-medium rounded-lg transition-colors ${
                     isActive
-                      ? 'text-foreground bg-muted/70'
-                      : 'text-muted-foreground hover:text-foreground hover:bg-muted/60'
+                      ? 'text-primary bg-primary/[0.07]'
+                      : 'text-muted-foreground hover:text-foreground hover:bg-black/[0.04]'
                   }`}
                 >
                   {label}
@@ -143,7 +143,7 @@ export function AppHeader() {
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <button className="flex items-center gap-2.5 rounded-full py-1 pl-1 pr-3 hover:bg-muted/60 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
+              <button className="flex items-center gap-2.5 rounded-full py-1 pl-1 pr-3 hover:bg-black/[0.04] transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
                 <Avatar className="h-8 w-8 ring-2 ring-primary/10">
                   <AvatarImage src={avatarUrl} alt={userName} />
                   <AvatarFallback className="bg-primary/10 text-primary text-xs font-semibold">
@@ -157,7 +157,7 @@ export function AppHeader() {
               </button>
             </DropdownMenuTrigger>
 
-            <DropdownMenuContent align="end" className="w-56 rounded-xl p-1.5" sideOffset={8}>
+            <DropdownMenuContent align="end" className="w-56 rounded-xl p-1.5 shadow-lg border border-black/[0.07]" sideOffset={8}>
               <DropdownMenuLabel className="px-3 py-2">
                 <div className="flex flex-col">
                   <span className="text-sm font-semibold text-foreground">{userName}</span>

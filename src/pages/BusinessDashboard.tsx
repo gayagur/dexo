@@ -134,10 +134,10 @@ const StatCard = ({ icon: Icon, label, target, onClick }: StatCardProps) => {
           </div>
           {/* Stat label */}
           <div
-            className="font-medium text-[#9ca3af] uppercase"
+            className="font-medium text-[#9E9992] uppercase"
             style={{
-              fontSize: '0.75rem',
-              letterSpacing: '0.08em',
+              fontSize: '0.6875rem',
+              letterSpacing: '0.12em',
             }}
           >
             {label}
@@ -373,8 +373,8 @@ const BusinessDashboard = () => {
             transition={{ duration: 0.5, ease: 'easeOut' }}
           >
             <h1
-              className="text-4xl font-serif mb-4"
-              style={{ fontWeight: 700, letterSpacing: '-0.02em' }}
+              className="text-3xl md:text-4xl font-serif font-semibold mb-4"
+              style={{ letterSpacing: '-0.02em' }}
             >
               {getGreeting()}, {business.name?.split(' ')[0] ?? 'there'}
             </h1>
@@ -385,14 +385,14 @@ const BusinessDashboard = () => {
 
           {/* ── Stats with staggered animation ── */}
           {loading ? (
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-12">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 md:gap-5 mb-10">
               <SkeletonCard />
               <SkeletonCard />
               <SkeletonCard />
             </div>
           ) : (
             <motion.div
-              className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-12"
+              className="grid grid-cols-1 sm:grid-cols-3 gap-4 md:gap-5 mb-10"
               variants={containerVariants}
               initial="hidden"
               animate="visible"
@@ -468,10 +468,10 @@ const BusinessDashboard = () => {
                             <div>
                               <div className="flex items-center gap-2 mb-1">
                                 <span
-                                  className="text-xs font-medium uppercase"
+                                  className="text-[11px] font-medium uppercase"
                                   style={{
-                                    color: '#C05621',
-                                    letterSpacing: '0.08em',
+                                    color: '#9E9992',
+                                    letterSpacing: '0.12em',
                                   }}
                                 >
                                   {project.category}
@@ -500,8 +500,8 @@ const BusinessDashboard = () => {
                                 )}
                               </div>
                               <h3
-                                className="text-xl font-serif mt-1 mb-2"
-                                style={{ fontWeight: 700, letterSpacing: '-0.02em' }}
+                                className="text-xl font-serif font-semibold mt-1 mb-2"
+                                style={{ letterSpacing: '-0.015em' }}
                               >
                                 {project.title}
                               </h3>
@@ -550,8 +550,8 @@ const BusinessDashboard = () => {
                 <EmptyStateIllustration />
               </div>
               <h3
-                className="text-xl font-serif mb-2"
-                style={{ fontWeight: 700, letterSpacing: '-0.02em' }}
+                className="text-xl font-serif font-semibold mb-2"
+                style={{ letterSpacing: '-0.015em' }}
               >
                 Your first project is waiting to be discovered
               </h3>

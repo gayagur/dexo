@@ -112,9 +112,9 @@ function MetricCard({ label, value }: {
   return (
     <motion.div whileHover={{ y: -2 }} transition={{ duration: 0.2 }}>
       <Card className="rounded-2xl overflow-hidden">
-        <CardContent className="p-5">
-          <div className="text-3xl font-serif text-foreground leading-none">{value}</div>
-          <div className="text-xs text-muted-foreground mt-1.5 tracking-wide uppercase">{label}</div>
+        <CardContent className="p-5 md:p-6">
+          <div className="text-2xl md:text-3xl font-serif text-foreground leading-none">{value}</div>
+          <div className="text-[11px] text-muted-foreground mt-1.5 tracking-[0.08em] uppercase font-medium">{label}</div>
         </CardContent>
       </Card>
     </motion.div>
@@ -428,7 +428,7 @@ const CustomerDashboard = () => {
                 initial="hidden"
                 animate="visible"
                 variants={staggerContainer}
-                className="grid grid-cols-3 gap-3 mb-6"
+                className="grid grid-cols-3 gap-4 md:gap-5 mb-6"
               >
                 <motion.div variants={staggerItem}>
                   <MetricCard label="Total projects" value={animTotal} />
@@ -494,7 +494,7 @@ const CustomerDashboard = () => {
               initial="hidden"
               animate="visible"
               variants={staggerContainer}
-              className="grid sm:grid-cols-2 gap-4"
+              className="grid sm:grid-cols-2 gap-4 md:gap-5"
             >
               <motion.div variants={staggerItem}>
                 <Link to="/new-project" className="group block">

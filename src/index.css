@@ -142,6 +142,29 @@ button:active, [role="button"]:active {
 
     --tracking-normal: -0.01em;
     --spacing: 0.25rem;
+
+    /* Brand */
+    --brand: #C96A3D;
+    --brand-light: #F5E6DC;
+    --brand-dark: #A85530;
+
+    /* Neutrals */
+    --bg-base: #FAFAF8;
+    --bg-card: #FFFFFF;
+    --bg-subtle: #F5F5F3;
+    --border-light: rgba(0, 0, 0, 0.07);
+    --border-medium: rgba(0, 0, 0, 0.12);
+
+    /* Text */
+    --text-primary: #1A1208;
+    --text-secondary: #6B6560;
+    --text-muted: #9E9992;
+
+    /* Shadows */
+    --shadow-brand: 0 8px 24px rgba(201,106,61,0.25);
+
+    /* Transitions */
+    --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
   }
 
   .dark {
@@ -216,17 +239,18 @@ button:active, [role="button"]:active {
   /* Typography scale — clear hierarchy, warm + readable */
   h1, h2, h3, h4, h5, h6 {
     font-family: var(--font-serif);
-    letter-spacing: -0.02em;
     line-height: 1.2;
     color: hsl(var(--foreground));
   }
 
-  h1 { font-size: 2rem; font-weight: 700; }
-  h2 { font-size: 1.5rem; font-weight: 600; }
-  h3 { font-size: 1.25rem; font-weight: 600; }
+  h1 { font-size: 2rem; font-weight: 600; letter-spacing: -0.02em; }
+  h2 { font-size: 1.5rem; font-weight: 600; letter-spacing: -0.015em; }
+  h3 { font-size: 1.25rem; font-weight: 600; letter-spacing: -0.01em; }
+  h4 { font-size: 1rem; font-weight: 600; }
 
   p {
     line-height: 1.65;
+    color: var(--text-secondary, hsl(var(--foreground)));
   }
 
   /* Ensure readable contrast for common patterns */
