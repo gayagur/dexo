@@ -240,6 +240,9 @@ export async function editImage(
 /**
  * Build a structured image generation prompt from brief data.
  * Replaces pollinations.ts buildImagePrompt.
+ *
+ * Detects scene requests ("in a room", "lifestyle", etc.) and adjusts
+ * the background accordingly. Otherwise produces an isolated product shot.
  */
 export function buildImagePrompt(
   description: string,
@@ -248,8 +251,28 @@ export function buildImagePrompt(
   materials?: string
 ): string {
   const styleStr = styleTags.length > 0 ? `, ${styleTags.join(", ")} style` : "";
-  const matStr = materials ? `, ${materials}` : "";
-  return `Product photo of a ${description}${styleStr}${matStr}. Plain white background, completely white seamless backdrop. The furniture is centered and isolated — nothing else in the image. No room, no walls, no floor texture, no studio equipment, no lights, no props, no shadows on the ground. Just the single piece of furniture floating on pure white. Professional product photography, photorealistic, high detail.`;
+  const matStr = materials ? `, made of ${materials}` : "";
+
+  // Detect if the user wants a lifestyle / in-context scene
+  const lowerDesc = description.toLowerCase();
+  const isScene = /\b(in a room|in my |in the room|lifestyle|in context|in situ|room setting|interior scene)\b/.test(lowerDesc);
+
+  if (isScene) {
+    return [
+      `${description}${styleStr}${matStr}.`,
+      "Lifestyle photography, in context, realistic interior setting,",
+      "natural lighting, editorial interior photograph, photorealistic, sharp focus, high detail.",
+      "NOT cartoon, NOT illustration, NOT 3D render, NOT sketch.",
+    ].join(" ");
+  }
+
+  return [
+    `${description}${styleStr}${matStr}.`,
+    "Photographed on a pure white background, centered in frame,",
+    "isolated product shot, studio lighting, sharp focus,",
+    "professional product photography, photorealistic, high detail.",
+    "NOT cartoon, NOT illustration, NOT 3D render, NOT sketch.",
+  ].join(" ");
 }
 
 /**

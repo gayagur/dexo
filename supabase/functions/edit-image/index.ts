@@ -3,9 +3,9 @@ import { verifyAuth } from "../_shared/auth.ts";
 import { logUsage } from "../_shared/usage.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
 
-const MODEL = "dall-e-3";
+const MODEL = "gpt-image-1";
 const MAX_EDITS_PER_IMAGE = 5;
-const COST_PER_MP = 0.04; // per image (FLUX.1-kontext-max)
+const COST_PER_IMAGE = 0.08; // approximate cost for gpt-image-1 edit
 
 // ─── Structured Error Codes ────────────────────────────────
 type ErrorCode =
@@ -142,38 +142,63 @@ Deno.serve(async (req) => {
       console.log("[edit-image] No mask provided (global edit)");
     }
 
-    // ─── Step 3: Build prompt for DALL-E 3 ────────────────────
-    // DALL-E 3 works best with descriptive prompts.
-    // We combine the instruction with context about editing the original image.
+    // ─── Step 3: Build prompt for gpt-image-1 ──────────────────
+    // Preserve the original item, only change what the user requested.
+    // Keep white background unless the user explicitly asks for a scene.
     console.log("[edit-image] === STEP 3: Building prompt ===");
 
-    const prompt = `Edit this furniture/interior image: ${instruction}. Maintain the overall composition and style of the original image.`;
+    const lowerInstruction = instruction.toLowerCase();
+    const isSceneRequest = /\b(in a room|in my |lifestyle|in context|room setting|interior scene)\b/.test(lowerInstruction);
+
+    let prompt: string;
+    if (isSceneRequest) {
+      prompt = `Edit this furniture/interior image: ${instruction}. Preserve the original item exactly. Place it in a realistic interior setting with natural lighting.`;
+    } else {
+      prompt = `Edit this furniture/interior image: ${instruction}. Preserve the original item and overall composition. Keep the white background unless a different background was requested.`;
+    }
+    if (regionHint) {
+      prompt += ` Focus the edit ${regionHint}.`;
+    }
 
     console.log("[edit-image] Final prompt:", prompt);
     console.log("[edit-image] Original instruction:", instruction);
-    console.log("[edit-image] regionHint (ignored for DALL-E):", regionHint || "none");
+    console.log("[edit-image] regionHint:", regionHint || "none");
+    console.log("[edit-image] isSceneRequest:", isSceneRequest);
 
-    // ─── Step 4: Call OpenAI DALL-E 3 ─────────────────────────
-    console.log("[edit-image] === STEP 4: Calling OpenAI DALL-E 3 ===");
+    // ─── Step 4: Call OpenAI gpt-image-1 edit endpoint ────────
+    // Uses multipart/form-data with the source image so the model
+    // can see and preserve the original.
+    console.log("[edit-image] === STEP 4: Calling OpenAI gpt-image-1 edit ===");
 
-    const editBody = {
-      model: MODEL,
-      prompt,
-      n: 1,
-      size: "1024x1024" as const,
-      quality: "standard" as const,
-      response_format: "url" as const,
-    };
+    // Download the source image as a file for the multipart upload
+    const srcImageResp = await fetch(imageUrl);
+    if (!srcImageResp.ok) {
+      console.error("[edit-image] Failed to download source image for edit:", srcImageResp.status);
+      return errorResponse("AI_ERROR", "Could not download source image for editing", 400);
+    }
+    const srcImageBlob = await srcImageResp.blob();
+    const srcImageBuffer = new Uint8Array(await srcImageBlob.arrayBuffer());
 
-    console.log("[edit-image] Request body:", JSON.stringify(editBody, null, 2));
+    const formData = new FormData();
+    formData.append("model", MODEL);
+    formData.append("prompt", prompt);
+    formData.append("n", "1");
+    formData.append("size", "1024x1024");
+    formData.append("image[]", new Blob([srcImageBuffer], { type: "image/png" }), "source.png");
 
-    const response = await fetch("https://api.openai.com/v1/images/generations", {
+    // If a mask was provided, include it
+    if (mask) {
+      const base64Data = mask.replace(/^data:image\/\w+;base64,/, "");
+      const maskBuf = Uint8Array.from(atob(base64Data), (c) => c.charCodeAt(0));
+      formData.append("mask", new Blob([maskBuf], { type: "image/png" }), "mask.png");
+    }
+
+    const response = await fetch("https://api.openai.com/v1/images/edits", {
       method: "POST",
       headers: {
         "Authorization": `Bearer ${openaiApiKey}`,
-        "Content-Type": "application/json",
       },
-      body: JSON.stringify(editBody),
+      body: formData,
     });
 
     console.log("[edit-image] OpenAI response status:", response.status);
@@ -204,40 +229,45 @@ Deno.serve(async (req) => {
       return errorResponse("AI_ERROR", "Invalid response from AI service", 502);
     }
 
+    // gpt-image-1 may return b64_json or url depending on the request
     const tempUrl = result.data?.[0]?.url;
+    const b64Json = result.data?.[0]?.b64_json;
 
     console.log("[edit-image] === STEP 5: Checking result ===");
     console.log("[edit-image] Result structure:", {
       hasData: !!result.data,
       dataLength: result.data?.length,
       firstItem: result.data?.[0] ? Object.keys(result.data[0]) : "none",
-      tempUrl: tempUrl ? tempUrl.slice(0, 100) : "MISSING",
+      hasUrl: !!tempUrl,
+      hasB64: !!b64Json,
       resultId: result.id,
       model: result.model,
     });
 
-    if (!tempUrl) {
-      console.error("[edit-image] No image URL in response. Full result:", JSON.stringify(result).slice(0, 500));
+    if (!tempUrl && !b64Json) {
+      console.error("[edit-image] No image in response. Full result:", JSON.stringify(result).slice(0, 500));
       return errorResponse("AI_ERROR", "No image returned from AI", 502);
     }
 
-    // ─── Step 6: Verify edited image is different ─────────────
-    console.log("[edit-image] === STEP 6: Downloading edited image ===");
-    console.log("[edit-image] Downloading from:", tempUrl.slice(0, 100));
+    // ─── Step 6: Get edited image bytes ───────────────────────
+    console.log("[edit-image] === STEP 6: Getting edited image ===");
 
-    const imageResponse = await fetch(tempUrl);
-    if (!imageResponse.ok) {
-      console.error("[edit-image] Failed to download edited image:", imageResponse.status);
-      return errorResponse("AI_ERROR", "Failed to download edited image from AI", 502);
+    let imageBuffer: Uint8Array;
+    if (b64Json) {
+      console.log("[edit-image] Decoding base64 image");
+      imageBuffer = Uint8Array.from(atob(b64Json), (c) => c.charCodeAt(0));
+    } else {
+      console.log("[edit-image] Downloading from:", tempUrl!.slice(0, 100));
+      const imageResponse = await fetch(tempUrl!);
+      if (!imageResponse.ok) {
+        console.error("[edit-image] Failed to download edited image:", imageResponse.status);
+        return errorResponse("AI_ERROR", "Failed to download edited image from AI", 502);
+      }
+      const imageBlob = await imageResponse.blob();
+      imageBuffer = new Uint8Array(await imageBlob.arrayBuffer());
     }
 
-    const imageBlob = await imageResponse.blob();
-    const imageBuffer = new Uint8Array(await imageBlob.arrayBuffer());
-
-    console.log("[edit-image] Downloaded edited image:", {
-      size: imageBuffer.length,
-      contentType: imageResponse.headers.get("content-type"),
-    });
+    console.log("[edit-image] Edited image size:", imageBuffer.length);
 
     // ─── Step 7: Upload to Supabase Storage ───────────────────
     console.log("[edit-image] === STEP 7: Uploading to storage ===");
@@ -307,7 +337,7 @@ Deno.serve(async (req) => {
     }
 
     // ─── Step 9: Log Usage ────────────────────────────────────
-    const cost = 1 * COST_PER_MP;
+    const cost = COST_PER_IMAGE;
 
     logUsage({
       userId,
