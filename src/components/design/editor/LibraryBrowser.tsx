@@ -452,8 +452,8 @@ export function LibraryBrowser({ onSelectTemplate, onAddGLB, onClose, communityT
       {/* Room filter pills */}
       <div className="px-3 pb-2 shrink-0 min-w-0">
         <div
-          className="scrollbar-hide flex gap-2 overflow-x-auto pb-2 flex-nowrap"
-          style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' } as React.CSSProperties}
+          className="flex gap-2 overflow-x-auto pb-2 flex-nowrap"
+          style={{ scrollbarWidth: 'thin', scrollbarColor: '#C96A3D33 transparent' } as React.CSSProperties}
         >
           {ROOMS.map((room) => {
             const active = selectedRoom === room.id;
