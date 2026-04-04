@@ -1,9 +1,9 @@
-import { useEffect, useRef } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 
-/** Aurora shader background — warm DEXO palette, subtle and flowing. */
-const AuroraPlane = () => {
+/** Aurora shader background — warm DEXO palette, subtle and flowing, follows mouse. */
+const AuroraPlane = ({ mouse }: { mouse: React.RefObject<[number, number]> }) => {
   const { scene } = useThree();
   const matRef = useRef<THREE.ShaderMaterial | null>(null);
 
@@ -12,6 +12,7 @@ const AuroraPlane = () => {
     const material = new THREE.ShaderMaterial({
       uniforms: {
         time: { value: 0 },
+        mouse: { value: new THREE.Vector2(0, 0) },
       },
       vertexShader: `
         varying vec2 vUv;
@@ -22,6 +23,7 @@ const AuroraPlane = () => {
       `,
       fragmentShader: `
         uniform float time;
+        uniform vec2 mouse;
         varying vec2 vUv;
 
         vec3 mod289(vec3 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
@@ -54,9 +56,15 @@ const AuroraPlane = () => {
         void main() {
           vec2 uv = vUv;
 
-          float flow1 = snoise(vec2(uv.x * 2.0 + time * 0.08, uv.y * 0.5 + time * 0.04));
-          float flow2 = snoise(vec2(uv.x * 1.5 + time * 0.06, uv.y * 0.8 + time * 0.025));
-          float flow3 = snoise(vec2(uv.x * 3.0 + time * 0.1, uv.y * 0.3 + time * 0.05));
+          // Mouse influence — shift the noise field toward the cursor
+          vec2 m = mouse * 0.3;
+          float flow1 = snoise(vec2(uv.x * 2.0 + time * 0.08 + m.x, uv.y * 0.5 + time * 0.04 + m.y));
+          float flow2 = snoise(vec2(uv.x * 1.5 + time * 0.06 - m.x * 0.5, uv.y * 0.8 + time * 0.025 + m.y * 0.5));
+          float flow3 = snoise(vec2(uv.x * 3.0 + time * 0.1 + m.x * 0.7, uv.y * 0.3 + time * 0.05 - m.y * 0.3));
+
+          // Mouse-attracted glow — brighter near cursor
+          float mouseDist = distance(uv, vec2(mouse.x * 0.5 + 0.5, mouse.y * 0.5 + 0.5));
+          float mouseGlow = smoothstep(0.5, 0.0, mouseDist) * 0.15;
 
           float streaks = sin((uv.x + flow1 * 0.3) * 8.0 + time * 0.15) * 0.5 + 0.5;
           streaks *= sin((uv.y + flow2 * 0.2) * 12.0 + time * 0.1) * 0.5 + 0.5;
@@ -85,6 +93,9 @@ const AuroraPlane = () => {
           float deepFlow = smoothstep(0.85, 1.0, flow3 + streaks * 0.15);
           color = mix(color, deep, deepFlow * 0.15);
 
+          // Mouse glow — warm accent near cursor
+          color = mix(color, accent, mouseGlow);
+
           float noise = snoise(uv * 80.0) * 0.008;
           color += noise;
 
@@ -109,6 +120,9 @@ const AuroraPlane = () => {
   useFrame(() => {
     if (matRef.current) {
       matRef.current.uniforms.time.value += 0.01;
+      if (mouse.current) {
+        matRef.current.uniforms.mouse.value.set(mouse.current[0], mouse.current[1]);
+      }
     }
   });
 
@@ -128,6 +142,19 @@ const CameraController = () => {
 };
 
 export function WovenBackground() {
+  const mouse = useRef<[number, number]>([0, 0]);
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      mouse.current = [
+        (e.clientX / window.innerWidth) * 2 - 1,
+        -(e.clientY / window.innerHeight) * 2 + 1,
+      ];
+    };
+    window.addEventListener('mousemove', handleMouseMove);
+    return () => window.removeEventListener('mousemove', handleMouseMove);
+  }, []);
+
   return (
     <div className="absolute inset-0 z-0 pointer-events-none">
       <Canvas
@@ -135,7 +162,7 @@ export function WovenBackground() {
         gl={{ antialias: true, alpha: false, powerPreference: 'high-performance' }}
         style={{ background: '#F7F3EF' }}
       >
-        <AuroraPlane />
+        <AuroraPlane mouse={mouse} />
         <CameraController />
       </Canvas>
     </div>
