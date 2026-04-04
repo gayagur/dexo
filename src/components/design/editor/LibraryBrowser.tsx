@@ -392,7 +392,7 @@ export function LibraryBrowser({ onSelectTemplate, onAddGLB, onClose, communityT
   };
 
   return (
-    <div className="w-full lg:w-72 min-w-0 max-w-full bg-[#1B2432] text-white flex flex-col shrink-0 overflow-hidden">
+    <div className="w-full lg:w-72 min-w-0 max-w-full bg-[#1B2432] text-white flex flex-col shrink-0 overflow-y-auto overflow-x-hidden">
       {/* Header */}
       <div className="px-4 pt-4 pb-3 shrink-0">
         <div className="flex items-center justify-between mb-3">
