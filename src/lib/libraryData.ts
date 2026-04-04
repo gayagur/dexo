@@ -3117,6 +3117,224 @@ export const LIBRARY_TEMPLATES: LibraryTemplate[] = [
   },
 
   {
+    id: "chair_ladder_back",
+    name: "Ladder-Back Dining Chair",
+    category: "chairs",
+    icon: "🪑",
+    description: "Farmhouse-style chair with horizontal slat ladder back",
+    dims: { w: 450, h: 920, d: 520 },
+    buildPanels: (dims) => {
+      _pid = 0;
+      const w = dims.w / 1000;
+      const h = dims.h / 1000;
+      const d = dims.d / 1000;
+      const seatH = 0.46;
+      const legD = 0.032;
+      const slatT = 0.02;
+      const slatGap = 0.068;
+      const backZ = -d / 2 + 0.02;
+      const backY0 = seatH + 0.045;
+      const slats = 4;
+      const panels: PanelData[] = [
+        box("Seat", "horizontal", [0, seatH, 0], [w - 0.04, 0.038, d - 0.06], "oak"),
+        box("Back Post L", "vertical", [-w / 2 + 0.04, (seatH + h) / 2 - 0.02, backZ], [0.035, h - seatH - 0.04, 0.035], "oak"),
+        box("Back Post R", "vertical", [w / 2 - 0.04, (seatH + h) / 2 - 0.02, backZ], [0.035, h - seatH - 0.04, 0.035], "oak"),
+      ];
+      for (let i = 0; i < slats; i++) {
+        panels.push(
+          box(`Slat ${i + 1}`, "horizontal", [0, backY0 + i * slatGap, backZ], [w - 0.14, slatT, 0.038], "oak"),
+        );
+      }
+      panels.push(
+        cyl("Leg FL", [-w / 2 + 0.045, seatH / 2, d / 2 - 0.05], legD, seatH, "oak"),
+        cyl("Leg FR", [w / 2 - 0.045, seatH / 2, d / 2 - 0.05], legD, seatH, "oak"),
+        cyl("Leg BL", [-w / 2 + 0.045, seatH / 2, -d / 2 + 0.05], legD, seatH, "oak"),
+        cyl("Leg BR", [w / 2 - 0.045, seatH / 2, -d / 2 + 0.05], legD, seatH, "oak"),
+      );
+      return panels;
+    },
+  },
+
+  {
+    id: "chair_windsor_spindle",
+    name: "Windsor-Style Spindle Chair",
+    category: "chairs",
+    icon: "🪑",
+    description: "Classic spindle back with bowed crest rail and turned legs",
+    dims: { w: 460, h: 900, d: 500 },
+    buildPanels: (dims) => {
+      _pid = 0;
+      const w = dims.w / 1000;
+      const h = dims.h / 1000;
+      const d = dims.d / 1000;
+      const seatH = 0.45;
+      const legD = 0.028;
+      const backZ = -d / 2 + 0.022;
+      const crestY = h - 0.12;
+      const spindleYs = [0.58, 0.66, 0.74, 0.82];
+      const spindleXs = [-w * 0.28, -w * 0.1, w * 0.1, w * 0.28];
+      const out: PanelData[] = [
+        { id: pid(), type: "horizontal", shape: "rounded_rect" as PanelShape, label: "Seat", position: [0, seatH, 0.02], size: [w - 0.06, 0.04, d - 0.08], materialId: "oak", shapeParams: { cornerRadius: 0.02 } },
+        box("Crest Rail", "horizontal", [0, crestY, backZ], [w - 0.08, 0.03, 0.04], "oak"),
+        box("Arm Rail", "horizontal", [0, seatH + 0.35, backZ], [w - 0.1, 0.025, 0.035], "oak"),
+      ];
+      for (let i = 0; i < spindleXs.length; i++) {
+        const sx = spindleXs[i]!;
+        const sy = spindleYs[i] ?? 0.62;
+        out.push(cyl(`Spindle ${i + 1}`, [sx, sy, backZ], 0.018, 0.42, "oak"));
+      }
+      out.push(
+        cyl("Leg FL", [-w / 2 + 0.05, seatH / 2, d / 2 - 0.05], legD, seatH, "oak"),
+        cyl("Leg FR", [w / 2 - 0.05, seatH / 2, d / 2 - 0.05], legD, seatH, "oak"),
+        cyl("Leg BL", [-w / 2 + 0.05, seatH / 2, -d / 2 + 0.05], legD, seatH, "oak"),
+        cyl("Leg BR", [w / 2 - 0.05, seatH / 2, -d / 2 + 0.05], legD, seatH, "oak"),
+      );
+      return out;
+    },
+  },
+
+  {
+    id: "chair_parsons_upholstered",
+    name: "Parsons Upholstered Chair",
+    category: "chairs",
+    icon: "🪑",
+    description: "Fully upholstered box silhouette with straight legs",
+    dims: { w: 500, h: 880, d: 560 },
+    buildPanels: (dims) => {
+      _pid = 0;
+      const w = dims.w / 1000;
+      const h = dims.h / 1000;
+      const d = dims.d / 1000;
+      const seatH = 0.47;
+      return [
+        firmCushion("Seat", "horizontal", [0, seatH, 0.02], [w - 0.06, 0.09, d - 0.1], "fabric_charcoal"),
+        firmCushion("Back", "vertical", [0, seatH + 0.32, -d / 2 + 0.07], [w - 0.05, 0.52, 0.12], "fabric_charcoal"),
+        ...fourLegsInset(w, h, d, seatH, 0.034, 0.055, "black_metal"),
+      ];
+    },
+  },
+
+  {
+    id: "chair_industrial_metal",
+    name: "Industrial Metal Chair",
+    category: "chairs",
+    icon: "🪑",
+    description: "Sheet metal seat and back on slim steel legs",
+    dims: { w: 480, h: 820, d: 520 },
+    buildPanels: (dims) => {
+      _pid = 0;
+      const w = dims.w / 1000;
+      const h = dims.h / 1000;
+      const d = dims.d / 1000;
+      const seatH = 0.44;
+      const legD = 0.022;
+      return [
+        box("Seat Pan", "horizontal", [0, seatH, 0.015], [w - 0.04, 0.025, d - 0.06], "black_metal"),
+        box("Back Rest", "vertical", [0, seatH + 0.28, -d / 2 + 0.03], [w - 0.06, 0.42, 0.025], "black_metal"),
+        cyl("Leg FL", [-w / 2 + 0.04, seatH / 2, d / 2 - 0.04], legD, seatH, "black_metal"),
+        cyl("Leg FR", [w / 2 - 0.04, seatH / 2, d / 2 - 0.04], legD, seatH, "black_metal"),
+        cyl("Leg BL", [-w / 2 + 0.04, seatH / 2, -d / 2 + 0.04], legD, seatH, "black_metal"),
+        cyl("Leg BR", [w / 2 - 0.04, seatH / 2, -d / 2 + 0.04], legD, seatH, "black_metal"),
+      ];
+    },
+  },
+
+  {
+    id: "chair_counter_stool_back",
+    name: "Counter Stool with Back",
+    category: "chairs",
+    icon: "🪑",
+    description: "Counter-height stool with low back and footrest ring",
+    dims: { w: 450, h: 980, d: 480 },
+    buildPanels: (dims) => {
+      _pid = 0;
+      const w = dims.w / 1000;
+      const h = dims.h / 1000;
+      const d = dims.d / 1000;
+      const seatH = 0.64;
+      const legH = seatH - 0.04;
+      const ringY = 0.28;
+      return [
+        firmCushion("Seat", "horizontal", [0, seatH, 0.02], [w - 0.08, 0.055, d - 0.08], "fabric_cream"),
+        firmCushion("Back", "vertical", [0, seatH + 0.18, -d / 2 + 0.045], [w - 0.1, 0.32, 0.07], "fabric_cream"),
+        cyl("Post", [0, legH / 2, 0], 0.042, legH, "black_metal"),
+        box("Foot Rest L", "horizontal", [-w * 0.2, ringY, 0], [0.12, 0.02, 0.04], "black_metal"),
+        box("Foot Rest R", "horizontal", [w * 0.2, ringY, 0], [0.12, 0.02, 0.04], "black_metal"),
+        box("Base", "horizontal", [0, 0.018, 0], [w * 0.42, 0.03, d * 0.42], "black_metal"),
+      ];
+    },
+  },
+
+  {
+    id: "chair_acrylic_ghost",
+    name: "Ghost Acrylic Chair",
+    category: "chairs",
+    icon: "🪑",
+    description: "Transparent acrylic-style shell seat and back",
+    dims: { w: 460, h: 880, d: 520 },
+    buildPanels: (dims) => {
+      _pid = 0;
+      const w = dims.w / 1000;
+      const h = dims.h / 1000;
+      const d = dims.d / 1000;
+      const seatH = 0.46;
+      return [
+        {
+          id: pid(),
+          type: "horizontal",
+          shape: "rounded_rect" as PanelShape,
+          label: "Seat Shell",
+          position: [0, seatH, 0.02],
+          size: [w - 0.04, 0.045, d - 0.08],
+          materialId: "acrylic_clear",
+          shapeParams: { cornerRadius: 0.04 },
+        },
+        {
+          id: pid(),
+          type: "vertical",
+          shape: "rounded_rect" as PanelShape,
+          label: "Back Shell",
+          position: [0, seatH + 0.3, -d / 2 + 0.04],
+          size: [w - 0.06, 0.48, 0.04],
+          materialId: "acrylic_clear",
+          shapeParams: { cornerRadius: 0.03 },
+        },
+        cyl("Leg FL", [-w / 2 + 0.055, seatH / 2, d / 2 - 0.055], 0.028, seatH, "acrylic_clear"),
+        cyl("Leg FR", [w / 2 - 0.055, seatH / 2, d / 2 - 0.055], 0.028, seatH, "acrylic_clear"),
+        cyl("Leg BL", [-w / 2 + 0.055, seatH / 2, -d / 2 + 0.055], 0.028, seatH, "acrylic_clear"),
+        cyl("Leg BR", [w / 2 - 0.055, seatH / 2, -d / 2 + 0.055], 0.028, seatH, "acrylic_clear"),
+      ];
+    },
+  },
+
+  {
+    id: "chair_velvet_accent",
+    name: "Velvet Accent Chair",
+    category: "chairs",
+    icon: "🪑",
+    description: "Curved bucket seat with plush velvet-style upholstery",
+    dims: { w: 720, h: 820, d: 680 },
+    buildPanels: (dims) => {
+      _pid = 0;
+      const w = dims.w / 1000;
+      const h = dims.h / 1000;
+      const d = dims.d / 1000;
+      const seatH = 0.42;
+      const armW = 0.09;
+      return [
+        firmCushion("Seat", "horizontal", [0, seatH, 0.04], [w - armW * 2 - 0.04, 0.1, d - 0.14], "fabric_blush"),
+        firmCushion("Back", "vertical", [0, seatH + 0.28, -d / 2 + 0.12], [w - armW * 2 - 0.02, 0.44, 0.22], "fabric_blush"),
+        padded("Left Arm", "vertical", [-w / 2 + armW / 2, seatH + 0.22, 0.02], [armW, 0.32, d - 0.12], "fabric_blush"),
+        padded("Right Arm", "vertical", [w / 2 - armW / 2, seatH + 0.22, 0.02], [armW, 0.32, d - 0.12], "fabric_blush"),
+        cone("Leg FL", [-w / 2 + 0.1, 0.2, d / 2 - 0.1], 0.035, 0.4, "walnut"),
+        cone("Leg FR", [w / 2 - 0.1, 0.2, d / 2 - 0.1], 0.035, 0.4, "walnut"),
+        cone("Leg BL", [-w / 2 + 0.1, 0.2, -d / 2 + 0.1], 0.035, 0.4, "walnut"),
+        cone("Leg BR", [w / 2 - 0.1, 0.2, -d / 2 + 0.1], 0.035, 0.4, "walnut"),
+      ];
+    },
+  },
+
+  {
     id: "stool_bar_square",
     name: "Square Bar Stool",
     category: "seating",
