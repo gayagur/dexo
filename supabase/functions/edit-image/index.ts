@@ -3,7 +3,7 @@ import { verifyAuth } from "../_shared/auth.ts";
 import { logUsage } from "../_shared/usage.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
 
-const MODEL = "black-forest-labs/FLUX.1-kontext-max";
+const MODEL = "dall-e-3";
 const MAX_EDITS_PER_IMAGE = 5;
 const COST_PER_MP = 0.04; // per image (FLUX.1-kontext-max)
 
@@ -89,8 +89,8 @@ Deno.serve(async (req) => {
       }
     }
 
-    const togetherApiKey = Deno.env.get("TOGETHER_API_KEY");
-    if (!togetherApiKey) {
+    const openaiApiKey = Deno.env.get("OPENAI_API_KEY");
+    if (!openaiApiKey) {
       return errorResponse("CONFIG_ERROR", "AI service not configured", 500);
     }
 
@@ -113,7 +113,7 @@ Deno.serve(async (req) => {
     }
 
     if (!imageAccessible) {
-      console.error("[edit-image] SOURCE IMAGE NOT ACCESSIBLE — Together AI cannot fetch it");
+      console.error("[edit-image] SOURCE IMAGE NOT ACCESSIBLE — OpenAI cannot fetch it");
       return errorResponse("AI_ERROR", "Source image is not accessible. Please try regenerating it.", 400);
     }
 
@@ -142,52 +142,51 @@ Deno.serve(async (req) => {
       console.log("[edit-image] No mask provided (global edit)");
     }
 
-    // ─── Step 3: Build prompt for Kontext ─────────────────────
-    // Kontext works best with direct, clear transformation instructions.
-    // Do NOT add spatial hints — Kontext doesn't understand "in the top-left area".
-    // Instead, give it a clear editing instruction as the prompt.
+    // ─── Step 3: Build prompt for DALL-E 3 ────────────────────
+    // DALL-E 3 works best with descriptive prompts.
+    // We combine the instruction with context about editing the original image.
     console.log("[edit-image] === STEP 3: Building prompt ===");
 
-    const prompt = instruction;
+    const prompt = `Edit this furniture/interior image: ${instruction}. Maintain the overall composition and style of the original image.`;
 
     console.log("[edit-image] Final prompt:", prompt);
     console.log("[edit-image] Original instruction:", instruction);
-    console.log("[edit-image] regionHint (ignored for Kontext):", regionHint || "none");
+    console.log("[edit-image] regionHint (ignored for DALL-E):", regionHint || "none");
 
-    // ─── Step 4: Call Together AI ──────────────────────────────
-    console.log("[edit-image] === STEP 4: Calling Together AI ===");
+    // ─── Step 4: Call OpenAI DALL-E 3 ─────────────────────────
+    console.log("[edit-image] === STEP 4: Calling OpenAI DALL-E 3 ===");
 
     const editBody = {
       model: MODEL,
       prompt,
-      image_url: imageUrl,
-      steps: 28,
       n: 1,
-      response_format: "url",
+      size: "1024x1024" as const,
+      quality: "standard" as const,
+      response_format: "url" as const,
     };
 
     console.log("[edit-image] Request body:", JSON.stringify(editBody, null, 2));
 
-    const response = await fetch("https://api.together.xyz/v1/images/generations", {
+    const response = await fetch("https://api.openai.com/v1/images/generations", {
       method: "POST",
       headers: {
-        "Authorization": `Bearer ${togetherApiKey}`,
+        "Authorization": `Bearer ${openaiApiKey}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify(editBody),
     });
 
-    console.log("[edit-image] Together AI response status:", response.status);
-    console.log("[edit-image] Together AI response headers:", {
+    console.log("[edit-image] OpenAI response status:", response.status);
+    console.log("[edit-image] OpenAI response headers:", {
       contentType: response.headers.get("content-type"),
       requestId: response.headers.get("x-request-id"),
     });
 
     const responseText = await response.text();
-    console.log("[edit-image] Together AI raw response:", responseText.slice(0, 500));
+    console.log("[edit-image] OpenAI raw response:", responseText.slice(0, 500));
 
     if (!response.ok) {
-      console.error("[edit-image] Together AI ERROR:", response.status, responseText);
+      console.error("[edit-image] OpenAI ERROR:", response.status, responseText);
       let errMsg = "Image editing failed";
       try {
         const errJson = JSON.parse(responseText);

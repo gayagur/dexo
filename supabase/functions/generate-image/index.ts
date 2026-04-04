@@ -3,7 +3,7 @@ import { verifyAuth } from "../_shared/auth.ts";
 import { logUsage, getDailyUsageCount } from "../_shared/usage.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
 
-const MODEL = "black-forest-labs/FLUX.1-schnell";
+const MODEL = "dall-e-3";
 const MAX_IMAGES_PER_PROJECT = 4;
 const COST_PER_MP = 0.003; // per megapixel (FLUX.1-schnell)
 
@@ -47,45 +47,47 @@ Deno.serve(async (req) => {
       }
     }
 
-    const togetherApiKey = Deno.env.get("TOGETHER_API_KEY");
-    if (!togetherApiKey) {
+    const openaiApiKey = Deno.env.get("OPENAI_API_KEY");
+    if (!openaiApiKey) {
       return new Response(
         JSON.stringify({ error: "AI service not configured" }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // Call FLUX.1-dev via Together AI
-    console.log("[generate-image] Calling Together AI with model:", MODEL);
+    // Call OpenAI DALL-E 3
+    console.log("[generate-image] Calling OpenAI DALL-E 3 with model:", MODEL);
     console.log("[generate-image] Prompt:", prompt.slice(0, 100));
-    console.log("[generate-image] Dimensions:", w, "x", h);
+    console.log("[generate-image] Requested dimensions:", w, "x", h);
+
+    // DALL-E 3 supports: 1024x1024, 1792x1024, 1024x1792
+    const size = w > h ? "1792x1024" : h > w ? "1024x1792" : "1024x1024";
 
     const requestBody = {
       model: MODEL,
       prompt,
-      width: w,
-      height: h,
-      steps: 4,
       n: 1,
-      response_format: "url",
+      size,
+      quality: "standard" as const,
+      response_format: "url" as const,
     };
 
-    const response = await fetch("https://api.together.xyz/v1/images/generations", {
+    const response = await fetch("https://api.openai.com/v1/images/generations", {
       method: "POST",
       headers: {
-        "Authorization": `Bearer ${togetherApiKey}`,
+        "Authorization": `Bearer ${openaiApiKey}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify(requestBody),
     });
 
-    console.log("[generate-image] Together AI response status:", response.status);
+    console.log("[generate-image] OpenAI response status:", response.status);
 
     const responseText = await response.text();
-    console.log("[generate-image] Together AI raw response:", responseText.slice(0, 500));
+    console.log("[generate-image] OpenAI raw response:", responseText.slice(0, 500));
 
     if (!response.ok) {
-      console.error("[generate-image] Together AI ERROR:", response.status, responseText);
+      console.error("[generate-image] OpenAI ERROR:", response.status, responseText);
       let errMsg = "Image generation failed";
       try {
         const errJson = JSON.parse(responseText);

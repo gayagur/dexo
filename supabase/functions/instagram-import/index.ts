@@ -148,12 +148,12 @@ Deno.serve(async (req) => {
 
     // ─── 3. AI suggestions from bio ───────────────────
     let aiSuggestions: Record<string, unknown> = {};
-    const togetherKey = Deno.env.get("TOGETHER_API_KEY");
+    const openaiKey = Deno.env.get("OPENAI_API_KEY");
     const bio = profile.biography || "";
 
-    if (togetherKey && (bio.length > 5 || profile.fullName)) {
+    if (openaiKey && (bio.length > 5 || profile.fullName)) {
       try {
-        aiSuggestions = await getAiSuggestions(togetherKey, {
+        aiSuggestions = await getAiSuggestions(openaiKey, {
           username: profile.username || username,
           fullName: profile.fullName || "",
           bio,
@@ -188,7 +188,7 @@ Deno.serve(async (req) => {
       suggestedYearsExperience: aiSuggestions.yearsExperience ?? null,
     };
 
-    console.log("[ig-import] Success! Portfolio:", portfolioItems.length, "AI:", !!togetherKey);
+    console.log("[ig-import] Success! Portfolio:", portfolioItems.length, "AI:", !!openaiKey);
     return jsonResponse(result);
   } catch (err: any) {
     console.error("[ig-import] Error:", err.message, err.stack);
@@ -231,14 +231,14 @@ Rules:
 - yearsExperience: extract a number if the bio mentions years of experience, otherwise null
 - If the bio doesn't clearly relate to interior design, pick the closest categories anyway`;
 
-  const res = await fetch("https://api.together.xyz/v1/chat/completions", {
+  const res = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
     headers: {
       Authorization: `Bearer ${apiKey}`,
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      model: "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+      model: "gpt-4o-mini",
       messages: [{ role: "user", content: prompt }],
       temperature: 0.3,
       max_tokens: 300,
@@ -247,7 +247,7 @@ Rules:
 
   if (!res.ok) {
     const errText = await res.text();
-    throw new Error(`Together AI error ${res.status}: ${errText.slice(0, 200)}`);
+    throw new Error(`OpenAI error ${res.status}: ${errText.slice(0, 200)}`);
   }
 
   const data = await res.json();

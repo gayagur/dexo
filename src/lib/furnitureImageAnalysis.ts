@@ -1,5 +1,6 @@
 /**
  * Normalize AI vision output into valid editor panels (shapes, materials, numeric arrays).
+ * Import pipeline: unit conversion + schema mapping only — positions/sizes from the model are kept as-is.
  */
 import type { PanelData, PanelShape } from "./furnitureData";
 import { MATERIALS } from "./furnitureData";
@@ -7,7 +8,6 @@ import type { FurnitureAnalysis } from "./ai";
 import {
   classifyPanelRole,
   detectFurnitureCategory,
-  inferPositionsFromCategory,
   repairCasegoodsLayout,
   repairShelvingLayout,
   repairTableDeskLayout,
@@ -2057,57 +2057,478 @@ function validateAndRepairGeometry(
   return result;
 }
 
+// ---------------------------------------------------------------------------
+// Category detection helper for normalizeReconstructedPanels
+// ---------------------------------------------------------------------------
+
+type SimpleCategory = "desk" | "chair" | "table" | "shelf" | "cabinet" | "sofa" | "bed" | "unknown";
+
+function detectSimpleCategory(name: string, panels: PanelData[]): SimpleCategory {
+  const cat = detectFurnitureCategory(name, panels);
+  const n = name.toLowerCase();
+
+  if (cat === "seating") {
+    if (/\b(sofa|couch|sectional|loveseat|divan|settee|chesterfield|recliner|ottoman)\b/i.test(n)) return "sofa";
+    return "chair";
+  }
+  if (cat === "office_chair") return "chair";
+  if (cat === "bed") return "bed";
+  if (cat === "table_desk") {
+    if (/\b(desk)\b/i.test(n)) return "desk";
+    return "table";
+  }
+  if (cat === "casegoods" || cat === "wardrobe") return "cabinet";
+  if (cat === "shelving") return "shelf";
+
+  // Fallback heuristics from name
+  if (/\bdesk\b/i.test(n)) return "desk";
+  if (/\b(table|coffee|console|counter)\b/i.test(n)) return "table";
+  if (/\b(chair|stool|bench)\b/i.test(n)) return "chair";
+  if (/\b(sofa|couch)\b/i.test(n)) return "sofa";
+  if (/\b(shelf|bookcase|rack)\b/i.test(n)) return "shelf";
+  if (/\b(cabinet|dresser|nightstand|sideboard|wardrobe)\b/i.test(n)) return "cabinet";
+  if (/\b(bed)\b/i.test(n)) return "bed";
+
+  return "unknown";
+}
+
+// ---------------------------------------------------------------------------
+// normalizeReconstructedPanels — fixes AI thickness & position errors
+// ---------------------------------------------------------------------------
+
+/**
+ * Compute the overall furniture envelope from estimatedDims or panel extents.
+ */
+function computeEnvelope(
+  panels: PanelData[],
+  estimatedDims?: { w: number; h: number; d: number },
+): { W: number; H: number; D: number } {
+  if (estimatedDims) {
+    const max = Math.max(Math.abs(estimatedDims.w), Math.abs(estimatedDims.h), Math.abs(estimatedDims.d));
+    const scale = max > 20 ? 0.001 : 1;
+    return {
+      W: Math.max(estimatedDims.w * scale, 0.25),
+      H: Math.max(estimatedDims.h * scale, 0.25),
+      D: Math.max(estimatedDims.d * scale, 0.25),
+    };
+  }
+  return {
+    W: Math.max(...panels.map((p) => p.size[0]), 0.4),
+    H: Math.max(...panels.map((p) => p.size[1]), 0.4),
+    D: Math.max(...panels.map((p) => p.size[2]), 0.4),
+  };
+}
+
+const THIN_MIN = 0.015;
+const THIN_MAX = 0.055;
+
+function clampThin(v: number): number {
+  return Math.max(THIN_MIN, Math.min(v, THIN_MAX));
+}
+
+/**
+ * Fix panel thickness based on its label/role.  If a dimension that should
+ * be thin is close to the overall furniture height/width, replace it.
+ */
+function fixPanelThickness(
+  panel: PanelData,
+  env: { W: number; H: number; D: number },
+): PanelData {
+  const label = panel.label.toLowerCase();
+  let [w, h, d] = panel.size;
+
+  // Skip cushion/upholstery shapes — they have intentional thickness
+  const shape = panel.shape ?? "box";
+  if (/^(cushion|cushion_firm|padded_block|mattress|cushion_bolster)$/.test(shape)) return panel;
+
+  // Horizontal panels: tops, shelves, seats, aprons — Y should be thin
+  if (/\b(top|shelf|seat|apron|desktop|tabletop|worktop|surface|countertop|tier|plank|board|slat)\b/.test(label)) {
+    if (h > THIN_MAX && (h > env.H * 0.3 || h > Math.max(w, d) * 0.4)) {
+      h = clampThin(0.035);
+    }
+    return { ...panel, size: [w, h, d] };
+  }
+
+  // Vertical side panels — X should be thin, height ≈ H, depth ≈ D
+  if (/\b(left side|right side|side panel|end panel|side)\b/.test(label) && !/\b(back|front)\b/.test(label)) {
+    if (w > THIN_MAX && (w > env.W * 0.3 || w > Math.max(h, d) * 0.4)) {
+      w = clampThin(0.03);
+    }
+    // Fix swapped depth — side panel depth should ≈ furniture depth, not width
+    if (d > env.D * 1.1 && env.D > 0.15) {
+      d = env.D - 0.02;
+    }
+    // Height should ≈ furniture height (minus top thickness)
+    if (h < env.H * 0.5 && env.H > 0.2) {
+      h = env.H - 0.04;
+    }
+    return { ...panel, size: [w, h, d] };
+  }
+
+  // Back panels — Z should be thin
+  if (/\b(back panel|back)\b/.test(label) && panel.type === "back") {
+    if (d > THIN_MAX && (d > env.D * 0.3 || d > Math.max(w, h) * 0.4)) {
+      d = clampThin(0.02);
+    }
+    return { ...panel, size: [w, h, d] };
+  }
+
+  // Drawer fronts — Z should be thin (they face outward)
+  if (/\b(drawer front|drawer)\b/.test(label) && !/\bhandle\b/.test(label)) {
+    if (d > THIN_MAX) d = clampThin(0.03);
+    // Drawer height should be reasonable (0.10-0.25m)
+    if (h < 0.05) h = 0.15;
+    if (h > 0.3) h = 0.20;
+    return { ...panel, size: [w, h, d] };
+  }
+
+  // Handles — all dimensions small
+  if (/\bhandle\b/.test(label)) {
+    return { ...panel, size: [Math.min(w, 0.15), Math.min(h, 0.03), Math.min(d, 0.03)] };
+  }
+
+  // Legs — X and Z should be small diameter
+  if (/\b(leg|foot|feet)\b/.test(label) && !/\b(arm|back)\b/.test(label)) {
+    const maxDiam = 0.08;
+    if (w > maxDiam && w > h * 0.3) w = Math.max(0.03, Math.min(w, maxDiam));
+    if (d > maxDiam && d > h * 0.3) d = Math.max(0.03, Math.min(d, maxDiam));
+    return { ...panel, size: [w, h, d] };
+  }
+
+  return panel;
+}
+
+/**
+ * Fix positions based on furniture category.  Uses label keywords to
+ * assign semantically correct Y/X/Z values.
+ */
+function fixPositionsByCategory(
+  panels: PanelData[],
+  category: SimpleCategory,
+  env: { W: number; H: number; D: number },
+): PanelData[] {
+  const { W, H, D } = env;
+  const pad = 0.02;
+
+  // Count panels by role for spreading
+  const roleGroups = new Map<string, PanelData[]>();
+  for (const p of panels) {
+    const role = classifyLabelRole(p.label);
+    const arr = roleGroups.get(role) ?? [];
+    arr.push(p);
+    roleGroups.set(role, arr);
+  }
+
+  function roleIndex(panel: PanelData): number {
+    const role = classifyLabelRole(panel.label);
+    const group = roleGroups.get(role) ?? [];
+    return group.indexOf(panel);
+  }
+
+  function roleCount(panel: PanelData): number {
+    const role = classifyLabelRole(panel.label);
+    return (roleGroups.get(role) ?? []).length;
+  }
+
+  return panels.map((panel) => {
+    const label = panel.label.toLowerCase();
+    const [pw, ph, pd] = panel.size;
+    const idx = roleIndex(panel);
+    const count = roleCount(panel);
+
+    let pos: [number, number, number] | null = null;
+
+    switch (category) {
+      case "desk": {
+        if (/\b(top|desktop|tabletop|worktop|surface|countertop)\b/.test(label)) {
+          pos = [0, H - ph / 2, 0];
+        } else if (/\bleft side\b/.test(label)) {
+          pos = [-W / 2 + pw / 2 + pad, H / 2, 0];
+        } else if (/\bright side\b/.test(label)) {
+          pos = [W / 2 - pw / 2 - pad, H / 2, 0];
+        } else if (/\b(back panel|back)\b/.test(label) && panel.type === "back") {
+          pos = [0, H / 2, -D / 2 + pd / 2 + pad];
+        } else if (/\bhandle\b/.test(label)) {
+          // Place handles on drawer fronts, slightly in front
+          const isLeft = /left/i.test(label);
+          const handleX = isLeft ? -W / 4 : W / 4;
+          const drawerCount = (roleGroups.get("drawer") ?? []).length;
+          const drawerIdx = idx % Math.max(drawerCount, 1);
+          const drawerY = drawerCount > 1
+            ? H * 0.3 + drawerIdx * (H * 0.3 / Math.max(drawerCount - 1, 1))
+            : H * 0.5;
+          pos = [handleX, drawerY, D / 2 + 0.01];
+        } else if (/\b(drawer)\b/.test(label)) {
+          // Spread drawers vertically under the top
+          const n = count;
+          const isLeft = /left/i.test(label);
+          const drawerX = isLeft ? -W / 4 : n > 1 && !isLeft ? W / 4 : 0;
+          const baseY = H * 0.3;
+          const spreadY = n > 1 ? (idx * (H * 0.3) / Math.max(n - 1, 1)) : 0;
+          pos = [drawerX, baseY + spreadY, D / 2 - pd / 2 - pad];
+        } else if (/\bshelf\b/.test(label)) {
+          const n = count;
+          const fraction = n > 1 ? (idx + 1) / (n + 1) : 0.4;
+          // Shelves fit between side panels
+          pos = [0, H * fraction, 0];
+        } else if (/\b(leg|foot|feet)\b/.test(label) && !/\b(arm|back)\b/.test(label)) {
+          // Place legs at corners near the bottom
+          const legCorners: [number, number][] = [
+            [-W / 2 + pad + 0.03, -D / 2 + pad + 0.03],
+            [W / 2 - pad - 0.03, -D / 2 + pad + 0.03],
+            [-W / 2 + pad + 0.03, D / 2 - pad - 0.03],
+            [W / 2 - pad - 0.03, D / 2 - pad - 0.03],
+          ];
+          const [cx, cz] = legCorners[idx % legCorners.length];
+          pos = [cx, ph / 2, cz];
+        } else if (/\bapron\b/.test(label)) {
+          pos = [0, H - ph / 2 - 0.06, D / 2 - pd / 2 - pad];
+        }
+        break;
+      }
+
+      case "chair": {
+        const seatH = 0.45;
+        if (/\bseat\b/.test(label) && !/\bback\b/.test(label)) {
+          pos = [0, seatH, 0];
+        } else if (/\b(backrest|back)\b/.test(label) && !/\bleg\b/.test(label)) {
+          pos = [0, seatH + ph / 2, -D / 2 + pd / 2 + pad];
+        } else if (/\b(leg|foot|feet)\b/.test(label) && !/\b(arm|back)\b/.test(label)) {
+          // Place legs at corners; use AI X/Z if plausible, else assign corners
+          const corners: [number, number][] = [
+            [-W / 2 + pad + pw / 2, -D / 2 + pad + pd / 2],
+            [W / 2 - pad - pw / 2, -D / 2 + pad + pd / 2],
+            [-W / 2 + pad + pw / 2, D / 2 - pad - pd / 2],
+            [W / 2 - pad - pw / 2, D / 2 - pad - pd / 2],
+          ];
+          const [cx, cz] = corners[idx % corners.length];
+          pos = [cx, ph / 2, cz];
+        }
+        break;
+      }
+
+      case "table": {
+        if (/\b(top|tabletop|surface|countertop)\b/.test(label)) {
+          pos = [0, H - ph / 2, 0];
+        } else if (/\b(leg|foot|feet)\b/.test(label) && !/\b(arm|back)\b/.test(label)) {
+          const corners: [number, number][] = [
+            [-W / 2 + pad + pw / 2, -D / 2 + pad + pd / 2],
+            [W / 2 - pad - pw / 2, -D / 2 + pad + pd / 2],
+            [-W / 2 + pad + pw / 2, D / 2 - pad - pd / 2],
+            [W / 2 - pad - pw / 2, D / 2 - pad - pd / 2],
+          ];
+          const [cx, cz] = corners[idx % corners.length];
+          pos = [cx, ph / 2, cz];
+        } else if (/\bapron\b/.test(label)) {
+          pos = [0, H - 0.08, panel.position[2]];
+        }
+        break;
+      }
+
+      case "shelf": {
+        if (/\bleft side\b/.test(label)) {
+          pos = [-W / 2 + pw / 2, H / 2, 0];
+        } else if (/\bright side\b/.test(label)) {
+          pos = [W / 2 - pw / 2, H / 2, 0];
+        } else if (/\b(top)\b/.test(label) && panel.type === "horizontal") {
+          pos = [0, H - ph / 2, 0];
+        } else if (/\b(bottom)\b/.test(label)) {
+          pos = [0, ph / 2, 0];
+        } else if (/\b(back panel|back)\b/.test(label) && panel.type === "back") {
+          pos = [0, H / 2, -D / 2 + pd / 2];
+        } else if (/\bshelf\b/.test(label)) {
+          const n = count;
+          const fraction = n > 0 ? (idx + 1) / (n + 1) : 0.5;
+          pos = [0, H * fraction, 0];
+        }
+        break;
+      }
+
+      case "cabinet": {
+        if (/\b(top)\b/.test(label) && panel.type === "horizontal") {
+          pos = [0, H - ph / 2, 0];
+        } else if (/\b(bottom)\b/.test(label)) {
+          pos = [0, ph / 2, 0];
+        } else if (/\bleft side\b/.test(label)) {
+          pos = [-W / 2 + pw / 2, H / 2, 0];
+        } else if (/\bright side\b/.test(label)) {
+          pos = [W / 2 - pw / 2, H / 2, 0];
+        } else if (/\bside\b/.test(label) && !/\b(back|front)\b/.test(label)) {
+          pos = [idx % 2 === 0 ? -W / 2 + pw / 2 : W / 2 - pw / 2, H / 2, 0];
+        } else if (/\b(back panel|back)\b/.test(label) && panel.type === "back") {
+          pos = [0, H / 2, -D / 2 + pd / 2];
+        } else if (/\bshelf\b/.test(label)) {
+          const n = count;
+          const fraction = n > 0 ? (idx + 1) / (n + 1) : 0.5;
+          pos = [0, H * fraction, 0];
+        } else if (/\b(drawer)\b/.test(label)) {
+          const n = count;
+          const fraction = n > 0 ? (idx + 0.5) / n : 0.5;
+          pos = [panel.position[0], H * 0.2 + fraction * H * 0.6, D / 2 - pd / 2];
+        } else if (/\b(door)\b/.test(label)) {
+          const spread = count > 1 ? ((idx / Math.max(count - 1, 1)) - 0.5) * W * 0.5 : 0;
+          pos = [spread, H / 2, D / 2 - pd / 2];
+        }
+        break;
+      }
+
+      case "sofa": {
+        const seatH = 0.35;
+        if (/\bseat\b/.test(label) && !/\bback\b/.test(label)) {
+          const spread = count > 1 ? ((idx / Math.max(count - 1, 1)) - 0.5) * W * 0.6 : 0;
+          pos = [spread, seatH, 0];
+        } else if (/\b(back|backrest)\b/.test(label) && !/\b(leg|arm)\b/.test(label)) {
+          const spread = count > 1 ? ((idx / Math.max(count - 1, 1)) - 0.5) * W * 0.6 : 0;
+          pos = [spread, seatH + ph / 2, -D / 2 + pd / 2 + 0.08];
+        } else if (/\barm\b/.test(label)) {
+          const isLeft = /left/i.test(label) || (!/right/i.test(label) && idx % 2 === 0);
+          const armX = isLeft ? -W / 2 + pw / 2 : W / 2 - pw / 2;
+          pos = [armX, seatH + ph / 2, 0];
+        }
+        break;
+      }
+
+      case "bed": {
+        // Bed positioning is complex — defer to existing repairBedLayout
+        break;
+      }
+
+      default:
+        break;
+    }
+
+    if (pos) {
+      return { ...panel, position: pos };
+    }
+    return panel;
+  });
+}
+
+function classifyLabelRole(label: string): string {
+  const l = label.toLowerCase();
+  if (/\b(top|desktop|tabletop|worktop|surface|countertop)\b/.test(l)) return "top";
+  if (/\b(bottom)\b/.test(l)) return "bottom";
+  if (/\bhandle\b/.test(l)) return "handle";
+  if (/\b(drawer front|drawer)\b/.test(l)) return "drawer";
+  if (/\bshelf\b/.test(l)) return "shelf";
+  if (/\b(leg|foot|feet)\b/.test(l) && !/\b(arm|back)\b/.test(l)) return "leg";
+  if (/\b(back panel|back)\b/.test(l) && !/\b(leg|arm|seat)\b/.test(l)) return "back";
+  if (/\b(left side)\b/.test(l)) return "left_side";
+  if (/\b(right side)\b/.test(l)) return "right_side";
+  if (/\b(side)\b/.test(l) && !/\b(back|front)\b/.test(l)) return "side";
+  if (/\b(door)\b/.test(l)) return "door";
+  if (/\b(seat)\b/.test(l)) return "seat";
+  if (/\b(arm)\b/.test(l)) return "arm";
+  if (/\b(apron|front apron|front rail)\b/.test(l)) return "apron";
+  return "other";
+}
+
+/**
+ * Cap panel dimensions to not exceed the furniture envelope.
+ */
+function capToEnvelope(panels: PanelData[], env: { W: number; H: number; D: number }): PanelData[] {
+  const maxW = env.W * 1.15;
+  const maxH = env.H * 1.15;
+  const maxD = env.D * 1.15;
+  return panels.map((p) => {
+    const [w, h, d] = p.size;
+    const capped: [number, number, number] = [
+      Math.min(w, maxW),
+      Math.min(h, maxH),
+      Math.min(d, maxD),
+    ];
+    if (capped[0] === w && capped[1] === h && capped[2] === d) return p;
+    return { ...p, size: capped };
+  });
+}
+
+/**
+ * If two panels are within 0.01m of each other on all axes, offset the
+ * second one slightly to reduce z-fighting.
+ */
+function deduplicatePositions(panels: PanelData[]): PanelData[] {
+  const result = panels.map((p) => ({ ...p, position: [...p.position] as [number, number, number] }));
+  const EPS = 0.01;
+  for (let i = 0; i < result.length; i++) {
+    for (let j = i + 1; j < result.length; j++) {
+      const a = result[i];
+      const b = result[j];
+      const dx = Math.abs(a.position[0] - b.position[0]);
+      const dy = Math.abs(a.position[1] - b.position[1]);
+      const dz = Math.abs(a.position[2] - b.position[2]);
+      if (dx < EPS && dy < EPS && dz < EPS) {
+        // Offset the second panel slightly
+        b.position[1] += 0.015;
+      }
+    }
+  }
+  return result;
+}
+
+/**
+ * Post-AI normalization: fix panel thicknesses and positions based on
+ * detected furniture category.  Runs after per-panel normalization.
+ * If category is unknown, returns panels unchanged.
+ */
+export function normalizeReconstructedPanels(
+  panels: PanelData[],
+  furnitureName: string,
+  estimatedDims?: { w: number; h: number; d: number },
+): PanelData[] {
+  if (panels.length === 0) return panels;
+
+  const category = detectSimpleCategory(furnitureName, panels);
+  if (category === "unknown") return panels;
+
+  const env = computeEnvelope(panels, estimatedDims);
+  const isDev = (import.meta as ImportMeta & { env?: { DEV?: boolean } }).env?.DEV;
+
+  if (isDev) {
+    console.log("[normalizeReconstructedPanels] category:", category, "envelope:", env);
+  }
+
+  // Step 1: Fix thicknesses
+  let result = panels.map((p) => fixPanelThickness(p, env));
+
+  // Step 2: Cap panels to envelope
+  result = capToEnvelope(result, env);
+
+  // Step 3: Fix positions by category
+  result = fixPositionsByCategory(result, category, env);
+
+  // Step 4: Deduplicate overlapping positions
+  result = deduplicatePositions(result);
+
+  if (isDev) {
+    console.log("[normalizeReconstructedPanels] output:", result.map((p) => ({
+      label: p.label,
+      position: p.position.map((v: number) => +v.toFixed(3)),
+      size: p.size.map((v: number) => +v.toFixed(3)),
+    })));
+  }
+
+  return result;
+}
+
 export function panelsFromFurnitureAnalysis(
   analysis: FurnitureAnalysis,
   nextId: () => string
 ): PanelData[] {
-  const isDev = (import.meta as ImportMeta & { env?: { DEV?: boolean } }).env?.DEV;
-
-  // Step 0: Normalize raw dimensions FIRST (detect mm/cm/m → convert to meters)
-  // Must happen before normalizeAnalysisPanel which clamps sizes to 10m
+  // Unit conversion (mm/cm/m → m) before clamps in normalizeAnalysisPanel
   const rawPanels = (analysis.panels ?? []) as unknown as RawAnalysisPanel[];
   const rawNormalized = normalizeRawPanelDimensions(rawPanels);
   debugPositions("after normalizeRawPanelDimensions", rawNormalized);
 
-  // Step 1: Parse raw panels into PanelData (shapes, materials, labels)
-  let panels = rawNormalized.map((p) => normalizeAnalysisPanel(p, nextId()));
-  debugPositions("after normalizeAnalysisPanel", panels);
+  const panels = rawNormalized.map((p) => normalizeAnalysisPanel(p, nextId()));
+  debugPositions("after normalizeAnalysisPanel (AI pass-through)", panels);
 
-  const category = detectFurnitureCategory(analysis.name ?? "", panels);
-  const furnitureDims = estimatedDimsToMeters(analysis.estimatedDims, panels);
+  // Post-AI normalization: fix thicknesses and positions by category
+  const normalized = normalizeReconstructedPanels(
+    panels,
+    analysis.name ?? "",
+    analysis.estimatedDims,
+  );
+  debugPositions("after normalizeReconstructedPanels", normalized);
 
-  if (isDev) {
-    console.log("[panelsFromFurnitureAnalysis] category:", category, "furnitureDims:", furnitureDims);
-  }
-
-  // Step 2: Normalize shapes/axes (existing helpers — generic)
-  panels = panels.map(normalizeVerticalBoxHeightAxis);
-  panels = panels.map(normalizeVerticalAxisymmetricPanel);
-  panels = panels.map(clampRealisticThickness);
-  panels = panels.map(sanitizeImportRotation);
-  panels = panels.map(stabilizeStructuralRotation);
-  panels = panels.map(fixHorizontalRoundDisk);
-  debugPositions("after shape normalization", panels);
-
-  // Step 3: Always rebuild positions — AI positions are unreliable across all models
-  panels = inferPositionsFromCategory(panels, category, furnitureDims);
-  debugPositions("after inferPositionsFromCategory", panels);
-
-  // Step 4: Category-specific geometry repairs (existing pipeline — tuned per type)
-  const refined = refineSeatingImportPanels(panels, analysis.name ?? "");
-  const backPlanFixed = refined.map(normalizeUpholsteredBackPlanAxes);
-  const tightenedUpholstery = backPlanFixed.map(normalizeImportedUpholsteryThickness);
-  const strategy = getLayoutStrategy(category);
-  const repaired = strategy.repairGeometry
-    ? strategy.repairGeometry(tightenedUpholstery, furnitureDims, analysis.name ?? "", nextId)
-    : tightenedUpholstery;
-  const completed = strategy.completeStructure
-    ? strategy.completeStructure(repaired, furnitureDims, analysis.name ?? "", nextId)
-    : repaired;
-  const validated = validateAndRepairGeometry(completed, analysis.name ?? "", category);
-  const postValidated = strategy.postValidate
-    ? strategy.postValidate(validated, furnitureDims, analysis.name ?? "")
-    : validated;
-  debugPositions("final output", postValidated);
-  return postValidated;
+  return normalized;
 }

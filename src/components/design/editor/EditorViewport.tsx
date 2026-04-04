@@ -62,25 +62,28 @@ function useCurvedBoxGeometry(
   curveAxis: 'horizontal' | 'vertical',
 ) {
   return useMemo(() => {
-    const segsX = curveAxis === 'horizontal' ? 20 : 1;
-    const segsY = curveAxis === 'vertical' ? 20 : 1;
+    const segments = 32;
+    const segsX = curveAxis === 'horizontal' ? segments : 1;
+    const segsY = curveAxis === 'vertical' ? segments : 1;
     const geo = new THREE.BoxGeometry(w, h, d, segsX, segsY, 1);
     if (curveAmount > 0) {
-      const arcAngle = curveAmount * (Math.PI * 2 / 3); // max 120 degrees
+      // curveAmount is 0-1 (slider 0-100 divided by 100)
       const span = curveAxis === 'horizontal' ? w : h;
-      const radius = span / Math.max(arcAngle, 0.001);
+      const maxBow = span * 0.5;
+      const bow = curveAmount * maxBow;
       const pos = geo.attributes.position;
       for (let i = 0; i < pos.count; i++) {
         if (curveAxis === 'horizontal') {
           const x = pos.getX(i);
-          const angle = x / radius;
-          pos.setX(i, Math.sin(angle) * radius);
-          pos.setZ(i, pos.getZ(i) + (Math.cos(angle) - 1) * radius);
+          const t = x / w; // -0.5 to 0.5
+          // Parabolic curve: 0 at edges, bow at center
+          const dz = bow * (1 - 4 * t * t);
+          pos.setZ(i, pos.getZ(i) + dz);
         } else {
           const y = pos.getY(i);
-          const angle = y / radius;
-          pos.setY(i, Math.sin(angle) * radius);
-          pos.setZ(i, pos.getZ(i) + (Math.cos(angle) - 1) * radius);
+          const t = y / h; // -0.5 to 0.5
+          const dz = bow * (1 - 4 * t * t);
+          pos.setZ(i, pos.getZ(i) + dz);
         }
       }
       pos.needsUpdate = true;

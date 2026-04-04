@@ -4,8 +4,8 @@ import { logUsage, getDailyUsageCount } from "../_shared/usage.ts";
 import { FURNITURE_CLASSIFICATION_PROMPT } from "../_shared/furnitureClassificationPrompt.ts";
 
 const VISION_MODELS = [
-  "Qwen/Qwen3-VL-8B-Instruct",
-  "moonshotai/Kimi-K2.5",
+  "gpt-4o-mini",
+  "gpt-4o",
 ];
 const PER_MODEL_MS = 45_000;
 const DAILY_LIMIT = 30; // Classification is cheap
@@ -34,8 +34,8 @@ Deno.serve(async (req) => {
       );
     }
 
-    const togetherApiKey = Deno.env.get("TOGETHER_API_KEY");
-    if (!togetherApiKey) {
+    const openaiApiKey = Deno.env.get("OPENAI_API_KEY");
+    if (!openaiApiKey) {
       return new Response(
         JSON.stringify({ error: "AI service not configured" }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -54,11 +54,11 @@ Deno.serve(async (req) => {
         const timer = setTimeout(() => ac.abort(), PER_MODEL_MS);
 
         try {
-          const response = await fetch("https://api.together.xyz/v1/chat/completions", {
+          const response = await fetch("https://api.openai.com/v1/chat/completions", {
             method: "POST",
             signal: ac.signal,
             headers: {
-              "Authorization": `Bearer ${togetherApiKey}`,
+              "Authorization": `Bearer ${openaiApiKey}`,
               "Content-Type": "application/json",
             },
             body: JSON.stringify({

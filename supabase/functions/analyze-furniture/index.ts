@@ -10,9 +10,8 @@ import {
 
 // Old models first (known baseline), new models as fallback
 const VISION_MODELS = [
-  "Qwen/Qwen3-VL-8B-Instruct",
-  "moonshotai/Kimi-K2.5",
-  "Qwen/Qwen3.5-9B",
+  "gpt-4o",
+  "gpt-4o-mini",
 ];
 /** Per-model timeout — must leave room for fallbacks within edge function's ~150s limit */
 const PER_MODEL_MS = 45_000;
@@ -43,8 +42,8 @@ Deno.serve(async (req) => {
       );
     }
 
-    const togetherApiKey = Deno.env.get("TOGETHER_API_KEY");
-    if (!togetherApiKey) {
+    const openaiApiKey = Deno.env.get("OPENAI_API_KEY");
+    if (!openaiApiKey) {
       return new Response(
         JSON.stringify({ error: "AI service not configured" }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -84,11 +83,11 @@ Deno.serve(async (req) => {
         const useSchema = VISION_MODELS_SUPPORTING_JSON_SCHEMA.has(model);
 
         try {
-          response = await fetch("https://api.together.xyz/v1/chat/completions", {
+          response = await fetch("https://api.openai.com/v1/chat/completions", {
             method: "POST",
             signal: ac.signal,
             headers: {
-              "Authorization": `Bearer ${togetherApiKey}`,
+              "Authorization": `Bearer ${openaiApiKey}`,
               "Content-Type": "application/json",
             },
             body: JSON.stringify(
@@ -101,11 +100,11 @@ Deno.serve(async (req) => {
           if (!response.ok && useSchema && response.status === 400) {
             const err400 = await response.text();
             console.warn(`${model}: JSON schema request rejected (${err400.slice(0, 160)}), retrying without schema`);
-            response = await fetch("https://api.together.xyz/v1/chat/completions", {
+            response = await fetch("https://api.openai.com/v1/chat/completions", {
               method: "POST",
               signal: ac.signal,
               headers: {
-                "Authorization": `Bearer ${togetherApiKey}`,
+                "Authorization": `Bearer ${openaiApiKey}`,
                 "Content-Type": "application/json",
               },
               body: JSON.stringify(basePayload),

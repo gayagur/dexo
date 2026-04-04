@@ -22,6 +22,96 @@ Furniture centered at X=0, Z=0. Y=0 = floor. position = CENTER of each part. siz
 - A 40mm-thick slat: size about [0.045, 0.02, 1.85] — never use hundreds for thin parts.
 - Round leg diameter 50mm: cylinder size [0.05, 0.72, 0.05] not [50, 720, 50]
 
+== PANEL SIZE FORMAT: ALWAYS [width_m, height_m, depth_m] ==
+size[0] = width along X axis
+size[1] = height along Y axis (up)
+size[2] = depth along Z axis
+
+== PANEL THICKNESS IS CRITICAL — most common AI mistake ==
+Panels are THIN in ONE dimension. Do NOT make panels thick cubes.
+
+HORIZONTAL panels (tops, shelves, seats, aprons):
+  - The THIN dimension is size[1] (Y = height). It should be 0.02–0.05m (2–5cm).
+  - WRONG: size [1.2, 0.75, 0.6] ← 75cm thick top! That is the table HEIGHT, not the top thickness.
+  - RIGHT: size [1.2, 0.04, 0.6] ← 4cm thick top.
+
+VERTICAL panels (side panels, end panels, dividers):
+  - The THIN dimension is size[0] (X = width) for left/right sides: 0.02–0.05m.
+  - WRONG: size [0.60, 0.80, 0.40] ← 60cm thick side panel!
+  - RIGHT: size [0.03, 0.80, 0.40] ← 3cm thick side panel.
+
+BACK panels:
+  - The THIN dimension is size[2] (Z = depth): 0.01–0.04m.
+  - WRONG: size [1.0, 0.80, 0.40] ← 40cm thick back!
+  - RIGHT: size [1.0, 0.80, 0.02] ← 2cm thick back.
+
+LEGS (cylinder or box):
+  - X and Z are diameter or cross-section: 0.03–0.06m. Y (height) is tall.
+  - WRONG: size [0.60, 0.72, 0.60] ← 60cm diameter leg!
+  - RIGHT: size [0.05, 0.72, 0.05] ← 5cm diameter, 72cm tall.
+
+== POSITIONS MUST BE UNIQUE — every panel at a DIFFERENT location ==
+Every panel must have a UNIQUE position [x, y, z]. No two panels should share the same center.
+Y position = distance from FLOOR (Y=0) to panel CENTER.
+
+Position rules:
+- Desk/table top: Y = total_height - thickness/2.  Example: 75cm desk → top at Y = 0.75 - 0.02 = 0.73
+- Legs: Y = leg_height / 2.  Example: 72cm legs → Y = 0.36
+- Side panels: Y = panel_height / 2.  Example: 80cm side → Y = 0.40
+- Back panel: Y = panel_height / 2, Z = -depth/2 + thickness/2
+- Shelves: spread VERTICALLY between bottom and top — each shelf at a different Y
+- Left side panel: X = -furniture_width/2 + thickness/2
+- Right side panel: X = +furniture_width/2 - thickness/2
+
+== CORRECT DESK EXAMPLE (75cm tall, 120cm wide, 60cm deep) ==
+{
+  "name": "Office Desk",
+  "estimatedDims": { "w": 1200, "h": 750, "d": 600 },
+  "panels": [
+    { "label": "Desktop",      "type": "horizontal", "shape": "box", "position": [0, 0.73, 0],           "size": [1.20, 0.04, 0.60], "materialId": "oak" },
+    { "label": "Left Side",    "type": "vertical",   "shape": "box", "position": [-0.58, 0.36, 0],       "size": [0.03, 0.71, 0.58], "materialId": "oak" },
+    { "label": "Right Side",   "type": "vertical",   "shape": "box", "position": [0.58, 0.36, 0],        "size": [0.03, 0.71, 0.58], "materialId": "oak" },
+    { "label": "Back Panel",   "type": "back",       "shape": "box", "position": [0, 0.36, -0.29],       "size": [1.14, 0.71, 0.02], "materialId": "oak" },
+    { "label": "Shelf",        "type": "horizontal", "shape": "box", "position": [0, 0.30, 0],           "size": [1.14, 0.03, 0.56], "materialId": "oak" }
+  ]
+}
+
+== CORRECT CHAIR EXAMPLE (seat at 45cm, total 85cm tall) ==
+{
+  "name": "Dining Chair",
+  "estimatedDims": { "w": 450, "h": 850, "d": 450 },
+  "panels": [
+    { "label": "Seat",          "type": "horizontal", "shape": "box",      "position": [0, 0.45, 0],          "size": [0.42, 0.04, 0.42], "materialId": "oak" },
+    { "label": "Backrest",      "type": "vertical",   "shape": "box",      "position": [0, 0.65, -0.20],      "size": [0.38, 0.40, 0.03], "materialId": "oak" },
+    { "label": "Front Left Leg","type": "vertical",   "shape": "cylinder", "position": [-0.18, 0.22, 0.18],   "size": [0.04, 0.44, 0.04], "materialId": "oak" },
+    { "label": "Front Right Leg","type": "vertical",  "shape": "cylinder", "position": [0.18, 0.22, 0.18],    "size": [0.04, 0.44, 0.04], "materialId": "oak" },
+    { "label": "Back Left Leg", "type": "vertical",   "shape": "cylinder", "position": [-0.18, 0.42, -0.18],  "size": [0.04, 0.84, 0.04], "materialId": "oak" },
+    { "label": "Back Right Leg","type": "vertical",   "shape": "cylinder", "position": [0.18, 0.42, -0.18],   "size": [0.04, 0.84, 0.04], "materialId": "oak" }
+  ]
+}
+
+== CORRECT MID-CENTURY ARMCHAIR EXAMPLE (with curves and cushions) ==
+{
+  "name": "Mid-Century Armchair",
+  "estimatedDims": { "w": 720, "h": 800, "d": 780 },
+  "panels": [
+    { "label": "Seat Frame",       "type": "horizontal", "shape": "rounded_rect", "position": [0, 0.38, 0.02],       "size": [0.58, 0.04, 0.55], "materialId": "walnut", "cornerRadius": 0.01 },
+    { "label": "Seat Cushion",     "type": "horizontal", "shape": "cushion_firm", "position": [0, 0.44, 0.02],       "size": [0.54, 0.10, 0.52], "materialId": "fabric_beige" },
+    { "label": "Back Cushion",     "type": "vertical",   "shape": "cushion_firm", "position": [0, 0.64, -0.16],      "size": [0.50, 0.38, 0.10], "materialId": "fabric_beige", "curveAmount": 20, "curveAxis": "horizontal" },
+    { "label": "Left Armrest",     "type": "horizontal", "shape": "rounded_rect", "position": [-0.30, 0.52, 0.05],   "size": [0.06, 0.04, 0.55], "materialId": "walnut", "cornerRadius": 0.02, "curveAmount": 15 },
+    { "label": "Right Armrest",    "type": "horizontal", "shape": "rounded_rect", "position": [0.30, 0.52, 0.05],    "size": [0.06, 0.04, 0.55], "materialId": "walnut", "cornerRadius": 0.02, "curveAmount": 15 },
+    { "label": "Left Arm Support", "type": "vertical",   "shape": "rounded_rect", "position": [-0.30, 0.45, 0.18],   "size": [0.04, 0.14, 0.04], "materialId": "walnut", "cornerRadius": 0.01 },
+    { "label": "Right Arm Support","type": "vertical",   "shape": "rounded_rect", "position": [0.30, 0.45, 0.18],    "size": [0.04, 0.14, 0.04], "materialId": "walnut", "cornerRadius": 0.01 },
+    { "label": "Front Left Leg",   "type": "vertical",   "shape": "tapered_leg",  "position": [-0.28, 0.19, 0.22],   "size": [0.04, 0.38, 0.04], "materialId": "walnut" },
+    { "label": "Front Right Leg",  "type": "vertical",   "shape": "tapered_leg",  "position": [0.28, 0.19, 0.22],    "size": [0.04, 0.38, 0.04], "materialId": "walnut" },
+    { "label": "Back Left Leg",    "type": "vertical",   "shape": "tapered_leg",  "position": [-0.26, 0.19, -0.24],  "size": [0.04, 0.38, 0.04], "materialId": "walnut", "rotation": [-0.12, 0, 0] },
+    { "label": "Back Right Leg",   "type": "vertical",   "shape": "tapered_leg",  "position": [0.26, 0.19, -0.24],   "size": [0.04, 0.38, 0.04], "materialId": "walnut", "rotation": [-0.12, 0, 0] },
+    { "label": "Back Frame Rail",  "type": "horizontal", "shape": "rounded_rect", "position": [0, 0.42, -0.24],      "size": [0.52, 0.04, 0.04], "materialId": "walnut", "cornerRadius": 0.01, "curveAmount": 25, "curveAxis": "horizontal" },
+    { "label": "Seat Side Rail L", "type": "horizontal", "shape": "rail",         "position": [-0.27, 0.32, 0],      "size": [0.03, 0.03, 0.48], "materialId": "walnut" },
+    { "label": "Seat Side Rail R", "type": "horizontal", "shape": "rail",         "position": [0.27, 0.32, 0],       "size": [0.03, 0.03, 0.48], "materialId": "walnut" }
+  ]
+}
+
 == DIMENSIONS ARE CRITICAL ==
 Return ALL dimensions in METERS. A typical piece of furniture is 0.4m–2.5m in its largest dimension.
 - A chair seat: ~0.45m wide, ~0.05m thick, ~0.45m deep
@@ -60,7 +150,50 @@ DOORS: shaker_door, glass_insert_door, louvered_door, drawer_box, open_tray
 TRIM: crown_molding, base_molding, edge_trim, cross_brace, l_bracket, l_shape, u_shape
 STRUCTURE: rail (thin connecting rod), rod (round bar)
 
-Optional per panel: shapeParams { cornerRadius (0-0.05m for rounded edges), arcAngle, topRatio, tubeRadius, thickness }; rotation [rx,ry,rz] radians (e.g. -0.17 = ~10° tilt back); cornerRadius on box panels.
+== OPTIONAL PANEL PROPERTIES (use these to make the model MORE accurate) ==
+
+cornerRadius (number, 0-0.05m): Rounds edges of box/rounded_rect panels. Use when edges look soft/rounded in the image.
+  - Sharp edges → 0 or omit
+  - Slightly rounded → 0.005-0.01
+  - Visibly rounded → 0.015-0.03
+  - Very rounded/pill-shaped → 0.04-0.05
+
+curveAmount (number, 0-100): Bends the panel along its length like a curved backrest.
+  - 0 = flat panel (default, omit for flat surfaces)
+  - 10-25 = gentle curve (slightly curved armrest, subtle seat scoop)
+  - 30-50 = moderate curve (curved backrest, bent shelf, arched headboard)
+  - 60-80 = strong curve (wrap-around chair back, deeply curved shell seat)
+  - Use for: chair backrests, shell chairs, curved armrests, bent plywood, concave seats, curved headboards
+
+curveAxis ("horizontal" | "vertical"): Which direction the panel bends.
+  - "horizontal" (default): curves left-right (like a backrest wrapping around the body)
+  - "vertical": curves top-bottom (like a banana-shaped seat or scooped surface)
+
+shapeParams: { cornerRadius, arcAngle, topRatio, tubeRadius, thickness }
+rotation: [rx, ry, rz] in radians (e.g. -0.17 = ~10° tilt back)
+
+== CURVE DETECTION GUIDE ==
+Look carefully at the image for curved surfaces:
+- Mid-century chairs often have curved plywood backrests → curveAmount: 35-50
+- Shell chairs (Eames style) → curveAmount: 60-80, both seat and back
+- Barrel chairs → curveAmount: 50-70 on back panel
+- Armchair armrests that curve inward → curveAmount: 20-35
+- Curved desk/console front → curveAmount: 15-25
+- Rocking chair rails → curveAmount: 40-60 on bottom rails
+- If a surface is FLAT in the image, do NOT add curveAmount
+
+== SOFTNESS & UPHOLSTERY DETECTION ==
+Use the right shape for the softness level you SEE:
+- "box" or "rounded_rect": hard/rigid surfaces (wood, metal, glass)
+- "cushion_firm": structured upholstery with visible edges, tailored look (tight back sofas, dining chair pads)
+- "cushion": soft/puffy cushions, loose fill, visible puffiness (throw pillows, loose back cushions)
+- "padded_block": boxy but padded (square arms, ottoman tops, structured headrests)
+- "cushion_bolster": cylindrical roll cushions (arm rolls, decorative bolsters)
+
+For upholstered furniture, assess softness PER PART:
+- The seat might be "cushion_firm" while throw pillows are "cushion"
+- Arms might be "padded_block" while the back is "cushion"
+- A tufted surface should be "cushion_firm" with the tufted material
 
 == MATERIALS — detect from the IMAGE per part ==
 Wood: oak, walnut, pine, cherry, maple, birch, teak, mahogany, ash, bamboo, ebony
