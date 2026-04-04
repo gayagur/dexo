@@ -374,11 +374,11 @@ export default function AIChatFlow() {
     const laterMessages = userTexts.slice(1);
     if (laterMessages.length === 0) return '';
 
-    // Match specific furniture items mentioned by the user
-    const furnitureKeywords = /\b(sofa|couch|chair|armchair|table|desk|bed|shelf|bookshelf|cabinet|dresser|wardrobe|nightstand|ottoman|bench|stool|lamp|mirror|rug|pillow|cushion|curtain|vase|plant|planter|sideboard|console|tv\s*stand|coffee\s*table|dining\s*table|side\s*table|bar\s*stool|office\s*chair|lounge|sectional|headboard|vanity|rack|basket|blanket|throw|chandelier|pendant|sconce)\b/i;
+    // Match specific furniture AND decorative items mentioned by the user
+    const itemKeywords = /\b(sofa|couch|chair|armchair|table|desk|bed|shelf|bookshelf|cabinet|dresser|wardrobe|nightstand|ottoman|bench|stool|lamp|mirror|rug|pillow|cushion|curtain|vase|plant|planter|sideboard|console|tv\s*stand|coffee\s*table|dining\s*table|side\s*table|bar\s*stool|office\s*chair|lounge|sectional|headboard|vanity|rack|basket|blanket|throw|chandelier|pendant|sconce|candle|candle\s*holder|picture\s*frame|photo\s*frame|clock|wall\s*clock|sculpture|figurine|tray|bowl|decorative\s*bowl|fruit\s*bowl|bookend|coaster|potpourri|diffuser|incense|terrarium|globe|hourglass|music\s*box|wind\s*chime|wall\s*hanging|tapestry|macrame|wreath|garland|fairy\s*lights|string\s*lights|lantern|candelabra|flower\s*pot|succulent|cactus|bonsai|dried\s*flowers|artificial\s*flowers|flower\s*arrangement|centerpiece|table\s*runner|placemat|napkin\s*ring|serving\s*tray|cake\s*stand|wine\s*rack|magazine\s*rack|umbrella\s*stand|doormat|welcome\s*mat|wall\s*shelf|floating\s*shelf|shadow\s*box|display\s*case|jewelry\s*box|trinket\s*box|storage\s*box|wicker\s*basket|rattan\s*basket|pouf|bean\s*bag|floor\s*cushion|meditation\s*cushion|bolster|lumbar\s*pillow|accent\s*pillow)\b/i;
 
     for (const text of laterMessages.reverse()) {
-      const match = text.match(furnitureKeywords);
+      const match = text.match(itemKeywords);
       if (match) return match[1].trim();
     }
     return '';

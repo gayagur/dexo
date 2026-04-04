@@ -374,8 +374,70 @@ function inferSubtype(category: string): BriefField[] | null {
     return [...STORAGE_FIELDS, ...FURNITURE_FIELDS.filter(f => f.id === 'wood_type'), ...COMMON_FIELDS];
   }
   // Lighting
-  if (/lamp|light|chandelier|sconce|pendant/i.test(lower)) {
+  if (/lamp|light|chandelier|sconce|pendant|lantern|candelabra|fairy\s*light|string\s*light/i.test(lower)) {
     return [...LIGHTING_FIELDS, ...COMMON_FIELDS];
+  }
+  // Textiles & soft furnishings
+  if (/pillow|cushion|throw|blanket|curtain|rug|tapestry|macrame|placemat|table\s*runner|napkin/i.test(lower)) {
+    return [...TEXTILE_FIELDS, ...COMMON_FIELDS];
+  }
+  // Plants & greenery
+  if (/plant|planter|succulent|cactus|bonsai|terrarium|flower|dried\s*flower|artificial\s*flower|flower\s*pot|greenery/i.test(lower)) {
+    return [
+      { id: 'planter_material', label: 'Planter Material', type: 'select', options: ['Ceramic', 'Terracotta', 'Concrete', 'Wood', 'Metal', 'Woven Basket', 'Glass'] },
+      { id: 'plant_type', label: 'Plant Type', type: 'select', options: ['Real', 'Artificial', 'Dried', 'Preserved'] },
+      { id: 'drainage', label: 'Drainage Holes', type: 'toggle' },
+      ...COMMON_FIELDS.filter(f => f.id !== 'assembly_required'),
+    ];
+  }
+  // Candles & fragrances
+  if (/candle|diffuser|incense|potpourri|candle\s*holder/i.test(lower)) {
+    return [
+      { id: 'candle_type', label: 'Type', type: 'select', options: ['Pillar', 'Taper', 'Votive', 'Tea Light', 'Jar', 'Floating', 'LED/Flameless'], required: true },
+      { id: 'scented', label: 'Scented', type: 'toggle' },
+      { id: 'holder_material', label: 'Holder Material', type: 'select', options: ['Glass', 'Ceramic', 'Metal', 'Wood', 'Marble', 'Concrete'] },
+      ...COMMON_FIELDS.filter(f => f.id !== 'assembly_required'),
+    ];
+  }
+  // Vases, bowls, trays & decorative objects
+  if (/vase|bowl|tray|sculpture|figurine|bookend|globe|hourglass|music\s*box|decorative/i.test(lower)) {
+    return [
+      { id: 'object_material', label: 'Material', type: 'select', options: ['Ceramic', 'Glass', 'Metal', 'Wood', 'Marble', 'Stone', 'Resin', 'Concrete'], required: true },
+      { id: 'object_size', label: 'Size', type: 'select', options: ['Small (under 15cm)', 'Medium (15-30cm)', 'Large (30-50cm)', 'Extra Large (50cm+)'] },
+      { id: 'handmade', label: 'Handmade/Artisan', type: 'toggle' },
+      ...COMMON_FIELDS.filter(f => f.id !== 'assembly_required'),
+    ];
+  }
+  // Frames, clocks & wall decor
+  if (/frame|picture|photo|clock|wall\s*hanging|wall\s*art|mirror|wreath|garland/i.test(lower)) {
+    return [
+      { id: 'frame_material', label: 'Frame Material', type: 'select', options: ['Wood', 'Metal', 'Acrylic', 'Frameless', 'Bamboo', 'Rattan'] },
+      { id: 'mount_type', label: 'Mount Type', type: 'select', options: ['Wall Mounted', 'Freestanding', 'Hanging', 'Leaning'] },
+      { id: 'frame_size', label: 'Size', type: 'select', options: ['Small (10x15cm)', 'Medium (20x30cm)', 'Large (40x60cm)', 'Gallery (50x70cm+)'] },
+      ...COMMON_FIELDS.filter(f => f.id !== 'assembly_required'),
+    ];
+  }
+  // Baskets & storage boxes
+  if (/basket|wicker|rattan|storage\s*box|trinket|jewelry\s*box|display\s*case|shadow\s*box/i.test(lower)) {
+    return [
+      { id: 'basket_material', label: 'Material', type: 'select', options: ['Wicker', 'Rattan', 'Seagrass', 'Cotton Rope', 'Felt', 'Leather', 'Wood', 'Metal Wire'], required: true },
+      { id: 'basket_size', label: 'Size', type: 'select', options: ['Small', 'Medium', 'Large', 'Set of 3'] },
+      { id: 'lid', label: 'Has Lid', type: 'toggle' },
+      ...COMMON_FIELDS.filter(f => f.id !== 'assembly_required'),
+    ];
+  }
+  // Outdoor decorative
+  if (/wind\s*chime|doormat|welcome\s*mat|umbrella\s*stand/i.test(lower)) {
+    return [...OUTDOOR_FIELDS, ...COMMON_FIELDS];
+  }
+  // Floor cushions, poufs, bean bags
+  if (/pouf|bean\s*bag|floor\s*cushion|meditation|bolster|lumbar/i.test(lower)) {
+    return [
+      { id: 'fill_type', label: 'Fill Type', type: 'select', options: ['Foam', 'Polystyrene Beads', 'Buckwheat', 'Cotton', 'Down', 'Memory Foam'], required: true },
+      { id: 'cover_material', label: 'Cover Material', type: 'select', options: ['Cotton', 'Linen', 'Velvet', 'Leather', 'Faux Leather', 'Knitted', 'Jute'] },
+      { id: 'removable_cover', label: 'Removable Cover', type: 'toggle' },
+      ...COMMON_FIELDS,
+    ];
   }
 
   return null;
