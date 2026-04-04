@@ -356,6 +356,25 @@ const PART_CATEGORIES: PartCategory[] = [
         shape: "hexagon", type: "horizontal",
         size: [0.3, 0.018, 0.3], materialId: "oak",
       },
+      {
+        id: "curved_panel", label: "Curved Panel", icon: "⌒",
+        description: "Gently curved surface panel",
+        shape: "box", type: "horizontal",
+        size: [0.5, 0.4, 0.03], materialId: "oak",
+        shapeParams: { curveAmount: 40 },
+      },
+      {
+        id: "thin_shelf", label: "Thin Shelf", icon: "━",
+        description: "Slim floating shelf",
+        shape: "box", type: "horizontal",
+        size: [0.8, 0.016, 0.3], materialId: "oak",
+      },
+      {
+        id: "back_panel_thick", label: "Back Panel (Thick)", icon: "▣",
+        description: "Sturdy back panel for cabinets",
+        shape: "box", type: "back",
+        size: [0.8, 0.6, 0.02], materialId: "mdf",
+      },
     ],
   },
 
@@ -421,6 +440,31 @@ const PART_CATEGORIES: PartCategory[] = [
         shape: "tube", type: "vertical",
         size: [0.1, 0.4, 0.1], materialId: "black_metal",
         shapeParams: { thickness: 0.15 },
+      },
+      {
+        id: "sphere_large", label: "Sphere (Large)", icon: "●",
+        description: "Large decorative sphere",
+        shape: "sphere", type: "horizontal",
+        size: [0.15, 0.15, 0.15], materialId: "brass",
+      },
+      {
+        id: "disc", label: "Disc", icon: "◉",
+        description: "Flat cylindrical disc",
+        shape: "cylinder", type: "horizontal",
+        size: [0.2, 0.02, 0.2], materialId: "black_metal",
+      },
+      {
+        id: "pyramid_solid", label: "Pyramid (Solid)", icon: "△",
+        description: "Decorative pyramid shape",
+        shape: "pyramid", type: "vertical",
+        size: [0.15, 0.2, 0.15], materialId: "oak",
+      },
+      {
+        id: "rounded_cube", label: "Rounded Cube", icon: "▢",
+        description: "Soft-edged box shape",
+        shape: "box", type: "horizontal",
+        size: [0.2, 0.2, 0.2], materialId: "oak",
+        shapeParams: { cornerRadius: 0.02 },
       },
     ],
   },
@@ -504,6 +548,30 @@ const PART_CATEGORIES: PartCategory[] = [
         description: "Solid rectangular base",
         shape: "plinth", type: "horizontal",
         size: [0.5, 0.04, 0.4], materialId: "oak",
+      },
+      {
+        id: "tapered_leg_new", label: "Tapered Leg (New)", icon: "╲",
+        description: "Sleek tapered furniture leg",
+        shape: "tapered_leg", type: "vertical",
+        size: [0.05, 0.45, 0.05], materialId: "walnut",
+      },
+      {
+        id: "hairpin_leg_new", label: "Hairpin Leg (Black)", icon: "⋀",
+        description: "Black metal hairpin leg",
+        shape: "hairpin_leg", type: "vertical",
+        size: [0.05, 0.45, 0.05], materialId: "black_metal",
+      },
+      {
+        id: "bun_foot_new", label: "Bun Foot (Wide)", icon: "◠",
+        description: "Wide classic rounded foot",
+        shape: "bun_foot", type: "vertical",
+        size: [0.08, 0.05, 0.08], materialId: "walnut",
+      },
+      {
+        id: "pedestal_base_new", label: "Pedestal Base (Wide)", icon: "⏣",
+        description: "Wide central pedestal base",
+        shape: "pedestal", type: "vertical",
+        size: [0.3, 0.05, 0.3], materialId: "black_metal",
       },
     ],
   },
@@ -693,6 +761,24 @@ const PART_CATEGORIES: PartCategory[] = [
         shape: "lamp_shade", type: "vertical",
         size: [0.2, 0.15, 0.2], materialId: "melamine_white",
         shapeParams: { topRatio: 0.4 },
+      },
+      {
+        id: "cushion_decor", label: "Cushion", icon: "\uD83D\uDECB",
+        description: "Decorative seat cushion",
+        shape: "cushion", type: "horizontal",
+        size: [0.45, 0.12, 0.45], materialId: "fabric_cream",
+      },
+      {
+        id: "pillow_decor", label: "Pillow", icon: "\u25A2",
+        description: "Soft decorative pillow",
+        shape: "cushion", type: "horizontal",
+        size: [0.5, 0.08, 0.4], materialId: "fabric_beige",
+      },
+      {
+        id: "mattress_decor", label: "Mattress", icon: "\uD83D\uDECF",
+        description: "Full-size bed mattress",
+        shape: "mattress", type: "horizontal",
+        size: [0.9, 0.2, 1.9], materialId: "fabric_cream",
       },
     ],
   },
@@ -963,9 +1049,11 @@ export function AddPartPicker({ onAdd, onAddGroup, onAddGLB, onClose }: AddPartP
   const { isMobileLayout } = useMobileInfo();
   const [hovered, setHovered] = useState<string | null>(null);
   const [search, setSearch] = useState("");
-  const [expandedCategory, setExpandedCategory] = useState<string | null>(null);
+  const [view, setView] = useState<'grid' | 'detail'>('grid');
+  const [selectedCategoryLabel, setSelectedCategoryLabel] = useState<string | null>(null);
 
   const searchLower = search.toLowerCase();
+  const isSearching = searchLower.length > 0;
 
   const filteredCategories = PART_CATEGORIES.map((cat) => ({
     ...cat,
@@ -976,104 +1064,149 @@ export function AddPartPicker({ onAdd, onAddGroup, onAddGLB, onClose }: AddPartP
     ),
   })).filter((cat) => cat.items.length > 0);
 
-  const categoryList = (
-    <div className="space-y-3">
-      {filteredCategories.map((category) => {
-        const isExpanded = expandedCategory === category.label || search.length > 0;
-        const showItems = isExpanded ? category.items : [];
-        const hasMore = !isExpanded;
+  // Flat filtered results for search mode
+  const flatFilteredItems = filteredCategories.flatMap((cat) => cat.items);
 
+  const selectedCategory = PART_CATEGORIES.find((c) => c.label === selectedCategoryLabel) ?? null;
+  const detailItems = selectedCategory
+    ? (isSearching
+        ? selectedCategory.items.filter(
+            (item) =>
+              item.label.toLowerCase().includes(searchLower) ||
+              item.description.toLowerCase().includes(searchLower)
+          )
+        : selectedCategory.items)
+    : [];
+
+  const handleItemClick = async (item: PartPreset) => {
+    try {
+      if (item.glbPath && onAddGLB) {
+        await onAddGLB(item.groupName ?? item.label, item.glbPath);
+      } else if (item.buildPanels && onAddGroup) {
+        onAddGroup(item.groupName ?? item.label, item.buildPanels());
+      } else {
+        onAdd({
+          shape: item.shape,
+          type: item.type,
+          label: item.label,
+          size: item.size,
+          materialId: item.materialId,
+          shapeParams: item.shapeParams,
+          placeOnSelected: item.placeOnSelected,
+          placeOnFloor: item.placeOnFloor,
+          softDecorKind: item.softDecorKind,
+        });
+      }
+    } finally {
+      onClose();
+    }
+  };
+
+  const itemCard = (item: PartPreset) => (
+    <button
+      type="button"
+      key={item.id}
+      onClick={() => handleItemClick(item)}
+      onMouseEnter={() => setHovered(item.id)}
+      onMouseLeave={() => setHovered(null)}
+      className={`relative group rounded-xl border p-3 text-left transition-all duration-200 min-h-[44px] ${
+        hovered === item.id
+          ? "border-[#C87D5A]/40 bg-[#C87D5A]/[0.04] shadow-md shadow-[#C87D5A]/10 scale-[1.02]"
+          : "border-gray-200 bg-white hover:border-gray-300"
+      }`}
+    >
+      <div
+        className={`w-9 h-9 rounded-lg flex items-center justify-center mb-2 text-lg transition-colors ${
+          hovered === item.id ? "bg-[#C87D5A]/10" : "bg-gray-100"
+        }`}
+      >
+        {item.icon}
+      </div>
+      <p className="text-xs font-medium text-gray-900 leading-tight">
+        {item.label}
+      </p>
+      <p className="text-[10px] text-gray-400 mt-0.5 leading-tight">
+        {item.description}
+      </p>
+    </button>
+  );
+
+  // ── Screen 1: Category Grid ──
+  const categoryGrid = (
+    <div className="grid grid-cols-3 gap-2.5">
+      {(isSearching ? filteredCategories : PART_CATEGORIES).map((category) => {
+        const count = isSearching ? category.items.length : category.items.length;
         return (
-          <div key={category.label}>
-            <button
-              type="button"
-              onClick={() => setExpandedCategory(
-                expandedCategory === category.label ? null : category.label
-              )}
-              className="w-full flex items-center gap-2 px-1 mb-2 group"
-            >
-              <span className="text-sm">{category.icon}</span>
-              <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
-                {category.label}
-              </p>
-              <span className="text-[10px] text-gray-300 ml-1">
-                ({category.items.length})
-              </span>
-              <div className="flex-1" />
-              <span className="text-[10px] text-gray-300 group-hover:text-gray-500 transition-colors">
-                {isExpanded ? "▾ collapse" : `▸ ${category.items.length} items`}
-              </span>
-            </button>
-
-            <div className={`grid gap-2 ${isMobileLayout ? "grid-cols-2" : "grid-cols-3"}`}>
-              {showItems.map((item) => (
-                <button
-                  type="button"
-                  key={item.id}
-                  onClick={async () => {
-                    try {
-                      if (item.glbPath && onAddGLB) {
-                        await onAddGLB(item.groupName ?? item.label, item.glbPath);
-                      } else if (item.buildPanels && onAddGroup) {
-                        onAddGroup(item.groupName ?? item.label, item.buildPanels());
-                      } else {
-                        onAdd({
-                          shape: item.shape,
-                          type: item.type,
-                          label: item.label,
-                          size: item.size,
-                          materialId: item.materialId,
-                          shapeParams: item.shapeParams,
-                          placeOnSelected: item.placeOnSelected,
-                          placeOnFloor: item.placeOnFloor,
-                          softDecorKind: item.softDecorKind,
-                        });
-                      }
-                    } finally {
-                      onClose();
-                    }
-                  }}
-                  onMouseEnter={() => setHovered(item.id)}
-                  onMouseLeave={() => setHovered(null)}
-                  className={`relative group rounded-xl border p-3 text-left transition-all duration-200 min-h-[44px] ${
-                    hovered === item.id
-                      ? "border-[#C87D5A]/40 bg-[#C87D5A]/[0.04] shadow-md shadow-[#C87D5A]/10 scale-[1.02]"
-                      : "border-gray-200 bg-white hover:border-gray-300"
-                  }`}
-                >
-                  <div
-                    className={`w-9 h-9 rounded-lg flex items-center justify-center mb-2 text-lg transition-colors ${
-                      hovered === item.id
-                        ? "bg-[#C87D5A]/10"
-                        : "bg-gray-100"
-                    }`}
-                  >
-                    {item.icon}
-                  </div>
-                  <p className="text-xs font-medium text-gray-900 leading-tight">
-                    {item.label}
-                  </p>
-                  <p className="text-[10px] text-gray-400 mt-0.5 leading-tight">
-                    {item.description}
-                  </p>
-                </button>
-              ))}
-            </div>
-
-            {hasMore && (
-              <button
-                type="button"
-                onClick={() => setExpandedCategory(category.label)}
-                className="mt-1.5 w-full text-center text-[10px] text-[#C87D5A] hover:text-[#B06B4A] font-medium py-1 transition-colors"
-              >
-                + {category.items.length - 6} more
-              </button>
-            )}
-          </div>
+          <button
+            key={category.label}
+            type="button"
+            onClick={() => {
+              setSelectedCategoryLabel(category.label);
+              setView('detail');
+            }}
+            className="group relative aspect-square flex flex-col items-center justify-center bg-white border border-black/[0.07] rounded-xl transition-all duration-200 hover:-translate-y-[2px] hover:shadow-lg"
+          >
+            {/* Item count badge */}
+            <span className="absolute top-2 right-2 text-[9px] font-semibold bg-[#C87D5A] text-white px-1.5 py-0.5 rounded-full min-w-[18px] text-center">
+              {count}
+            </span>
+            {/* Icon */}
+            <span className="text-2xl mb-2">{category.icon}</span>
+            {/* Label */}
+            <span className="text-[11px] font-semibold text-gray-800 text-center leading-tight px-1">
+              {category.label}
+            </span>
+          </button>
         );
       })}
+      {(isSearching ? filteredCategories : PART_CATEGORIES).length === 0 && (
+        <div className="col-span-3 text-center text-sm text-gray-400 py-8">
+          No shapes match &quot;{search}&quot;
+        </div>
+      )}
+    </div>
+  );
 
-      {filteredCategories.length === 0 && (
+  // ── Screen 2: Category Detail ──
+  const categoryDetail = (
+    <div>
+      {/* Back header */}
+      <div className="flex items-center gap-2 mb-3">
+        <button
+          type="button"
+          onClick={() => {
+            setView('grid');
+            setSelectedCategoryLabel(null);
+          }}
+          className="w-7 h-7 rounded-lg hover:bg-gray-100 flex items-center justify-center transition-colors text-gray-500 hover:text-gray-700"
+        >
+          <span className="text-sm">&larr;</span>
+        </button>
+        <span className="text-sm">{selectedCategory?.icon}</span>
+        <h4 className="text-sm font-semibold text-gray-900">{selectedCategory?.label}</h4>
+        <span className="text-[10px] text-gray-400">({detailItems.length} items)</span>
+      </div>
+
+      {/* Items grid */}
+      <div className={`grid gap-2 ${isMobileLayout ? "grid-cols-2" : "grid-cols-3"}`}>
+        {detailItems.map((item) => itemCard(item))}
+      </div>
+      {detailItems.length === 0 && (
+        <div className="text-center text-sm text-gray-400 py-8">
+          No shapes match &quot;{search}&quot;
+        </div>
+      )}
+    </div>
+  );
+
+  // ── Flat search results (across all categories) ──
+  const flatSearchResults = (
+    <div>
+      <p className="text-[10px] text-gray-400 mb-2">{flatFilteredItems.length} results</p>
+      <div className={`grid gap-2 ${isMobileLayout ? "grid-cols-2" : "grid-cols-3"}`}>
+        {flatFilteredItems.map((item) => itemCard(item))}
+      </div>
+      {flatFilteredItems.length === 0 && (
         <div className="text-center text-sm text-gray-400 py-8">
           No shapes match &quot;{search}&quot;
         </div>
@@ -1095,6 +1228,13 @@ export function AddPartPicker({ onAdd, onAddGroup, onAddGLB, onClose }: AddPartP
     </div>
   );
 
+  // Determine which content to show
+  const contentView = isSearching
+    ? flatSearchResults
+    : view === 'detail' && selectedCategory
+      ? categoryDetail
+      : categoryGrid;
+
   if (isMobileLayout) {
     return (
       <MobileDrawer isOpen={true} onClose={onClose} title="Add Part" height="half">
@@ -1102,12 +1242,8 @@ export function AddPartPicker({ onAdd, onAddGroup, onAddGLB, onClose }: AddPartP
           <p className="text-xs text-gray-400">
             {PART_CATEGORIES.reduce((n, c) => n + c.items.length, 0)} shapes across {PART_CATEGORIES.length} categories
           </p>
-          <p className="text-[11px] text-gray-600 leading-snug">
-            <span className="font-medium text-[#C87D5A]">On selected surface:</span>{" "}
-            click a seat, tabletop, or shelf in the 3D view, open + Add, then pick a pillow, vase, etc.
-          </p>
           {searchBar}
-          {categoryList}
+          {contentView}
         </div>
       </MobileDrawer>
     );
@@ -1138,10 +1274,6 @@ export function AddPartPicker({ onAdd, onAddGroup, onAddGLB, onClose }: AddPartP
               <p className="text-xs text-gray-400 mt-0.5">
                 {PART_CATEGORIES.reduce((n, c) => n + c.items.length, 0)} shapes across {PART_CATEGORIES.length} categories
               </p>
-              <p className="text-[11px] text-gray-600 mt-2 leading-snug">
-                <span className="font-medium text-[#C87D5A]">On selected surface:</span>{" "}
-                click a seat, tabletop, or shelf in the 3D view, open + Add, then pick a pillow, vase, etc. — it spawns centered on that piece. If nothing is selected, it uses the highest horizontal surface.
-              </p>
             </div>
             <button
               type="button"
@@ -1155,9 +1287,17 @@ export function AddPartPicker({ onAdd, onAddGroup, onAddGLB, onClose }: AddPartP
           {searchBar}
         </div>
 
-        {/* Content */}
+        {/* Content with slide transition */}
         <div className="flex-1 overflow-y-auto p-4 min-h-0">
-          {categoryList}
+          <div
+            className="transition-all duration-200 ease-in-out"
+            style={{
+              opacity: 1,
+              transform: view === 'detail' && !isSearching ? 'translateX(0)' : 'translateX(0)',
+            }}
+          >
+            {contentView}
+          </div>
         </div>
       </div>
     </div>

@@ -969,6 +969,21 @@ export function FurnitureEditor({
     setShowLibrary(false);
   }, [updateScene]);
 
+  const handleAddGLBFromLibrary = useCallback(async (name: string, glbPath: string) => {
+    try {
+      const { loadGLBAsGroup } = await import("@/lib/glbLoader");
+      const group = await loadGLBAsGroup(glbPath, name);
+      const offset = computeGroupXOffset(groupsRef.current);
+      const offsetGroup: GroupData = { ...group, position: [group.position[0] + offset, group.position[1], group.position[2]] };
+      updateScene((prev) => [...prev, offsetGroup]);
+      setSelectedGroupId(offsetGroup.id);
+      setSelectedPanelId(null);
+      setShowLibrary(false);
+    } catch (err) {
+      console.error("Failed to load GLB from library:", err);
+    }
+  }, [updateScene]);
+
   const handleDimsChange = useCallback((newDims: { w: number; h: number; d: number }) => {
     const oldDims = dims;
     setDims(newDims);
@@ -1728,6 +1743,7 @@ export function FurnitureEditor({
         {showLibrary ? (
           <LibraryBrowser
             onSelectTemplate={handleLoadTemplate}
+            onAddGLB={handleAddGLBFromLibrary}
             onClose={() => setShowLibrary(false)}
             communityTemplates={communityTemplates}
           />
@@ -1958,6 +1974,7 @@ export function FurnitureEditor({
           {mobileLibraryTab === "templates" ? (
             <LibraryBrowser
               onSelectTemplate={(t) => { handleLoadTemplate(t); closeMobileSheets(); }}
+              onAddGLB={async (name, path) => { await handleAddGLBFromLibrary(name, path); closeMobileSheets(); }}
               onClose={() => setMobileLibraryTab("elements")}
               communityTemplates={communityTemplates}
             />
