@@ -2245,7 +2245,7 @@ function fixPanelThickness(
   }
 
   // Legs — X and Z should be small diameter
-  if (/\b(leg|foot|feet)\b/.test(label) && !/\b(arm|back)\b/.test(label)) {
+  if (/\b(leg|foot|feet)\b/.test(label) && !/\barm\b/.test(label)) {
     const maxDiam = 0.08;
     if (w > maxDiam && w > h * 0.3) w = Math.max(0.03, Math.min(w, maxDiam));
     if (d > maxDiam && d > h * 0.3) d = Math.max(0.03, Math.min(d, maxDiam));
@@ -2253,6 +2253,156 @@ function fixPanelThickness(
   }
 
   return panel;
+}
+
+/**
+ * Assign leg panels to distinct corner positions using label keywords
+ * (front/back/left/right) when available, falling back to index-based
+ * distribution.  This prevents the "stacked pairs" bug where legs
+ * labelled only "Left Leg" / "Right Leg" end up at 2 positions instead
+ * of 4 unique corners.
+ */
+function assignLegCorners(
+  legs: PanelData[],
+  W: number,
+  H: number,
+  D: number,
+  pad: number,
+): PanelData[] {
+  const n = legs.length;
+  if (n === 0) return legs;
+
+  // 4-corner positions: [x, z]
+  // 0 = front-left, 1 = front-right, 2 = back-left, 3 = back-right
+  const corners: [number, number][] = [
+    [-(W / 2 - pad), +(D / 2 - pad)],   // front-left
+    [+(W / 2 - pad), +(D / 2 - pad)],    // front-right
+    [-(W / 2 - pad), -(D / 2 - pad)],    // back-left
+    [+(W / 2 - pad), -(D / 2 - pad)],    // back-right
+  ];
+
+  // Try to assign each leg to a specific corner based on label keywords.
+  // Track which corners have been claimed so no two legs share a corner.
+  const assigned = new Map<number, number>(); // legIndex -> cornerIndex
+  const usedCorners = new Set<number>();
+
+  // First pass: assign legs with fully-specified labels (both LR and FB)
+  for (let i = 0; i < n; i++) {
+    const label = legs[i].label.toLowerCase();
+    const isLeft = label.includes("left");
+    const isRight = label.includes("right");
+    const isFront = label.includes("front");
+    const isBack = label.includes("back") || label.includes("rear");
+
+    if ((isLeft || isRight) && (isFront || isBack)) {
+      const ci = (isFront ? 0 : 2) + (isRight ? 1 : 0);
+      if (!usedCorners.has(ci)) {
+        assigned.set(i, ci);
+        usedCorners.add(ci);
+      }
+    }
+  }
+
+  // Second pass: assign legs with partial labels (only left/right or front/back)
+  for (let i = 0; i < n; i++) {
+    if (assigned.has(i)) continue;
+    const label = legs[i].label.toLowerCase();
+    const isLeft = label.includes("left");
+    const isRight = label.includes("right");
+    const isFront = label.includes("front");
+    const isBack = label.includes("back") || label.includes("rear");
+
+    let candidates: number[] = [];
+    if (isLeft && !isRight) candidates = [0, 2]; // front-left, back-left
+    else if (isRight && !isLeft) candidates = [1, 3]; // front-right, back-right
+    else if (isFront && !isBack) candidates = [0, 1]; // front-left, front-right
+    else if (isBack && !isFront) candidates = [2, 3]; // back-left, back-right
+
+    for (const ci of candidates) {
+      if (!usedCorners.has(ci)) {
+        assigned.set(i, ci);
+        usedCorners.add(ci);
+        break;
+      }
+    }
+  }
+
+  // Third pass: assign remaining legs to unused corners by index
+  const freeCorners = [0, 1, 2, 3].filter((ci) => !usedCorners.has(ci));
+  let freeIdx = 0;
+  for (let i = 0; i < n; i++) {
+    if (assigned.has(i)) continue;
+
+    if (n === 2 && freeCorners.length >= 2) {
+      // 2 legs: place at diagonally opposite corners for stability
+      const diagonalPairs = [[0, 3], [1, 2]]; // front-left/back-right or front-right/back-left
+      const pair = diagonalPairs.find((dp) => dp.every((c) => !usedCorners.has(c))) ?? [freeCorners[0], freeCorners[1]];
+      assigned.set(i, pair[freeIdx]);
+      usedCorners.add(pair[freeIdx]);
+      freeIdx++;
+    } else if (n === 3) {
+      // Tripod: distribute around perimeter
+      const angle = (i * 2 * Math.PI) / 3;
+      const radius = Math.min(W, D) / 2 - pad;
+      const cx = Math.sin(angle) * radius;
+      const cz = Math.cos(angle) * radius;
+      const [, ph] = legs[i].size;
+      return [...legs.slice(0, i).map((leg, li) => {
+        if (assigned.has(li)) {
+          const [cx2, cz2] = corners[assigned.get(li)!];
+          return { ...leg, position: [cx2, leg.size[1] / 2, cz2] as [number, number, number] };
+        }
+        const a2 = (li * 2 * Math.PI) / 3;
+        return { ...leg, position: [Math.sin(a2) * radius, leg.size[1] / 2, Math.cos(a2) * radius] as [number, number, number] };
+      }), { ...legs[i], position: [cx, ph / 2, cz] as [number, number, number] }, ...legs.slice(i + 1).map((leg, offset) => {
+        const li = i + 1 + offset;
+        const a2 = (li * 2 * Math.PI) / 3;
+        return { ...leg, position: [Math.sin(a2) * radius, leg.size[1] / 2, Math.cos(a2) * radius] as [number, number, number] };
+      })];
+    } else if (n === 6) {
+      // 6 legs: 4 corners + 2 center sides
+      if (freeIdx < freeCorners.length) {
+        assigned.set(i, freeCorners[freeIdx]);
+        usedCorners.add(freeCorners[freeIdx]);
+        freeIdx++;
+      }
+      // Extra legs beyond 4 will be handled below
+    } else {
+      // Generic: cycle through corners
+      if (freeIdx < freeCorners.length) {
+        assigned.set(i, freeCorners[freeIdx]);
+        usedCorners.add(freeCorners[freeIdx]);
+        freeIdx++;
+      } else {
+        // More legs than corners: wrap around
+        const ci = i % 4;
+        assigned.set(i, ci);
+      }
+    }
+  }
+
+  // Build result
+  return legs.map((leg, i) => {
+    const [, ph] = leg.size;
+    const legY = ph / 2;
+
+    if (assigned.has(i)) {
+      const ci = assigned.get(i)!;
+      const [cx, cz] = corners[ci];
+      return { ...leg, position: [cx, legY, cz] as [number, number, number] };
+    }
+
+    // Fallback for 6-leg extra legs (center-side positions)
+    if (n === 6) {
+      const extraIdx = i - 4;
+      const cx = extraIdx === 0 ? -(W / 2 - pad) : (W / 2 - pad);
+      return { ...leg, position: [cx, legY, 0] as [number, number, number] };
+    }
+
+    // Absolute fallback: distribute by index
+    const [cx, cz] = corners[i % 4];
+    return { ...leg, position: [cx, legY, cz] as [number, number, number] };
+  });
 }
 
 /**
@@ -2285,6 +2435,16 @@ function fixPositionsByCategory(
   function roleCount(panel: PanelData): number {
     const role = classifyLabelRole(panel.label);
     return (roleGroups.get(role) ?? []).length;
+  }
+
+  // Pre-compute leg positions using the label-aware corner assignment for
+  // categories that have legs (desk, chair, table).
+  const isLegCategory = category === "desk" || category === "chair" || category === "table";
+  const legPanels = isLegCategory ? (roleGroups.get("leg") ?? []) : [];
+  const legPositioned = isLegCategory ? assignLegCorners(legPanels, W, H, D, pad) : [];
+  const legPosMap = new Map<PanelData, [number, number, number]>();
+  for (let li = 0; li < legPanels.length; li++) {
+    legPosMap.set(legPanels[li], legPositioned[li].position);
   }
 
   return panels.map((panel) => {
@@ -2328,16 +2488,9 @@ function fixPositionsByCategory(
           const fraction = n > 1 ? (idx + 1) / (n + 1) : 0.4;
           // Shelves fit between side panels
           pos = [0, H * fraction, 0];
-        } else if (/\b(leg|foot|feet)\b/.test(label) && !/\b(arm|back)\b/.test(label)) {
-          // Place legs at corners near the bottom
-          const legCorners: [number, number][] = [
-            [-W / 2 + pad + 0.03, -D / 2 + pad + 0.03],
-            [W / 2 - pad - 0.03, -D / 2 + pad + 0.03],
-            [-W / 2 + pad + 0.03, D / 2 - pad - 0.03],
-            [W / 2 - pad - 0.03, D / 2 - pad - 0.03],
-          ];
-          const [cx, cz] = legCorners[idx % legCorners.length];
-          pos = [cx, ph / 2, cz];
+        } else if (/\b(leg|foot|feet)\b/.test(label) && !/\barm\b/.test(label)) {
+          // Use pre-computed corner positions from assignLegCorners
+          pos = legPosMap.get(panel) ?? null;
         } else if (/\bapron\b/.test(label)) {
           pos = [0, H - ph / 2 - 0.06, D / 2 - pd / 2 - pad];
         }
@@ -2350,16 +2503,9 @@ function fixPositionsByCategory(
           pos = [0, seatH, 0];
         } else if (/\b(backrest|back)\b/.test(label) && !/\bleg\b/.test(label)) {
           pos = [0, seatH + ph / 2, -D / 2 + pd / 2 + pad];
-        } else if (/\b(leg|foot|feet)\b/.test(label) && !/\b(arm|back)\b/.test(label)) {
-          // Place legs at corners; use AI X/Z if plausible, else assign corners
-          const corners: [number, number][] = [
-            [-W / 2 + pad + pw / 2, -D / 2 + pad + pd / 2],
-            [W / 2 - pad - pw / 2, -D / 2 + pad + pd / 2],
-            [-W / 2 + pad + pw / 2, D / 2 - pad - pd / 2],
-            [W / 2 - pad - pw / 2, D / 2 - pad - pd / 2],
-          ];
-          const [cx, cz] = corners[idx % corners.length];
-          pos = [cx, ph / 2, cz];
+        } else if (/\b(leg|foot|feet)\b/.test(label) && !/\barm\b/.test(label)) {
+          // Use pre-computed corner positions from assignLegCorners
+          pos = legPosMap.get(panel) ?? null;
         }
         break;
       }
@@ -2367,15 +2513,9 @@ function fixPositionsByCategory(
       case "table": {
         if (/\b(top|tabletop|surface|countertop)\b/.test(label)) {
           pos = [0, H - ph / 2, 0];
-        } else if (/\b(leg|foot|feet)\b/.test(label) && !/\b(arm|back)\b/.test(label)) {
-          const corners: [number, number][] = [
-            [-W / 2 + pad + pw / 2, -D / 2 + pad + pd / 2],
-            [W / 2 - pad - pw / 2, -D / 2 + pad + pd / 2],
-            [-W / 2 + pad + pw / 2, D / 2 - pad - pd / 2],
-            [W / 2 - pad - pw / 2, D / 2 - pad - pd / 2],
-          ];
-          const [cx, cz] = corners[idx % corners.length];
-          pos = [cx, ph / 2, cz];
+        } else if (/\b(leg|foot|feet)\b/.test(label) && !/\barm\b/.test(label)) {
+          // Use pre-computed corner positions from assignLegCorners
+          pos = legPosMap.get(panel) ?? null;
         } else if (/\bapron\b/.test(label)) {
           pos = [0, H - 0.08, panel.position[2]];
         }
@@ -2468,7 +2608,7 @@ function classifyLabelRole(label: string): string {
   if (/\bhandle\b/.test(l)) return "handle";
   if (/\b(drawer front|drawer)\b/.test(l)) return "drawer";
   if (/\bshelf\b/.test(l)) return "shelf";
-  if (/\b(leg|foot|feet)\b/.test(l) && !/\b(arm|back)\b/.test(l)) return "leg";
+  if (/\b(leg|foot|feet)\b/.test(l) && !/\barm\b/.test(l)) return "leg";
   if (/\b(back panel|back)\b/.test(l) && !/\b(leg|arm|seat)\b/.test(l)) return "back";
   if (/\b(left side)\b/.test(l)) return "left_side";
   if (/\b(right side)\b/.test(l)) return "right_side";

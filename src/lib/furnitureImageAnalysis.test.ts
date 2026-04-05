@@ -157,3 +157,68 @@ test("generic vertical parts get inferred positions", () => {
   assert.ok(partA, "Part A should exist");
   assert.ok(partB, "Part B should exist");
 });
+
+test("4 legs with only left/right labels get 4 unique corners, not stacked pairs", () => {
+  const panels = buildPanels({
+    name: "dining_table",
+    estimatedDims: { w: 1400, h: 750, d: 800 },
+    panels: [
+      { label: "Tabletop", type: "horizontal", shape: "box", position: [0, 0.73, 0], size: [1.4, 0.04, 0.8], materialId: "oak" },
+      { label: "Left Leg", type: "vertical", shape: "cylinder", position: [-0.3, 0.36, 0], size: [0.05, 0.72, 0.05], materialId: "black_metal" },
+      { label: "Left Leg", type: "vertical", shape: "cylinder", position: [-0.3, 0.36, 0], size: [0.05, 0.72, 0.05], materialId: "black_metal" },
+      { label: "Right Leg", type: "vertical", shape: "cylinder", position: [0.3, 0.36, 0], size: [0.05, 0.72, 0.05], materialId: "black_metal" },
+      { label: "Right Leg", type: "vertical", shape: "cylinder", position: [0.3, 0.36, 0], size: [0.05, 0.72, 0.05], materialId: "black_metal" },
+    ],
+  });
+
+  const legs = getByLabel(panels, /\bleg\b/i);
+  assert.equal(legs.length, 4, "should have 4 legs");
+
+  // Extract unique XZ positions (rounded to avoid floating point noise)
+  const positions = legs.map((l) => `${l.position[0].toFixed(2)},${l.position[2].toFixed(2)}`);
+  const uniquePositions = new Set(positions);
+  assert.ok(uniquePositions.size >= 4, `legs should be at 4 unique XZ positions, got ${uniquePositions.size}: ${[...uniquePositions].join(" | ")}`);
+
+  // Verify both positive and negative X and Z values exist (all 4 corners)
+  assert.ok(new Set(legs.map((l) => Math.sign(l.position[0]))).size >= 2, "legs should span left and right");
+  assert.ok(new Set(legs.map((l) => Math.sign(l.position[2]))).size >= 2, "legs should span front and back");
+});
+
+test("chair legs with front/back/left/right labels go to correct corners", () => {
+  const panels = buildPanels({
+    name: "dining chair",
+    estimatedDims: { w: 450, h: 850, d: 450 },
+    panels: [
+      { label: "Seat", type: "horizontal", shape: "box", position: [0, 0.45, 0], size: [0.42, 0.04, 0.42], materialId: "oak" },
+      { label: "Backrest", type: "vertical", shape: "box", position: [0, 0.65, -0.20], size: [0.38, 0.40, 0.03], materialId: "oak" },
+      { label: "Front Left Leg", type: "vertical", shape: "cylinder", position: [0, 0.22, 0], size: [0.04, 0.44, 0.04], materialId: "oak" },
+      { label: "Front Right Leg", type: "vertical", shape: "cylinder", position: [0, 0.22, 0], size: [0.04, 0.44, 0.04], materialId: "oak" },
+      { label: "Back Left Leg", type: "vertical", shape: "cylinder", position: [0, 0.42, 0], size: [0.04, 0.84, 0.04], materialId: "oak" },
+      { label: "Back Right Leg", type: "vertical", shape: "cylinder", position: [0, 0.42, 0], size: [0.04, 0.84, 0.04], materialId: "oak" },
+    ],
+  });
+
+  const legs = getByLabel(panels, /\bleg\b/i);
+  assert.equal(legs.length, 4, "should have 4 legs");
+
+  const fl = singleByLabel(panels, /front left leg/i);
+  const fr = singleByLabel(panels, /front right leg/i);
+  const bl = singleByLabel(panels, /back left leg/i);
+  const br = singleByLabel(panels, /back right leg/i);
+
+  // Front left: negative X, positive Z
+  assert.ok(fl.position[0] < 0, "front left leg X should be negative");
+  assert.ok(fl.position[2] > 0, "front left leg Z should be positive (front)");
+
+  // Front right: positive X, positive Z
+  assert.ok(fr.position[0] > 0, "front right leg X should be positive");
+  assert.ok(fr.position[2] > 0, "front right leg Z should be positive (front)");
+
+  // Back left: negative X, negative Z
+  assert.ok(bl.position[0] < 0, "back left leg X should be negative");
+  assert.ok(bl.position[2] < 0, "back left leg Z should be negative (back)");
+
+  // Back right: positive X, negative Z
+  assert.ok(br.position[0] > 0, "back right leg X should be positive");
+  assert.ok(br.position[2] < 0, "back right leg Z should be negative (back)");
+});

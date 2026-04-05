@@ -280,6 +280,70 @@ export function buildImagePrompt(
 }
 
 /**
+ * Build an image generation prompt that includes dynamic brief field answers.
+ * This is the preferred prompt builder — it captures all side-panel brief fields
+ * in addition to the core description/style/materials.
+ */
+export function buildImagePromptFromBrief(
+  itemType: string,
+  briefDescription: string,
+  styleTags: string[],
+  materials: string,
+  dynamicAnswers: Record<string, string>,
+  hasRoomPhoto: boolean,
+  extras?: { roomType?: string; colorPalette?: string; specialRequirements?: string }
+): string {
+  const SKIP_FIELDS = new Set([
+    'budget', 'timeline', 'delivery', 'price',
+    'contact', 'notes', 'special_requests', 'assembly_required',
+  ]);
+
+  // Convert dynamic field answers to visual descriptors
+  const visualDescriptors: string[] = [];
+  for (const [fieldId, value] of Object.entries(dynamicAnswers)) {
+    if (!value || value === '' || value === 'false') continue;
+    if (SKIP_FIELDS.has(fieldId)) continue;
+
+    const humanLabel = fieldId.replace(/_/g, ' ');
+
+    if (value === 'true') {
+      visualDescriptors.push(`with ${humanLabel}`);
+    } else {
+      visualDescriptors.push(`${value} ${humanLabel}`.trim());
+    }
+  }
+
+  const descriptorString = visualDescriptors.length > 0
+    ? visualDescriptors.join(', ')
+    : '';
+
+  const styleStr = styleTags.length > 0 ? styleTags.join(', ') + ' style' : '';
+  const matStr = materials ? `made of ${materials}` : '';
+  const colorStr = extras?.colorPalette ? `color palette: ${extras.colorPalette}` : '';
+  const reqStr = extras?.specialRequirements || '';
+  const roomStr = extras?.roomType ? `for a ${extras.roomType}` : '';
+
+  const backgroundContext = hasRoomPhoto
+    ? 'placed naturally in the room, matching the room lighting and perspective, seamlessly integrated'
+    : 'on a pure white background, centered in frame, isolated product shot, studio lighting';
+
+  const parts = [
+    briefDescription || itemType,
+    descriptorString,
+    styleStr,
+    matStr,
+    colorStr,
+    roomStr,
+    reqStr,
+    backgroundContext,
+    'photorealistic, high detail, professional product photography, sharp focus',
+    'NOT cartoon, NOT illustration, NOT sketch, no text, no watermarks',
+  ].filter(Boolean);
+
+  return parts.join(', ');
+}
+
+/**
  * Generate alt text for an image using the chat endpoint (one-shot).
  */
 export async function generateAltText(

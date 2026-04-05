@@ -6,7 +6,7 @@ import { useProjects } from '@/hooks/useProjects';
 import { useToast } from '@/hooks/use-toast';
 import { useImageUpload } from '@/hooks/useImageUpload';
 import type { ChatSessionState } from '@/hooks/useChatSession';
-import { streamChat, generateImage, editImage, buildImagePrompt, aiDecomposeFromImage } from '@/lib/ai';
+import { streamChat, generateImage, editImage, buildImagePrompt, buildImagePromptFromBrief, aiDecomposeFromImage } from '@/lib/ai';
 import { panelsFromFurnitureAnalysis, sanitizeEstimatedDims } from '@/lib/furnitureImageAnalysis';
 import { createGroupFromPanels } from '@/lib/groupUtils';
 import { supabase } from '@/lib/supabase';
@@ -776,11 +776,14 @@ Now let's complete your project brief so designers can give you accurate quotes.
       try {
         const { imageBase64, maskBase64 } = await prepareRoomImageForEdit(roomPhotoUrl, drawnRect);
 
-        const styleStr = styleTags.length > 0 ? `, ${styleTags.join(', ')} style` : '';
-        const matStr = briefData.materials ? `, made of ${briefData.materials}` : '';
-        const colorStr = briefData.color_palette ? `, colors: ${briefData.color_palette}` : '';
-        const reqStr = briefData.special_requirements ? `. ${briefData.special_requirements}` : '';
-        const roomEditPrompt = `Place a ${briefData.description}${styleStr}${matStr}${colorStr}${reqStr} in this room, in the marked area. Keep the rest of the room exactly as it is. Photorealistic, natural lighting.`;
+        // Build a rich description that includes dynamic field values
+        const briefPromptForRoom = buildImagePromptFromBrief(
+          briefData.category, briefData.description, styleTags, briefData.materials || '',
+          dynamicFieldValues, true,
+          { roomType: briefData.room_type, colorPalette: briefData.color_palette, specialRequirements: briefData.special_requirements }
+        );
+        const roomEditPrompt = `Place a ${briefPromptForRoom} in this room, in the marked area. Keep the rest of the room exactly as it is.`;
+        console.log('[Image generation] room edit prompt:', roomEditPrompt);
 
         // Upload the cropped room image to get a URL for editImage
         const roomImageDataUrl = `data:image/png;base64,${imageBase64}`;
@@ -823,12 +826,13 @@ Now let's complete your project brief so designers can give you accurate quotes.
       }
     }
 
-    // Regular studio mode generation
-    const prompt = buildImagePrompt(briefData.description, briefData.category, styleTags, briefData.materials, {
-        roomType: briefData.room_type,
-        colorPalette: briefData.color_palette,
-        specialRequirements: briefData.special_requirements,
-      });
+    // Regular studio mode generation — includes all dynamic brief field answers
+    const prompt = buildImagePromptFromBrief(
+      briefData.category, briefData.description, styleTags, briefData.materials || '',
+      dynamicFieldValues, false,
+      { roomType: briefData.room_type, colorPalette: briefData.color_palette, specialRequirements: briefData.special_requirements }
+    );
+    console.log('[Image generation] prompt:', prompt);
 
     const result = await generateImage(prompt, null);
     if (result.url) {
@@ -853,18 +857,19 @@ Now let's complete your project brief so designers can give you accurate quotes.
       toast({ title: 'Image generation failed', description: result.error || 'Please try again', variant: 'destructive' });
     }
     setPhase('done');
-  }, [briefData, toast, roomMode, roomPhotoUrl, drawnRect, prepareRoomImageForEdit, uploadBase64]);
+  }, [briefData, toast, roomMode, roomPhotoUrl, drawnRect, prepareRoomImageForEdit, uploadBase64, dynamicFieldValues]);
 
   // ─── Regenerate Image ────────────────────────────────────
   const handleRegenerateImage = useCallback(async () => {
     if (!briefData) return;
     setPhase('generating_image');
     const styleTags = briefData.style.split(',').map(s => s.trim()).filter(Boolean);
-    const prompt = buildImagePrompt(briefData.description, briefData.category, styleTags, briefData.materials, {
-        roomType: briefData.room_type,
-        colorPalette: briefData.color_palette,
-        specialRequirements: briefData.special_requirements,
-      });
+    const prompt = buildImagePromptFromBrief(
+      briefData.category, briefData.description, styleTags, briefData.materials || '',
+      dynamicFieldValues, false,
+      { roomType: briefData.room_type, colorPalette: briefData.color_palette, specialRequirements: briefData.special_requirements }
+    );
+    console.log('[Image generation] regenerate prompt:', prompt);
 
     const result = await generateImage(prompt, null);
     if (result.url) {
@@ -888,7 +893,7 @@ Now let's complete your project brief so designers can give you accurate quotes.
       toast({ title: 'Regeneration failed', description: result.error || 'Please try again', variant: 'destructive' });
     }
     setPhase('done');
-  }, [briefData, toast]);
+  }, [briefData, toast, dynamicFieldValues]);
 
   // ─── Image Editing ──────────────────────────────────────
   const handleStartEditImage = useCallback(() => {
