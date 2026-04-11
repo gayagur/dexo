@@ -3165,16 +3165,19 @@ function FurniturePanel({
         : 0.008
       : 0.002);
 
-  // SH3D external texture (loaded from URL)
+  // SH3D external texture (loaded from URL) — scale repeat to panel size
   const sh3dTexture = useMemo(() => {
     if (!panel.textureUrl) return null;
     const tex = new THREE.TextureLoader().load(panel.textureUrl);
     tex.wrapS = THREE.RepeatWrapping;
     tex.wrapT = THREE.RepeatWrapping;
-    tex.repeat.set(2, 2);
+    // Scale texture to ~1 repeat per meter so it looks natural on any size panel
+    const maxDim = Math.max(panel.size[0], panel.size[1], panel.size[2], 0.3);
+    const repeat = Math.max(1, Math.round(maxDim));
+    tex.repeat.set(repeat, repeat);
     tex.colorSpace = THREE.SRGBColorSpace;
     return tex;
-  }, [panel.textureUrl]);
+  }, [panel.textureUrl, panel.size[0], panel.size[1], panel.size[2]]);
 
   // PBR textures (skip for custom colors, glass, and SH3D textures)
   const textures = useMemo(() => {
