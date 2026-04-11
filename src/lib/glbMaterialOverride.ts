@@ -124,9 +124,17 @@ export function applyDesignMaterialToGlbRoot(
   if (options.sh3dColorMap) {
     const map = options.sh3dColorMap;
     map.wrapS = map.wrapT = THREE.RepeatWrapping;
-    map.repeat.set(2, 2);
     map.colorSpace = THREE.SRGBColorSpace;
+
+    // Scale texture repeat based on model bounding box so it looks natural
     root.updateMatrixWorld(true);
+    const bbox = new THREE.Box3().setFromObject(root);
+    const bboxSize = new THREE.Vector3();
+    bbox.getSize(bboxSize);
+    const maxDim = Math.max(bboxSize.x, bboxSize.y, bboxSize.z, 0.3);
+    const repeat = Math.max(1, Math.round(maxDim));
+    map.repeat.set(repeat, repeat);
+
     root.traverse((child) => {
       if (!(child instanceof THREE.Mesh)) return;
       disposeMaterialRef(child.material);
