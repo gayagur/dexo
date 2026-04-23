@@ -27,7 +27,7 @@ Deno.serve(async (req) => {
 
   try {
     const { userId } = await verifyAuth(req);
-    const { imageUrl } = await req.json();
+    const { imageUrl, briefHint } = await req.json();
 
     if (!imageUrl || typeof imageUrl !== "string") {
       return new Response(
@@ -66,11 +66,16 @@ Deno.serve(async (req) => {
         const timer = setTimeout(() => ac.abort(), PER_MODEL_MS);
         let response: Response;
 
+        // Build prompt — inject brief context if available so vision model knows materials/style
+        const promptText = briefHint
+          ? `${FURNITURE_ANALYSIS_PROMPT}\n\n== DESIGNER BRIEF (use as hints for material & shape selection) ==\n${briefHint}\nUse this context to disambiguate materials and shapes — e.g. if the brief says "walnut" and you see brown wood, use "walnut" not "oak". If the brief says "glass top", the transparent surface is "glass" or "tinted_glass". The visual analysis still takes priority for dimensions and positions.`
+          : FURNITURE_ANALYSIS_PROMPT;
+
         const messages = [
           {
             role: "user" as const,
             content: [
-              { type: "text" as const, text: FURNITURE_ANALYSIS_PROMPT },
+              { type: "text" as const, text: promptText },
               { type: "image_url" as const, image_url: { url: imageUrl } },
             ],
           },

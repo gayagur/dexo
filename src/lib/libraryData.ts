@@ -3516,6 +3516,80 @@ export const LIBRARY_TEMPLATES: LibraryTemplate[] = [
     },
   },
 
+  /** Two nesting round coffee tables: smoked glass disks + walnut triangular base + three splayed legs (set). */
+  {
+    id: "table_coffee_nesting_glass_walnut",
+    name: "Nesting Round Glass Coffee Tables",
+    category: "tables",
+    icon: "☕",
+    description: "Pair of round nesting tables with dark glass tops and sculpted walnut tripod bases",
+    dims: { w: 1180, h: 400, d: 1020 },
+    buildPanels: () => {
+      _pid = 0;
+      const wood = "walnut";
+      const glassTint = "#1C1A18";
+
+      function tripodTable(cx: number, cz: number, diameter: number, tableH: number, tag: string): PanelData[] {
+        const R = diameter / 2;
+        const topT = 0.012;
+        const topY = tableH - topT / 2;
+        const plateY = 0.02;
+        const legBottom = 0.038;
+        const legTop = tableH - topT - 0.012;
+        const legH = Math.max(0.12, legTop - legBottom);
+        const legCy = legBottom + legH / 2;
+        const rFoot = R * 0.5;
+        const triW = R * 1.5;
+        const triH = R * 1.28;
+        const plateThick = 0.026;
+        const out: PanelData[] = [
+          {
+            id: pid(),
+            type: "horizontal",
+            shape: "cylinder" as PanelShape,
+            label: `${tag} Glass Top`,
+            position: [cx, topY, cz],
+            size: [diameter, topT, diameter],
+            materialId: "glass",
+            customColor: glassTint,
+          },
+          {
+            id: pid(),
+            type: "horizontal",
+            shape: "triangle" as PanelShape,
+            label: `${tag} Triangular Base`,
+            position: [cx, plateY, cz],
+            size: [triW, triH, plateThick],
+            materialId: wood,
+            rotation: [Math.PI / 2, Math.PI / 2, 0],
+          },
+        ];
+        for (let i = 0; i < 3; i++) {
+          const ang = (i * 2 * Math.PI) / 3 + Math.PI / 2;
+          const lx = cx + Math.cos(ang) * rFoot;
+          const lz = cz + Math.sin(ang) * rFoot;
+          out.push({
+            id: pid(),
+            type: "vertical",
+            shape: "rounded_rect" as PanelShape,
+            label: `${tag} Leg ${i + 1}`,
+            position: [lx, legCy, lz],
+            size: [0.078, legH, 0.096],
+            materialId: wood,
+            rotation: [0.11, -ang + Math.PI / 2, 0],
+            shapeParams: { cornerRadius: 0.014 },
+          });
+        }
+        return out;
+      }
+
+      const panels: PanelData[] = [];
+      panels.push(...tripodTable(0, 0, 0.9, 0.4, "Large"));
+      panels.push(...tripodTable(0.2, 0.26, 0.6, 0.33, "Small"));
+      return panels;
+    },
+  },
+
   // ═══════════════ DESKS (Kenney matches) ═══════════════
 
   // Kenney: desk (basic)

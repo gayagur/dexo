@@ -562,13 +562,15 @@ export async function classifyFurnitureImage(imageUrl: string): Promise<{ data?:
  * Uses vision model to decompose image directly into geometric panels.
  * Returns same format as analyzeFurnitureImage (FurnitureAnalysis).
  */
-export async function aiDecomposeFromImage(imageUrl: string): Promise<{ data?: FurnitureAnalysis; error?: string }> {
+export async function aiDecomposeFromImage(imageUrl: string, briefHint?: string): Promise<{ data?: FurnitureAnalysis; error?: string }> {
   try {
     const headers = await getAuthHeaders();
+    const body: Record<string, string> = { imageUrl };
+    if (briefHint) body.briefHint = briefHint;
     const response = await fetch(`${FUNCTIONS_URL}/generate-3d`, {
       method: "POST",
       headers,
-      body: JSON.stringify({ imageUrl }),
+      body: JSON.stringify(body),
     });
 
     let result: Record<string, unknown> = {};

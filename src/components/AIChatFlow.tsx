@@ -949,8 +949,13 @@ Now let's complete your project brief so designers can give you accurate quotes.
     setCreating3DModel(true);
 
     try {
-      // Step 1: AI decomposition
-      const { data: analysis, error: decomposeErr } = await aiDecomposeFromImage(conceptImageUrl);
+      // Step 1: AI decomposition — pass brief context so vision model knows what it's looking at
+      const briefHint = [
+        briefData.description || briefData.category,
+        briefData.materials ? `Materials: ${briefData.materials}` : '',
+        briefData.style ? `Style: ${briefData.style}` : '',
+      ].filter(Boolean).join('. ');
+      const { data: analysis, error: decomposeErr } = await aiDecomposeFromImage(conceptImageUrl, briefHint);
       if (decomposeErr || !analysis) {
         toast({ title: '3D analysis failed', description: decomposeErr || 'Could not analyze the image', variant: 'destructive' });
         setCreating3DModel(false);
