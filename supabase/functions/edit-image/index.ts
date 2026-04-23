@@ -148,10 +148,13 @@ Deno.serve(async (req) => {
     console.log("[edit-image] === STEP 3: Building prompt ===");
 
     const lowerInstruction = instruction.toLowerCase();
-    const isSceneRequest = /\b(in a room|in my |lifestyle|in context|room setting|interior scene)\b/.test(lowerInstruction);
+    const isSceneRequest = /\b(in a room|in this room|in my |lifestyle|in context|room setting|interior scene|in the marked area)\b/.test(lowerInstruction);
 
     let prompt: string;
-    if (isSceneRequest) {
+    if (isSceneRequest && mask) {
+      // Room mode with mask: place the furniture in the masked area of the room photo
+      prompt = `${instruction}. Only fill the transparent/masked area. Do not change the rest of the image.`;
+    } else if (isSceneRequest) {
       prompt = `Edit this furniture/interior image: ${instruction}. Preserve the original item exactly. Place it in a realistic interior setting with natural lighting.`;
     } else {
       prompt = `Edit this furniture/interior image: ${instruction}. Preserve the original item and overall composition. Keep the white background unless a different background was requested.`;

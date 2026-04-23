@@ -736,17 +736,19 @@ Now let's complete your project brief so designers can give you accurate quotes.
           const sy = (img.height - minDim) / 2;
           imgCtx.drawImage(img, sx, sy, minDim, minDim, 0, 0, size, size);
 
-          // Mask canvas - white where furniture should go, black everywhere else
+          // Mask canvas - transparent where furniture should go, opaque elsewhere
+          // OpenAI edit API: transparent (alpha=0) = area to edit, opaque = area to preserve
           const maskCanvas = document.createElement('canvas');
           maskCanvas.width = size;
           maskCanvas.height = size;
           const maskCtx = maskCanvas.getContext('2d')!;
-          maskCtx.fillStyle = 'black';
+
+          // Fill entire mask opaque white (preserve everything)
+          maskCtx.fillStyle = 'rgba(255, 255, 255, 1)';
           maskCtx.fillRect(0, 0, size, size);
 
-          // Convert rect percentages to pixel coords on the cropped square
-          maskCtx.fillStyle = 'white';
-          maskCtx.fillRect(
+          // Clear the drawn rectangle to transparent (area to edit)
+          maskCtx.clearRect(
             rect.x * size,
             rect.y * size,
             rect.width * size,
