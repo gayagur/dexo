@@ -558,15 +558,60 @@ export async function classifyFurnitureImage(imageUrl: string): Promise<{ data?:
 }
 
 /**
- * AI Decompose — original pipeline restored from bd487a9.
- * Uses vision model to decompose image directly into geometric panels.
+ * AI Decompose — original pipeline restored from bd487a9, augmented with free
+ * in-browser preprocessing (silhouette + depth map) to give the vision model
+ * much richer geometric cues. Preprocessing runs via transformers.js on WebGPU
+ * when available; if it fails or the browser is unsupported, we transparently
+ * fall back to the single-image pipeline.
+ *
  * Returns same format as analyzeFurnitureImage (FurnitureAnalysis).
  */
-export async function aiDecomposeFromImage(imageUrl: string, briefHint?: string): Promise<{ data?: FurnitureAnalysis; error?: string }> {
+export async function aiDecomposeFromImage(
+  imageUrl: string,
+  briefHint?: string,
+  options?: { skipPreprocess?: boolean },
+): Promise<{ data?: FurnitureAnalysis; error?: string }> {
   try {
     const headers = await getAuthHeaders();
     const body: Record<string, string> = { imageUrl };
     if (briefHint) body.briefHint = briefHint;
+
+    // ─── Free, browser-side preprocessing (best-effort) ───────────────────
+    // Produces a background-removed silhouette + a depth map. Sending these
+    // alongside the original image gives GPT-4o concrete geometric cues it
+    // otherwise has to hallucinate (true object outline, per-pixel relative
+    // distance), which massively improves panel-size accuracy.
+    let detectedPalette: string[] | undefined;
+    if (!options?.skipPreprocess) {
+      try {
+        const { preprocessImage } = await import("./imagePreprocess");
+        const pre = await preprocessImage(imageUrl);
+        if (pre.silhouetteDataUrl) body.silhouetteUrl = pre.silhouetteDataUrl;
+        if (pre.depthDataUrl) body.depthUrl = pre.depthDataUrl;
+        if (pre.palette && pre.palette.length > 0) {
+          body.palette = pre.palette.join(",");
+          detectedPalette = pre.palette;
+        }
+        if (import.meta.env.DEV) {
+          console.log(
+            `[aiDecomposeFromImage] preprocessing done in ${Math.round(pre.elapsedMs)}ms`,
+            {
+              warnings: pre.warnings,
+              hasSilhouette: !!pre.silhouetteDataUrl,
+              hasDepth: !!pre.depthDataUrl,
+              palette: pre.palette,
+            },
+          );
+        }
+      } catch (err) {
+        if (import.meta.env.DEV) {
+          console.warn("[aiDecomposeFromImage] preprocessing skipped:", (err as Error).message);
+        }
+        // Fall through — we simply send the original image.
+      }
+    }
+    void detectedPalette; // reserved for future client-side use
+
     const response = await fetch(`${FUNCTIONS_URL}/generate-3d`, {
       method: "POST",
       headers,

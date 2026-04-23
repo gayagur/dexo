@@ -190,10 +190,35 @@ export type RawAnalysisPanel = {
   min?: unknown;
   max?: unknown;
   materialId?: unknown;
+  /**
+   * Optional `#RRGGBB` override that takes precedence over materialId's swatch
+   * color. Used when the real-world color doesn't match any fixed material —
+   * the vision model is instructed to emit this alongside a best-fit material
+   * for finish/roughness, then the renderer tints that material with this hex.
+   */
+  colorHex?: unknown;
   shapeParams?: unknown;
   rotation?: unknown;
   cornerRadius?: unknown;
 };
+
+/** Normalize a free-form color string into a strict `#RRGGBB` or undefined. */
+function normalizeHexColor(v: unknown): string | undefined {
+  if (typeof v !== "string") return undefined;
+  const s = v.trim();
+  // Accept "#RGB", "#RRGGBB", and variants with or without "#".
+  const m3 = /^#?([0-9a-fA-F]{3})$/.exec(s);
+  if (m3) {
+    const h = m3[1];
+    const r = h[0];
+    const g = h[1];
+    const b = h[2];
+    return `#${r}${r}${g}${g}${b}${b}`.toUpperCase();
+  }
+  const m6 = /^#?([0-9a-fA-F]{6})$/.exec(s);
+  if (m6) return `#${m6[1].toUpperCase()}`;
+  return undefined;
+}
 
 /**
  * Generic dimension normalization on RAW panels — detects units and converts to meters.
@@ -737,6 +762,15 @@ export function normalizeAnalysisPanel(raw: RawAnalysisPanel, id: string): Panel
   const mat = typeof raw.materialId === "string" ? raw.materialId.trim() : "";
   const materialId = VALID_MATERIAL_IDS.has(mat) ? mat : "oak";
 
+  // Optional hex override — the vision model can supply a `colorHex` (or
+  // `color`, `hex`, `customColor` as aliases) when the palette can't express
+  // the actual color. Renderer tints `materialId` with this hex.
+  const customColor =
+    normalizeHexColor(raw.colorHex) ??
+    normalizeHexColor((raw as { color?: unknown }).color) ??
+    normalizeHexColor((raw as { hex?: unknown }).hex) ??
+    normalizeHexColor((raw as { customColor?: unknown }).customColor);
+
   const label =
     typeof raw.label === "string" && raw.label.trim()
       ? raw.label.trim().slice(0, 120)
@@ -793,6 +827,7 @@ export function normalizeAnalysisPanel(raw: RawAnalysisPanel, id: string): Panel
     position,
     size: finalSize,
     materialId,
+    ...(customColor ? { customColor } : {}),
     ...(finalShape !== "box" ? { shape: finalShape } : {}),
     ...(shapeParams ? { shapeParams } : {}),
     ...(rotation ? { rotation } : {}),

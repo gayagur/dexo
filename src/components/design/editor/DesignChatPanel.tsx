@@ -143,6 +143,29 @@ export function DesignChatPanel({
     inputRef.current?.focus();
   }, []);
 
+  // Pre-warm the client-side image→3D preprocessing models in the background.
+  // They download ~75 MB total and get cached in IndexedDB — kicking off early
+  // means the first analyze-image click feels instant instead of waiting ~20s.
+  useEffect(() => {
+    let cancelled = false;
+    const idle = (cb: () => void) => {
+      const w = window as typeof window & {
+        requestIdleCallback?: (cb: () => void) => number;
+      };
+      if (w.requestIdleCallback) w.requestIdleCallback(cb);
+      else setTimeout(cb, 1500);
+    };
+    idle(() => {
+      if (cancelled) return;
+      void import("@/lib/imagePreprocess")
+        .then((m) => m.warmupPreprocess())
+        .catch(() => {});
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const executeCommands = useCallback(
     (commands: DesignCommand[]) => {
       for (const cmd of commands) {

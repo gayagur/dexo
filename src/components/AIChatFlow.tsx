@@ -368,6 +368,30 @@ export default function AIChatFlow() {
     if (!isLoading) inputRef.current?.focus();
   }, [isLoading, phase]);
 
+  // Pre-warm the client-side image→3D preprocessing models in the background.
+  // ~75 MB of ONNX weights get cached in IndexedDB on first visit — kicking
+  // this off as soon as the chat mounts means the first "build 3D model"
+  // click doesn't pay the download cost inline.
+  useEffect(() => {
+    let cancelled = false;
+    const idle = (cb: () => void) => {
+      const w = window as typeof window & {
+        requestIdleCallback?: (cb: () => void) => number;
+      };
+      if (w.requestIdleCallback) w.requestIdleCallback(cb);
+      else setTimeout(cb, 2000);
+    };
+    idle(() => {
+      if (cancelled) return;
+      void import('@/lib/imagePreprocess')
+        .then((m) => m.warmupPreprocess())
+        .catch(() => {});
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   // Progress overrides — stores manual edits made during chatting phase
   const [progressOverrides, setProgressOverrides] = useState<Record<string, string>>({});
 
