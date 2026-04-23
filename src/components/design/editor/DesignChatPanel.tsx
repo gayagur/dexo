@@ -59,7 +59,7 @@ function buildSystemContext(
   style: string,
   panels: PanelData[]
 ): string {
-  const materialIds = MATERIALS.map((m) => m.id).join(", ");
+  const materialList = MATERIALS.map((m) => `${m.id} (${m.label})`).join(", ");
   const styleList = STYLES.join(", ");
   const panelList = panels
     .map((p) => `  - "${p.label}" (${p.type}, material: ${p.materialId})`)
@@ -73,7 +73,7 @@ Style: ${style}
 Panels:
 ${panelList}
 
-Available materials: ${materialIds}
+Available materials (id → label): ${materialList}
 Available styles: ${styleList}
 
 You can modify the design by including JSON command blocks in your response. The format is:
@@ -85,11 +85,14 @@ You can modify the design by including JSON command blocks in your response. The
 Rules:
 - Dimensions are in millimeters.
 - panelLabel must match one of the current panel labels (case-insensitive).
-- materialId must be one of the available materials listed above.
+- materialId must be EXACTLY one of the available material IDs listed above. Do NOT invent material IDs.
+- When the user asks for a color (e.g. "green", "ירוק", "blue"), find the closest matching material from the list above and use its exact ID. For example: green → fabric_green, blue → fabric_blue, sage → fabric_sage.
 - style must be one of the available styles listed above.
 - You may include multiple commands in one response.
-- Always explain what you changed in natural language alongside any commands.
+- ALWAYS include the [DESIGN_CMD] block when making changes. Never just describe the command — emit it.
+- Also explain what you changed in natural language alongside the commands.
 - If the user asks a general design question, answer helpfully without commands.
+- The user may write in Hebrew or English. Respond in the same language.
 - Keep responses concise and professional.`;
 }
 
