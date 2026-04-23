@@ -323,21 +323,40 @@ export function buildImagePromptFromBrief(
   const reqStr = extras?.specialRequirements || '';
   const roomStr = extras?.roomType ? `for a ${extras.roomType}` : '';
 
-  const backgroundContext = hasRoomPhoto
-    ? 'placed naturally in the room, matching the room lighting and perspective, seamlessly integrated'
-    : 'on a pure white background, centered in frame, isolated product shot, studio lighting';
+  // For studio mode: lead with isolation instruction (DALL-E 3 weighs early tokens more)
+  // and rephrase room type to avoid triggering scene/room generation
+  if (hasRoomPhoto) {
+    const parts = [
+      briefDescription || itemType,
+      descriptorString,
+      styleStr,
+      matStr,
+      colorStr,
+      roomStr,
+      reqStr,
+      'placed naturally in the room, matching the room lighting and perspective, seamlessly integrated',
+      'photorealistic, high detail, sharp focus',
+      'NOT cartoon, NOT illustration, NOT sketch, no text, no watermarks',
+    ].filter(Boolean);
+
+    return parts.join(', ');
+  }
+
+  // Studio mode: single isolated object on white background
+  const studioRoomStr = extras?.roomType ? `suitable for ${extras.roomType} use` : '';
 
   const parts = [
+    'Single isolated furniture piece on a pure white background, studio product photography:',
     briefDescription || itemType,
     descriptorString,
     styleStr,
     matStr,
     colorStr,
-    roomStr,
+    studioRoomStr,
     reqStr,
-    backgroundContext,
-    'photorealistic, high detail, professional product photography, sharp focus',
-    'NOT cartoon, NOT illustration, NOT sketch, no text, no watermarks',
+    'centered in frame, clean white backdrop, no room, no walls, no floor visible',
+    'professional catalog photo, sharp focus, photorealistic',
+    'NOT in a room, NOT a scene, NOT cartoon, NOT illustration, NOT sketch, no text, no watermarks',
   ].filter(Boolean);
 
   return parts.join(', ');
