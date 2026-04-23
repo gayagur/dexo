@@ -764,14 +764,36 @@ export function normalizeAnalysisPanel(raw: RawAnalysisPanel, id: string): Panel
   const cornerRadius =
     cr !== undefined && cr >= 0 && cr <= 0.25 ? cr : undefined;
 
+  // Fix: if a horizontal "top/surface/tabletop" panel uses cylinder, convert to circle_panel
+  // and force thin height. GPT-4o often outputs tall cylinders for round glass table tops.
+  let finalShape = shapeOk;
+  const finalSize: [number, number, number] = [...size];
+  const lowerLabel = label.toLowerCase();
+  const isTopSurface = /\b(top|surface|tabletop|table top|glass top|countertop|desktop)\b/.test(lowerLabel);
+
+  if (isTopSurface && finalShape === "cylinder") {
+    finalShape = "circle_panel" as PanelShape;
+    // circle_panel uses size[2] (depth) as disc thickness, size[0] as diameter
+    // cylinder uses size[1] (height) as cylinder height, size[0] as diameter
+    // Swap: put the thin value into size[2], keep diameter in size[0]
+    const diameter = Math.max(finalSize[0], finalSize[2]); // largest horizontal dim = diameter
+    const thickness = Math.min(0.03, finalSize[1]); // cap cylinder height to thin disc
+    finalSize[0] = diameter;
+    finalSize[1] = diameter; // circle_panel ignores Y but keep it consistent
+    finalSize[2] = thickness;
+  } else if (isTopSurface && finalSize[1] > 0.06) {
+    // Even non-cylinder tops: cap thickness to realistic values
+    finalSize[1] = Math.min(finalSize[1], 0.05);
+  }
+
   const panel: PanelData = {
     id,
     type: normalizeType(raw.type),
     label,
     position,
-    size,
+    size: finalSize,
     materialId,
-    ...(shapeOk !== "box" ? { shape: shapeOk } : {}),
+    ...(finalShape !== "box" ? { shape: finalShape } : {}),
     ...(shapeParams ? { shapeParams } : {}),
     ...(rotation ? { rotation } : {}),
     ...(cornerRadius !== undefined ? { cornerRadius } : {}),

@@ -970,17 +970,22 @@ export function FurnitureEditor({
   }, [updateScene]);
 
   const handleAddGLBFromLibrary = useCallback(async (name: string, glbPath: string) => {
+    console.log("[handleAddGLBFromLibrary] Starting:", name, glbPath);
     try {
       const { loadGLBAsGroup } = await import("@/lib/glbLoader");
+      console.log("[handleAddGLBFromLibrary] Loader imported, loading GLB...");
       const group = await loadGLBAsGroup(glbPath, name);
+      console.log("[handleAddGLBFromLibrary] GLB loaded, panels:", group.panels.length);
       const offset = computeGroupXOffset(groupsRef.current);
       const offsetGroup: GroupData = { ...group, position: [group.position[0] + offset, group.position[1], group.position[2]] };
       updateScene((prev) => [...prev, offsetGroup]);
       setSelectedGroupId(offsetGroup.id);
       setSelectedPanelId(null);
       setShowLibrary(false);
+      console.log("[handleAddGLBFromLibrary] Done, group added to scene");
     } catch (err) {
       console.error("Failed to load GLB from library:", err);
+      alert(`Failed to load model "${name}": ${(err as Error).message}`);
     }
   }, [updateScene]);
 
