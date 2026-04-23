@@ -15,16 +15,34 @@ function getLoader(): GLTFLoader {
 }
 
 /** Map a GLTF material color to the closest material in our palette */
+/**
+ * Match a Three.js color to the closest MATERIALS entry using weighted
+ * Euclidean distance in linear RGB. The weights approximate human perception
+ * (red-mean formula from Color Difference article) — much better than raw
+ * Euclidean which biases toward warm wood tones.
+ */
 function matchMaterial(color: THREE.Color): string {
   let bestId = "oak";
   let bestDist = Infinity;
 
+  // Convert to 0-255 for the red-mean weighting formula
+  const r1 = color.r * 255;
+  const g1 = color.g * 255;
+  const b1 = color.b * 255;
+
   for (const mat of MATERIALS) {
     const mc = new THREE.Color(mat.color);
-    const dr = color.r - mc.r;
-    const dg = color.g - mc.g;
-    const db = color.b - mc.b;
-    const dist = dr * dr + dg * dg + db * db;
+    const r2 = mc.r * 255;
+    const g2 = mc.g * 255;
+    const b2 = mc.b * 255;
+
+    // Red-mean weighted Euclidean distance — approximates perceptual difference
+    const rMean = (r1 + r2) / 2;
+    const dr = r1 - r2;
+    const dg = g1 - g2;
+    const db = b1 - b2;
+    const dist = (2 + rMean / 256) * dr * dr + 4 * dg * dg + (2 + (255 - rMean) / 256) * db * db;
+
     if (dist < bestDist) {
       bestDist = dist;
       bestId = mat.id;

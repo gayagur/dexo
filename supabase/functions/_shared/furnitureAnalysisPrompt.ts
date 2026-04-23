@@ -211,6 +211,18 @@ Glass: glass, frosted_glass, tinted_glass, mirror, acrylic_clear, acrylic_black
 
 EACH PART gets its OWN material based on what you see. Headboard=oak, legs=black_metal, cushion=fabric_cream — detect from image!
 
+== MATERIAL COLOR DETECTION (very important — do NOT default everything to oak) ==
+Look CAREFULLY at the actual color in the image for EACH part:
+- Light/warm brown wood → oak or pine or maple (check warmth: oak is golden, pine is yellow, maple is pale)
+- Dark brown wood → walnut or mahogany or ebony (walnut=medium brown, mahogany=reddish, ebony=near black)
+- Beige/cream/off-white fabric → fabric_cream or fabric_ivory or fabric_beige (NOT oak!)
+- Gray fabric → fabric_gray or fabric_charcoal or fabric_taupe
+- Black surfaces → black_metal (if shiny), melamine_black (if matte), leather_black (if soft)
+- White surfaces → melamine_white (hard), ceramic_white (glossy), fabric_ivory (soft)
+- Metal legs/frames → steel (silver), black_metal (dark), brass (gold), chrome (shiny silver)
+- Upholstered/soft surfaces should NEVER be wood materials. Use fabric_* or leather_* instead.
+- If a surface looks painted a specific color, pick the closest fabric/paint material, not a wood.
+
 == CRITICAL RULES ==
 
 1. COUNT EVERYTHING: If you see 4 legs, output 4 legs. 3 drawers = 3 drawer_box panels + 3 handles. 10 slats = 10 thin horizontal boxes. Do NOT merge repeated parts into one.
