@@ -40,11 +40,12 @@ function FloatingPaths({ position, count = 36 }: { position: number; count?: num
             strokeWidth={path.width}
             strokeOpacity={0.04 + path.id * 0.005}
             initial={{ pathLength: 0.3, opacity: 0.6 }}
-            animate={{
+            whileInView={{
               pathLength: 1,
               opacity: [0.3, 0.6, 0.3],
               pathOffset: [0, 1, 0],
             }}
+            viewport={{ once: false }}
             transition={{
               duration: 20 + Math.random() * 10,
               repeat: Infinity,
@@ -122,7 +123,7 @@ export function HeroSection({
   subtitle,
   primaryCta,
   secondaryCta,
-  pathCount = 36,
+  pathCount = 12,
 }: HeroSectionProps) {
   const [bgVideoReady, setBgVideoReady] = useState(false);
   const heroVideo = useMemo(() => {

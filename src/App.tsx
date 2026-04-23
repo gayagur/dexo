@@ -12,11 +12,13 @@ import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { Loader2 } from "lucide-react";
 import { isSupabaseConfigured } from "@/lib/supabase";
 
-// ─── Eagerly loaded (landing, auth, home — first paint) ──
-import LandingPage from "./pages/LandingPage";
+// ─── Eagerly loaded (auth, home — first paint) ──
 import AuthPage from "./pages/AuthPage";
 import AuthenticatedHome from "./pages/AuthenticatedHome";
 import NotFound from "./pages/NotFound";
+
+// ─── Lazy-loaded landing (heavy: GSAP, images, Framer Motion sections) ──
+const LandingPage = lazy(() => import("./pages/LandingPage"));
 
 // ─── Lazy-loaded (only when navigated to) ────────────────
 const CustomerDashboard = lazy(() => import("./pages/CustomerDashboard"));

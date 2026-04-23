@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef, useMemo, lazy, Suspense } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -6,10 +6,11 @@ import { ArrowRight, CheckCircle2, Sparkles } from 'lucide-react';
 import { PremiumTestimonials } from '@/components/PremiumTestimonials';
 import { CategoriesSection } from '@/components/landing/CategoriesSection';
 import { ContainerScroll } from '@/components/ui/container-scroll';
-import { useLenis } from '@/hooks/useLenis';
-import { WovenBackground } from '@/components/landing/WovenBackground';
-import AOS from 'aos';
-import 'aos/dist/aos.css';
+
+
+// Lazy-load Three.js background — keeps the 1 MB vendor-three chunk off the critical path
+const WovenBackground = lazy(() => import('@/components/landing/WovenBackground').then(m => ({ default: m.WovenBackground })));
+import { motion } from 'framer-motion';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 
@@ -104,12 +105,6 @@ const LandingPage = () => {
   const heroVideo = useMemo(() => {
     const videos = ['/dexo.mp4', '/dexo2.mp4', '/dexo3.mp4', '/dexo4.mp4'];
     return videos[Math.floor(Math.random() * videos.length)];
-  }, []);
-
-  useLenis();
-
-  useEffect(() => {
-    AOS.init({ duration: 800, easing: 'ease-out-cubic', once: true, offset: 80 });
   }, []);
 
   useEffect(() => {
@@ -216,8 +211,10 @@ const LandingPage = () => {
           background: 'radial-gradient(circle, rgba(201,169,110,0.06), transparent 65%)',
         }} />
 
-        {/* Woven light particle background */}
-        <WovenBackground />
+        {/* Woven light particle background — lazy-loaded to avoid blocking first paint */}
+        <Suspense fallback={<div className="absolute inset-0 z-0" style={{ background: '#F7F3EF' }} />}>
+          <WovenBackground />
+        </Suspense>
 
         <ContainerScroll
           titleComponent={
@@ -351,7 +348,7 @@ const LandingPage = () => {
 
       {/* ═══════════════════════════════════════════════════════
            SECTION 2 — JOURNEY (How it works)
-           AOS fade-up reveals on each step
+           Fade-up reveals on each step (Framer Motion whileInView)
            ═══════════════════════════════════════════════════════ */}
       <section className="relative py-28 lg:py-36 overflow-hidden" style={{
         background: 'linear-gradient(180deg, #FDFCF8 0%, #F7F2EB 50%, #FAF7F2 100%)',
@@ -359,7 +356,13 @@ const LandingPage = () => {
         <div className="mx-auto max-w-7xl px-6">
 
           {/* Section heading */}
-          <div className="text-center mb-20 lg:mb-28" data-aos="fade-up">
+          <motion.div
+            className="text-center mb-20 lg:mb-28"
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: '-80px' }}
+            transition={{ duration: 0.8, ease: [0.25, 0.1, 0.25, 1] }}
+          >
             <p style={{
               fontFamily: "'Plus Jakarta Sans', sans-serif",
               fontSize: '13px',
@@ -392,7 +395,7 @@ const LandingPage = () => {
             }}>
               Design with AI · Connect with skilled designers · Transform your space
             </p>
-          </div>
+          </motion.div>
 
           {/* Step cards */}
           <div className="space-y-20 lg:space-y-28">
@@ -403,11 +406,13 @@ const LandingPage = () => {
                 style={{ direction: i % 2 === 1 ? 'rtl' : 'ltr' }}
               >
                 {/* Image */}
-                <div
+                <motion.div
                   className="relative"
                   style={{ direction: 'ltr' }}
-                  data-aos="fade-up"
-                  data-aos-delay={i * 50}
+                  initial={{ opacity: 0, y: 30 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true, margin: '-80px' }}
+                  transition={{ duration: 0.8, delay: i * 0.05, ease: [0.25, 0.1, 0.25, 1] }}
                 >
                   <div
                     className="relative aspect-[4/3] rounded-2xl overflow-hidden"
@@ -439,14 +444,16 @@ const LandingPage = () => {
                   >
                     {i + 1}
                   </span>
-                </div>
+                </motion.div>
 
                 {/* Text */}
-                <div
+                <motion.div
                   className="space-y-5"
                   style={{ direction: 'ltr' }}
-                  data-aos="fade-up"
-                  data-aos-delay={100 + i * 50}
+                  initial={{ opacity: 0, y: 30 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true, margin: '-80px' }}
+                  transition={{ duration: 0.8, delay: 0.1 + i * 0.05, ease: [0.25, 0.1, 0.25, 1] }}
                 >
                   <p style={{
                     fontFamily: "'Plus Jakarta Sans', sans-serif",
@@ -484,20 +491,26 @@ const LandingPage = () => {
                       </li>
                     ))}
                   </ul>
-                </div>
+                </motion.div>
               </div>
             ))}
           </div>
 
           {/* CTA */}
-          <div className="text-center mt-16" data-aos="fade-up">
+          <motion.div
+            className="text-center mt-16"
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: '-80px' }}
+            transition={{ duration: 0.8, ease: [0.25, 0.1, 0.25, 1] }}
+          >
             <Link to="/auth?role=customer">
               <Button variant="hero" size="lg" className="group rounded-xl">
                 Start Your Design Project
                 <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
               </Button>
             </Link>
-          </div>
+          </motion.div>
         </div>
       </section>
 
