@@ -1121,12 +1121,12 @@ export function EditorViewport({
         {lightMode === "night" ? (
           <>
             <Environment resolution={1024} environmentIntensity={0.28}>
-              <Lightformer form="rect" intensity={0.28} color="#1a1d30" scale={[12, 5]} position={[0, 7, -2]} rotation={[Math.PI / 2, 0, 0]} />
+              <Lightformer form="rect" intensity={0.28} color="#1a1d30" scale={[12, 5, 1]} position={[0, 7, -2]} rotation={[Math.PI / 2, 0, 0]} />
               <Lightformer form="circle" intensity={0.55} color="#ffd4a8" scale={2.5} position={[3, 3, -3]} />
               <Lightformer form="circle" intensity={0.38} color="#ffc088" scale={1.8} position={[-3, 2.5, 1]} />
-              <Lightformer form="rect" intensity={0.14} color="#c0d0f0" scale={[4, 2]} position={[0, 1, 4]} rotation={[0, Math.PI, 0]} />
+              <Lightformer form="rect" intensity={0.14} color="#c0d0f0" scale={[4, 2, 1]} position={[0, 1, 4]} rotation={[0, Math.PI, 0]} />
             </Environment>
-            <hemisphereLight skyColor="#1f1f2e" groundColor="#120e18" intensity={0.22} />
+            <hemisphereLight color="#1f1f2e" groundColor="#120e18" intensity={0.22} />
             <InteriorKeyLight
               lightMode="night"
               position={[-4, 8, 4.2]}
@@ -1142,7 +1142,7 @@ export function EditorViewport({
         ) : (
           <>
             <Environment preset="apartment" environmentIntensity={0.86} background={false} />
-            <hemisphereLight skyColor="#f4f0e8" groundColor="#d2cdc4" intensity={0.5} />
+            <hemisphereLight color="#f4f0e8" groundColor="#d2cdc4" intensity={0.5} />
             <InteriorKeyLight
               lightMode="day"
               position={[-4.8, 9.2, 5.2]}
@@ -3740,7 +3740,7 @@ function FurniturePanel({
 
   // Advanced shapes — use ShapeRenderer
   const drapedPoints = panel.drapedControlPoints;
-  const addDrapedPinchAtEvent = (e: ThreeEvent) => {
+  const addDrapedPinchAtEvent = (e: ThreeEvent<MouseEvent>) => {
     e.stopPropagation();
     const pts = panel.drapedControlPoints ?? [];
     if (!onPanelUpdate || pts.length >= DRAPED_MAX_FOLD_POINTS) return;
