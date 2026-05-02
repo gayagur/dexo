@@ -14,10 +14,14 @@ import { AppLayout } from '@/components/app/AppLayout';
 import { FurniturePreview } from '@/components/design/FurniturePreview';
 import type { PanelData } from '@/lib/furnitureData';
 import { categories, styleOptions } from '@/lib/data';
-import type { Project, Review, Milestone } from '@/lib/database.types';
+import type { Project, Review, Milestone, Offer, FollowupResponse } from '@/lib/database.types';
 import { createNotification } from '@/lib/notifications';
 import { ProgressStepper } from '@/components/project/ProgressStepper';
 import { MilestoneCard } from '@/components/project/MilestoneCard';
+import type { MilestoneAction } from '@/components/project/MilestoneCard';
+import { BetaBanner } from '@/components/mvp/BetaBanner';
+import { BetaCommissionNotice } from '@/components/mvp/BetaCommissionNotice';
+import { DealFollowUp } from '@/components/mvp/DealFollowUp';
 import {
   ArrowLeft, Send, DollarSign, Clock, Star, Check,
   Loader2, MessageSquare, Image as ImageIcon, Tag, Wallet, Sparkles,
@@ -183,6 +187,8 @@ const ProjectDetailPage = () => {
 
   // Milestones state
   const [milestones, setMilestones] = useState<Milestone[]>([]);
+  const [milestoneLoadingId, setMilestoneLoadingId] = useState<string | null>(null);
+  const [commissionMilestoneId, setCommissionMilestoneId] = useState<string | null>(null);
 
   const loading = authLoading || (!fetched && !!user);
   const { uploading, uploadImage } = useImageUpload();
@@ -265,47 +271,128 @@ const ProjectDetailPage = () => {
   }, [id, user, project?.status]);
 
   // ─── Fetch milestones (+ backfill for existing projects) ──
-  useEffect(() => {
+  const fetchMilestones = useCallback(async () => {
     if (!id || !project) return;
-    const fetchMilestones = async () => {
-      const { data } = await supabase
-        .from('milestones')
-        .select('*')
+    const { data } = await supabase
+      .from('milestones')
+      .select('*')
+      .eq('project_id', id)
+      .order('milestone_number', { ascending: true });
+
+    if (data && data.length > 0) {
+      setMilestones(data as Milestone[]);
+      return;
+    }
+
+    // Backfill: create milestones for existing in_progress/completed projects
+    if (['in_progress', 'completed'].includes(project.status)) {
+      const { data: accepted } = await supabase
+        .from('offers')
+        .select('price')
         .eq('project_id', id)
-        .order('milestone_number', { ascending: true });
+        .eq('status', 'accepted')
+        .single();
 
-      if (data && data.length > 0) {
-        setMilestones(data as Milestone[]);
-        return;
+      if (accepted) {
+        const price = accepted.price;
+        const defs = [
+          { milestone_number: 1, title: 'Design Concept & Planning', percentage: 10, amount: +(price * 0.10).toFixed(2) },
+          { milestone_number: 2, title: 'Development & Progress Review', percentage: 30, amount: +(price * 0.30).toFixed(2) },
+          { milestone_number: 3, title: 'Final Delivery & Approval', percentage: 60, amount: +(price * 0.60).toFixed(2) },
+        ];
+        const status = project.status === 'completed' ? 'approved' : 'pending';
+        const { data: created } = await supabase
+          .from('milestones')
+          .insert(defs.map(m => ({ ...m, project_id: id, status })))
+          .select();
+        if (created) setMilestones(created as Milestone[]);
       }
+    }
+  }, [id, project]);
 
-      // Backfill: create milestones for existing in_progress/completed projects
-      if (['in_progress', 'completed'].includes(project.status)) {
-        const { data: accepted } = await supabase
-          .from('offers')
-          .select('price')
-          .eq('project_id', id)
-          .eq('status', 'accepted')
-          .single();
-
-        if (accepted) {
-          const price = accepted.price;
-          const defs = [
-            { milestone_number: 1, title: 'Design Concept & Planning', percentage: 10, amount: +(price * 0.10).toFixed(2) },
-            { milestone_number: 2, title: 'Development & Progress Review', percentage: 30, amount: +(price * 0.30).toFixed(2) },
-            { milestone_number: 3, title: 'Final Delivery & Approval', percentage: 60, amount: +(price * 0.60).toFixed(2) },
-          ];
-          const status = project.status === 'completed' ? 'approved' : 'pending';
-          const { data: created } = await supabase
-            .from('milestones')
-            .insert(defs.map(m => ({ ...m, project_id: id, status })))
-            .select();
-          if (created) setMilestones(created as Milestone[]);
-        }
-      }
-    };
+  useEffect(() => {
     fetchMilestones();
-  }, [id, project?.status]);
+  }, [fetchMilestones]);
+
+  // ─── Milestone action handler ──
+  const userRole: 'customer' | 'business' = (user && project && user.id === project.customer_id) ? 'customer' : 'business';
+
+  const handleMilestoneAction = async (action: MilestoneAction, milestoneId: string, payload?: { paymentLink?: string }) => {
+    if (!project) return;
+    setMilestoneLoadingId(milestoneId);
+
+    const updates: Record<string, unknown> = {};
+
+    switch (action) {
+      case 'start':
+        updates.status = 'in_progress';
+        break;
+      case 'submit':
+        updates.status = 'submitted';
+        break;
+      case 'approve':
+        updates.status = 'approved';
+        break;
+      case 'dispute':
+        updates.status = 'disputed';
+        break;
+      case 'request_payment':
+        updates.status = 'payment_requested';
+        updates.payment_link = payload?.paymentLink;
+        updates.payment_link_sent_at = new Date().toISOString();
+        break;
+      case 'customer_paid':
+        updates.status = 'customer_paid_confirmed';
+        updates.customer_confirmed_paid_at = new Date().toISOString();
+        break;
+      case 'business_received':
+        updates.status = 'paid';
+        updates.business_confirmed_received_at = new Date().toISOString();
+        setCommissionMilestoneId(milestoneId);
+        break;
+      case 'release':
+        updates.status = 'released';
+        updates.released_at = new Date().toISOString();
+        const milestone = milestones.find(m => m.id === milestoneId);
+        if (milestone?.milestone_number === 3) {
+          await supabase
+            .from('projects')
+            .update({ status: 'completed' })
+            .eq('id', project.id);
+          setProject(prev => prev ? { ...prev, status: 'completed' } : prev);
+        }
+        break;
+    }
+
+    await supabase
+      .from('milestones')
+      .update(updates)
+      .eq('id', milestoneId);
+
+    await fetchMilestones();
+    setMilestoneLoadingId(null);
+  };
+
+  const handleAcknowledgeCommission = async (milestoneId: string) => {
+    await supabase
+      .from('milestones')
+      .update({ beta_commission_acknowledged: true })
+      .eq('id', milestoneId);
+    setCommissionMilestoneId(null);
+  };
+
+  const handleFollowup = async (response: FollowupResponse) => {
+    const acceptedOffer = offers.find(o => o.status === 'accepted');
+    if (!acceptedOffer) return;
+    await supabase
+      .from('offers')
+      .update({
+        followup_response: response,
+        followup_responded_at: new Date().toISOString(),
+      })
+      .eq('id', acceptedOffer.id);
+    fetchOffersForProject(id);
+  };
 
   const REVIEW_TAG_OPTIONS = [
     'Professional', 'Creative', 'On time',
@@ -1092,21 +1179,51 @@ const ProjectDetailPage = () => {
 
             {/* Milestones */}
             {milestones.length > 0 && (
-              <Card>
-                <CardContent className="p-5">
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="font-serif text-lg">Milestones</h3>
-                    <span className="text-xs text-muted-foreground">
-                      {milestones.filter(m => ['approved', 'paid', 'released'].includes(m.status)).length}/{milestones.length} done
-                    </span>
-                  </div>
-                  <div className="space-y-3">
-                    {milestones.map(m => (
-                      <MilestoneCard key={m.id} milestone={m} />
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
+              <>
+                <BetaBanner milestones={milestones} />
+                <Card>
+                  <CardContent className="p-5">
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="font-serif text-lg">Milestones</h3>
+                      <span className="text-xs text-muted-foreground">
+                        {milestones.filter(m => ['approved', 'paid', 'released'].includes(m.status)).length}/{milestones.length} done
+                      </span>
+                    </div>
+                    <div className="space-y-3">
+                      {milestones.map(m => (
+                        <MilestoneCard
+                          key={m.id}
+                          milestone={m}
+                          userRole={userRole}
+                          onAction={handleMilestoneAction}
+                          isLoading={milestoneLoadingId === m.id}
+                        />
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Deal Follow-Up (after project completion) */}
+                {project?.status === 'completed' && (() => {
+                  const acceptedOffer = offers.find(o => o.status === 'accepted');
+                  return acceptedOffer ? (
+                    <DealFollowUp
+                      offerId={acceptedOffer.id}
+                      existingResponse={acceptedOffer.followup_response ?? null}
+                      onRespond={handleFollowup}
+                    />
+                  ) : null;
+                })()}
+              </>
+            )}
+
+            {/* Beta Commission Notice (business only) */}
+            {userRole === 'business' && (
+              <BetaCommissionNotice
+                milestoneId={commissionMilestoneId}
+                milestoneNumber={milestones.find(m => m.id === commissionMilestoneId)?.milestone_number}
+                onAcknowledge={handleAcknowledgeCommission}
+              />
             )}
 
             {/* Inspiration Images */}

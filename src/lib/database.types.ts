@@ -4,7 +4,7 @@ export type OfferStatus = "pending" | "accepted" | "declined";
 export type SenderType = "customer" | "business";
 export type BusinessStatus = "pending" | "approved" | "rejected" | "suspended";
 export type NotificationType = "creator_approved" | "creator_rejected" | "system" | "info";
-export type MilestoneStatus = "pending" | "in_progress" | "submitted" | "approved" | "payment_requested" | "paid" | "released" | "disputed";
+export type MilestoneStatus = "pending" | "in_progress" | "submitted" | "approved" | "payment_requested" | "customer_paid_confirmed" | "paid" | "released" | "disputed";
 
 export interface Profile {
   id: string;
@@ -90,6 +90,8 @@ export interface Project {
   created_at: string;
 }
 
+export type FollowupResponse = "yes" | "no" | "still_talking";
+
 export interface Offer {
   id: string;
   project_id: string;
@@ -98,6 +100,8 @@ export interface Offer {
   timeline: string;
   note: string;
   status: OfferStatus;
+  followup_response: FollowupResponse | null;
+  followup_responded_at: string | null;
   created_at: string;
 }
 
@@ -166,6 +170,11 @@ export interface Milestone {
   percentage: number;
   amount: number;
   status: MilestoneStatus;
+  payment_link: string | null;
+  payment_link_sent_at: string | null;
+  customer_confirmed_paid_at: string | null;
+  business_confirmed_received_at: string | null;
+  beta_commission_acknowledged: boolean;
   paid_at: string | null;
   released_at: string | null;
   created_at: string;
