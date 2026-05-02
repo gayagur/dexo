@@ -2,6 +2,8 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { streamChat, type ChatMessage, uploadFurnitureImage, classifyFurnitureImage, aiDecomposeFromImage, type FurnitureAnalysis } from "@/lib/ai";
 import { sanitizeEstimatedDims } from "@/lib/furnitureImageAnalysis";
 import { MATERIALS, STYLES, type PanelData, type FurnitureOption } from "@/lib/furnitureData";
+import { CURATED_PALETTE } from "@/lib/3d/materials/colorPalette";
+import { resolveMaterialRequest } from "@/lib/ai/resolveMaterialRequest";
 import { Sparkles, Send, Loader2, X, ImagePlus } from "lucide-react";
 
 // ─── Types ──────────────────────────────────────────────
@@ -24,6 +26,8 @@ interface DesignChatPanelProps {
   onUpdateDims: (dims: { w: number; h: number; d: number }) => void;
   onUpdateStyle: (style: string) => void;
   onUpdatePanelMaterial: (panelLabel: string, materialId: string) => void;
+  onUpdatePanelMaterialWithColor: (panelLabel: string, materialId: string, colorHex: string | null) => void;
+  onUpdateAllMaterialsWithColor: (materialId: string, colorHex: string | null) => void;
   onUpdateAllMaterials: (materialId: string) => void;
   onRemovePanel: (panelLabel: string) => void;
   onAddPanel: (panel: { label: string; type: PanelData["type"]; position: [number, number, number]; size: [number, number, number]; materialId: string }) => void;
@@ -60,9 +64,10 @@ function buildSystemContext(
   panels: PanelData[]
 ): string {
   const materialList = MATERIALS.map((m) => `${m.id} (${m.label})`).join(", ");
+  const colorList = CURATED_PALETTE.map((c) => `${c.name} (${c.hex})`).join(", ");
   const styleList = STYLES.join(", ");
   const panelList = panels
-    .map((p) => `  - "${p.label}" (${p.type}, material: ${p.materialId})`)
+    .map((p) => `  - "${p.label}" (${p.type}, material: ${p.materialId}${p.material?.colorHex ? `, color: ${p.material.colorHex}` : ""})`)
     .join("\n");
 
   return `You are a premium furniture design assistant embedded in a 3D editor. The user is designing a piece of furniture. Here is the current state:
@@ -74,6 +79,7 @@ Panels:
 ${panelList}
 
 Available materials (id → label): ${materialList}
+Available curated colors: ${colorList}
 Available styles: ${styleList}
 
 You can modify the design by including JSON command blocks in your response. The format is:
@@ -81,12 +87,17 @@ You can modify the design by including JSON command blocks in your response. The
 [DESIGN_CMD]{"action":"update_style","style":"Modern"}[/DESIGN_CMD]
 [DESIGN_CMD]{"action":"update_material","panelLabel":"Top","materialId":"walnut"}[/DESIGN_CMD]
 [DESIGN_CMD]{"action":"update_all_materials","materialId":"walnut"}[/DESIGN_CMD]
+[DESIGN_CMD]{"action":"update_color","panelLabel":"Seat Cushion","materialId":"fabric_cream","colorHex":"#F2C6C2"}[/DESIGN_CMD]
+[DESIGN_CMD]{"action":"update_all_colors","materialId":"fabric_cream","colorHex":"#F2C6C2"}[/DESIGN_CMD]
 
 Rules:
 - Dimensions are in millimeters.
 - panelLabel must match one of the current panel labels (case-insensitive).
 - materialId must be EXACTLY one of the available material IDs listed above. Do NOT invent material IDs.
-- When the user asks for a color (e.g. "green", "ירוק", "blue"), find the closest matching material from the list above and use its exact ID. For example: green → fabric_green, blue → fabric_blue, sage → fabric_sage.
+- When the user asks for a specific COLOR (e.g. "pink", "navy blue", "#FF5733"), use the update_color or update_all_colors action with a colorHex value. Pick the closest color from the curated palette, OR use the exact hex the user provided. NEVER refuse a color request — any hex color is valid.
+- For color requests: pick a suitable material base (fabric for upholstery, leather for leather items, etc.) and apply the color as colorHex. For example: "pink mattress" → materialId: "fabric_cream", colorHex: "#F2C6C2".
+- When the user asks for a material change WITHOUT a specific color (e.g. "make it walnut"), use update_material or update_all_materials (no colorHex needed).
+- Natural materials (wood, stone, metal) have fixed colors — do NOT add colorHex to them.
 - style must be one of the available styles listed above.
 - You may include multiple commands in one response.
 - ALWAYS include the [DESIGN_CMD] block when making changes. Never just describe the command — emit it.
@@ -106,6 +117,8 @@ export function DesignChatPanel({
   onUpdateDims,
   onUpdateStyle,
   onUpdatePanelMaterial,
+  onUpdatePanelMaterialWithColor,
+  onUpdateAllMaterialsWithColor,
   onUpdateAllMaterials,
   onRemovePanel,
   onAddPanel,
@@ -196,6 +209,23 @@ export function DesignChatPanel({
             const matId = String(cmd.materialId);
             if (MATERIALS.some((m) => m.id === matId)) {
               onUpdateAllMaterials(matId);
+            }
+            break;
+          }
+          case "update_color": {
+            const label = String(cmd.panelLabel);
+            const matId = String(cmd.materialId);
+            const hex = cmd.colorHex ? String(cmd.colorHex) : null;
+            if (MATERIALS.some((m) => m.id === matId)) {
+              onUpdatePanelMaterialWithColor(label, matId, hex);
+            }
+            break;
+          }
+          case "update_all_colors": {
+            const matId = String(cmd.materialId);
+            const hex = cmd.colorHex ? String(cmd.colorHex) : null;
+            if (MATERIALS.some((m) => m.id === matId)) {
+              onUpdateAllMaterialsWithColor(matId, hex);
             }
             break;
           }

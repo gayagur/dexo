@@ -3,6 +3,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { MATERIALS, type PanelData, type MaterialOption, type GroupData } from "@/lib/furnitureData";
 import { loadSH3DCatalog, getSH3DTextureUrl, type SH3DTexture } from "@/lib/sh3dTextures";
+import { MaterialColorPicker } from "./MaterialColorPicker";
+import { migrateLegacyMaterial } from "@/lib/3d/materials/legacyMigration";
+import { getFinish } from "@/lib/3d/materials/materialFinishes";
 import { Ruler, Palette, RotateCw, ChevronDown, ChevronRight, Search, MousePointerClick, ImagePlus, Circle, Spline } from "lucide-react";
 
 // ─── Helper: adjust hex color brightness ─────────────────
@@ -399,27 +402,22 @@ function MaterialPickerSection({
         <p className="text-[10px] text-gray-400 text-center py-3">No materials match "{search}"</p>
       )}
 
-      {/* Custom color */}
+      {/* Color Picker — curated palette + full-spectrum custom */}
       {onCustomColor && (
         <div className="mt-3 pt-3 border-t border-gray-100">
-          <p className="text-[11px] text-gray-400 uppercase tracking-wider mb-1.5">Custom Color</p>
-          <div className="flex items-center gap-2">
-            <input
-              type="color"
-              value={customColor ?? MATERIALS.find((m) => m.id === selectedMaterialId)?.color ?? "#C4A265"}
-              onChange={(e) => {
-                onCustomColor(e.target.value);
-                // Save to recent with debounce (color pickers fire many events)
-                clearTimeout((window as any).__recentColorTimer);
-                (window as any).__recentColorTimer = setTimeout(() => {
-                  setRecentColors(saveRecentColor(e.target.value));
-                }, 300);
-              }}
-              className="w-8 h-8 rounded-lg border border-gray-200 cursor-pointer"
-              style={{ padding: 0 }}
-            />
-            <span className="text-[10px] text-gray-400">Pick any color</span>
-          </div>
+          <p className="text-[11px] text-gray-400 uppercase tracking-wider mb-1.5">Color</p>
+          <MaterialColorPicker
+            value={customColor ?? null}
+            acceptsColorTint={(() => {
+              const legacy = migrateLegacyMaterial(selectedMaterialId);
+              const finish = getFinish(legacy.finishId);
+              return finish?.acceptsColorTint ?? true;
+            })()}
+            onChange={(hex) => {
+              onCustomColor(hex);
+              setRecentColors(saveRecentColor(hex));
+            }}
+          />
         </div>
       )}
 

@@ -301,6 +301,8 @@ export interface PanelData {
   materialId: string;
   label: string;
   customColor?: string; // If set, overrides material color
+  /** Decoupled material model — when set, takes precedence over materialId+customColor */
+  material?: { finishId: string; colorHex: string | null };
   /** SH3D texture URL — when set, loaded as color map on MeshStandardMaterial */
   textureUrl?: string;
   /** Surface type for custom texture PBR behavior: 'matte' | 'wood' | 'metal' | 'fabric' | 'glass' | 'stone' */

@@ -15,12 +15,21 @@ import {
   tuftStyleForPanel,
 } from "@/lib/fabricTufting";
 import { applyDesignMaterialToGlbRoot, applyPerPartMaterialsToGlbRoot } from "@/lib/glbMaterialOverride";
+import { getFinish } from "@/lib/3d/materials/materialFinishes";
+import type { MaterialFinish } from "@/lib/3d/materials/types";
 import { useMobileInfo } from "@/hooks/use-mobile";
 import type { EditorQualityResolved } from "@/hooks/useQualitySettings";
 import { resolveEditorQuality } from "@/hooks/useQualitySettings";
 import * as THREE from "three";
 
 // ─── Helpers ───────────────────────────────────────────
+
+/** Look up a MaterialFinish by id, cached in a Map for perf */
+const finishCache = new Map<string, MaterialFinish | undefined>();
+function getFinishForPanel(finishId: string): MaterialFinish | undefined {
+  if (!finishCache.has(finishId)) finishCache.set(finishId, getFinish(finishId));
+  return finishCache.get(finishId);
+}
 
 /** Whole word only — avoids matching "doormat", "indoor", etc. */
 function isDoor(label: string) { return /\bdoor\b/i.test(label); }
@@ -3129,12 +3138,28 @@ function FurniturePanel({
 }) {
   const panelRootRef = useRef<THREE.Group>(null);
   const mat = MATERIALS.find((m) => m.id === panel.materialId);
-  const color = panel.customColor ?? mat?.color ?? "#C4A265";
+
+  // Resolve effective material: new decoupled format takes precedence
+  const effectiveFinish = panel.material
+    ? getFinishForPanel(panel.material.finishId)
+    : null;
+  const effectiveColorHex = panel.material?.colorHex ?? panel.customColor ?? null;
+  const color = effectiveColorHex ?? mat?.color ?? "#C4A265";
+  // For tintable finishes with a color, use the finish's neutral base for texture generation
+  // so the texture provides detail while material.color provides the tint
+  const isTinted = !!effectiveFinish?.acceptsColorTint && !!effectiveColorHex;
+  const textureGenMat = isTinted
+    ? MATERIALS.find((m) => m.id === effectiveFinish.baseMaterialId) ?? mat
+    : mat;
+  const textureGenColor = isTinted
+    ? effectiveFinish.textureBaseColor
+    : mat?.color ?? "#C4A265";
+
   const surfacePbr = panel.surfaceType && panel.textureUrl ? SURFACE_PBR[panel.surfaceType] : null;
-  const isGlass = mat?.id === "glass";
-  const isMetal = mat?.category === "Metal";
-  const isFabric = mat?.category === "Fabric";
-  const isWood = mat?.category === "Wood";
+  const isGlass = mat?.id === "glass" || effectiveFinish?.family === "glass";
+  const isMetal = mat?.category === "Metal" || effectiveFinish?.family === "metal";
+  const isFabric = mat?.category === "Fabric" || effectiveFinish?.family === "fabric" || effectiveFinish?.family === "leather";
+  const isWood = mat?.category === "Wood" || effectiveFinish?.family === "wood";
   const baseRoughness = surfacePbr?.roughness ?? mat?.roughness ?? 0.7;
   const baseMetalness = surfacePbr?.metalness ?? mat?.metalness ?? 0.05;
   const roughness =
@@ -3179,21 +3204,29 @@ function FurniturePanel({
     return tex;
   }, [panel.textureUrl, panel.size[0], panel.size[1], panel.size[2]]);
 
-  // PBR textures (skip for custom colors, glass, and SH3D textures)
+  // PBR textures — generate for all non-glass panels with a valid material.
+  // When tinted (new decoupled material), generate textures from a neutral base
+  // so surface detail is preserved while material.color provides the tint.
   const textures = useMemo(() => {
-    if (panel.customColor || panel.textureUrl || !mat) return null;
-    const base = getMaterialTextures(mat.id, mat.color, mat.category);
+    if (panel.textureUrl) return null;
+    // For legacy customColor WITHOUT a decoupled material, skip textures (preserves old behavior)
+    if (panel.customColor && !panel.material) return null;
+    const texMat = textureGenMat ?? mat;
+    if (!texMat) return null;
+    const base = getMaterialTextures(texMat.id, textureGenColor, texMat.category);
     if (!base) return null;
-    if (mat.category === "Fabric" && panelShouldHaveFabricTufting(panel, mat.id)) {
+    if (texMat.category === "Fabric" && panelShouldHaveFabricTufting(panel, texMat.id)) {
       return cloneFabricTexturesWithTufting(base, panel);
     }
     return base;
   }, [
     panel.customColor,
+    panel.material?.finishId,
+    panel.material?.colorHex,
     panel.textureUrl,
-    mat?.id,
-    mat?.color,
-    mat?.category,
+    textureGenMat?.id,
+    textureGenColor,
+    textureGenMat?.category,
     panel.id,
     panel.label,
     panel.shape,

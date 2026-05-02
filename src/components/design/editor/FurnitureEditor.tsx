@@ -26,7 +26,7 @@ import {
   type PanelShape,
   type FurnitureOption,
 } from "@/lib/furnitureData";
-import type { GroupData, EditorSceneData } from "@/lib/furnitureData";
+import type { GroupData, PanelData, EditorSceneData } from "@/lib/furnitureData";
 import {
   alignPanelsBottomToWorldY,
   createGroupFromPanels,
@@ -1202,6 +1202,66 @@ export function FurnitureEditor({
     }
   }, [editingGroupId, updateScene]);
 
+  const handleUpdatePanelMaterialWithColor = useCallback(
+    (panelLabel: string, materialId: string, colorHex: string | null) => {
+      const updates: Partial<PanelData> = {
+        materialId,
+        customColor: colorHex ?? undefined,
+        material: { finishId: materialId, colorHex },
+        textureUrl: undefined,
+      };
+      if (editingGroupId) {
+        setEditModePanels((prev) =>
+          (prev ?? []).map((p) =>
+            p.label.toLowerCase() === panelLabel.toLowerCase()
+              ? { ...p, ...updates }
+              : p
+          )
+        );
+      } else {
+        updateScene(
+          (prev) => prev.map((g) => ({
+            ...g,
+            panels: g.panels.map((p) =>
+              p.label.toLowerCase() === panelLabel.toLowerCase()
+                ? { ...p, ...updates }
+                : p
+            ),
+          })),
+          (prev) => prev.map((p) =>
+            p.label.toLowerCase() === panelLabel.toLowerCase()
+              ? { ...p, ...updates }
+              : p
+          )
+        );
+      }
+    },
+    [editingGroupId, updateScene]
+  );
+
+  const handleUpdateAllMaterialsWithColor = useCallback((materialId: string, colorHex: string | null) => {
+    const updates: Partial<PanelData> = {
+      materialId,
+      customColor: colorHex ?? undefined,
+      material: { finishId: materialId, colorHex },
+      textureUrl: undefined,
+    };
+    if (editingGroupId) {
+      setEditModePanels((prev) =>
+        (prev ?? []).map((p) => ({ ...p, ...updates }))
+      );
+    } else {
+      updateScene(
+        (prev) => prev.map((g) => ({
+          ...g,
+          ...(g.glbUrl ? { preserveGlbDiffuseMaps: false } : {}),
+          panels: g.panels.map((p) => ({ ...p, ...updates })),
+        })),
+        (prev) => prev.map((p) => ({ ...p, ...updates }))
+      );
+    }
+  }, [editingGroupId, updateScene]);
+
   const handleChatRemovePanel = useCallback((panelLabel: string) => {
     if (editingGroupId) {
       setEditModePanels((prev) =>
@@ -1874,6 +1934,8 @@ export function FurnitureEditor({
             onUpdateDims={handleDimsChange}
             onUpdateStyle={setStyle}
             onUpdatePanelMaterial={handleUpdatePanelMaterial}
+            onUpdatePanelMaterialWithColor={handleUpdatePanelMaterialWithColor}
+            onUpdateAllMaterialsWithColor={handleUpdateAllMaterialsWithColor}
             onUpdateAllMaterials={handleUpdateAllMaterials}
             onRemovePanel={handleChatRemovePanel}
             onAddPanel={handleChatAddPanel}
@@ -2040,6 +2102,8 @@ export function FurnitureEditor({
             onUpdateDims={handleDimsChange}
             onUpdateStyle={setStyle}
             onUpdatePanelMaterial={handleUpdatePanelMaterial}
+            onUpdatePanelMaterialWithColor={handleUpdatePanelMaterialWithColor}
+            onUpdateAllMaterialsWithColor={handleUpdateAllMaterialsWithColor}
             onUpdateAllMaterials={handleUpdateAllMaterials}
             onRemovePanel={handleChatRemovePanel}
             onAddPanel={handleChatAddPanel}
