@@ -1,6 +1,7 @@
 import { Navigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/lib/supabase";
+import { pixelCompleteRegistration } from "@/lib/pixel";
 import { Home, Hammer, Loader2 } from "lucide-react";
 import { useState } from "react";
 
@@ -26,6 +27,7 @@ export default function ChooseRolePage() {
 
   const handleChoose = async (role: "customer" | "business") => {
     setSwitching(true);
+    pixelCompleteRegistration(role);
     localStorage.removeItem(`dexo_needs_role_selection:${user.id}`);
 
     await supabase

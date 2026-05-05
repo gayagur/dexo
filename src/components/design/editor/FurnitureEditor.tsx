@@ -27,6 +27,7 @@ import {
   type FurnitureOption,
 } from "@/lib/furnitureData";
 import type { GroupData, PanelData, EditorSceneData } from "@/lib/furnitureData";
+import { pixelCustomizeProduct } from "@/lib/pixel";
 import {
   alignPanelsBottomToWorldY,
   createGroupFromPanels,
@@ -187,6 +188,12 @@ export function FurnitureEditor({
   const [dims, setDims] = useState(() => boot.dims);
   const [style, setStyle] = useState(() => boot.style);
   const [chatOpen, setChatOpen] = useState(false);
+
+  // Track editor entry once
+  const pixelFired = useRef(false);
+  useEffect(() => {
+    if (!pixelFired.current) { pixelCustomizeProduct("3d-editor"); pixelFired.current = true; }
+  }, []);
   const [showAddPicker, setShowAddPicker] = useState(false);
   const [showLibrary, setShowLibrary] = useState(false);
   const [snapEnabled, setSnapEnabled] = useState(true);

@@ -8,6 +8,7 @@ import { useImageUpload } from '@/hooks/useImageUpload';
 import type { ChatSessionState } from '@/hooks/useChatSession';
 import { streamChat, generateImage, editImage, buildImagePrompt, buildImagePromptFromBrief, aiDecomposeFromImage } from '@/lib/ai';
 import { panelsFromFurnitureAnalysis, sanitizeEstimatedDims } from '@/lib/furnitureImageAnalysis';
+import { pixelLead } from '@/lib/pixel';
 import { createGroupFromPanels } from '@/lib/groupUtils';
 import { supabase } from '@/lib/supabase';
 import { MATERIALS, HOME_ROOMS, COMMERCIAL_SPACES, FURNITURE_BY_SPACE, type SpaceOption, type FurnitureOption } from '@/lib/furnitureData';
@@ -1266,6 +1267,7 @@ Now let's complete your project brief so designers can give you accurate quotes.
     if (error) {
       toast({ title: 'Error creating project', description: error, variant: 'destructive' });
     } else {
+      pixelLead(briefData.title);
       // Clean up the chat session and pending design — project is submitted
       try { localStorage.removeItem('dexo_chat_session'); } catch {}
       try { localStorage.removeItem('dexo_pending_design'); } catch {}

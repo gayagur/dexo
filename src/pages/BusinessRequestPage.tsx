@@ -7,6 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { AppLayout } from '@/components/app/AppLayout';
 import { supabase } from '@/lib/supabase';
+import { pixelContact } from '@/lib/pixel';
 import { useAuth } from '@/hooks/useAuth';
 import { useBusinessProfile } from '@/hooks/useBusinessProfile';
 import { useBusinessOffers } from '@/hooks/useOffers';
@@ -131,6 +132,8 @@ const BusinessRequestPage = () => {
     const { error } = await sendMessage(newMessage, 'business');
     if (error) {
       toast({ title: "Failed to send message", description: error, variant: "destructive" });
+    } else {
+      pixelContact();
     }
     setNewMessage('');
   };

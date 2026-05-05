@@ -16,6 +16,7 @@ import type { PanelData } from '@/lib/furnitureData';
 import { categories, styleOptions } from '@/lib/data';
 import type { Project, Review, Milestone, Offer, FollowupResponse } from '@/lib/database.types';
 import { createNotification } from '@/lib/notifications';
+import { pixelContact, pixelInitiateCheckout } from '@/lib/pixel';
 import { ProgressStepper } from '@/components/project/ProgressStepper';
 import { MilestoneCard } from '@/components/project/MilestoneCard';
 import type { MilestoneAction } from '@/components/project/MilestoneCard';
@@ -552,7 +553,7 @@ const ProjectDetailPage = () => {
   const handleSendMessage = async () => {
     if (!newMessage.trim()) return;
     const { error } = await sendMessage(newMessage, 'customer');
-    if (!error) setNewMessage('');
+    if (!error) { setNewMessage(''); pixelContact(); }
   };
 
   const handleMarkComplete = async () => {
@@ -585,6 +586,7 @@ const ProjectDetailPage = () => {
   };
 
   const handleAcceptOffer = async (offerId: string) => {
+    pixelInitiateCheckout(offerId);
     const offer = offers.find(o => o.id === offerId);
     const { error } = await supabase
       .from('offers')

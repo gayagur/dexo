@@ -8,6 +8,7 @@ import { lazy, Suspense, useEffect } from "react";
 import { MotionConfig } from "framer-motion";
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import { initGA, trackPageView } from "@/lib/analytics";
+import { initPixel, pixelPageView } from "@/lib/pixel";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { Loader2 } from "lucide-react";
 import { isSupabaseConfigured } from "@/lib/supabase";
@@ -75,9 +76,11 @@ function AnalyticsTracker() {
   const location = useLocation();
   useEffect(() => {
     initGA();
+    initPixel();
   }, []);
   useEffect(() => {
     trackPageView(location.pathname);
+    pixelPageView();
   }, [location.pathname]);
   return null;
 }
