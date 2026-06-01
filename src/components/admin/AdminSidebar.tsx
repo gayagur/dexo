@@ -12,6 +12,7 @@ import {
   Menu,
 } from "lucide-react";
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet";
+import dexoLogoFull from "@/assets/dexo-logo-full.png";
 
 interface NavItem {
   to: string;
@@ -49,7 +50,7 @@ export function AdminSidebar({ pendingCount = 0 }: AdminSidebarProps) {
       {/* Header */}
       <div className="h-16 flex items-center px-5 border-b border-gray-50">
         <Link to="/admin" className="flex items-center gap-2.5">
-          <span className="text-xl font-serif font-semibold text-gray-900">DEXO</span>
+          <img src={dexoLogoFull} alt="DEXO" className="h-6 w-auto" />
           <span className="text-[10px] font-semibold uppercase tracking-widest text-[#C05621] bg-[#C05621]/8 px-2 py-0.5 rounded-md">
             Admin
           </span>

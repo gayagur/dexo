@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import dexoLogoFull from '@/assets/dexo-logo-full.png';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -75,11 +76,8 @@ export function AppHeader() {
       <div className="container mx-auto px-6 h-14 md:h-[60px] flex items-center justify-between">
         {/* Left — Logo + Nav */}
         <div className="flex items-center gap-8">
-          <Link
-            to={homePath}
-            className="text-2xl font-serif font-semibold text-primary hover:opacity-80 transition-opacity"
-          >
-            DEXO
+          <Link to={homePath} className="hover:opacity-80 transition-opacity">
+            <img src={dexoLogoFull} alt="DEXO" className="h-7 w-auto" />
           </Link>
 
           {/* Mobile hamburger - visible below md */}

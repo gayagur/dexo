@@ -529,7 +529,7 @@ const CustomerDashboard = () => {
                 >
                   <Palette className="w-7 h-7" style={{ color: '#C96A3D' }} />
                 </div>
-                <h2 style={{ fontSize: '24px', fontWeight: 600, color: '#1A1A1A', letterSpacing: '-0.02em', marginBottom: '10px' }}>
+                <h2 className="font-serif" style={{ fontSize: '24px', fontWeight: 600, color: '#1A2332', letterSpacing: '-0.02em', marginBottom: '10px' }}>
                   Your design journey starts here
                 </h2>
                 <p style={{ fontSize: '15px', color: '#6B6560', marginBottom: '28px', maxWidth: '360px', marginLeft: 'auto', marginRight: 'auto', lineHeight: 1.6 }}>
@@ -622,7 +622,7 @@ const CustomerDashboard = () => {
               variants={staggerContainer}
             >
               <div className="flex items-center justify-between mb-5">
-                <h2 style={{ fontSize: '18px', fontWeight: 600, color: '#1A1A1A', letterSpacing: '-0.01em' }}>
+                <h2 className="font-serif" style={{ fontSize: '18px', fontWeight: 600, color: '#1A2332', letterSpacing: '-0.01em' }}>
                   Your Projects
                   <span className="ml-2" style={{ fontSize: '14px', color: '#9E9992', fontWeight: 400 }}>
                     ({projects.length})
@@ -748,7 +748,7 @@ const CustomerDashboard = () => {
                   <motion.div key={event.id} variants={staggerItem}>
                     <Link
                       to={event.href}
-                      className="flex items-center gap-4 px-5 py-3.5 transition-colors hover:bg-[#FAFAF8] group"
+                      className="flex items-center gap-4 px-5 py-3.5 transition-colors duration-200 hover:bg-cream-warm group"
                     >
                       <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: '#C96A3D', opacity: 0.4 }} />
                       <p className="flex-1 min-w-0 truncate" style={{ fontSize: '14px', color: '#1A1A1A' }}>

@@ -66,6 +66,10 @@ function Header({
   );
 }
 
+const prefersReducedMotion = typeof window !== 'undefined'
+  ? window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  : false;
+
 function Card({
   rotate,
   scale,
@@ -82,9 +86,12 @@ function Card({
         rotateX: rotate,
         scale,
         boxShadow:
-          '0 0 #0000004d, 0 9px 20px #0000004a, 0 37px 37px #00000042, 0 84px 50px #00000026, 0 149px 60px #0000000a, 0 233px 65px #00000003',
+          '0 0 #0000004d, 0 9px 20px #0000004a, 0 37px 37px #00000042, 0 84px 50px #00000026, 0 149px 60px #0000000a, 0 233px 65px #00000003, 0 40px 120px rgba(180, 85, 45, 0.12)',
       }}
       className="max-w-5xl -mt-12 mx-auto h-[30rem] md:h-[40rem] w-full border border-[#E0D5CC] p-2 md:p-3 bg-[#F7F3EF] rounded-[30px]"
+      initial={prefersReducedMotion ? undefined : { opacity: 0, y: 60 }}
+      animate={prefersReducedMotion ? undefined : { opacity: 1, y: 0 }}
+      transition={prefersReducedMotion ? undefined : { delay: 0.5, duration: 0.9, ease: [0.16, 1, 0.3, 1] }}
     >
       <div className="h-full w-full overflow-hidden rounded-2xl md:rounded-2xl">
         {children}

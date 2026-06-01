@@ -1,4 +1,5 @@
-import { ArrowLeft, ChevronRight, Home } from "lucide-react";
+import { ArrowLeft, ChevronRight } from "lucide-react";
+import dexoLogoIcon from "@/assets/dexo-logo-icon.png";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
 
@@ -47,8 +48,7 @@ export function DesignStepLayout({
             onClick={() => navigate("/dashboard")}
             className="hidden sm:flex items-center gap-1.5 text-gray-500 hover:text-[#C87D5A] transition-colors duration-200 shrink-0"
           >
-            <Home className="w-4 h-4" />
-            <span className="font-semibold text-xs">DEXO</span>
+            <img src={dexoLogoIcon} alt="DEXO" className="w-5 h-5" />
           </button>
           <ChevronRight className="hidden sm:block w-3.5 h-3.5 text-[#C87D5A]/40 shrink-0" />
 

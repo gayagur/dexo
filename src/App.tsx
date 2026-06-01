@@ -5,13 +5,14 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { HelmetProvider } from "react-helmet-async";
 import { lazy, Suspense, useEffect } from "react";
-import { MotionConfig } from "framer-motion";
+import { MotionConfig, AnimatePresence, motion } from "framer-motion";
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import { initGA, trackPageView } from "@/lib/analytics";
 import { initPixel, pixelPageView } from "@/lib/pixel";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { Loader2 } from "lucide-react";
 import { isSupabaseConfigured } from "@/lib/supabase";
+import dexoLogoFull from "@/assets/dexo-logo-full.png";
 
 // ─── Eagerly loaded (auth, home — first paint) ──
 import AuthPage from "./pages/AuthPage";
@@ -63,12 +64,30 @@ const queryClient = new QueryClient();
 /** Luxury page skeleton — shimmer effect while lazy routes load */
 function PageSkeleton() {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#FDFCF8]">
-      <div className="flex flex-col items-center gap-4">
-        <div className="text-2xl font-serif font-light text-[#C05621]/30 tracking-wider">DEXO</div>
-        <div className="w-8 h-8 border-2 border-[#C05621]/20 border-t-[#C05621] rounded-full animate-spin" />
+    <div className="min-h-screen flex items-center justify-center bg-cream">
+      <div className="flex flex-col items-center gap-5">
+        <img src={dexoLogoFull} alt="DEXO" className="h-10 w-auto opacity-60" />
+        <div className="w-7 h-7 border-2 border-terracotta/25 border-t-terracotta rounded-full animate-spin" />
       </div>
     </div>
+  );
+}
+
+/** Page transition wrapper — lightweight opacity fade */
+function PageTransition({ children }: { children: React.ReactNode }) {
+  const location = useLocation();
+  return (
+    <AnimatePresence mode="wait" initial={false}>
+      <motion.div
+        key={location.pathname}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        transition={{ duration: 0.3, ease: "easeInOut" }}
+      >
+        {children}
+      </motion.div>
+    </AnimatePresence>
   );
 }
 
@@ -142,6 +161,7 @@ const App = () => (
         <AnalyticsTracker />
         <AuthProvider>
           <Suspense fallback={<PageSkeleton />}>
+          <PageTransition>
           <Routes>
             {/* Public routes */}
             <Route path="/" element={<HomeRoute />} />
@@ -325,6 +345,7 @@ const App = () => (
             {/* Catch-all */}
             <Route path="*" element={<NotFound />} />
           </Routes>
+          </PageTransition>
           </Suspense>
         </AuthProvider>
         </HelmetProvider>

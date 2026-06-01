@@ -173,8 +173,39 @@ curveAxis ("horizontal" | "vertical"): Which direction the panel bends.
   - "horizontal" (default): curves left-right (like a backrest wrapping around the body)
   - "vertical": curves top-bottom (like a banana-shaped seat or scooped surface)
 
-shapeParams: { cornerRadius, arcAngle, topRatio, tubeRadius, thickness }
+shapeParams: { cornerRadius, arcAngle, topRatio, tubeRadius, thickness, ...organic params below }
 rotation: [rx, ry, rz] in radians (e.g. -0.17 = ~10° tilt back)
+
+== ORGANIC / FREEFORM / SCULPTURAL SHAPES (use shapeParams) ==
+For furniture with irregular, organic, or sculptural forms — NOT standard rectangular furniture.
+
+ORGANIC OVAL TOPS (kidney/blob/freeform table tops, organic shelves):
+  shape "oval" + shapeParams:
+  - irregularity (0-1): How much the edge deviates from a perfect ellipse. 0 = perfect oval, 0.3-0.5 = natural stone/organic, 0.7+ = very irregular blob.
+  - asymmetryX (0-1): Shifts widest point left/right off-center. 0 = symmetric, 0.3-0.5 = kidney-bean shape.
+  - asymmetryZ (0-1): Same for depth axis.
+  - seed (integer): Varies the specific irregular shape (use any integer like 1, 2, 42).
+  Example: Organic marble coffee table top → shape "oval", shapeParams: { irregularity: 0.4, asymmetryX: 0.3, seed: 7 }
+
+CURVED / BENT LEGS OR PANELS (arc legs, bent wood, curved supports):
+  shape "box" or "cylinder" + shapeParams:
+  - bendAmount (0-1): How much the part bends into an arc. 0 = straight, 0.3 = gentle arc, 0.6-0.8 = strong curve.
+  - bendAxis (0 or 1): 0 = bend along X axis, 1 = bend along Z axis.
+  - taper (0-1): Narrow one end. 0 = uniform, 0.3-0.5 = noticeable taper, 0.8 = very tapered.
+  - taperEnd (0 or 1): 0 = taper toward top, 1 = taper toward bottom (box only).
+  Example: Curved wooden arc leg → shape "box", shapeParams: { bendAmount: 0.5, bendAxis: 0, taper: 0.2 }
+
+OVAL CROSS-SECTION CYLINDERS (oval legs, sculptural supports):
+  shape "cylinder" + shapeParams:
+  - ovalRatio (0-1): How oval the cross-section is. 0 = perfect circle, 0.5 = moderately oval, 1 = 2:1 oval.
+  Example: Wide flat curved leg → shape "cylinder", shapeParams: { ovalRatio: 0.6, taper: 0.3 }
+
+WHEN TO USE ORGANIC PARAMS:
+  - Furniture with natural stone, live-edge wood, or hand-sculpted surfaces → irregularity 0.3-0.6
+  - Mid-century organic designs (Noguchi, kidney tables) → asymmetryX 0.3-0.5
+  - Curved/arc-shaped legs or supports → bendAmount 0.3-0.7
+  - Any part that is NOT straight/rectangular but looks sculpted → use the closest base shape + organic params
+  - Standard rectangular/round furniture → DO NOT add organic params (leave them out)
 
 == CURVE DETECTION GUIDE ==
 Look carefully at the image for curved surfaces:

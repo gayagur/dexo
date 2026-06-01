@@ -1,8 +1,10 @@
 const statusColors: Record<string, string> = {
-  draft: 'bg-gray-100 text-gray-600',
-  active: 'bg-amber-100 text-amber-700',
-  pending: 'bg-amber-100 text-amber-700',
-  in_progress: 'bg-blue-100 text-blue-700',
+  draft: 'bg-navy/10 text-navy-muted',
+  active: 'bg-terracotta/10 text-terracotta',
+  pending: 'bg-terracotta-muted/20 text-terracotta-dark',
+  sent: 'bg-terracotta/10 text-terracotta',
+  offers_received: 'bg-terracotta/15 text-terracotta-dark',
+  in_progress: 'bg-terracotta/10 text-terracotta',
   completed: 'bg-emerald-100 text-emerald-700',
   accepted: 'bg-emerald-100 text-emerald-700',
   declined: 'bg-red-100 text-red-600',
@@ -10,23 +12,23 @@ const statusColors: Record<string, string> = {
   published: 'bg-emerald-100 text-emerald-700',
   approved: 'bg-emerald-100 text-emerald-700',
   rejected: 'bg-red-100 text-red-600',
-  suspended: 'bg-gray-100 text-gray-600',
-  open: 'bg-blue-100 text-blue-700',
-  closed: 'bg-gray-100 text-gray-600',
+  suspended: 'bg-navy/10 text-navy-muted',
+  open: 'bg-terracotta/10 text-terracotta',
+  closed: 'bg-navy/10 text-navy-muted',
 }
 
 interface StatusBadgeProps {
   status: string;
-  label?: string; // override display text
+  label?: string;
   className?: string;
 }
 
 export function StatusBadge({ status, label, className }: StatusBadgeProps) {
-  const colors = statusColors[status.toLowerCase().replace(/\s+/g, '_')] || 'bg-gray-100 text-gray-600';
+  const colors = statusColors[status.toLowerCase().replace(/\s+/g, '_')] || 'bg-navy/10 text-navy-muted';
   const display = label || status.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
 
   return (
-    <span className={`inline-flex items-center text-xs font-medium px-2.5 py-1 rounded-full ${colors} ${className || ''}`}>
+    <span className={`inline-flex items-center font-sans text-xs font-medium px-2.5 py-1 rounded-full ${colors} ${className || ''}`}>
       {display}
     </span>
   );

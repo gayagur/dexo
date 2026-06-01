@@ -10,17 +10,30 @@ import {
 const FURNITURE_IMAGES: Record<string, string> = {
   // ── Living Room ──────────────────────────────────────
   sofa: "https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=400&q=75&auto=format&fit=crop",
+  sectional_sofa: "https://images.unsplash.com/photo-1493663284031-b7e3aefcae8e?w=400&q=75&auto=format&fit=crop",
   armchair: "https://images.unsplash.com/photo-1586023492125-27b2c045efd7?w=400&q=75&auto=format&fit=crop",
+  ottoman: "https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=400&q=75&auto=format&fit=crop",
   coffee_table: "https://images.unsplash.com/photo-1611269154421-4e27233ac5c7?w=400&q=75&auto=format&fit=crop",
   tv_unit: "https://images.unsplash.com/photo-1593085260707-5377ba37f868?w=400&q=75&auto=format&fit=crop",
+  sideboard: "https://images.unsplash.com/photo-1558997519-83ea9252edf8?w=400&q=75&auto=format&fit=crop",
+  hallway_console: "https://images.unsplash.com/photo-1499933374294-4584851497cc?w=400&q=75&auto=format&fit=crop",
+  fireplace_mantel: "https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?w=400&q=75&auto=format&fit=crop",
   bookshelf: "https://images.unsplash.com/photo-1594620302200-9a762244a156?w=400&q=75&auto=format&fit=crop",
+  bookshelf_tall: "https://images.unsplash.com/photo-1594620302200-9a762244a156?w=400&q=75&auto=format&fit=crop",
   side_table: "https://images.unsplash.com/photo-1499933374294-4584851497cc?w=400&q=75&auto=format&fit=crop",
   display_cabinet: "https://images.unsplash.com/photo-1595428774223-ef52624120d2?w=400&q=75&auto=format&fit=crop",
+  shoe_cabinet: "https://images.unsplash.com/photo-1595428774223-ef52624120d2?w=400&q=75&auto=format&fit=crop",
+  coat_stand: "https://images.unsplash.com/photo-1556020685-ae41abfc9365?w=400&q=75&auto=format&fit=crop",
 
   // ── Kitchen ──────────────────────────────────────────
   dining_table: "https://images.unsplash.com/photo-1617806118233-18e1de247200?w=400&q=75&auto=format&fit=crop",
+  round_dining_table: "https://images.unsplash.com/photo-1615066390971-03e4e1c36ddf?w=400&q=75&auto=format&fit=crop",
   dining_chair: "https://images.unsplash.com/photo-1503602642458-232111445657?w=400&q=75&auto=format&fit=crop",
+  dining_bench: "https://images.unsplash.com/photo-1611464908623-07f19927264e?w=400&q=75&auto=format&fit=crop",
   kitchen_island: "https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?w=400&q=75&auto=format&fit=crop",
+  kitchen_base: "https://images.unsplash.com/photo-1600585152220-90363fe7e115?w=400&q=75&auto=format&fit=crop",
+  wall_cabinet: "https://images.unsplash.com/photo-1556909114-44e3e70034e2?w=400&q=75&auto=format&fit=crop",
+  kitchen_cart: "https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?w=400&q=75&auto=format&fit=crop",
   bar_stool: "https://images.unsplash.com/photo-1577140917170-285929fb55b7?w=400&q=75&auto=format&fit=crop",
   pantry_cabinet: "https://images.unsplash.com/photo-1600585152220-90363fe7e115?w=400&q=75&auto=format&fit=crop",
 
@@ -28,21 +41,26 @@ const FURNITURE_IMAGES: Record<string, string> = {
   bed: "https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?w=400&q=75&auto=format&fit=crop",
   nightstand: "https://images.unsplash.com/photo-1532372576444-dda954194ad0?w=400&q=75&auto=format&fit=crop",
   dresser: "https://images.unsplash.com/photo-1558997519-83ea9252edf8?w=400&q=75&auto=format&fit=crop",
+  tall_dresser: "https://images.unsplash.com/photo-1558997519-83ea9252edf8?w=400&q=75&auto=format&fit=crop",
   wardrobe: "https://images.unsplash.com/photo-1558618666-fcd25c85f82e?w=400&q=75&auto=format&fit=crop",
   vanity_table: "https://images.unsplash.com/photo-1616046229478-9901c5536a45?w=400&q=75&auto=format&fit=crop",
   bench: "https://images.unsplash.com/photo-1611464908623-07f19927264e?w=400&q=75&auto=format&fit=crop",
+  blanket_chest: "https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=400&q=75&auto=format&fit=crop",
 
   // ── Bathroom ─────────────────────────────────────────
   vanity_cabinet: "https://images.unsplash.com/photo-1620626011761-996317b8d101?w=400&q=75&auto=format&fit=crop",
+  linen_tower: "https://images.unsplash.com/photo-1631889993959-41b4e9c6e3c5?w=400&q=75&auto=format&fit=crop",
+  over_toilet_cabinet: "https://images.unsplash.com/photo-1584622650111-993a426fbf0a?w=400&q=75&auto=format&fit=crop",
   storage_shelf: "https://images.unsplash.com/photo-1631889993959-41b4e9c6e3c5?w=400&q=75&auto=format&fit=crop",
   mirror_cabinet: "https://images.unsplash.com/photo-1584622650111-993a426fbf0a?w=400&q=75&auto=format&fit=crop",
   laundry_hamper: "https://images.unsplash.com/photo-1626806787461-102c1bfaaea1?w=400&q=75&auto=format&fit=crop",
 
   // ── Kids Room ────────────────────────────────────────
   kids_bed: "https://images.unsplash.com/photo-1617325247661-675ab4b64ae2?w=400&q=75&auto=format&fit=crop",
-  bunk_bed: "https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=400&q=75&auto=format&fit=crop",
+  bunk_bed: "https://images.unsplash.com/photo-1617325247661-675ab4b64ae2?w=400&q=75&auto=format&fit=crop",
   study_desk: "https://images.unsplash.com/photo-1518455027359-f3f8164ba6bd?w=400&q=75&auto=format&fit=crop",
   toy_storage: "https://images.unsplash.com/photo-1598300042247-d088f8ab3a91?w=400&q=75&auto=format&fit=crop",
+  toy_chest: "https://images.unsplash.com/photo-1598300042247-d088f8ab3a91?w=400&q=75&auto=format&fit=crop",
   kids_bookshelf: "https://images.unsplash.com/photo-1588279102819-f4e267de4e6f?w=400&q=75&auto=format&fit=crop",
 
   // ── Office ───────────────────────────────────────────
@@ -50,6 +68,8 @@ const FURNITURE_IMAGES: Record<string, string> = {
   office_chair: "https://images.unsplash.com/photo-1580480055273-228ff5388ef8?w=400&q=75&auto=format&fit=crop",
   filing_cabinet: "https://images.unsplash.com/photo-1558997519-83ea9252edf8?w=400&q=75&auto=format&fit=crop",
   office_bookshelf: "https://images.unsplash.com/photo-1594620302200-9a762244a156?w=400&q=75&auto=format&fit=crop",
+  office_storage_cabinet: "https://images.unsplash.com/photo-1558997519-83ea9252edf8?w=400&q=75&auto=format&fit=crop",
+  printer_cart: "https://images.unsplash.com/photo-1518455027359-f3f8164ba6bd?w=400&q=75&auto=format&fit=crop",
   standing_desk: "https://images.unsplash.com/photo-1611269154421-4e27233ac5c7?w=400&q=75&auto=format&fit=crop",
 
   // ── Workshop ─────────────────────────────────────────

@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/lib/supabase";
 import { Package, Clock, DollarSign, Star, ArrowRightLeft, Plus, Loader2 } from "lucide-react";
+import dexoLogoFull from "@/assets/dexo-logo-full.png";
 import type { DesignOrder, CreatorProfile } from "@/lib/database.types";
 
 export default function CreatorDashboard() {
@@ -61,7 +62,7 @@ export default function CreatorDashboard() {
       <header className="bg-white border-b border-gray-200 sticky top-0 z-50">
         <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <h1 className="text-lg font-bold text-gray-900">DEXO</h1>
+            <img src={dexoLogoFull} alt="DEXO" className="h-7 w-auto" />
             <span className="text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-medium">Creator</span>
           </div>
           <div className="flex items-center gap-3">

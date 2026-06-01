@@ -271,10 +271,9 @@ export function buildImagePrompt(
   }
 
   return [
-    `${description}${styleStr}${matStr}${colorStr}${roomStr}${reqStr}.`,
-    "Photographed on a pure white background, centered in frame,",
-    "isolated product shot, studio lighting, sharp focus,",
-    "professional product photography, photorealistic, high detail.",
+    `Professional product photo of ${description}${styleStr}${matStr}${colorStr}${roomStr}${reqStr},`,
+    "isolated on clean white background, studio lighting, sharp focus,",
+    "centered composition, photorealistic, high detail, no shadows on background.",
     "NOT cartoon, NOT illustration, NOT 3D render, NOT sketch.",
   ].join(" ");
 }

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo, lazy, Suspense } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -6,11 +6,11 @@ import { ArrowRight, CheckCircle2, Sparkles } from 'lucide-react';
 import { PremiumTestimonials } from '@/components/PremiumTestimonials';
 import { CategoriesSection } from '@/components/landing/CategoriesSection';
 import { ContainerScroll } from '@/components/ui/container-scroll';
+import { SectionLabel } from '@/components/ui/SectionLabel';
+import { AnimatedSection } from '@/components/ui/AnimatedSection';
+import dexoLogoFull from '@/assets/dexo-logo-full.png';
 
-
-// Lazy-load Three.js background — keeps the 1 MB vendor-three chunk off the critical path
-const WovenBackground = lazy(() => import('@/components/landing/WovenBackground').then(m => ({ default: m.WovenBackground })));
-import { motion } from 'framer-motion';
+import { motion, useMotionValue, useSpring } from 'framer-motion';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 
@@ -33,9 +33,7 @@ import categoryOffice from '@/assets/category-office.png';
 
 gsap.registerPlugin(ScrollTrigger);
 
-/* ═══════════════════════════════════════════════════════════════
-   DATA
-   ═══════════════════════════════════════════════════════════════ */
+/* DATA */
 
 const journeySteps = [
   {
@@ -77,30 +75,56 @@ export const businessCategories = [
   { image: categoryOffice, title: "Office Design & Ergonomics", filterValue: "Office Design & Ergonomics", example: "Home office setups, ergonomic workspaces, team offices", benefit: "Workspace projects come with ergonomic needs and productivity goals" },
 ];
 
-/* ═════════════════════════════════════════════════════════════���═
-   COMPONENT
-   ═══════════════════════════════════════════════════════════════ */
+/* COMPONENT */
 
-/** Split text into individual character spans for staggered animation */
-function SplitChars({ text, className }: { text: string; className?: string }) {
-  return (
-    <>
-      {text.split('').map((char, i) => (
-        <span
-          key={i}
-          className={`title-char inline-block ${className ?? ''}`}
-          style={{ display: char === ' ' ? 'inline' : 'inline-block' }}
-        >
-          {char === ' ' ? '\u00A0' : char}
-        </span>
-      ))}
-    </>
-  );
-}
+/* ─── Reduced-motion check ─── */
+const prefersReducedMotion = typeof window !== 'undefined'
+  ? window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  : false;
+
+/* ─── Stagger animation helpers ─── */
+const staggerEase = [0.16, 1, 0.3, 1] as const;
+const heroStagger = (delay: number) =>
+  prefersReducedMotion
+    ? {}
+    : {
+        initial: { opacity: 0, y: 24 },
+        animate: { opacity: 1, y: 0 },
+        transition: { duration: 0.7, delay, ease: staggerEase },
+      };
+
+/* ─── Floating orb config ─── */
+const orbConfig = [
+  {
+    size: 600, color: '#B4552D', opacity: 0.08, blur: 120,
+    pos: { top: '5%', right: '8%' },
+    animate: prefersReducedMotion ? {} : { y: [0, -30, 0] },
+    transition: { duration: 8, repeat: Infinity, ease: 'easeInOut' as const },
+  },
+  {
+    size: 500, color: '#C8A97A', opacity: 0.10, blur: 100,
+    pos: { bottom: '10%', left: '3%' },
+    animate: prefersReducedMotion ? {} : { x: [0, 20, 0] },
+    transition: { duration: 11, repeat: Infinity, ease: 'easeInOut' as const },
+  },
+  {
+    size: 350, color: '#B4552D', opacity: 0.06, blur: 90,
+    pos: { top: '35%', left: '15%' },
+    animate: prefersReducedMotion ? {} : { scale: [1, 1.15, 1] },
+    transition: { duration: 6, repeat: Infinity, ease: 'easeInOut' as const },
+  },
+];
 
 const LandingPage = () => {
   const [scrolled, setScrolled] = useState(false);
   const mainRef = useRef<HTMLDivElement>(null);
+  const heroRef = useRef<HTMLDivElement>(null);
+
+  /* Cursor glow tracking */
+  const mouseX = useMotionValue(-500);
+  const mouseY = useMotionValue(-500);
+  const smoothX = useSpring(mouseX, { stiffness: 100, damping: 30 });
+  const smoothY = useSpring(mouseY, { stiffness: 100, damping: 30 });
 
   const heroVideo = useMemo(() => {
     const videos = ['/dexo.mp4', '/dexo2.mp4', '/dexo3.mp4', '/dexo4.mp4'];
@@ -108,12 +132,31 @@ const LandingPage = () => {
   }, []);
 
   useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 20);
+    const onScroll = () => setScrolled(window.scrollY > 50);
     window.addEventListener('scroll', onScroll, { passive: true });
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
-  /* ── GSAP — remaining sections (value cards, final CTA) ── */
+  /* Track mouse within hero for cursor glow */
+  useEffect(() => {
+    if (prefersReducedMotion) return;
+    const hero = heroRef.current;
+    if (!hero) return;
+    const handleMove = (e: MouseEvent) => {
+      const rect = hero.getBoundingClientRect();
+      mouseX.set(e.clientX - rect.left - 150);
+      mouseY.set(e.clientY - rect.top - 150);
+    };
+    const handleLeave = () => { mouseX.set(-500); mouseY.set(-500); };
+    hero.addEventListener('mousemove', handleMove);
+    hero.addEventListener('mouseleave', handleLeave);
+    return () => {
+      hero.removeEventListener('mousemove', handleMove);
+      hero.removeEventListener('mouseleave', handleLeave);
+    };
+  }, [mouseX, mouseY]);
+
+  /* GSAP scroll animations for value cards */
   useEffect(() => {
     const ctx = gsap.context(() => {
 
@@ -155,7 +198,7 @@ const LandingPage = () => {
   }, []);
 
   return (
-    <div ref={mainRef} className="bg-[#FDFCF8]">
+    <div ref={mainRef} className="bg-cream font-sans">
       <Helmet>
         <title>DEXO – AI-Powered Interior Design Marketplace</title>
         <meta name="description" content="Design your dream space with AI. Connect with skilled interior designers, carpenters, and decorators on DEXO." />
@@ -174,228 +217,197 @@ const LandingPage = () => {
         }) }} />
       </Helmet>
 
-      {/* ═══ Navigation ═══ */}
-      <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${
-        scrolled ? 'bg-[#FDFCF8]/85 backdrop-blur-xl border-b border-[#E0D5CC]/40' : 'bg-transparent'
-      }`}>
+      {/* ═══ Navbar ═══ */}
+      <motion.nav
+        className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${
+          scrolled
+            ? 'backdrop-blur-md bg-cream/80 border-b border-navy/10'
+            : 'bg-transparent'
+        }`}
+        initial={{ opacity: 0, y: -8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+      >
         <div className="mx-auto max-w-7xl px-6 h-20 flex items-center justify-between">
           <Link to="/">
-            <span
-              className="text-2xl font-semibold"
-              style={{ fontFamily: "'Instrument Serif', 'Playfair Display', serif", color: '#C05621' }}
-            >
-              DEXO
-            </span>
+            <img src={dexoLogoFull} alt="DEXO" className="h-12 w-auto" />
           </Link>
+          <div className="hidden md:flex items-center gap-8">
+            <Link to="/browse-businesses" className="nav-link text-sm font-sans font-medium text-navy/70 hover:text-navy transition-colors">
+              Browse Designers
+            </Link>
+            <Link to="/blog" className="nav-link text-sm font-sans font-medium text-navy/70 hover:text-navy transition-colors">
+              Blog
+            </Link>
+          </div>
           <div className="flex items-center gap-3">
             <Link to="/auth">
-              <Button variant="ghost" size="default" className="text-[#1B2432]/70 hover:text-[#1B2432]">Sign in</Button>
+              <Button variant="ghost" size="default">Sign in</Button>
             </Link>
             <Link to="/auth">
-              <Button size="default" className="rounded-xl">Get Started</Button>
+              <Button variant="hero" size="default">Get Started</Button>
             </Link>
           </div>
         </div>
-      </nav>
+      </motion.nav>
 
-      {/* ═══════════════════════════════════════════════════════
-           SECTION 1 — HERO
-           ContainerScroll: 3D perspective card with scroll
-           ═══════════════════════════════════════════════════════ */}
-      <div className="relative overflow-hidden" style={{ background: '#F7F3EF' }}>
-        {/* Ambient radials */}
-        <div className="absolute top-[10%] right-[12%] w-[500px] h-[500px] rounded-full pointer-events-none opacity-25" style={{
-          background: 'radial-gradient(circle, rgba(201,106,61,0.07), transparent 65%)',
-        }} />
-        <div className="absolute bottom-[15%] left-[5%] w-[400px] h-[400px] rounded-full pointer-events-none opacity-20" style={{
-          background: 'radial-gradient(circle, rgba(201,169,110,0.06), transparent 65%)',
-        }} />
+      {/* ═══ Hero — ContainerScroll 3D card ═══ */}
+      <div ref={heroRef} className="relative overflow-hidden hero-bg hero-grain">
+        {/* Floating orbs — animated ambient background */}
+        <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
+          {orbConfig.map((orb, i) => (
+            <motion.div
+              key={i}
+              className="absolute rounded-full"
+              style={{
+                width: orb.size,
+                height: orb.size,
+                background: orb.color,
+                opacity: orb.opacity,
+                filter: `blur(${orb.blur}px)`,
+                ...orb.pos,
+              }}
+              animate={orb.animate}
+              transition={orb.transition}
+            />
+          ))}
+        </div>
 
-        {/* Woven light particle background — lazy-loaded to avoid blocking first paint */}
-        <Suspense fallback={<div className="absolute inset-0 z-0" style={{ background: '#F7F3EF' }} />}>
-          <WovenBackground />
-        </Suspense>
+        {/* Cursor glow */}
+        {!prefersReducedMotion && (
+          <motion.div
+            className="absolute rounded-full pointer-events-none z-[1]"
+            style={{
+              width: 300,
+              height: 300,
+              background: 'radial-gradient(circle, rgba(180,85,45,0.07) 0%, transparent 70%)',
+              x: smoothX,
+              y: smoothY,
+            }}
+          />
+        )}
 
-        <ContainerScroll
-          titleComponent={
-            <div className="flex flex-col items-center text-center pt-24 md:pt-10">
-              {/* Eyebrow */}
-              <p
-                style={{
-                  fontFamily: "'Plus Jakarta Sans', sans-serif",
-                  fontSize: '13px',
-                  fontWeight: 500,
-                  letterSpacing: '0.2em',
-                  lineHeight: 1,
-                  textTransform: 'uppercase' as const,
-                  color: '#C9845F',
-                  marginBottom: '20px',
-                }}
-              >
-                AI-Powered Interior Design
-              </p>
+        {/* Content layer */}
+        <div className="relative z-[2]">
+          <ContainerScroll
+            titleComponent={
+              <div className="flex flex-col items-center text-center pt-24 md:pt-10">
+                {/* Eyebrow */}
+                <motion.div {...heroStagger(0)}>
+                  <SectionLabel className="mb-5 mx-auto">Custom Furniture</SectionLabel>
+                </motion.div>
 
-              {/* Headline */}
-              <h1
-                style={{
-                  fontFamily: "'Plus Jakarta Sans', sans-serif",
-                  fontSize: 'clamp(36px, 5.2vw, 68px)',
-                  fontWeight: 500,
-                  letterSpacing: '-0.035em',
-                  lineHeight: 1.05,
-                  color: '#1F2940',
-                }}
-              >
-                From idea to reality,
-                <br />
-                <span
-                  className="hero-accent-shimmer"
+                {/* Headline */}
+                <motion.h1
+                  className="font-serif font-semibold text-navy"
                   style={{
-                    fontFamily: "'Plus Jakarta Sans', sans-serif",
-                    fontWeight: 600,
-                    letterSpacing: '-0.04em',
-                    color: '#C9845F',
+                    fontSize: 'clamp(2.2rem, 5.2vw, 4.2rem)',
+                    letterSpacing: '-0.035em',
+                    lineHeight: 1.05,
                   }}
+                  {...heroStagger(0.12)}
                 >
-                  together.
-                </span>
-              </h1>
-
-              {/* Body */}
-              <p
-                className="max-w-xl mx-auto"
-                style={{
-                  fontFamily: "'Sanchez', serif",
-                  fontSize: 'clamp(16px, 1.8vw, 22px)',
-                  fontWeight: 400,
-                  lineHeight: 1.7,
-                  color: '#6B7280',
-                  marginTop: '20px',
-                }}
-              >
-                Describe your dream space. Our AI creates visual concepts.
-                Skilled designers bring it to life with clear pricing
-                and zero miscommunication.
-              </p>
-
-              {/* CTAs */}
-              <div className="flex flex-col sm:flex-row items-center gap-3 mt-7">
-                <Link to="/auth?role=customer">
-                  <button
-                    className="cta-shimmer group flex items-center gap-2.5 cursor-pointer transition-all duration-300 hover:scale-[1.02]"
-                    style={{
-                      fontFamily: "'Plus Jakarta Sans', sans-serif",
-                      fontSize: '17px',
-                      fontWeight: 600,
-                      letterSpacing: '-0.01em',
-                      height: '54px',
-                      padding: '0 26px',
-                      borderRadius: '18px',
-                      background: '#C96A3D',
-                      color: 'white',
-                      boxShadow: '0 10px 30px rgba(201, 106, 61, 0.22)',
-                    }}
+                  Design furniture
+                  <br />
+                  <motion.em
+                    className="not-italic hero-accent-shimmer"
+                    {...heroStagger(0.24)}
                   >
-                    Start Your Project
-                    <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
-                  </button>
-                </Link>
-                <Link to="/auth?role=business">
-                  <button
-                    className="group flex items-center gap-2 cursor-pointer transition-all duration-300 hover:bg-white/90"
-                    style={{
-                      fontFamily: "'Plus Jakarta Sans', sans-serif",
-                      fontSize: '17px',
-                      fontWeight: 600,
-                      letterSpacing: '-0.01em',
-                      height: '54px',
-                      padding: '0 26px',
-                      borderRadius: '18px',
-                      color: '#1F2940',
-                      border: '1px solid rgba(31, 41, 64, 0.12)',
-                      background: 'rgba(255,255,255,0.72)',
-                      backdropFilter: 'blur(8px)',
-                    }}
-                  >
-                    Join as a Creator
-                  </button>
-                </Link>
+                    that tells your story
+                  </motion.em>
+                </motion.h1>
+
+                {/* Body */}
+                <motion.p
+                  className="max-w-xl mx-auto font-sans mt-5"
+                  style={{
+                    fontSize: 'clamp(15px, 1.6vw, 19px)',
+                    lineHeight: 1.7,
+                    color: '#6B7280',
+                  }}
+                  {...heroStagger(0.36)}
+                >
+                  Describe your dream space. Our AI creates visual concepts.
+                  Skilled designers bring it to life with clear pricing
+                  and zero miscommunication.
+                </motion.p>
+
+                {/* CTAs */}
+                <motion.div
+                  className="flex flex-col sm:flex-row items-center gap-3 mt-7"
+                  {...heroStagger(0.48)}
+                >
+                  <Link to="/auth?role=customer">
+                    <Button variant="hero" size="lg" className="cta-shimmer group gap-2.5 rounded-sm">
+                      Start Your Project
+                      <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
+                    </Button>
+                  </Link>
+                  <Link to="/auth?role=business">
+                    <Button variant="secondary" size="lg" className="gap-2 rounded-sm">
+                      Join as a Creator
+                    </Button>
+                  </Link>
+                </motion.div>
+
+                {/* Trust */}
+                <motion.p
+                  className="font-sans text-xs font-medium text-stone/60 mt-4 tracking-wide"
+                  {...heroStagger(0.56)}
+                >
+                  Free to start &middot; No credit card required &middot; 500+ verified designers
+                </motion.p>
               </div>
-
-              {/* Trust */}
-              <p style={{
-                fontFamily: "'Plus Jakarta Sans', sans-serif",
-                fontSize: '12px',
-                fontWeight: 500,
-                letterSpacing: '0.04em',
-                color: '#9CA3AF',
-                marginTop: '14px',
-              }}>
-                Free to start · No credit card required · 500+ verified designers
-              </p>
-            </div>
-          }
-        >
-          {/* Video inside the 3D perspective card */}
-          <video
-            autoPlay loop muted playsInline preload="metadata"
-            className="w-full h-full object-cover"
+            }
           >
-            <source src={heroVideo} type="video/mp4" />
-          </video>
-        </ContainerScroll>
+            <video
+              autoPlay loop muted playsInline preload="metadata"
+              className="w-full h-full object-cover"
+            >
+              <source src={heroVideo} type="video/mp4" />
+            </video>
+          </ContainerScroll>
+
+          {/* Scroll indicator */}
+          <motion.div
+            className="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2"
+            initial={prefersReducedMotion ? {} : { opacity: 0 }}
+            animate={prefersReducedMotion ? {} : { opacity: 1 }}
+            transition={{ delay: 1.2, duration: 0.6 }}
+          >
+            <span className="text-[10px] font-sans font-medium uppercase tracking-[0.2em] text-navy/40">
+              Scroll
+            </span>
+            <div className="scroll-indicator-line w-px h-6 bg-navy/30 rounded-full" />
+          </motion.div>
+        </div>
       </div>
 
-      {/* ═══════════════════════════════════════════════════════
-           SECTION 2 — JOURNEY (How it works)
-           Fade-up reveals on each step (Framer Motion whileInView)
-           ═══════════════════════════════════════════════════════ */}
-      <section className="relative py-28 lg:py-36 overflow-hidden" style={{
-        background: 'linear-gradient(180deg, #FDFCF8 0%, #F7F2EB 50%, #FAF7F2 100%)',
-      }}>
+      {/* ═══ How It Works ═══ */}
+      <section
+        className="relative py-28 lg:py-36 overflow-hidden"
+        style={{ background: 'linear-gradient(180deg, #FDFCF8 0%, #F7F2EB 50%, #FAF7F2 100%)' }}
+      >
         <div className="mx-auto max-w-7xl px-6">
 
           {/* Section heading */}
-          <motion.div
-            className="text-center mb-20 lg:mb-28"
-            initial={{ opacity: 0, y: 30 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: '-80px' }}
-            transition={{ duration: 0.8, ease: [0.25, 0.1, 0.25, 1] }}
-          >
-            <p style={{
-              fontFamily: "'Plus Jakarta Sans', sans-serif",
-              fontSize: '13px',
-              fontWeight: 500,
-              letterSpacing: '0.2em',
-              textTransform: 'uppercase' as const,
-              color: '#C9845F',
-              marginBottom: '16px',
-            }}>
-              How DEXO Works
-            </p>
-            <h2 style={{
-              fontFamily: "'Plus Jakarta Sans', sans-serif",
+          <AnimatedSection className="text-center mb-20 lg:mb-28">
+            <SectionLabel className="mb-4 mx-auto">How DEXO Works</SectionLabel>
+            <h2 className="font-serif font-semibold text-navy mt-2" style={{
               fontSize: 'clamp(1.8rem, 4vw, 3rem)',
-              fontWeight: 500,
               letterSpacing: '-0.025em',
               lineHeight: 1.12,
-              color: '#1F2940',
-              marginBottom: '16px',
             }}>
               Three steps. One seamless journey.
             </h2>
-            <p style={{
-              fontFamily: "'Sanchez', serif",
-              fontSize: 'clamp(15px, 1.5vw, 18px)',
+            <p className="font-sans mt-4 mx-auto max-w-[480px]" style={{
+              fontSize: 'clamp(14px, 1.4vw, 17px)',
               color: '#6B7280',
               lineHeight: 1.6,
-              maxWidth: '480px',
-              margin: '0 auto',
             }}>
-              Design with AI · Connect with skilled designers · Transform your space
+              Design with AI &middot; Connect with skilled designers &middot; Transform your space
             </p>
-          </motion.div>
+          </AnimatedSection>
 
           {/* Step cards */}
           <div className="space-y-20 lg:space-y-28">
@@ -415,16 +427,19 @@ const LandingPage = () => {
                   transition={{ duration: 0.8, delay: i * 0.05, ease: [0.25, 0.1, 0.25, 1] }}
                 >
                   <div
-                    className="relative aspect-[4/3] rounded-2xl overflow-hidden"
-                    style={{
-                      boxShadow: '0 16px 48px rgba(25,16,8,0.10), 0 6px 16px rgba(25,16,8,0.05)',
-                    }}
+                    className="relative aspect-[4/3] rounded-sm overflow-hidden"
+                    style={{ boxShadow: '0 16px 48px rgba(25,16,8,0.10), 0 6px 16px rgba(25,16,8,0.05)' }}
                   >
-                    <img src={step.image} alt={step.title} className="w-full h-full object-cover" />
-                    <div className="absolute inset-0 ring-1 ring-inset ring-black/[0.04] rounded-2xl" />
+                    <img
+                      src={step.image}
+                      alt={step.title}
+                      className="w-full h-full object-cover"
+                      loading="lazy"
+                    />
+                    <div className="absolute inset-0 ring-1 ring-inset ring-black/[0.04] rounded-sm" />
                     <div
-                      className="absolute top-4 left-4 px-3 py-1.5 rounded-full text-xs font-medium flex items-center gap-1.5"
-                      style={{ background: 'rgba(255,255,255,0.9)', backdropFilter: 'blur(8px)', color: '#C9845F' }}
+                      className="absolute top-4 left-4 px-3 py-1.5 rounded-sm text-xs font-sans font-medium flex items-center gap-1.5"
+                      style={{ background: 'rgba(255,255,255,0.9)', backdropFilter: 'blur(8px)', color: '#B4552D' }}
                     >
                       <Sparkles className="w-3 h-3" />
                       {step.accent}
@@ -432,15 +447,8 @@ const LandingPage = () => {
                   </div>
                   {/* Large editorial number */}
                   <span
-                    className="absolute -top-6 -left-4 pointer-events-none select-none"
-                    style={{
-                      fontFamily: "'Plus Jakarta Sans', sans-serif",
-                      fontSize: '6rem',
-                      fontWeight: 700,
-                      opacity: 0.04,
-                      color: '#C9845F',
-                      lineHeight: 1,
-                    }}
+                    className="absolute -top-6 -left-4 pointer-events-none select-none font-serif font-bold text-terracotta/5"
+                    style={{ fontSize: '6rem', lineHeight: 1 }}
                   >
                     {i + 1}
                   </span>
@@ -455,39 +463,22 @@ const LandingPage = () => {
                   viewport={{ once: true, margin: '-80px' }}
                   transition={{ duration: 0.8, delay: 0.1 + i * 0.05, ease: [0.25, 0.1, 0.25, 1] }}
                 >
-                  <p style={{
-                    fontFamily: "'Plus Jakarta Sans', sans-serif",
-                    fontSize: '12px',
-                    fontWeight: 500,
-                    letterSpacing: '0.2em',
-                    textTransform: 'uppercase' as const,
-                    color: '#C9845F',
-                  }}>
-                    {step.label}
-                  </p>
-                  <h3 style={{
-                    fontFamily: "'Plus Jakarta Sans', sans-serif",
+                  <SectionLabel>{step.label}</SectionLabel>
+                  <h3 className="font-serif font-medium text-navy" style={{
                     fontSize: 'clamp(1.5rem, 2.8vw, 2rem)',
-                    fontWeight: 500,
                     letterSpacing: '-0.02em',
                     lineHeight: 1.2,
-                    color: '#1F2940',
                   }}>
                     {step.title}
                   </h3>
-                  <p style={{
-                    fontFamily: "'Sanchez', serif",
-                    fontSize: '15px',
-                    lineHeight: 1.75,
-                    color: '#6B7280',
-                  }}>
+                  <p className="font-sans text-stone/80 text-[15px] leading-[1.75]">
                     {step.body}
                   </p>
                   <ul className="space-y-3 pt-1">
                     {step.items.map((item, j) => (
                       <li key={j} className="flex items-start gap-3">
-                        <CheckCircle2 className="w-4 h-4 mt-0.5 flex-shrink-0" style={{ color: '#C9845F' }} />
-                        <span className="text-sm leading-relaxed" style={{ color: '#1F2940' }}>{item}</span>
+                        <CheckCircle2 className="w-4 h-4 mt-0.5 flex-shrink-0 text-terracotta" />
+                        <span className="font-sans text-sm leading-relaxed text-navy">{item}</span>
                       </li>
                     ))}
                   </ul>
@@ -497,53 +488,34 @@ const LandingPage = () => {
           </div>
 
           {/* CTA */}
-          <motion.div
-            className="text-center mt-16"
-            initial={{ opacity: 0, y: 30 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: '-80px' }}
-            transition={{ duration: 0.8, ease: [0.25, 0.1, 0.25, 1] }}
-          >
+          <AnimatedSection className="text-center mt-16" delay={0.1}>
             <Link to="/auth?role=customer">
-              <Button variant="hero" size="lg" className="group rounded-xl">
+              <Button variant="hero" size="lg" className="group gap-2">
                 Start Your Design Project
                 <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
               </Button>
             </Link>
-          </motion.div>
+          </AnimatedSection>
         </div>
       </section>
 
-      {/* ═══════════════════════════════════════════════════════
-           SECTION 3 — VALUE PROPOSITION (For Customers / Creators)
-           ═══════════════════════════════════════════════════════ */}
+      {/* ═══ Value Proposition (For Customers / Creators) ═══ */}
       <section className="relative py-32 overflow-hidden">
         <div className="absolute inset-0 z-0" style={{
-          background: `
-            radial-gradient(ellipse at 25% 40%, rgba(192,86,33,0.03) 0%, transparent 50%),
-            radial-gradient(ellipse at 75% 60%, rgba(192,86,33,0.02) 0%, transparent 50%),
-            #FDFCF8
-          `,
+          background: 'radial-gradient(ellipse at 25% 40%, rgba(180,85,45,0.03) 0%, transparent 50%), radial-gradient(ellipse at 75% 60%, rgba(180,85,45,0.02) 0%, transparent 50%), #FDFCF8',
         }} />
 
         <div className="relative z-10 mx-auto max-w-6xl px-6">
-          <div className="scroll-reveal text-center mb-16" data-reveal>
-            <p className="text-xs font-medium uppercase tracking-[0.25em] mb-4" style={{ color: '#C05621' }}>
-              Built for Everyone
-            </p>
-            <h2
-              style={{
-                fontFamily: "'Instrument Serif', 'Playfair Display', serif",
-                fontSize: 'clamp(2rem, 4vw, 3.2rem)',
-                fontWeight: 400,
-                letterSpacing: '-0.02em',
-                lineHeight: 1.15,
-                color: '#1B2432',
-              }}
-            >
+          <AnimatedSection className="text-center mb-16">
+            <SectionLabel className="mb-4 mx-auto">Built for Everyone</SectionLabel>
+            <h2 className="font-serif font-semibold text-navy mt-2" style={{
+              fontSize: 'clamp(2rem, 4vw, 3.2rem)',
+              letterSpacing: '-0.02em',
+              lineHeight: 1.15,
+            }}>
               Whether you design or dream
             </h2>
-          </div>
+          </AnimatedSection>
 
           <div className="grid md:grid-cols-2 gap-8">
             {[
@@ -566,51 +538,33 @@ const LandingPage = () => {
             ].map((card, i) => (
               <div
                 key={i}
-                className="value-card scroll-reveal group relative rounded-2xl p-10 lg:p-12 transition-shadow duration-500"
-                style={{
-                  background: 'white',
-                  border: '1px solid rgba(0,0,0,0.05)',
-                  boxShadow: '0 2px 16px rgba(25,16,8,0.04)',
-                }}
-                onMouseEnter={(e) => { e.currentTarget.style.boxShadow = '0 12px 40px rgba(192,86,33,0.08)'; }}
-                onMouseLeave={(e) => { e.currentTarget.style.boxShadow = '0 2px 16px rgba(25,16,8,0.04)'; }}
+                className="value-card group relative bg-white rounded-sm border border-navy/[0.05] p-10 lg:p-12 transition-all duration-500 hover:border-terracotta/30 hover:shadow-lg hover:shadow-terracotta/5"
               >
-                <span
-                  className="inline-block px-3 py-1.5 rounded-full text-xs font-medium uppercase tracking-wider mb-6"
-                  style={{ background: 'rgba(192,86,33,0.06)', color: '#C05621' }}
-                >
+                <span className="inline-block px-3 py-1.5 rounded-sm text-xs font-sans font-medium uppercase tracking-wider mb-6 bg-terracotta/[0.06] text-terracotta">
                   {card.badge}
                 </span>
-                <h3
-                  className="mb-4"
-                  style={{
-                    fontFamily: "'Instrument Serif', 'Playfair Display', serif",
-                    fontSize: '1.75rem',
-                    fontWeight: 400,
-                    color: '#1B2432',
-                    letterSpacing: '-0.015em',
-                    lineHeight: 1.2,
-                  }}
-                >
+                <h3 className="font-serif font-semibold text-navy mb-4" style={{
+                  fontSize: '1.75rem',
+                  letterSpacing: '-0.015em',
+                  lineHeight: 1.2,
+                }}>
                   {card.title}
                 </h3>
-                <p className="text-[#4A5568] text-[15px] leading-[1.75] mb-6">
+                <p className="font-sans text-stone text-[15px] leading-[1.75] mb-6">
                   {card.body}
                 </p>
                 <ul className="space-y-3 mb-8">
                   {card.bullets.map((item, j) => (
                     <li key={j} className="flex items-start gap-3">
-                      <CheckCircle2 className="w-4 h-4 mt-0.5 flex-shrink-0" style={{ color: '#C05621' }} />
-                      <span className="text-[#1B2432] text-sm">{item}</span>
+                      <CheckCircle2 className="w-4 h-4 mt-0.5 flex-shrink-0 text-terracotta" />
+                      <span className="font-sans text-navy text-sm">{item}</span>
                     </li>
                   ))}
                 </ul>
                 <Link to={card.link}>
-                  <Button variant={i === 0 ? 'hero' : 'warm'} size="lg" className="group/btn rounded-xl">
-                    <span className="flex items-center gap-2">
-                      {card.cta}
-                      <ArrowRight className="w-4 h-4 transition-transform group-hover/btn:translate-x-1" />
-                    </span>
+                  <Button variant={i === 0 ? 'hero' : 'secondary'} size="lg" className="group/btn gap-2">
+                    {card.cta}
+                    <ArrowRight className="w-4 h-4 transition-transform group-hover/btn:translate-x-1" />
                   </Button>
                 </Link>
               </div>
@@ -619,9 +573,7 @@ const LandingPage = () => {
         </div>
       </section>
 
-      {/* ═══════════════════════════════════════════════════════
-           SECTION 5 — CATEGORIES (For Creators)
-           ═══════════════════════════════════════════════════════ */}
+      {/* ═══ Categories (For Creators) ═══ */}
       <CategoriesSection
         sectionLabel="For Designers & Creators"
         heading="Built for every interior craft"
@@ -630,25 +582,23 @@ const LandingPage = () => {
         ctaButton={{
           label: "Join as a Creator",
           to: "/auth?role=business",
-          variant: "warm",
+          variant: "secondary",
           subtitle: "Free to join · No monthly fees · Only pay when you work",
         }}
       />
 
-      {/* ═══════════════════════════════════════════════════════
-           SECTION 6 — TESTIMONIALS
-           ═══════════════════════════════════════════════════════ */}
+      {/* ═══ Testimonials ═══ */}
       <PremiumTestimonials />
 
-      {/* ═══════════════════════════════════════════════════════
-           SECTION 7 — FINAL CTA
-           Dark warm background, cinematic
-           ═══════════════════════════════════════════════════════ */}
-      <section className="final-cta-section relative py-32 overflow-hidden" style={{ background: '#1A1008' }}>
+      {/* ═══ Final CTA ═══ */}
+      <section className="final-cta-section relative py-32 overflow-hidden bg-navy">
         {/* Noise texture */}
         <div className="absolute inset-0 opacity-[0.05] pointer-events-none">
           <svg width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
-            <filter id="ctaNoise"><feTurbulence type="fractalNoise" baseFrequency="0.65" numOctaves="4" stitchTiles="stitch" /><feColorMatrix type="saturate" values="0" /></filter>
+            <filter id="ctaNoise">
+              <feTurbulence type="fractalNoise" baseFrequency="0.65" numOctaves="4" stitchTiles="stitch" />
+              <feColorMatrix type="saturate" values="0" />
+            </filter>
             <rect width="100%" height="100%" filter="url(#ctaNoise)" />
           </svg>
         </div>
@@ -656,41 +606,39 @@ const LandingPage = () => {
         <div className="absolute pointer-events-none" style={{
           top: '15%', left: '50%', transform: 'translateX(-50%)',
           width: '600px', height: '350px',
-          background: 'radial-gradient(ellipse, rgba(192,86,33,0.12), transparent 65%)',
+          background: 'radial-gradient(ellipse, rgba(180,85,45,0.15), transparent 65%)',
         }} />
 
         <div className="final-cta-content relative z-10 mx-auto max-w-3xl px-6 text-center">
           <h2
-            className="mb-6"
+            className="font-serif font-semibold text-cream mb-6"
             style={{
-              fontFamily: "'Instrument Serif', 'Playfair Display', serif",
               fontSize: 'clamp(2rem, 5vw, 3.5rem)',
-              fontWeight: 400,
               letterSpacing: '-0.02em',
               lineHeight: 1.12,
-              color: '#FFF5EB',
             }}
           >
             Ready to transform your space?
           </h2>
-          <p className="text-lg mb-10 leading-relaxed" style={{ color: 'rgba(255,245,235,0.55)' }}>
+          <p className="font-sans text-lg mb-10 leading-relaxed text-cream/55">
             Whether you have a clear vision or just a spark of an idea,
             DEXO helps you design your perfect interior with the right professional.
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <Link to="/auth?role=customer">
-              <button className="cta-shimmer group h-13 px-8 text-[15px] rounded-xl font-medium flex items-center gap-2.5 cursor-pointer transition-all duration-300 hover:scale-[1.02]" style={{
-                background: '#FFF5EB', color: '#1A1008',
-                boxShadow: '0 4px 20px rgba(255,245,235,0.12)',
-              }}>
+              <button
+                className="cta-shimmer group h-13 px-8 text-[15px] font-sans font-medium rounded-sm flex items-center gap-2.5 cursor-pointer transition-all duration-300 hover:scale-[1.02] hover:-translate-y-px"
+                style={{ background: '#F8F1E8', color: '#1A2332', boxShadow: '0 4px 20px rgba(248,241,232,0.12)' }}
+              >
                 Start Your Project
                 <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
               </button>
             </Link>
             <Link to="/auth?role=business">
-              <button className="h-13 px-8 text-[15px] rounded-xl font-medium flex items-center gap-2 cursor-pointer transition-all duration-300 hover:bg-white/10" style={{
-                color: '#FFF5EB', border: '1px solid rgba(255,245,235,0.18)',
-              }}>
+              <button
+                className="h-13 px-8 text-[15px] font-sans font-medium rounded-sm flex items-center gap-2 cursor-pointer transition-all duration-300 hover:bg-cream/10"
+                style={{ color: '#F8F1E8', border: '1px solid rgba(248,241,232,0.18)' }}
+              >
                 Join as a Creator
               </button>
             </Link>
@@ -699,28 +647,23 @@ const LandingPage = () => {
       </section>
 
       {/* ═══ Footer ═══ */}
-      <footer className="py-14 border-t border-[#E0D5CC]/50" style={{ background: '#FDFCF8' }}>
+      <footer className="py-14 border-t border-navy/10 bg-cream">
         <div className="mx-auto max-w-7xl px-6">
           <div className="flex flex-col md:flex-row items-center justify-between gap-8">
-            <span
-              className="text-xl font-semibold"
-              style={{ fontFamily: "'Instrument Serif', 'Playfair Display', serif", color: '#C05621' }}
-            >
-              DEXO
-            </span>
-            <div className="flex flex-col sm:flex-row sm:items-center gap-6 sm:gap-10 text-sm" style={{ color: '#7A746D' }}>
+            <img src={dexoLogoFull} alt="DEXO" className="h-6 w-auto" />
+            <div className="flex flex-col sm:flex-row sm:items-center gap-6 sm:gap-10 font-sans text-sm text-stone">
               <div className="flex flex-col gap-2">
-                <span className="text-[10px] font-medium uppercase tracking-[0.2em]" style={{ color: '#B0A89F' }}>Resources</span>
-                <Link to="/blog" className="hover:text-[#1B2432] transition-colors">Blog</Link>
+                <span className="text-[10px] font-medium uppercase tracking-[0.2em] text-stone/60">Resources</span>
+                <Link to="/blog" className="hover:text-navy transition-colors">Blog</Link>
               </div>
               <div className="flex flex-col gap-2">
-                <span className="text-[10px] font-medium uppercase tracking-[0.2em]" style={{ color: '#B0A89F' }}>Explore</span>
-                <Link to="/browse-businesses" className="hover:text-[#1B2432] transition-colors">Browse Designers</Link>
-                <Link to="/auth?role=business" className="hover:text-[#1B2432] transition-colors">Become a Creator</Link>
+                <span className="text-[10px] font-medium uppercase tracking-[0.2em] text-stone/60">Explore</span>
+                <Link to="/browse-businesses" className="hover:text-navy transition-colors">Browse Designers</Link>
+                <Link to="/auth?role=business" className="hover:text-navy transition-colors">Become a Creator</Link>
               </div>
             </div>
-            <div className="text-sm" style={{ color: '#B0A89F' }}>
-              © 2026 DEXO
+            <div className="font-sans text-sm text-stone/50">
+              &copy; 2026 DEXO
             </div>
           </div>
         </div>

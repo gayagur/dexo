@@ -76,7 +76,7 @@ export default function BusinessOverview() {
       >
         {/* Welcome */}
         <motion.div variants={cardVariants}>
-          <h1 className="text-2xl font-semibold text-gray-900">
+          <h1 className="text-2xl font-serif font-semibold text-navy">
             Welcome back, {business.name.split(" ")[0]}
           </h1>
           <p className="text-sm text-gray-500 mt-1">
@@ -243,7 +243,7 @@ export default function BusinessOverview() {
                       <button
                         key={p.id}
                         onClick={() => navigate(`/business/request/${p.id}`)}
-                        className="w-full flex items-center gap-4 px-5 py-3.5 hover:bg-gray-50/60 transition-colors text-left"
+                        className="w-full flex items-center gap-4 px-5 py-3.5 hover:bg-cream-warm transition-colors duration-200 text-left"
                       >
                         <div className="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center shrink-0">
                           <FolderKanban className="w-5 h-5 text-blue-600" />
@@ -334,7 +334,7 @@ export default function BusinessOverview() {
               <div className="grid sm:grid-cols-3 gap-4 max-w-xl mx-auto">
                 <button
                   onClick={() => navigate("/business/onboarding")}
-                  className="p-4 rounded-xl border border-gray-200 hover:border-[#C87D5A]/30 hover:bg-[#C87D5A]/[0.02] transition-colors text-left"
+                  className="p-4 rounded-xl border border-gray-200 hover:border-terracotta/30 hover:bg-terracotta/[0.02] transition-colors text-left"
                 >
                   <UserPlus className="w-5 h-5 text-[#C87D5A] mb-2" />
                   <p className="text-sm font-medium text-gray-900">Complete Profile</p>
@@ -345,7 +345,7 @@ export default function BusinessOverview() {
                     const url = `${window.location.origin}/business-profile/${business.id}`;
                     navigator.clipboard.writeText(url);
                   }}
-                  className="p-4 rounded-xl border border-gray-200 hover:border-[#C87D5A]/30 hover:bg-[#C87D5A]/[0.02] transition-colors text-left"
+                  className="p-4 rounded-xl border border-gray-200 hover:border-terracotta/30 hover:bg-terracotta/[0.02] transition-colors text-left"
                 >
                   <Share2 className="w-5 h-5 text-[#C87D5A] mb-2" />
                   <p className="text-sm font-medium text-gray-900">Share Profile</p>
@@ -353,7 +353,7 @@ export default function BusinessOverview() {
                 </button>
                 <button
                   onClick={() => navigate("/business/projects")}
-                  className="p-4 rounded-xl border border-gray-200 hover:border-[#C87D5A]/30 hover:bg-[#C87D5A]/[0.02] transition-colors text-left"
+                  className="p-4 rounded-xl border border-gray-200 hover:border-terracotta/30 hover:bg-terracotta/[0.02] transition-colors text-left"
                 >
                   <Inbox className="w-5 h-5 text-[#C87D5A] mb-2" />
                   <p className="text-sm font-medium text-gray-900">Browse Requests</p>

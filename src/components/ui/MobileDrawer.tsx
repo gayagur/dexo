@@ -31,26 +31,27 @@ export function MobileDrawer({ isOpen, onClose, title, children, height = "half"
         >
           {/* Drag handle */}
           <div className="flex items-center justify-center py-2 shrink-0">
-            <div className="h-1.5 w-12 rounded-full bg-gray-300" />
+            <div className="h-1.5 w-12 rounded-full bg-navy/15" />
           </div>
 
           {/* Header */}
           {title && (
             <div className="flex items-center justify-between px-4 pb-2 shrink-0">
-              <DrawerPrimitive.Title className="text-sm font-semibold text-gray-900">
+              <DrawerPrimitive.Title className="font-sans text-sm font-medium text-navy">
                 {title}
               </DrawerPrimitive.Title>
               <button
                 onClick={onClose}
-                className="h-8 w-8 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors"
+                aria-label="Close"
+                className="h-8 w-8 flex items-center justify-center rounded-sm hover:bg-cream-warm transition-colors"
               >
-                <X className="w-4 h-4 text-gray-500" />
+                <X className="w-4 h-4 text-stone" />
               </button>
             </div>
           )}
 
           {/* Content — scrollable */}
-          <div className="flex-1 overflow-y-auto overflow-x-hidden px-4 pb-4" style={{ touchAction: "auto" }}>
+          <div className="flex-1 overflow-y-auto overflow-x-hidden px-4" style={{ touchAction: "auto", paddingBottom: 'max(1rem, env(safe-area-inset-bottom, 0px))' }}>
             {children}
           </div>
         </DrawerPrimitive.Content>
